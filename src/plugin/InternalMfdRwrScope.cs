@@ -22,9 +22,11 @@ namespace NOXMFD
     // floating-origin frames.
     internal sealed class InternalMfdRwrScope
     {
-        private const float Diameter = 280f;
-        private const float Radius = Diameter / 2f;
         private const float MinDistFrac = 0.06f; // matches telemetry-source.js's own floor
+        // How much of the smaller container dimension the outer ring fills. Not 1.0: the heading
+        // triangle extends ~4.8% of the radius beyond the outer ring (see BuildHeadingTriangle), so
+        // a small margin keeps it from touching the panel/separator edge.
+        private const float FillFrac = 0.92f;
 
         // Ring radii as fractions of the outer ring (rwr.html: r=460/304/152 of a 1000 viewBox).
         private const float MidRingFrac = 304f / 460f;
@@ -56,6 +58,8 @@ namespace NOXMFD
         private readonly RectTransform _center;
         private readonly int _layer;
         private readonly Font? _font;
+        private readonly float _diameter;
+        private readonly float _radius;
 
         // Grow-on-demand pools, not a fixed cap — TelemetryReader's own _rwrEmitters dictionary and
         // rwr.js's renderer have no size limit at all, so an artificial "MaxContacts"/"MaxMissiles"
@@ -74,18 +78,25 @@ namespace NOXMFD
             _layer = layer;
             _font = font;
 
+            // Fills as much of the available panel as the smaller dimension allows, rather than a
+            // fixed pixel size that leaves dead space above/below when the container is taller than
+            // that fixed size — parent.rect is already resolved here (plain anchor-stretch math,
+            // no Layout Group/ContentSizeFitter deferring it a frame).
+            _diameter = Mathf.Min(parent.rect.width, parent.rect.height) * FillFrac;
+            _radius = _diameter / 2f;
+
             // No title text — the real page has none; the scope fills the whole panel. Centered
             // in the full half, not offset to leave room for a header.
             var scopeGo = NewUi("Scope", parent, layer, typeof(RectTransform));
             _center = scopeGo.GetComponent<RectTransform>();
             _center.anchorMin = _center.anchorMax = new Vector2(0.5f, 0.5f);
-            _center.sizeDelta = new Vector2(Diameter, Diameter);
+            _center.sizeDelta = new Vector2(_diameter, _diameter);
 
             Sprite solidRing = ResolveRingSprite(dashed: false);
             Sprite dashedRing = ResolveRingSprite(dashed: true);
-            BuildRing(_center, layer, solidRing, Diameter); // outer — solid
-            BuildRing(_center, layer, dashedRing, Diameter * MidRingFrac); // dashed
-            BuildRing(_center, layer, dashedRing, Diameter * InnerRingFrac); // dashed
+            BuildRing(_center, layer, solidRing, _diameter); // outer — solid
+            BuildRing(_center, layer, dashedRing, _diameter * MidRingFrac); // dashed
+            BuildRing(_center, layer, dashedRing, _diameter * InnerRingFrac); // dashed
 
             foreach (float angle in new[] { 0f, 90f, 180f, 270f })
                 PlaceRadialBar(_center, layer, "Tick", angle, TickInnerFrac, 1f, 2.5f, TickColor);
@@ -138,7 +149,7 @@ namespace NOXMFD
                 var rt = go.GetComponent<RectTransform>();
                 rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
                 rt.pivot = new Vector2(0.5f, 0f);
-                rt.sizeDelta = new Vector2(4f, 0.85f * Radius);
+                rt.sizeDelta = new Vector2(4f, 0.85f * _radius);
                 var img = go.GetComponent<Image>();
                 img.color = MissileRed;
                 img.raycastTarget = false;
@@ -201,10 +212,10 @@ namespace NOXMFD
         private static float Azimuth(TelemetrySnapshot snap, float x, float z)
             => HudWaypointCueMath.BearingDeg(snap.WorldX, snap.WorldZ, x, z) - snap.Heading;
 
-        private static Vector2 PolarToLocal(float azDeg, float distFrac)
+        private Vector2 PolarToLocal(float azDeg, float distFrac)
         {
             float rad = azDeg * Mathf.Deg2Rad;
-            float r = distFrac * Radius;
+            float r = distFrac * _radius;
             return new Vector2(Mathf.Sin(rad) * r, Mathf.Cos(rad) * r);
         }
 
@@ -231,14 +242,14 @@ namespace NOXMFD
         // A thin bar from innerFrac*Radius to outerFrac*Radius along angleDeg (clockwise from the
         // nose, same convention as contact/missile azimuth) — shared by the cardinal ticks (fixed
         // angle) and the missile indicators (rotated live to the missile's bearing).
-        private static RectTransform PlaceRadialBar(RectTransform parent, int layer, string name,
+        private RectTransform PlaceRadialBar(RectTransform parent, int layer, string name,
             float angleDeg, float innerFrac, float outerFrac, float widthPx, Color color)
         {
             var go = NewUi(name, parent, layer, typeof(Image));
             var rt = go.GetComponent<RectTransform>();
             rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
             rt.pivot = new Vector2(0.5f, 0f); // extends outward along local +Y from its anchored point
-            rt.sizeDelta = new Vector2(widthPx, (outerFrac - innerFrac) * Radius);
+            rt.sizeDelta = new Vector2(widthPx, (outerFrac - innerFrac) * _radius);
             rt.anchoredPosition = PolarToLocal(angleDeg, innerFrac);
             rt.localRotation = Quaternion.Euler(0f, 0f, -angleDeg);
             var img = go.GetComponent<Image>();
@@ -250,19 +261,19 @@ namespace NOXMFD
         // rwr.html's downward-pointing filled triangle straddling the top of the outer ring
         // (polygon 480,18 520,18 500,50 of the 1000 viewBox) — the heading/lubber-line reference
         // mark visible just above the scope.
-        private static void BuildHeadingTriangle(RectTransform parent, int layer)
+        private void BuildHeadingTriangle(RectTransform parent, int layer)
         {
             var go = NewUi("HeadingTri", parent, layer, typeof(Image));
             var rt = go.GetComponent<RectTransform>();
             rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
             // Triangle spans viewBox y 18..50 (450..482 units above the 500,500 centre); as a
-            // fraction of the outer radius (460) that's a band centred at ~1.013*Radius.
+            // fraction of the outer radius (460) that's a band centred at ~1.013*_radius.
             const float apexFrac = 450f / 460f;
             const float baseFrac = 482f / 460f;
-            float width = (40f / 460f) * Radius;
-            float height = (baseFrac - apexFrac) * Radius;
+            float width = (40f / 460f) * _radius;
+            float height = (baseFrac - apexFrac) * _radius;
             rt.sizeDelta = new Vector2(width, height);
-            rt.anchoredPosition = new Vector2(0f, (apexFrac + baseFrac) * 0.5f * Radius);
+            rt.anchoredPosition = new Vector2(0f, (apexFrac + baseFrac) * 0.5f * _radius);
             var img = go.GetComponent<Image>();
             img.sprite = ResolveTriangleSprite();
             img.color = HeadingTriColor;
@@ -272,14 +283,14 @@ namespace NOXMFD
         // rwr.html's ownship caret: an unfilled 4-point outline (polygon 500,460 475,548 500,528
         // 525,548 of the 1000 viewBox) — an upward arrowhead with a concave notch at the back,
         // not a plain triangle or a dot.
-        private static void BuildOwnshipCaret(RectTransform parent, int layer)
+        private void BuildOwnshipCaret(RectTransform parent, int layer)
         {
             var go = NewUi("Ownship", parent, layer, typeof(Image));
             var rt = go.GetComponent<RectTransform>();
             rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
             const float shapeWidth = 50f;  // 525-475
             const float shapeHeight = 88f; // 548-460
-            float scale = (0.16f * Radius) / shapeHeight; // caret height ~16% of the scope radius
+            float scale = (0.16f * _radius) / shapeHeight; // caret height ~16% of the scope radius
             rt.sizeDelta = new Vector2(shapeWidth * scale, shapeHeight * scale);
             var img = go.GetComponent<Image>();
             img.sprite = ResolveOwnshipCaretSprite();
@@ -353,10 +364,16 @@ namespace NOXMFD
         {
             if (_triangleSprite != null) return _triangleSprite;
 
+            // Texture2D.SetPixels32 stores row 0 as the BOTTOM of the resulting texture (Unity's
+            // standard bottom-up convention) — so the base (meant to render furthest from the ring,
+            // i.e. visually at the TOP of the sprite) needs the HIGH y fraction, and the apex
+            // (pointing down, toward the ring) the LOW one. Getting this backwards is exactly what
+            // shipped first: the ownship caret below hit the identical bug (arrow pointing down
+            // instead of up) for the same reason.
             const int w = 80, h = 64;
-            var p0 = new Vector2(0.05f * w, 0.05f * h);
-            var p1 = new Vector2(0.95f * w, 0.05f * h);
-            var p2 = new Vector2(0.50f * w, 0.95f * h);
+            var p0 = new Vector2(0.05f * w, 0.95f * h);
+            var p1 = new Vector2(0.95f * w, 0.95f * h);
+            var p2 = new Vector2(0.50f * w, 0.05f * h);
 
             var tex = new Texture2D(w, h, TextureFormat.RGBA32, false)
             {
@@ -404,12 +421,17 @@ namespace NOXMFD
 
             const int w = 80, h = 140; // ~50:88 aspect, matching the polygon's own bounding box
             // Polygon points normalized into a padded [0.1, 0.9] box, same shape rwr.html draws.
+            // Y already flipped (1 - svgY) here: Texture2D.SetPixels32 stores row 0 as the BOTTOM of
+            // the resulting texture, so the apex (meant to render at the TOP, pointing toward the
+            // nose) needs the HIGH y fraction, not the low one a naive SVG-Y copy would give it —
+            // the un-flipped version is exactly what shipped first and rendered the caret pointing
+            // down instead of up.
             Vector2[] pts =
             {
-                new Vector2(0.5f, 0.1f),
-                new Vector2(0.1f, 0.9f),
-                new Vector2(0.5f, 0.718f),
-                new Vector2(0.9f, 0.9f),
+                new Vector2(0.5f, 0.9f),
+                new Vector2(0.1f, 0.1f),
+                new Vector2(0.5f, 0.282f),
+                new Vector2(0.9f, 0.1f),
             };
             for (int i = 0; i < pts.Length; i++) pts[i] = new Vector2(pts[i].x * w, pts[i].y * h);
 
