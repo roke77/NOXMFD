@@ -4,15 +4,17 @@ using UnityEngine.UI;
 
 namespace NOXMFD
 {
-    // Proof-of-concept for issue #43 (docs/internal-mfd.md): AVN-style (speed/altitude/fuel) and
-    // RWR-style (contact count/bearing/tier) readouts drawn natively on the T/A-30 Compass's center
+    // Proof-of-concept for issue #43 (docs/internal-mfd.md): AVN-style (SPD/ALT text, a real
+    // circular FUEL dial) and RWR-style (InternalMfdRwrScope — concentric range rings, live contact
+    // blips, inbound-missile bearing spears) content drawn natively on the T/A-30 Compass's center
     // cockpit screen — split left/right on this screen's wide aspect ratio (docs/internal-mfd.md's
     // "Split-screen layout" requirement), driven straight from the live Aircraft object and the
     // plugin's own already-aggregated telemetry (TelemetryServer.TryGetLatestSnapshot) — no HTTP/
     // JSON round trip. AVN formatting reuses the game's own UnitConverter (same SPD/ALT text the
     // native HUD already shows) rather than a reimplemented unit-conversion table; RWR reuses
-    // TelemetryReader's own contact aggregation (decay/tiering) rather than resubscribing to
-    // Aircraft.onRadarWarning and redoing it here.
+    // TelemetryReader's own contact aggregation (decay/tiering) and telemetry-source.js's own
+    // azimuth/distance mapping, rather than resubscribing to Aircraft.onRadarWarning and inventing a
+    // new one.
     //
     // Mission-scoped (added in MissionLifecycle.StartReader, same as the Hud* cues), because the
     // Cockpit/TacScreen chain only exists for a live local-player aircraft.
@@ -54,9 +56,7 @@ namespace NOXMFD
         private Text?       _altText;
         private Image?      _fuelFillImage;
         private Text?       _fuelPctText;
-        private Text?       _rwrCountText;
-        private Text?       _rwrBearingText;
-        private Text?       _rwrDetailText;
+        private InternalMfdRwrScope? _rwrScope;
         private float       _lastRefresh;
 
         internal static void Toggle()
@@ -98,9 +98,7 @@ namespace NOXMFD
             _altText = null;
             _fuelFillImage = null;
             _fuelPctText = null;
-            _rwrCountText = null;
-            _rwrBearingText = null;
-            _rwrDetailText = null;
+            _rwrScope = null;
             _tacCanvas = null;
             _tacAircraft = null;
             _lastFailure = null; // a fresh attach attempt is worth re-logging even the same reason
@@ -121,43 +119,8 @@ namespace NOXMFD
             _fuelFillImage.fillAmount = fuel;
             _fuelPctText.text = $"{fuel * 100f:F0}%";
 
-            if (_rwrCountText != null && _rwrBearingText != null && _rwrDetailText != null)
-                RefreshRwr();
-        }
-
-        // RWR half of the split layout (docs/internal-mfd.md "Split-screen layout"). Reads the same
-        // already-aggregated contact list (decay/tiering already handled) TelemetryReader builds for
-        // the external /stream RWR page — TryGetLatestSnapshot instead of resubscribing to
-        // Aircraft.onRadarWarning and redoing that aggregation here. Own-ship WorldX/WorldZ/Heading
-        // come from the SAME snapshot pass that built the contacts, so the bearing math below can't
-        // drift into a different floating-origin frame than the contacts themselves are in.
-        private void RefreshRwr()
-        {
-            if (!TelemetryServer.TryGetLatestSnapshot(out TelemetrySnapshot snap) ||
-                snap.Rwr == null || snap.Rwr.Length == 0)
-            {
-                _rwrCountText!.text = "RWR CLEAR";
-                _rwrBearingText!.text = string.Empty;
-                _rwrDetailText!.text = string.Empty;
-                return;
-            }
-
-            // Highest tier first (2 lock > 1 track > 0 search), closest (higher Power) breaks ties —
-            // the single contact a pilot would look at first.
-            RwrContact best = snap.Rwr[0];
-            for (int i = 1; i < snap.Rwr.Length; i++)
-            {
-                RwrContact c = snap.Rwr[i];
-                if (c.Tier > best.Tier || (c.Tier == best.Tier && c.Power > best.Power)) best = c;
-            }
-
-            float bearing = HudWaypointCueMath.BearingDeg(snap.WorldX, snap.WorldZ, best.X, best.Z);
-            float az = ((bearing - snap.Heading) % 360f + 360f) % 360f; // clockwise from nose, 0..360
-            string tier = best.Tier == 2 ? "LOCK" : best.Tier == 1 ? "TRACK" : "SEARCH";
-
-            _rwrCountText!.text = snap.Rwr.Length == 1 ? "1 CONTACT" : $"{snap.Rwr.Length} CONTACTS";
-            _rwrBearingText!.text = $"BRG {Mathf.RoundToInt(az):000}";
-            _rwrDetailText!.text = $"{tier} {best.Name}";
+            if (_rwrScope != null && TelemetryServer.TryGetLatestSnapshot(out TelemetrySnapshot snap))
+                _rwrScope.Refresh(snap);
         }
 
         // Cockpit.tacScreen and TacScreen.canvas are both private with no public accessor — the
@@ -316,9 +279,7 @@ namespace NOXMFD
                 RectTransform rightHalf = BuildHalf(rt, "Right", right: true);
                 BuildSeparator(rt);
 
-                _rwrCountText = BuildReadoutLine(left, font, 0, fontSize: 20);
-                _rwrBearingText = BuildReadoutLine(left, font, 1, fontSize: 20);
-                _rwrDetailText = BuildReadoutLine(left, font, 2, fontSize: 20);
+                _rwrScope = new InternalMfdRwrScope(left, font);
 
                 _spdText = BuildReadoutLine(rightHalf, font, 0, fontSize: 20);
                 _altText = BuildReadoutLine(rightHalf, font, 1, fontSize: 20);
