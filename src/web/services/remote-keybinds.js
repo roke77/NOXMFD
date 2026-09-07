@@ -126,6 +126,8 @@
       case 'tgp-mark-steerpoint':         return { cmd: 'tgp.mark-steerpoint' };
       case 'tgp-fullscreen-toggle':       return { cmd: 'tgp.fullscreen-toggle' };
       case 'tgp-fullscreen-hud-toggle':   return { cmd: 'tgp.fullscreen-hud-toggle' };
+      // issue #43 POC only — see docs/internal-mfd.md.
+      case 'internal-mfd-poc-toggle':     return { cmd: 'internal-mfd.poc-toggle' };
       default: return null;
     }
   }

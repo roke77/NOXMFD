@@ -478,6 +478,15 @@ namespace NOXMFD
                 "first gun (guns already selected are left alone). Hold to reset to ALL (unrestricted).",
                 () => { });
 
+            // issue #43 proof-of-concept only (docs/internal-mfd.md) — toggles an unmissable
+            // placeholder panel on the cockpit TacScreen canvas, to confirm the insertion point
+            // actually paints on top before any real page gets a native reimplementation.
+            const string mfd = "Internal MFD Keybinds";
+            DefFree(config, "internal-mfd-poc-toggle", mfd, "InternalMfdPocToggle", "Internal MFD POC Toggle", edge: true,
+                "POC only: show/hide a placeholder panel on the cockpit's tactical screen, to prove " +
+                "native content can paint there.",
+                () => InternalMfdPoc.Toggle());
+
             // Hidden like the binds above — the /keybinds page owns this one too now (rendered as a
             // toggle, not a bind row: it has no key/joy/axis source of its own).
             _bgInput = config.Bind("Input", "InputWhenGameUnfocused", false,
