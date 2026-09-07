@@ -279,11 +279,11 @@ namespace NOXMFD
                 RectTransform rightHalf = BuildHalf(rt, "Right", right: true);
                 BuildSeparator(rt);
 
-                _rwrScope = new InternalMfdRwrScope(left, font);
+                _spdText = BuildReadoutLine(left, font, 0, fontSize: 20);
+                _altText = BuildReadoutLine(left, font, 1, fontSize: 20);
+                BuildFuelDial(left, font, row: 2, diameter: 70f, out _fuelFillImage, out _fuelPctText);
 
-                _spdText = BuildReadoutLine(rightHalf, font, 0, fontSize: 20);
-                _altText = BuildReadoutLine(rightHalf, font, 1, fontSize: 20);
-                BuildFuelDial(rightHalf, font, row: 2, diameter: 70f, out _fuelFillImage, out _fuelPctText);
+                _rwrScope = new InternalMfdRwrScope(rightHalf, font);
             }
             else
             {
