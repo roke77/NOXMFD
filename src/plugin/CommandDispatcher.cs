@@ -44,6 +44,8 @@ namespace NOXMFD
                                 // later via sqd.set-callsign too, not fixed for the squad's life
                                 // tgp.zoom.set / tgp.zoom.step : +1 = zoom in, -1 = zoom out
                                 // (TgpManualControl.SetZoom/StepZoom's dir)
+                                // hsd.set-view : desired range-ladder index (hsd.js's own rangeIdx,
+                                // 0-4 into whichever of CEN_RANGE_NM/DEP_RANGE_NM the mode selects)
         public bool   on;      // tgt.set / tgt.laser / tgt.hud : desired toggle state
                                 // tgp.manual.set : desired ManualMode state
                                 // tgp.ir.set : desired IR state (true = IR, false = COLOR)
@@ -53,6 +55,7 @@ namespace NOXMFD
                                 // leader's TD selection after this assign, so the same selection can
                                 // be designated to several slots in a row
                                 // soi.include : desired included state (true = back in the SOI ring)
+                                // hsd.set-view : desired mode (true = DEP, false = CEN)
         public string? bind;   // keybind.* : BindDef id ("flares", "gear-up", ...)
                                 // wpt.* : route or steer-point id ("" = clear selection)
         public string? key;    // keybind.set-key : Unity KeyCode name ("" or "None" clears)
@@ -165,6 +168,11 @@ namespace NOXMFD
                 { "tgp.fullscreen-hud-toggle", e => TgpFullScreen.ToggleHud() },
                 // Remote-keybind twin of the Internal MFD POC Toggle keybind (issue #43 POC).
                 { "internal-mfd.poc-toggle", e => InternalMfdController.Toggle() },
+                // HSD page's own CEN/DEP mode toggle + range step (hsd.js's saveRange(), the one
+                // choke point both mutations funnel through) — reported to the server so
+                // InternalMfdHsdPage can track the same view instead of a fixed range/mode, rather
+                // than adding new envelope fields.
+                { "hsd.set-view", e => HsdViewState.Set(e.on, e.index) },
                 // TGP page's STP button and MARK STEER POINT keybind (docs/steer-points.md) — marks
                 // whatever TGP is currently showing (a real lock's position, or the manual camera's
                 // aim point) as a new steer point, straight into RouteStore. No wire fields at all.

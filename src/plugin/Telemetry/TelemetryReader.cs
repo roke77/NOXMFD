@@ -926,6 +926,8 @@ namespace NOXMFD
                 Rdr            = _cachedRdr,
                 Hsd            = _cachedHsd,
                 HsdThreats     = _cachedHsdThreats,
+                HsdDep         = HsdViewState.Dep,
+                HsdRangeIdx    = HsdViewState.RangeIdx,
                 Pitbull        = _cachedPitbull,
                 RdrMetric      = rdrMetric,
                 RdrLevelTime   = rdrLevelTime,

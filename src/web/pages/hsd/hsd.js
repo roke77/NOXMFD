@@ -60,6 +60,10 @@ function loadRange() {
 function saveRange() {
   try { sessionStorage.setItem(RANGE_STORE_KEY, JSON.stringify({ mode: mode, rangeIdx: rangeIdx })); }
   catch (_) {}
+  // Reported to the server (HsdViewState) so the internal MFD's own HSD pane
+  // (InternalMfdHsdPage) can track the same CEN/DEP mode + range instead of a fixed one — the one
+  // choke point both setRangeIdx() and toggleMode() funnel through, so this covers both.
+  send('hsd.set-view', { on: mode === 'dep', index: rangeIdx });
 }
 function setRangeIdx(i) {
   var clamped = Math.max(0, Math.min(RANGE_NM.length - 1, i));

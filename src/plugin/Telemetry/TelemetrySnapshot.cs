@@ -217,6 +217,12 @@ namespace NOXMFD
         // Same faction-known-position gating as Hsd above — an undetected SAM site gets no ring.
         public HsdThreat[] HsdThreats;
 
+        // HSD's own CEN/DEP mode + range-ladder index (HsdViewState, set by hsd.js's "hsd.set-view"
+        // command) — lets InternalMfdHsdPage track whatever range/mode the external web HSD page
+        // currently shows instead of a fixed one.
+        public bool HsdDep;
+        public int  HsdRangeIdx;
+
         // RDR page pitbull missiles (issue #40): the player's own AA missiles whose active-radar
         // seeker has gone lock — independent of RadarPresent, since it's the missile's own radar,
         // not the aircraft's. Empty when the player has none in flight.

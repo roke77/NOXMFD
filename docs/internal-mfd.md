@@ -40,10 +40,37 @@ HSD itself (`InternalMfdHsdPage.cs`) is a deliberately simplified read of the re
 contact/ownship icon (`hsd.js`'s own `'M0 -9 L-6 7 L0 4 L6 7 Z'` polygon, filled here rather than
 RWR's stroke-only caret), contact colors (`--no-purple` datalink / `--no-red` own-radar /
 `--no-white` stale / `--no-amber` focused-lock), and the AA threat rings (`--no-hsd-yellow`) are
-matched to source. Fixed CEN mode at a fixed 40nm range, no radar-cone overlay, no active-route
-line, and no PAD acquisition cursor (contacts can't be selected from this pane) — each of those
-needs a cursor/bezel input this pane doesn't have wired up yet; see the file's own header comment
-for the upgrade path on each.
+matched to source. CEN/DEP mode and the selected range track the external web HSD page live (see
+[HSD view sync](#hsd-view-sync) below) — everything else needing a cursor/bezel input this pane
+doesn't have wired up yet is still simplified out: no radar-cone overlay, no active-route line, and
+no PAD acquisition cursor (contacts can't be selected from this pane); see the file's own header
+comment for the upgrade path on each.
+
+## HSD view sync
+
+`InternalMfdHsdPage.cs`'s CEN/DEP mode and selected range track whatever the external web HSD page
+is currently set to, rather than a fixed view — changing range or toggling DEP on the web page
+updates the internal pane within one refresh tick (~100ms). One-directional (web → internal only;
+opening a second web HSD tab doesn't itself converge with a first, since hsd.js's own state is
+still per-tab `sessionStorage`) because that's the sync this was asked for — the plumbing:
+
+- `HsdViewState.cs` (`src/plugin/`, not `InternalMFD/` — it's shared game state, not internal-MFD-
+  specific code) holds the current `Dep`/`RangeIdx`, in-memory only (matching `sessionStorage`'s own
+  per-session scope, nothing to persist across a game restart either).
+- `hsd.js`'s `saveRange()` — the one function both `setRangeIdx()` (range step) and `toggleMode()`
+  (CEN/DEP toggle) already call — now also sends `hsd.set-view` (`{on: dep, index: rangeIdx}`,
+  reusing existing envelope fields rather than adding new ones) alongside its existing
+  `sessionStorage` write.
+- `CommandDispatcher`'s `hsd.set-view` handler calls `HsdViewState.Set`.
+- `TelemetryReader` copies `HsdViewState.Dep`/`RangeIdx` into `TelemetrySnapshot.HsdDep`/
+  `HsdRangeIdx` every tick, the same snapshot `InternalMfdController` already passes into
+  `InternalMfdHsdPage.Refresh`.
+- `InternalMfdHsdPage.Refresh` computes the actual range (its own `CenRangeNm`/`DepRangeNm` ladders,
+  matching `hsd.js`'s `CEN_RANGE_NM`/`DEP_RANGE_NM`) and DEP's own geometry (ownship pushed toward
+  the bottom, a bigger ring that runs past the pane's own edges — `hsd.js`'s
+  `CEN_CY`/`CEN_OUTER`/`DEP_CY`/`DEP_OUTER`, expressed as fractions of this page's own half-width) —
+  a `RectMask2D` on the scope container reproduces the SVG viewBox's own implicit clipping for the
+  part of a DEP-mode ring that runs past the visible square.
 
 ## Code organization
 

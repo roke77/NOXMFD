@@ -14,13 +14,20 @@ namespace NOXMFD
     // polygon (hsd.js's own 'M0 -9 L-6 7 L0 4 L6 7 Z' — reused verbatim for both, filled, unlike
     // RWR's stroke-only ownship caret) are all taken directly from that source.
     //
+    // CEN/DEP mode and the selected range track HsdViewState (TelemetrySnapshot.HsdDep/HsdRangeIdx)
+    // — server-side state hsd.js's own saveRange() reports via the "hsd.set-view" command, so this
+    // pane follows whatever the external web HSD page is currently set to instead of a fixed view.
+    // DEP's own geometry (ownship pushed toward the bottom, a bigger ring that runs past the pane's
+    // own edges) is copied from hsd.js's CEN_CY/CEN_OUTER/DEP_CY/DEP_OUTER constants, expressed as
+    // fractions of this page's own half-width so a scope of any size gets the same proportions; a
+    // RectMask2D on the scope container reproduces the SVG viewBox's own implicit clipping for the
+    // parts of a DEP-mode ring that run past the visible square.
+    //
     // Deliberately simplified from the real page in ways that need a cursor/bezel input this pane
-    // doesn't have wired up yet: always CEN mode (no DEP), a fixed range (RangeM below, not the
-    // R+/R- range ladder), no radar cone overlay, no active-route line, and no PAD acquisition
+    // doesn't have wired up yet: no radar-cone overlay, no active-route line, and no PAD acquisition
     // cursor (contacts can't be selected/deselected from here). Upgrade path if any of these turn
-    // out to matter live: DEP/range would need their own keybinds routed through
-    // InternalMfdController the way TGP's toggle already is; the cursor would need a HOTAS axis
-    // mapped to a screen-space position the way pad-cursor.js's onMove does client-side.
+    // out to matter live: the cursor would need a HOTAS axis mapped to a screen-space position the
+    // way pad-cursor.js's onMove does client-side.
     //
     // Azimuth/distance math mirrors telemetry-source.js's own HSD plot (az = bearing-relative-to-
     // heading via atan2, distFrac = dist/RangeM) — same "ownship-relative, nose-up screen
@@ -28,14 +35,27 @@ namespace NOXMFD
     // TelemetrySnapshot InternalMfdController passes into Refresh.
     internal sealed class InternalMfdHsdPage : IInternalMfdPage
     {
-        // Fixed at CEN mode's default range index (hsd.js: CEN_RANGE_NM[2] = 40) — see the
-        // simplification note above.
-        private const float RangeM = 40f * 1852f;
         private const float FillFrac = 1f;
 
-        // gridFractions() for CEN mode (hsd.js) — four quarter-range rings, all non-dashed, the
-        // outermost drawn brighter/thicker (hsd.js: stroke-opacity 0.70 vs 0.36 for f===1).
-        private static readonly float[] GridFractions = { 0.25f, 0.5f, 0.75f, 1f };
+        // hsd.js: CEN_RANGE_NM / DEP_RANGE_NM — DEP[i] is exactly 1.5x CEN[i] at every step, so one
+        // shared rangeIdx (HsdViewState.RangeIdx) translates across a mode switch.
+        private static readonly float[] CenRangeNm = { 10f, 20f, 40f, 80f, 160f };
+        private static readonly float[] DepRangeNm = { 15f, 30f, 60f, 120f, 240f };
+
+        // hsd.js: CX=CEN_CY=300 (dead centre), CEN_OUTER=220, DEP_CY=500, DEP_OUTER=420, in a 600
+        // viewBox — expressed here as fractions of this page's own half-width (radius): the ownship
+        // offset is (CY-300)/300, the ring radius is OUTER/300. DEP_OUTER > radius on purpose (the
+        // ring runs past the visible square, same as the real page's own SVG clip) — the RectMask2D
+        // on _center reproduces that.
+        private const float CenCyOffsetFrac = 0f;
+        private const float CenOuterFrac = 220f / 300f;
+        private const float DepCyOffsetFrac = 200f / 300f;
+        private const float DepOuterFrac = 420f / 300f;
+
+        // gridFractions() — CEN: four quarter-range rings; DEP: three third-range rings. Both
+        // non-dashed, outermost drawn brighter/thicker (hsd.js: stroke-opacity 0.70 vs 0.36).
+        private static readonly float[] CenGridFractions = { 0.25f, 0.5f, 0.75f, 1f };
+        private static readonly float[] DepGridFractions = { 1f / 3f, 2f / 3f, 1f };
 
         // theme.css --no-hsd-pink-rgb (121,21,81) — hsd.js's own grid ring color, not the brighter
         // --no-purple contact color below (same file, two different tokens for two different uses).
@@ -58,6 +78,7 @@ namespace NOXMFD
         private readonly float _diameter;
         private readonly float _radius;
 
+        private readonly RectTransform _ownship;
         private readonly Text _rangeText;
         private readonly Text _linkText;
         private readonly Text _lockText;
@@ -67,9 +88,12 @@ namespace NOXMFD
         // Grow-on-demand pools — same reasoning as InternalMfdRwrPage's contact/missile pools: HSD
         // has no fixed contact/threat cap either (hsd.js's own renderContacts/renderThreats iterate
         // whatever state.items/threats hold), so an artificial ceiling here would silently drop real
-        // contacts past whatever number was picked.
+        // contacts past whatever number was picked. The grid ring pool is capped in practice (CEN
+        // needs 4, DEP needs 3) but grows the same way rather than hardcoding "4".
+        private readonly List<Image> _gridRings = new List<Image>();
         private readonly List<Image> _contactIcons = new List<Image>();
         private readonly List<RectTransform> _contactVectors = new List<RectTransform>();
+        private readonly List<Image> _contactVectorImages = new List<Image>();
         private readonly List<Image> _lockRings = new List<Image>();
         private readonly List<Image> _threatRings = new List<Image>();
 
@@ -86,15 +110,11 @@ namespace NOXMFD
             _center = scopeGo.GetComponent<RectTransform>();
             _center.anchorMin = _center.anchorMax = new Vector2(0.5f, 0.5f);
             _center.sizeDelta = new Vector2(_diameter, _diameter);
+            // DEP mode's ring runs past this square on purpose (see the class header comment) — a
+            // mask crops it at the pane edge instead of drawing over/past neighboring UI.
+            scopeGo.AddComponent<RectMask2D>();
 
-            Sprite ring = InternalMfdUi.ResolveRingSprite(dashed: false);
-            for (int i = 0; i < GridFractions.Length; i++)
-            {
-                bool outer = i == GridFractions.Length - 1;
-                BuildRing(ring, _diameter * GridFractions[i], outer ? GridColorBright : GridColorDim);
-            }
-
-            BuildOwnship();
+            _ownship = BuildOwnship();
 
             _rangeText = BuildCornerText("RangeText", new Vector2(1f, 1f), TextAnchor.UpperRight, 16);
             _linkText = BuildCornerText("LinkText", new Vector2(1f, 0f), TextAnchor.LowerRight, 14);
@@ -104,8 +124,21 @@ namespace NOXMFD
             _focusedNameText.rectTransform.anchoredPosition += new Vector2(0f, 18f);
             _focusedDetailText = BuildCornerText("FocusedDetail", new Vector2(0f, 0f), TextAnchor.LowerLeft, 13);
             _focusedNameText.color = _focusedDetailText.color = ContactAmber;
+        }
 
-            _rangeText.text = "CEN " + Mathf.RoundToInt(RangeM / 1852f) + "NM";
+        private void EnsureGridPool(int count)
+        {
+            Sprite ring = InternalMfdUi.ResolveRingSprite(dashed: false);
+            while (_gridRings.Count < count)
+            {
+                var go = InternalMfdUi.NewUi($"Grid{_gridRings.Count}", _center, _layer, typeof(Image));
+                var rt = go.GetComponent<RectTransform>();
+                rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
+                var img = go.GetComponent<Image>();
+                img.sprite = ring;
+                img.raycastTarget = false;
+                _gridRings.Add(img);
+            }
         }
 
         private void EnsureContactPool(int count)
@@ -131,6 +164,7 @@ namespace NOXMFD
                 vecImg.raycastTarget = false;
                 vecGo.SetActive(false);
                 _contactVectors.Add(vecRt);
+                _contactVectorImages.Add(vecImg);
 
                 var lockGo = InternalMfdUi.NewUi($"HsdLock{_lockRings.Count}", _center, _layer, typeof(Image));
                 var lockRt = lockGo.GetComponent<RectTransform>();
@@ -163,6 +197,17 @@ namespace NOXMFD
 
         public void Refresh(TelemetrySnapshot snap)
         {
+            bool dep = snap.HsdDep;
+            int rangeIdx = Mathf.Clamp(snap.HsdRangeIdx, 0, CenRangeNm.Length - 1);
+            float rangeM = (dep ? DepRangeNm : CenRangeNm)[rangeIdx] * 1852f;
+            float outerRadiusPx = (dep ? DepOuterFrac : CenOuterFrac) * _radius;
+            Vector2 origin = new Vector2(0f, -(dep ? DepCyOffsetFrac : CenCyOffsetFrac) * _radius);
+            float[] gridFractions = dep ? DepGridFractions : CenGridFractions;
+
+            UpdateGrid(gridFractions, outerRadiusPx, origin);
+            _ownship.anchoredPosition = origin;
+            _rangeText.text = (dep ? "DEP " : "CEN ") + Mathf.RoundToInt(rangeM / 1852f) + "nm";
+
             HsdThreat[] threats = snap.HsdThreats ?? Array.Empty<HsdThreat>();
             EnsureThreatPool(threats.Length);
             for (int i = 0; i < _threatRings.Count; i++)
@@ -174,13 +219,13 @@ namespace NOXMFD
                 HsdThreat t = threats[i];
                 float dx = t.X - snap.WorldX, dz = t.Z - snap.WorldZ;
                 float dist = Mathf.Sqrt(dx * dx + dz * dz);
-                if (t.Range <= 0f || dist > RangeM)
+                if (t.Range <= 0f || dist > rangeM)
                 {
                     _threatRings[i].gameObject.SetActive(false);
                     continue;
                 }
-                Vector2 pos = PolarToLocal(Azimuth(snap, t.X, t.Z), dist / RangeM);
-                float ringDiameter = 2f * _radius * (t.Range / RangeM);
+                Vector2 pos = PolarToLocal(Azimuth(snap, t.X, t.Z), dist / rangeM, outerRadiusPx, origin);
+                float ringDiameter = 2f * outerRadiusPx * (t.Range / rangeM);
                 _threatRings[i].rectTransform.anchoredPosition = pos;
                 _threatRings[i].rectTransform.sizeDelta = new Vector2(ringDiameter, ringDiameter);
             }
@@ -204,7 +249,7 @@ namespace NOXMFD
                 HsdContact c = contacts[i];
                 float dx = c.X - snap.WorldX, dz = c.Z - snap.WorldZ;
                 float dist = Mathf.Sqrt(dx * dx + dz * dz);
-                if (dist > RangeM)
+                if (dist > rangeM)
                 {
                     _contactIcons[i].gameObject.SetActive(false);
                     _contactVectors[i].gameObject.SetActive(false);
@@ -224,7 +269,7 @@ namespace NOXMFD
                     : c.Radar ? ContactRed
                     : ContactPurple;
 
-                Vector2 pos = PolarToLocal(Azimuth(snap, c.X, c.Z), dist / RangeM);
+                Vector2 pos = PolarToLocal(Azimuth(snap, c.X, c.Z), dist / rangeM, outerRadiusPx, origin);
                 float rot = ((c.Heading - snap.Heading) % 360f + 360f) % 360f;
 
                 _contactIcons[i].rectTransform.anchoredPosition = pos;
@@ -233,7 +278,7 @@ namespace NOXMFD
 
                 _contactVectors[i].anchoredPosition = pos;
                 _contactVectors[i].localRotation = Quaternion.Euler(0f, 0f, -rot);
-                _contactVectors[i].GetComponent<Image>().color = color;
+                _contactVectorImages[i].color = color;
 
                 _lockRings[i].gameObject.SetActive(c.Targeted);
                 if (c.Targeted) _lockRings[i].rectTransform.anchoredPosition = pos;
@@ -257,17 +302,37 @@ namespace NOXMFD
             }
         }
 
+        // Rebuilds the grid ring pool's active count/size/color for the current mode's fraction
+        // list — cheap enough (at most 4 rings) to just redo every Refresh rather than caching the
+        // last mode and only updating on a change.
+        private void UpdateGrid(float[] fractions, float outerRadiusPx, Vector2 origin)
+        {
+            EnsureGridPool(fractions.Length);
+            for (int i = 0; i < _gridRings.Count; i++)
+            {
+                bool active = i < fractions.Length;
+                _gridRings[i].gameObject.SetActive(active);
+                if (!active) continue;
+
+                bool outer = i == fractions.Length - 1;
+                float diameter = 2f * outerRadiusPx * fractions[i];
+                _gridRings[i].rectTransform.anchoredPosition = origin;
+                _gridRings[i].rectTransform.sizeDelta = new Vector2(diameter, diameter);
+                _gridRings[i].color = outer ? GridColorBright : GridColorDim;
+            }
+        }
+
         // Degrees clockwise from the nose — same convention/helper as InternalMfdRwrPage's own
         // Azimuth (see that file's comment); duplicated rather than shared since each page ties it
-        // to its own _radius-scaled PolarToLocal.
+        // to its own PolarToLocal.
         private static float Azimuth(TelemetrySnapshot snap, float x, float z)
             => HudWaypointCueMath.BearingDeg(snap.WorldX, snap.WorldZ, x, z) - snap.Heading;
 
-        private Vector2 PolarToLocal(float azDeg, float distFrac)
+        private static Vector2 PolarToLocal(float azDeg, float distFrac, float outerRadiusPx, Vector2 origin)
         {
             float rad = azDeg * Mathf.Deg2Rad;
-            float r = distFrac * _radius;
-            return new Vector2(Mathf.Sin(rad) * r, Mathf.Cos(rad) * r);
+            float r = distFrac * outerRadiusPx;
+            return origin + new Vector2(Mathf.Sin(rad) * r, Mathf.Cos(rad) * r);
         }
 
         // hsd.js's short(): upper-cased, capped at 18 chars (BOGEY fallback for an empty name).
@@ -284,22 +349,11 @@ namespace NOXMFD
             return h.ToString("000");
         }
 
-        private void BuildRing(Sprite sprite, float diameter, Color color)
-        {
-            var go = InternalMfdUi.NewUi("Ring", _center, _layer, typeof(Image));
-            var rt = go.GetComponent<RectTransform>();
-            rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
-            rt.sizeDelta = new Vector2(diameter, diameter);
-            var img = go.GetComponent<Image>();
-            img.sprite = sprite;
-            img.color = color;
-            img.raycastTarget = false;
-        }
-
-        // hsd.js's renderOwnship(): the same notched-arrow icon contacts use, filled white, fixed at
-        // screen centre pointing straight up (the whole view is already heading-up), plus a short
-        // forward tick above the nose.
-        private void BuildOwnship()
+        // hsd.js's renderOwnship(): the same notched-arrow icon contacts use, filled white, plus a
+        // short forward tick above the nose (parented to the ownship icon itself, not _center
+        // directly, so it rides along automatically whenever Refresh repositions the icon for the
+        // current mode — no separate per-refresh update needed for it).
+        private RectTransform BuildOwnship()
         {
             var go = InternalMfdUi.NewUi("Ownship", _center, _layer, typeof(Image));
             var rt = go.GetComponent<RectTransform>();
@@ -310,15 +364,17 @@ namespace NOXMFD
             img.color = OwnshipColor;
             img.raycastTarget = false;
 
-            var tickGo = InternalMfdUi.NewUi("OwnshipTick", _center, _layer, typeof(Image));
+            var tickGo = InternalMfdUi.NewUi("OwnshipTick", rt, _layer, typeof(Image));
             var tickRt = tickGo.GetComponent<RectTransform>();
-            tickRt.anchorMin = tickRt.anchorMax = new Vector2(0.5f, 0.5f);
+            tickRt.anchorMin = tickRt.anchorMax = new Vector2(0.5f, 1f);
             tickRt.pivot = new Vector2(0.5f, 0f);
-            tickRt.sizeDelta = new Vector2(0.006f * _diameter, 0.03f * _diameter);
-            tickRt.anchoredPosition = new Vector2(0f, 0.03f * _diameter);
+            tickRt.sizeDelta = new Vector2(0.12f * rt.sizeDelta.x, 0.45f * rt.sizeDelta.y);
+            tickRt.anchoredPosition = Vector2.zero;
             var tickImg = tickGo.GetComponent<Image>();
             tickImg.color = HeadingTickColor;
             tickImg.raycastTarget = false;
+
+            return rt;
         }
 
         private Text BuildCornerText(string name, Vector2 corner, TextAnchor align, int fontSize)
