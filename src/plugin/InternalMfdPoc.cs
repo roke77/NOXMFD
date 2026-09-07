@@ -52,7 +52,8 @@ namespace NOXMFD
         private GameObject? _overlay;
         private Text?       _spdText;
         private Text?       _altText;
-        private Text?       _fuelText;
+        private Image?      _fuelFillImage;
+        private Text?       _fuelPctText;
         private Text?       _rwrCountText;
         private Text?       _rwrBearingText;
         private Text?       _rwrDetailText;
@@ -95,7 +96,8 @@ namespace NOXMFD
             _overlay = null;
             _spdText = null;
             _altText = null;
-            _fuelText = null;
+            _fuelFillImage = null;
+            _fuelPctText = null;
             _rwrCountText = null;
             _rwrBearingText = null;
             _rwrDetailText = null;
@@ -108,13 +110,16 @@ namespace NOXMFD
         // is reading, and avoids setting Text.text (a layout-rebuild trigger) every single frame.
         private void RefreshReadout(Aircraft aircraft)
         {
-            if (_spdText == null || _altText == null || _fuelText == null) return;
+            if (_spdText == null || _altText == null || _fuelFillImage == null || _fuelPctText == null) return;
             if (Time.time - _lastRefresh < 0.1f) return;
             _lastRefresh = Time.time;
 
             _spdText.text = "SPD " + UnitConverter.SpeedReading(aircraft.speed);
             _altText.text = "ALT " + UnitConverter.AltitudeReading(aircraft.radarAlt);
-            _fuelText.text = $"FUEL {aircraft.GetFuelLevel() * 100f:F0}%";
+
+            float fuel = Mathf.Clamp01(aircraft.GetFuelLevel());
+            _fuelFillImage.fillAmount = fuel;
+            _fuelPctText.text = $"{fuel * 100f:F0}%";
 
             if (_rwrCountText != null && _rwrBearingText != null && _rwrDetailText != null)
                 RefreshRwr();
@@ -317,13 +322,13 @@ namespace NOXMFD
 
                 _spdText = BuildReadoutLine(rightHalf, font, 0, fontSize: 20);
                 _altText = BuildReadoutLine(rightHalf, font, 1, fontSize: 20);
-                _fuelText = BuildReadoutLine(rightHalf, font, 2, fontSize: 20);
+                BuildFuelDial(rightHalf, font, row: 2, diameter: 70f, out _fuelFillImage, out _fuelPctText);
             }
             else
             {
                 _spdText = BuildReadoutLine(rt, font, 0, fontSize: 28);
                 _altText = BuildReadoutLine(rt, font, 1, fontSize: 28);
-                _fuelText = BuildReadoutLine(rt, font, 2, fontSize: 28);
+                BuildFuelDial(rt, font, row: 2, diameter: 96f, out _fuelFillImage, out _fuelPctText);
             }
 
             _overlay = overlay;
@@ -364,12 +369,19 @@ namespace NOXMFD
             img.raycastTarget = false;
         }
 
-        // Three equal vertical rows, top to bottom (row 0 = top).
+        private const int Rows = 3;
+
+        // Anchor bounds for one of the 3 equal vertical rows, top to bottom (row 0 = top). Shared by
+        // every row-slot builder (text lines, the fuel dial) so they line up identically.
+        private static void RowAnchors(int row, out float bottom, out float top)
+        {
+            top = 1f - (float)row / Rows;
+            bottom = 1f - (float)(row + 1) / Rows;
+        }
+
         private static Text BuildReadoutLine(RectTransform parent, Font? font, int row, int fontSize)
         {
-            const int rows = 3;
-            float top = 1f - (float)row / rows;
-            float bottom = 1f - (float)(row + 1) / rows;
+            RowAnchors(row, out float bottom, out float top);
 
             var go = new GameObject($"Row{row}", typeof(RectTransform), typeof(Text));
             go.layer = parent.gameObject.layer;
@@ -389,6 +401,105 @@ namespace NOXMFD
             text.color = new Color(0.3f, 1f, 0.4f);
             text.raycastTarget = false;
             return text;
+        }
+
+        // A real circular gauge (background ring + radial fill arc + centred percentage), not a
+        // text row — the first step toward the AVN page's actual dial styling (docs/internal-mfd.md
+        // "Candidate content") instead of plain readout text for every value. Built from a
+        // procedurally-generated circle sprite (see ResolveCircleSprite), not a shipped art asset,
+        // matching every other visual in this file.
+        private static void BuildFuelDial(RectTransform parent, Font? font, int row, float diameter,
+            out Image fillImage, out Text pctText)
+        {
+            RowAnchors(row, out float bottom, out float top);
+
+            var slotGo = new GameObject($"Row{row}Dial", typeof(RectTransform));
+            slotGo.layer = parent.gameObject.layer;
+            var slotRt = slotGo.GetComponent<RectTransform>();
+            slotRt.SetParent(parent, false);
+            slotRt.anchorMin = new Vector2(0f, bottom);
+            slotRt.anchorMax = new Vector2(1f, top);
+            slotRt.offsetMin = Vector2.zero;
+            slotRt.offsetMax = Vector2.zero;
+
+            Sprite circle = ResolveCircleSprite();
+            Color green = new Color(0.3f, 1f, 0.4f);
+
+            var bgGo = new GameObject("DialBg", typeof(RectTransform), typeof(Image));
+            bgGo.layer = parent.gameObject.layer;
+            var bgRt = bgGo.GetComponent<RectTransform>();
+            bgRt.SetParent(slotRt, false);
+            bgRt.anchorMin = bgRt.anchorMax = new Vector2(0.5f, 0.5f);
+            bgRt.sizeDelta = new Vector2(diameter, diameter);
+            var bgImg = bgGo.GetComponent<Image>();
+            bgImg.sprite = circle;
+            bgImg.color = new Color(green.r, green.g, green.b, 0.18f); // dim full ring, unfilled backdrop
+            bgImg.raycastTarget = false;
+
+            var fillGo = new GameObject("DialFill", typeof(RectTransform), typeof(Image));
+            fillGo.layer = parent.gameObject.layer;
+            var fillRt = fillGo.GetComponent<RectTransform>();
+            fillRt.SetParent(slotRt, false);
+            fillRt.anchorMin = fillRt.anchorMax = new Vector2(0.5f, 0.5f);
+            fillRt.sizeDelta = new Vector2(diameter, diameter);
+            fillImage = fillGo.GetComponent<Image>();
+            fillImage.sprite = circle;
+            fillImage.color = green;
+            fillImage.raycastTarget = false;
+            fillImage.type = Image.Type.Filled;
+            fillImage.fillMethod = Image.FillMethod.Radial360;
+            fillImage.fillOrigin = (int)Image.Origin360.Top;
+            fillImage.fillClockwise = true;
+            fillImage.fillAmount = 0f;
+
+            var textGo = new GameObject("DialPct", typeof(RectTransform), typeof(Text));
+            textGo.layer = parent.gameObject.layer;
+            var textRt = textGo.GetComponent<RectTransform>();
+            textRt.SetParent(slotRt, false);
+            textRt.anchorMin = new Vector2(0.5f, 0.5f);
+            textRt.anchorMax = new Vector2(0.5f, 0.5f);
+            textRt.sizeDelta = new Vector2(diameter, diameter);
+            pctText = textGo.GetComponent<Text>();
+            pctText.font = font;
+            pctText.fontSize = Mathf.RoundToInt(diameter * 0.24f);
+            pctText.alignment = TextAnchor.MiddleCenter;
+            pctText.color = Color.white;
+            pctText.raycastTarget = false;
+        }
+
+        private static Sprite? _circleSprite;
+
+        // Procedurally-generated antialiased circle (white, alpha-masked), cached and reused for
+        // every dial — Image.Type.Filled with a plain quad (no sprite) clips to the RECTANGLE, not a
+        // circle, so a real round gauge needs an actual round sprite; generating one at runtime keeps
+        // this file art-free rather than adding a shipped texture asset for one gauge.
+        private static Sprite ResolveCircleSprite()
+        {
+            if (_circleSprite != null) return _circleSprite;
+
+            const int size = 128;
+            const float r = size / 2f;
+            var tex = new Texture2D(size, size, TextureFormat.RGBA32, false)
+            {
+                wrapMode = TextureWrapMode.Clamp,
+                filterMode = FilterMode.Bilinear,
+            };
+            var pixels = new Color32[size * size];
+            var center = new Vector2(r, r);
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    float d = Vector2.Distance(new Vector2(x + 0.5f, y + 0.5f), center);
+                    byte alpha = (byte)(Mathf.Clamp01(r - d) * 255f); // ~1px antialiased edge
+                    pixels[y * size + x] = new Color32(255, 255, 255, alpha);
+                }
+            }
+            tex.SetPixels32(pixels);
+            tex.Apply();
+
+            _circleSprite = Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f));
+            return _circleSprite;
         }
 
         // Borrow the font off any Text the game already has on screen, same as HudWaypointCue —
