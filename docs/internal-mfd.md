@@ -2,8 +2,10 @@
 
 ## Status
 
-**Planning.** No branch, no code. The game's cockpit UI and target-camera surfaces still need to be
-decompiled and verified before implementation.
+**Proof-of-concept in progress**, `feature/internal-mfd-poc`. `Cockpit`/`TacScreen`/`VirtualMFD` are
+decompiled and confirmed to exist as described below. `InternalMfdPoc.cs` inserts a placeholder
+panel as the last sibling of `TacScreen`'s `Canvas`, toggled by a keybind (`internal-mfd-poc-toggle`,
+unbound by default) — not yet live-verified in-game.
 
 ## Goal
 
@@ -76,7 +78,7 @@ shows today:
 | Native cockpit shows (today) | NOXMFD equivalent | Notes |
 |---|---|---|
 | Radar picture | `RDR` page | Sweep/contact rendering — highest native-redraw cost of the three |
-| Aircraft gauges (RPM/FUEL/HEAT/THRL etc.) | `AKF` page | Mostly static layout + numeric/needle updates — cheapest to port |
+| Aircraft gauges (throttle/gear/status tiles) | `AVN` page | Mostly static layout + numeric/needle updates — cheapest to port, and the current POC's target |
 | Pylon/loadout display | `WPN` page | Icon-per-station grid, already fairly static-shaped |
 
 Scope for a first pass: **one** page at a time replacing the cockpit MFD content, with some way
@@ -85,36 +87,40 @@ faithful in-cockpit reproduction of NOXMFD's full split-view/paging shell.
 
 ## Investigation needed before implementation
 
-This doc stops short of an implementation sketch because two things are still unknown and must be
-decompiled/checked first:
-
-1. **What `Cockpit.tacScreen.canvas` actually contains**, whether the field still exists, and
-   whether it is one canvas per aircraft type or a shared structure. Native elements may differ by
-   airframe; `tgp-suppress-native-render.md` already shows that renderer boundaries can reach
-   further than expected.
+1. **What `Cockpit.tacScreen.canvas` actually contains** — resolved by decompile: `Cockpit` holds a
+   private `TacScreen tacScreen` field (populated at runtime, local player's aircraft only);
+   `TacScreen` holds a private `Canvas canvas` plus its own `Camera cam` and `RenderTexture
+   renderTexture`. One shared `MonoBehaviour` type across aircraft, not a per-airframe subclass —
+   but whether every airframe's `tacScreenUIPrefab` wires those fields identically (geometry,
+   `cam.cullingMask`, canvas render mode) is still unconfirmed; a newly-created child defaults to
+   Unity's layer 0, which is *not* automatically the canvas's own layer, so a camera with a
+   restricted culling mask could resolve the canvas correctly and still never render an inserted
+   child. `InternalMfdPoc.cs` sets the child's layer to match the canvas's own as a defensive
+   measure, but whether that's sufficient is exactly what the live test below settles.
 2. **What drives the *other* cockpit MFD content** (radar sweep, gauge needles, pylon icons) — the
    equivalent of `TargetCam.SetTargetCam()`/`AimCamera` for the TGP feed. Each of radar/gauges/
    pylons likely has its own driving method(s) that would need their own Harmony prefix guard,
-   not necessarily the same one.
+   not necessarily the same one. Still open — out of scope for the current placeholder-only POC,
+   which covers its content rather than suppressing what drives it.
 
 ## Toggle / page selection
 
-Not designed yet. Candidates to evaluate once the above investigation lands:
-
-- A dedicated keybind (`internal-mfd.next`/`internal-mfd.toggle`) on the existing KEY page,
-  following the `remote-keybinds`-style precedent of a clearly labelled, off-by-default toggle.
-- Reuse of an existing in-cockpit control if the target aircraft already has an idle/unused MFD
-  mode button.
-
-Whichever is chosen, restoring the native content cleanly (aircraft change, plugin shutdown, mode
-toggled back off) is a hard requirement — same standard `tgp-suppress-native-render.md` already
-holds itself to.
+Implemented for the POC: `internal-mfd-poc-toggle` (`Keybinds.cs`, `DefFree`, off-by-default,
+unbound until set on `/keybinds`), with a matching `/command` case
+(`internal-mfd.poc-toggle`) so a remote keybind press also works. Restoring native content is
+handled for toggle-off, aircraft change (an aircraft-identity check, not just a fake-null check on
+the cached `Canvas`), and mission exit (the static enabled flag resets in `OnDestroy`, which fires
+when `MissionLifecycle` tears down the mission-scoped reader). Not yet handled: any restore-on-
+init-failure case beyond "the overlay object is simply never cached and the next frame retries."
 
 ## Open questions
 
 - Single canvas/insertion-point assumption: does every playable airframe expose
   `Cockpit.tacScreen.canvas` (or an equivalent) the same way, or does this need per-aircraft
   handling?
+- Camera culling mask / canvas render mode: does `TacScreen`'s dedicated camera actually render an
+  inserted last-sibling child, and does matching the canvas's own `GameObject.layer` fully cover
+  it? Unverified until the POC is run live — see [Status](#status).
 - Performance: is native Unity UI redraw of a radar sweep actually cheaper than the status quo, or
   does it just move cost from "duplicate camera render" to "duplicate UI redraw"? No profiling
   done yet.
@@ -124,9 +130,8 @@ holds itself to.
 
 ## Out of scope (for this doc)
 
-- Any actual code, branch, or implementation — this is a feasibility + precedent write-up only.
 - Full split-view/paging parity with the external MFD shell inside the cockpit.
-- Aircraft other than whatever the investigation phase picks as the first target.
+- Aircraft other than whatever the POC confirms works cleanly.
 - Changes to `tgp-suppress-native-render.md`'s TGP-specific work — related precedent, separate
   feature.
 

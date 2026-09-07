@@ -18,8 +18,12 @@ namespace NOXMFD
 
         private static FieldInfo? _tacScreenField;
         private static FieldInfo? _canvasField;
+        private static FieldInfo? _camField;
+        private static FieldInfo? _renderTextureField;
 
-        private Canvas?     _tacCanvas; // fake-null once its aircraft despawns
+        private Canvas?     _tacCanvas;   // fake-null once its aircraft despawns
+        private Aircraft?   _tacAircraft; // which aircraft _tacCanvas belongs to, so a switch is caught
+                                           // even if the old Canvas hasn't gone fake-null yet
         private GameObject? _overlay;
 
         internal static void Toggle()
@@ -32,24 +36,41 @@ namespace NOXMFD
         {
             if (!_enabled)
             {
-                if (_overlay != null) Destroy(_overlay);
-                _overlay = null;
-                _tacCanvas = null;
+                Teardown();
                 return;
             }
 
-            if (_tacCanvas == null && !ResolveCanvas(out _tacCanvas)) return;
-            if (_overlay == null) BuildOverlay(_tacCanvas!);
+            if (!GameManager.GetLocalAircraft(out Aircraft aircraft) || aircraft == null)
+            {
+                Teardown();
+                return;
+            }
+
+            if (_tacCanvas == null || !ReferenceEquals(aircraft, _tacAircraft))
+            {
+                Teardown();
+                if (!ResolveCanvas(aircraft, out _tacCanvas)) return;
+                _tacAircraft = aircraft;
+            }
+
+            if (_overlay == null) BuildOverlay(aircraft, _tacCanvas!);
+        }
+
+        private void Teardown()
+        {
+            if (_overlay != null) Destroy(_overlay);
+            _overlay = null;
+            _tacCanvas = null;
+            _tacAircraft = null;
         }
 
         // Cockpit.tacScreen and TacScreen.canvas are both private with no public accessor — the
         // insertion point docs/internal-mfd.md proposes. aircraft.cockpit is a UnitPart, not the
         // Cockpit MonoBehaviour; the game's own code reaches sibling components the same way
         // (Aircraft.decompiled.cs: aircraft.cockpit.GetComponent<EscapeCapsule>()).
-        private static bool ResolveCanvas(out Canvas? canvas)
+        private static bool ResolveCanvas(Aircraft aircraft, out Canvas? canvas)
         {
             canvas = null;
-            if (!GameManager.GetLocalAircraft(out Aircraft aircraft) || aircraft == null) return false;
             if (aircraft.cockpit == null) return false;
 
             Cockpit cockpit = aircraft.cockpit.GetComponent<Cockpit>();
@@ -66,13 +87,39 @@ namespace NOXMFD
             if (_canvasField?.GetValue(tacScreen) is not Canvas c || c == null) return false;
 
             canvas = c;
+            LogAttachDiagnostics(aircraft, tacScreen, c);
             return true;
         }
 
-        private void BuildOverlay(Canvas canvas)
+        // One-shot, on successful attach only — this is the evidence a manual test needs to tell
+        // "nothing rendered because the canvas wasn't found" apart from "found it, but the camera/
+        // layer/render setup doesn't show it", without spamming a per-frame log.
+        private static void LogAttachDiagnostics(Aircraft aircraft, TacScreen tacScreen, Canvas canvas)
         {
-            _overlay = new GameObject("NOXMFD_InternalMfdPoc", typeof(RectTransform));
-            var rt = _overlay.GetComponent<RectTransform>();
+            if (_camField == null)
+                _camField = typeof(TacScreen).GetField("cam", BindingFlags.Instance | BindingFlags.NonPublic);
+            if (_renderTextureField == null)
+                _renderTextureField = typeof(TacScreen).GetField("renderTexture", BindingFlags.Instance | BindingFlags.NonPublic);
+
+            var cam = _camField?.GetValue(tacScreen) as Camera;
+            var rt = _renderTextureField?.GetValue(tacScreen) as RenderTexture;
+            string unitName = aircraft.definition != null ? aircraft.definition.unitName : "?";
+
+            Plugin.Log?.LogInfo(
+                $"[NOXMFD] Internal MFD POC attached: aircraft={unitName}, canvas.renderMode={canvas.renderMode}, " +
+                $"canvas.layer={canvas.gameObject.layer} ({LayerMask.LayerToName(canvas.gameObject.layer)}), " +
+                $"cam={(cam != null ? cam.name : "null")}, cam.cullingMask={(cam != null ? cam.cullingMask : 0)}, " +
+                $"renderTexture={(rt != null ? $"{rt.width}x{rt.height}" : "null")}.");
+        }
+
+        private void BuildOverlay(Aircraft aircraft, Canvas canvas)
+        {
+            // Build into a local first: on an exception partway through, the field stays null and
+            // the next frame's LateUpdate retries cleanly, instead of caching a half-built overlay.
+            var overlay = new GameObject("NOXMFD_InternalMfdPoc", typeof(RectTransform));
+            overlay.layer = canvas.gameObject.layer; // SetParent does NOT inherit the parent's layer
+
+            var rt = overlay.GetComponent<RectTransform>();
             rt.SetParent(canvas.transform, false);
             rt.SetAsLastSibling(); // top of paint order — the exact claim under test
             rt.anchorMin = Vector2.zero;
@@ -81,12 +128,15 @@ namespace NOXMFD
             rt.offsetMax = Vector2.zero;
 
             // No sprite — an Image with none draws a flat tinted quad, same trick HudWaypointCue
-            // uses, so this ships no art and can't fail on a missing asset.
-            var bg = _overlay.AddComponent<Image>();
-            bg.color = new Color(1f, 0f, 1f, 0.85f); // unmissable magenta
+            // uses, so this ships no art and can't fail on a missing asset. Fully opaque: this is a
+            // paint-order test, so any native content still visible must mean the insertion point
+            // isn't actually on top, not "alpha blending is working as intended".
+            var bg = overlay.AddComponent<Image>();
+            bg.color = Color.magenta;
             bg.raycastTarget = false;
 
             var labelGo = new GameObject("Label", typeof(RectTransform), typeof(Text));
+            labelGo.layer = canvas.gameObject.layer;
             var labelRt = labelGo.GetComponent<RectTransform>();
             labelRt.SetParent(rt, false);
             labelRt.anchorMin = Vector2.zero;
@@ -101,6 +151,8 @@ namespace NOXMFD
             text.color = Color.white;
             text.text = "NOXMFD POC";
             text.raycastTarget = false;
+
+            _overlay = overlay;
         }
 
         // Borrow the font off any Text the game already has on screen, same as HudWaypointCue —
@@ -116,6 +168,10 @@ namespace NOXMFD
 
         private void OnDestroy()
         {
+            // Mission end is the only thing that destroys this component (MissionLifecycle tears
+            // down the whole reader object) — reset the static toggle here too, or a POC left ON
+            // reappears unasked on the next mission without the key being pressed again.
+            _enabled = false;
             if (_overlay != null) Destroy(_overlay);
         }
     }
