@@ -23,10 +23,11 @@ namespace NOXMFD
     internal sealed class InternalMfdRwrScope
     {
         private const float MinDistFrac = 0.06f; // matches telemetry-source.js's own floor
-        // How much of the smaller container dimension the outer ring fills. Not 1.0: the heading
-        // triangle extends ~4.8% of the radius beyond the outer ring (see BuildHeadingTriangle), so
-        // a small margin keeps it from touching the panel/separator edge.
-        private const float FillFrac = 0.92f;
+        // How much of the smaller container dimension the outer ring fills — the ring itself
+        // touches top/bottom exactly. The heading triangle extends ~4.8% of the radius beyond the
+        // outer ring (see BuildHeadingTriangle) and rides slightly past that edge as a result, same
+        // as the real page's own tight fit against its bezel.
+        private const float FillFrac = 1f;
 
         // Ring radii as fractions of the outer ring (rwr.html: r=460/304/152 of a 1000 viewBox).
         private const float MidRingFrac = 304f / 460f;
