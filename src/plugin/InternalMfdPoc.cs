@@ -62,33 +62,53 @@ namespace NOXMFD
             _overlay = null;
             _tacCanvas = null;
             _tacAircraft = null;
+            _lastFailure = null; // a fresh attach attempt is worth re-logging even the same reason
         }
 
         // Cockpit.tacScreen and TacScreen.canvas are both private with no public accessor — the
-        // insertion point docs/internal-mfd.md proposes. aircraft.cockpit is a UnitPart, not the
-        // Cockpit MonoBehaviour; the game's own code reaches sibling components the same way
-        // (Aircraft.decompiled.cs: aircraft.cockpit.GetComponent<EscapeCapsule>()).
+        // insertion point docs/internal-mfd.md proposes.
+        //
+        // aircraft.cockpit is the structural/damage UnitPart (what EscapeCapsule sits on in
+        // Aircraft.decompiled.cs — a DIFFERENT GameObject, confirmed the hard way: GetComponent
+        // there silently found nothing, every frame, with no exception). Cockpit is the
+        // interior rig (joystick/throttle animation, tacScreenUIPrefab) wired to its owning Aircraft
+        // via its own inspector-assigned field, not the other way round, so it has to be found by
+        // searching the aircraft's hierarchy rather than assumed to sit on aircraft.cockpit.
         private static bool ResolveCanvas(Aircraft aircraft, out Canvas? canvas)
         {
             canvas = null;
-            if (aircraft.cockpit == null) return false;
 
-            Cockpit cockpit = aircraft.cockpit.GetComponent<Cockpit>();
-            if (cockpit == null) return false;
+            Cockpit cockpit = aircraft.GetComponentInChildren<Cockpit>(includeInactive: true);
+            if (cockpit == null) { LogFailure("no Cockpit component found under the aircraft"); return false; }
 
             // tacScreen is only ever instantiated for the local player's own aircraft, and only
             // after Aircraft.onInitialize fires — null here just means "not ready yet this frame".
             if (_tacScreenField == null)
                 _tacScreenField = typeof(Cockpit).GetField("tacScreen", BindingFlags.Instance | BindingFlags.NonPublic);
-            if (_tacScreenField?.GetValue(cockpit) is not TacScreen tacScreen || tacScreen == null) return false;
+            if (_tacScreenField?.GetValue(cockpit) is not TacScreen tacScreen || tacScreen == null)
+            { LogFailure("Cockpit.tacScreen not yet instantiated"); return false; }
 
             if (_canvasField == null)
                 _canvasField = typeof(TacScreen).GetField("canvas", BindingFlags.Instance | BindingFlags.NonPublic);
-            if (_canvasField?.GetValue(tacScreen) is not Canvas c || c == null) return false;
+            if (_canvasField?.GetValue(tacScreen) is not Canvas c || c == null)
+            { LogFailure("TacScreen.canvas field missing/null"); return false; }
 
             canvas = c;
+            _lastFailure = null;
             LogAttachDiagnostics(aircraft, tacScreen, c);
             return true;
+        }
+
+        private static string? _lastFailure;
+
+        // Logged once per DISTINCT failure reason, not per frame (this runs every LateUpdate while
+        // enabled and unresolved) — enough to diagnose a silent "nothing happened" without spamming
+        // Player.log at 60-90Hz.
+        private static void LogFailure(string reason)
+        {
+            if (_lastFailure == reason) return;
+            _lastFailure = reason;
+            Plugin.Log?.LogInfo($"[NOXMFD] Internal MFD POC: {reason}.");
         }
 
         // One-shot, on successful attach only — this is the evidence a manual test needs to tell
