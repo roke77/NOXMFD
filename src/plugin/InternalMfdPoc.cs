@@ -4,12 +4,15 @@ using UnityEngine.UI;
 
 namespace NOXMFD
 {
-    // Proof-of-concept for issue #43 (docs/internal-mfd.md): a minimal AVN-style readout (speed/
-    // altitude/fuel) drawn natively on the T/A-30 Compass's center cockpit screen, driven straight
-    // from the live Aircraft object — no HTTP/JSON round trip, no TelemetrySnapshot dependency,
-    // since the plugin already has a direct in-process reference. Values and formatting reuse the
-    // game's own UnitConverter (same SPD/ALT text the native HUD already shows), not a reimplemented
-    // unit-conversion table.
+    // Proof-of-concept for issue #43 (docs/internal-mfd.md): AVN-style (speed/altitude/fuel) and
+    // RWR-style (contact count/bearing/tier) readouts drawn natively on the T/A-30 Compass's center
+    // cockpit screen — split left/right on this screen's wide aspect ratio (docs/internal-mfd.md's
+    // "Split-screen layout" requirement), driven straight from the live Aircraft object and the
+    // plugin's own already-aggregated telemetry (TelemetryServer.TryGetLatestSnapshot) — no HTTP/
+    // JSON round trip. AVN formatting reuses the game's own UnitConverter (same SPD/ALT text the
+    // native HUD already shows) rather than a reimplemented unit-conversion table; RWR reuses
+    // TelemetryReader's own contact aggregation (decay/tiering) rather than resubscribing to
+    // Aircraft.onRadarWarning and redoing it here.
     //
     // Mission-scoped (added in MissionLifecycle.StartReader, same as the Hud* cues), because the
     // Cockpit/TacScreen chain only exists for a live local-player aircraft.
@@ -50,6 +53,9 @@ namespace NOXMFD
         private Text?       _spdText;
         private Text?       _altText;
         private Text?       _fuelText;
+        private Text?       _rwrCountText;
+        private Text?       _rwrBearingText;
+        private Text?       _rwrDetailText;
         private float       _lastRefresh;
 
         internal static void Toggle()
@@ -90,6 +96,9 @@ namespace NOXMFD
             _spdText = null;
             _altText = null;
             _fuelText = null;
+            _rwrCountText = null;
+            _rwrBearingText = null;
+            _rwrDetailText = null;
             _tacCanvas = null;
             _tacAircraft = null;
             _lastFailure = null; // a fresh attach attempt is worth re-logging even the same reason
@@ -106,6 +115,44 @@ namespace NOXMFD
             _spdText.text = "SPD " + UnitConverter.SpeedReading(aircraft.speed);
             _altText.text = "ALT " + UnitConverter.AltitudeReading(aircraft.radarAlt);
             _fuelText.text = $"FUEL {aircraft.GetFuelLevel() * 100f:F0}%";
+
+            if (_rwrCountText != null && _rwrBearingText != null && _rwrDetailText != null)
+                RefreshRwr();
+        }
+
+        // RWR half of the split layout (docs/internal-mfd.md "Split-screen layout"). Reads the same
+        // already-aggregated contact list (decay/tiering already handled) TelemetryReader builds for
+        // the external /stream RWR page — TryGetLatestSnapshot instead of resubscribing to
+        // Aircraft.onRadarWarning and redoing that aggregation here. Own-ship WorldX/WorldZ/Heading
+        // come from the SAME snapshot pass that built the contacts, so the bearing math below can't
+        // drift into a different floating-origin frame than the contacts themselves are in.
+        private void RefreshRwr()
+        {
+            if (!TelemetryServer.TryGetLatestSnapshot(out TelemetrySnapshot snap) ||
+                snap.Rwr == null || snap.Rwr.Length == 0)
+            {
+                _rwrCountText!.text = "RWR CLEAR";
+                _rwrBearingText!.text = string.Empty;
+                _rwrDetailText!.text = string.Empty;
+                return;
+            }
+
+            // Highest tier first (2 lock > 1 track > 0 search), closest (higher Power) breaks ties —
+            // the single contact a pilot would look at first.
+            RwrContact best = snap.Rwr[0];
+            for (int i = 1; i < snap.Rwr.Length; i++)
+            {
+                RwrContact c = snap.Rwr[i];
+                if (c.Tier > best.Tier || (c.Tier == best.Tier && c.Power > best.Power)) best = c;
+            }
+
+            float bearing = HudWaypointCueMath.BearingDeg(snap.WorldX, snap.WorldZ, best.X, best.Z);
+            float az = ((bearing - snap.Heading) % 360f + 360f) % 360f; // clockwise from nose, 0..360
+            string tier = best.Tier == 2 ? "LOCK" : best.Tier == 1 ? "TRACK" : "SEARCH";
+
+            _rwrCountText!.text = snap.Rwr.Length == 1 ? "1 CONTACT" : $"{snap.Rwr.Length} CONTACTS";
+            _rwrBearingText!.text = $"BRG {Mathf.RoundToInt(az):000}";
+            _rwrDetailText!.text = $"{tier} {best.Name}";
         }
 
         // Cockpit.tacScreen and TacScreen.canvas are both private with no public accessor — the
@@ -251,15 +298,74 @@ namespace NOXMFD
             bg.raycastTarget = false;
 
             Font? font = ResolveFont();
-            _spdText = BuildReadoutLine(rt, font, 0);
-            _altText = BuildReadoutLine(rt, font, 1);
-            _fuelText = BuildReadoutLine(rt, font, 2);
+
+            // Split-screen layout (docs/internal-mfd.md "Split-screen layout"): a wide screen splits
+            // into two independently-addressable halves with a vertical separator; a square-ish
+            // screen stays one full-view region. T/A-30's center screen is the only aircraft
+            // calibrated so far (~2.8:1 — unambiguously wide), so it's the only one that splits;
+            // anything else keeps the single full-width AVN panel this POC already had, since no
+            // other aircraft has a verified wide/square-ish classification yet (open question).
+            if (knownCenterScreen)
+            {
+                RectTransform left = BuildHalf(rt, "Left", right: false);
+                RectTransform rightHalf = BuildHalf(rt, "Right", right: true);
+                BuildSeparator(rt);
+
+                _rwrCountText = BuildReadoutLine(left, font, 0, fontSize: 20);
+                _rwrBearingText = BuildReadoutLine(left, font, 1, fontSize: 20);
+                _rwrDetailText = BuildReadoutLine(left, font, 2, fontSize: 20);
+
+                _spdText = BuildReadoutLine(rightHalf, font, 0, fontSize: 20);
+                _altText = BuildReadoutLine(rightHalf, font, 1, fontSize: 20);
+                _fuelText = BuildReadoutLine(rightHalf, font, 2, fontSize: 20);
+            }
+            else
+            {
+                _spdText = BuildReadoutLine(rt, font, 0, fontSize: 28);
+                _altText = BuildReadoutLine(rt, font, 1, fontSize: 28);
+                _fuelText = BuildReadoutLine(rt, font, 2, fontSize: 28);
+            }
 
             _overlay = overlay;
         }
 
+        // Left or right 50% of parent, full height.
+        private static RectTransform BuildHalf(RectTransform parent, string name, bool right)
+        {
+            var go = new GameObject(name, typeof(RectTransform));
+            go.layer = parent.gameObject.layer;
+            var rt = go.GetComponent<RectTransform>();
+            rt.SetParent(parent, false);
+            rt.anchorMin = new Vector2(right ? 0.5f : 0f, 0f);
+            rt.anchorMax = new Vector2(right ? 1f : 0.5f, 1f);
+            rt.offsetMin = Vector2.zero;
+            rt.offsetMax = Vector2.zero;
+            return rt;
+        }
+
+        // A thin vertical divider at the halfway point — content is already split into two
+        // RectTransforms regardless, this just makes the split visible rather than an unmarked gap.
+        private static void BuildSeparator(RectTransform parent)
+        {
+            var go = new GameObject("Separator", typeof(RectTransform), typeof(Image));
+            go.layer = parent.gameObject.layer;
+            var rt = go.GetComponent<RectTransform>();
+            rt.SetParent(parent, false);
+            // Mixed anchor: a point in X (0.5/0.5, so sizeDelta.x is the literal width), stretched
+            // in Y (0..1, so sizeDelta.y=0 means exactly full height, no extra padding).
+            rt.anchorMin = new Vector2(0.5f, 0f);
+            rt.anchorMax = new Vector2(0.5f, 1f);
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.sizeDelta = new Vector2(3f, 0f);
+            rt.anchoredPosition = Vector2.zero;
+
+            var img = go.GetComponent<Image>();
+            img.color = new Color(0.3f, 1f, 0.4f, 0.6f);
+            img.raycastTarget = false;
+        }
+
         // Three equal vertical rows, top to bottom (row 0 = top).
-        private static Text BuildReadoutLine(RectTransform parent, Font? font, int row)
+        private static Text BuildReadoutLine(RectTransform parent, Font? font, int row, int fontSize)
         {
             const int rows = 3;
             float top = 1f - (float)row / rows;
@@ -276,7 +382,7 @@ namespace NOXMFD
 
             var text = go.GetComponent<Text>();
             text.font = font;
-            text.fontSize = 28;
+            text.fontSize = fontSize;
             text.alignment = TextAnchor.MiddleCenter;
             // HUD green, matching HudWaypointCue's reasoning for its own amber choice — a
             // recognizable cockpit-display color rather than an arbitrary one.

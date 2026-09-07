@@ -462,6 +462,16 @@ namespace NOXMFD
             lock (_lock) { _latest = snap; _snapVersion++; }
         }
 
+        // In-process readers (e.g. InternalMfdPoc) that want the same already-aggregated data the
+        // HTTP/SSE path serializes, without re-deriving it (RWR contacts, own-ship world position,
+        // etc. all come from one TelemetryReader.Update() pass already). Same-assembly only —
+        // TelemetrySnapshot is internal by design, not a public API surface.
+        internal static bool TryGetLatestSnapshot(out TelemetrySnapshot snap)
+        {
+            lock (_lock) { snap = _latest; }
+            return snap.Valid;
+        }
+
         // Returns the SSE frame bytes for the current snapshot, serializing at most once per
         // version. The first client to ask after a new Push builds it (under _frameLock, so a
         // second concurrent client waits rather than duplicating the work); everyone else reuses
