@@ -68,18 +68,30 @@ namespace NOXMFD
         // Cockpit.tacScreen and TacScreen.canvas are both private with no public accessor — the
         // insertion point docs/internal-mfd.md proposes.
         //
-        // aircraft.cockpit is the structural/damage UnitPart (what EscapeCapsule sits on in
-        // Aircraft.decompiled.cs — a DIFFERENT GameObject, confirmed the hard way: GetComponent
-        // there silently found nothing, every frame, with no exception). Cockpit is the
-        // interior rig (joystick/throttle animation, tacScreenUIPrefab) wired to its owning Aircraft
-        // via its own inspector-assigned field, not the other way round, so it has to be found by
-        // searching the aircraft's hierarchy rather than assumed to sit on aircraft.cockpit.
+        // Two live-tested wrong guesses at where Cockpit actually lives, both silently finding
+        // nothing (no exception either time — the only signal was LogFailure never advancing past
+        // this step): aircraft.cockpit.GetComponent<Cockpit>() (that's the structural/damage
+        // UnitPart EscapeCapsule sits on, a different object) and aircraft.GetComponentInChildren
+        // <Cockpit>() (so Cockpit isn't under the Aircraft's own subtree either — likely a sibling
+        // branch under a shared prefab root, e.g. an "Interior" branch next to a "Systems" branch
+        // Aircraft itself sits on, rather than a parent/child relationship). Matching by the
+        // component's OWN inspector-assigned `aircraft` reference sidesteps the hierarchy shape
+        // entirely — however it's parented, this is how the game itself associates the two.
+        private static FieldInfo? _cockpitAircraftField;
+
         private static bool ResolveCanvas(Aircraft aircraft, out Canvas? canvas)
         {
             canvas = null;
 
-            Cockpit cockpit = aircraft.GetComponentInChildren<Cockpit>(includeInactive: true);
-            if (cockpit == null) { LogFailure("no Cockpit component found under the aircraft"); return false; }
+            if (_cockpitAircraftField == null)
+                _cockpitAircraftField = typeof(Cockpit).GetField("aircraft", BindingFlags.Instance | BindingFlags.NonPublic);
+
+            Cockpit? cockpit = null;
+            foreach (var candidate in Object.FindObjectsByType<Cockpit>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            {
+                if (ReferenceEquals(_cockpitAircraftField?.GetValue(candidate), aircraft)) { cockpit = candidate; break; }
+            }
+            if (cockpit == null) { LogFailure("no Cockpit component references this aircraft"); return false; }
 
             // tacScreen is only ever instantiated for the local player's own aircraft, and only
             // after Aircraft.onInitialize fires — null here just means "not ready yet this frame".
