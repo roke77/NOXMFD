@@ -4,11 +4,12 @@ using UnityEngine.UI;
 
 namespace NOXMFD
 {
-    // Proof-of-concept for issue #43 (docs/internal-mfd.md): settles the doc's open "does a
-    // last-sibling child of TacScreen's own Canvas actually paint on top of the native cockpit MFD
-    // content" question with a real in-game check, before any NOXMFD page gets a native
-    // reimplementation. Draws nothing but an unmissable flat-color panel + label — this file is
-    // meant to be replaced once that question is settled, not extended.
+    // Proof-of-concept for issue #43 (docs/internal-mfd.md): a minimal AVN-style readout (speed/
+    // altitude/fuel) drawn natively on the T/A-30 Compass's center cockpit screen, driven straight
+    // from the live Aircraft object — no HTTP/JSON round trip, no TelemetrySnapshot dependency,
+    // since the plugin already has a direct in-process reference. Values and formatting reuse the
+    // game's own UnitConverter (same SPD/ALT text the native HUD already shows), not a reimplemented
+    // unit-conversion table.
     //
     // Mission-scoped (added in MissionLifecycle.StartReader, same as the Hud* cues), because the
     // Cockpit/TacScreen chain only exists for a live local-player aircraft.
@@ -46,6 +47,10 @@ namespace NOXMFD
         private Aircraft?   _tacAircraft; // which aircraft _tacCanvas belongs to, so a switch is caught
                                            // even if the old Canvas hasn't gone fake-null yet
         private GameObject? _overlay;
+        private Text?       _spdText;
+        private Text?       _altText;
+        private Text?       _fuelText;
+        private float       _lastRefresh;
 
         internal static void Toggle()
         {
@@ -75,15 +80,32 @@ namespace NOXMFD
             }
 
             if (_overlay == null) BuildOverlay(aircraft, _tacCanvas!);
+            RefreshReadout(aircraft);
         }
 
         private void Teardown()
         {
             if (_overlay != null) Destroy(_overlay);
             _overlay = null;
+            _spdText = null;
+            _altText = null;
+            _fuelText = null;
             _tacCanvas = null;
             _tacAircraft = null;
             _lastFailure = null; // a fresh attach attempt is worth re-logging even the same reason
+        }
+
+        // ~10Hz, same idea as TacScreen's own 0.05s per-frame throttle — plenty for gauges a human
+        // is reading, and avoids setting Text.text (a layout-rebuild trigger) every single frame.
+        private void RefreshReadout(Aircraft aircraft)
+        {
+            if (_spdText == null || _altText == null || _fuelText == null) return;
+            if (Time.time - _lastRefresh < 0.1f) return;
+            _lastRefresh = Time.time;
+
+            _spdText.text = "SPD " + UnitConverter.SpeedReading(aircraft.speed);
+            _altText.text = "ALT " + UnitConverter.AltitudeReading(aircraft.radarAlt);
+            _fuelText.text = $"FUEL {aircraft.GetFuelLevel() * 100f:F0}%";
         }
 
         // Cockpit.tacScreen and TacScreen.canvas are both private with no public accessor — the
@@ -214,38 +236,53 @@ namespace NOXMFD
 
             var rt = overlay.GetComponent<RectTransform>();
             rt.SetParent(canvas.transform, false);
-            rt.SetAsLastSibling(); // top of paint order — the exact claim under test
+            rt.SetAsLastSibling(); // top of paint order — confirmed live to cover native content
             rt.anchorMin = anchorMin;
             rt.anchorMax = Vector2.one;
             rt.offsetMin = Vector2.zero;
             rt.offsetMax = Vector2.zero;
 
             // No sprite — an Image with none draws a flat tinted quad, same trick HudWaypointCue
-            // uses, so this ships no art and can't fail on a missing asset. Fully opaque: this is a
-            // paint-order test, so any native content still visible must mean the insertion point
-            // isn't actually on top, not "alpha blending is working as intended".
+            // uses, so this ships no art and can't fail on a missing asset. Near-opaque dark panel,
+            // matching the cockpit's own dark-screen-with-bright-text look rather than a raw color
+            // test swatch (that was the previous, now-settled, paint-order question).
             var bg = overlay.AddComponent<Image>();
-            bg.color = Color.magenta;
+            bg.color = new Color(0.03f, 0.05f, 0.03f, 0.96f);
             bg.raycastTarget = false;
 
-            var labelGo = new GameObject("Label", typeof(RectTransform), typeof(Text));
-            labelGo.layer = canvas.gameObject.layer;
-            var labelRt = labelGo.GetComponent<RectTransform>();
-            labelRt.SetParent(rt, false);
-            labelRt.anchorMin = Vector2.zero;
-            labelRt.anchorMax = Vector2.one;
-            labelRt.offsetMin = Vector2.zero;
-            labelRt.offsetMax = Vector2.zero;
-
-            var text = labelGo.GetComponent<Text>();
-            text.font = ResolveFont();
-            text.fontSize = 24;
-            text.alignment = TextAnchor.MiddleCenter;
-            text.color = Color.white;
-            text.text = "NOXMFD POC";
-            text.raycastTarget = false;
+            Font? font = ResolveFont();
+            _spdText = BuildReadoutLine(rt, font, 0);
+            _altText = BuildReadoutLine(rt, font, 1);
+            _fuelText = BuildReadoutLine(rt, font, 2);
 
             _overlay = overlay;
+        }
+
+        // Three equal vertical rows, top to bottom (row 0 = top).
+        private static Text BuildReadoutLine(RectTransform parent, Font? font, int row)
+        {
+            const int rows = 3;
+            float top = 1f - (float)row / rows;
+            float bottom = 1f - (float)(row + 1) / rows;
+
+            var go = new GameObject($"Row{row}", typeof(RectTransform), typeof(Text));
+            go.layer = parent.gameObject.layer;
+            var rt = go.GetComponent<RectTransform>();
+            rt.SetParent(parent, false);
+            rt.anchorMin = new Vector2(0f, bottom);
+            rt.anchorMax = new Vector2(1f, top);
+            rt.offsetMin = Vector2.zero;
+            rt.offsetMax = Vector2.zero;
+
+            var text = go.GetComponent<Text>();
+            text.font = font;
+            text.fontSize = 28;
+            text.alignment = TextAnchor.MiddleCenter;
+            // HUD green, matching HudWaypointCue's reasoning for its own amber choice — a
+            // recognizable cockpit-display color rather than an arbitrary one.
+            text.color = new Color(0.3f, 1f, 0.4f);
+            text.raycastTarget = false;
+            return text;
         }
 
         // Borrow the font off any Text the game already has on screen, same as HudWaypointCue —
