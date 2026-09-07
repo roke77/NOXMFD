@@ -5,8 +5,8 @@ using UnityEngine.UI;
 
 namespace NOXMFD
 {
-    // Native RWR scope for the internal-MFD POC's left (RWR) half: concentric range rings, cardinal
-    // ticks, a heading triangle, an ownship caret, live contact blips, and inbound-missile bearing
+    // Native RWR scope for the internal-MFD's RWR pane: concentric range rings, cardinal ticks, a
+    // heading triangle, an ownship caret, live contact blips, and inbound-missile bearing
     // indicators — matched against the real page's actual SVG (src/web/pages/rwr/rwr.html/rwr.js),
     // not eyeballed: ring radii (460/304/152 of a 1000 viewBox), colors (white family, not this
     // mod's HUD green — rwr.html's rings/caret are rgba(255,255,255,*), contacts are rwr.js's own
@@ -18,9 +18,9 @@ namespace NOXMFD
     // mapping as the real page, even though the *rendering* is a native approximation of its SVG,
     // not the SVG itself (see docs/internal-mfd.md's "Why native, not screen-scraped" for why that
     // gap can't fully close). Own-ship position/heading and every contact/missile position come from
-    // ONE TelemetrySnapshot (TelemetryServer.TryGetLatestSnapshot) so the bearing math can't mix
-    // floating-origin frames.
-    internal sealed class InternalMfdRwrScope
+    // ONE TelemetrySnapshot (TelemetryServer.TryGetLatestSnapshot, passed into Refresh by
+    // InternalMfdPoc) so the bearing math can't mix floating-origin frames.
+    internal sealed class InternalMfdRwrPage : IInternalMfdPage
     {
         private const float MinDistFrac = 0.06f; // matches telemetry-source.js's own floor
         // How much of the smaller container dimension the outer ring fills — the ring itself
@@ -54,8 +54,8 @@ namespace NOXMFD
 
         // rwr.html/rwr.js use stroke-width="3" (out of a 1000 viewBox) for both the cardinal ticks
         // and the missile line — as a fraction of the outer radius (460), not a fixed pixel count
-        // that stays the same regardless of how big the scope itself ends up (BuildOverlay/
-        // InternalMfdPoc size it differently per aircraft/layout).
+        // that stays the same regardless of how big the scope itself ends up (InternalMfdPoc sizes
+        // it differently per aircraft/layout).
         private const float StrokeWidthFrac = 3f / 460f;
 
         // rwr.html's own rgba(255,255,255,*) values — this page's whole scope is the same white
@@ -98,7 +98,7 @@ namespace NOXMFD
         private readonly List<Image> _missileDarts = new List<Image>();
         private readonly List<Image> _notchLines = new List<Image>();
 
-        internal InternalMfdRwrScope(RectTransform parent, Font? font)
+        internal InternalMfdRwrPage(RectTransform parent, Font? font)
         {
             int layer = parent.gameObject.layer;
             _layer = layer;
@@ -112,8 +112,8 @@ namespace NOXMFD
             _radius = _diameter / 2f;
 
             // No title text — the real page has none; the scope fills the whole panel. Centered
-            // in the full half, not offset to leave room for a header.
-            var scopeGo = NewUi("Scope", parent, layer, typeof(RectTransform));
+            // in the full pane, not offset to leave room for a header.
+            var scopeGo = InternalMfdUi.NewUi("Scope", parent, layer, typeof(RectTransform));
             _center = scopeGo.GetComponent<RectTransform>();
             _center.anchorMin = _center.anchorMax = new Vector2(0.5f, 0.5f);
             _center.sizeDelta = new Vector2(_diameter, _diameter);
@@ -139,7 +139,7 @@ namespace NOXMFD
         {
             while (_contactMarkers.Count < count)
             {
-                var go = NewUi($"Contact{_contactMarkers.Count}", _center, _layer, typeof(Image));
+                var go = InternalMfdUi.NewUi($"Contact{_contactMarkers.Count}", _center, _layer, typeof(Image));
                 var rt = go.GetComponent<RectTransform>();
                 rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
                 rt.sizeDelta = new Vector2(10f, 10f);
@@ -149,7 +149,7 @@ namespace NOXMFD
                 go.SetActive(false);
                 _contactMarkers.Add(img);
 
-                var labelGo = NewUi($"Contact{_contactLabels.Count}Label", _center, _layer, typeof(Text));
+                var labelGo = InternalMfdUi.NewUi($"Contact{_contactLabels.Count}Label", _center, _layer, typeof(Text));
                 var labelRt = labelGo.GetComponent<RectTransform>();
                 labelRt.anchorMin = labelRt.anchorMax = new Vector2(0.5f, 0.5f);
                 labelRt.sizeDelta = new Vector2(90f, 16f);
@@ -174,7 +174,7 @@ namespace NOXMFD
         {
             while (_missileMarkers.Count < count)
             {
-                var go = NewUi($"Missile{_missileMarkers.Count}", _center, _layer, typeof(Image));
+                var go = InternalMfdUi.NewUi($"Missile{_missileMarkers.Count}", _center, _layer, typeof(Image));
                 var rt = go.GetComponent<RectTransform>();
                 rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
                 rt.pivot = new Vector2(0.5f, 0f);
@@ -185,7 +185,7 @@ namespace NOXMFD
                 _missileMarkers.Add(rt);
                 _missileImages.Add(img);
 
-                var dartGo = NewUi($"MissileDart{_missileDarts.Count}", _center, _layer, typeof(Image));
+                var dartGo = InternalMfdUi.NewUi($"MissileDart{_missileDarts.Count}", _center, _layer, typeof(Image));
                 var dartRt = dartGo.GetComponent<RectTransform>();
                 dartRt.anchorMin = dartRt.anchorMax = new Vector2(0.5f, 0.5f);
                 dartRt.sizeDelta = new Vector2(DartWidthFrac * _radius, DartLengthFrac * _radius);
@@ -204,7 +204,7 @@ namespace NOXMFD
                 // diameter through the player, static for as long as Notch stays valid — not tied
                 // to the missile's own closing range like the line/dart above). Pivot at centre
                 // (not the bottom like the range line) since it extends both ways from the player.
-                var notchGo = NewUi($"Notch{_notchLines.Count}", _center, _layer, typeof(Image));
+                var notchGo = InternalMfdUi.NewUi($"Notch{_notchLines.Count}", _center, _layer, typeof(Image));
                 var notchRt = notchGo.GetComponent<RectTransform>();
                 notchRt.anchorMin = notchRt.anchorMax = new Vector2(0.5f, 0.5f);
                 notchRt.sizeDelta = new Vector2(StrokeWidthFrac * _radius, _diameter);
@@ -217,7 +217,7 @@ namespace NOXMFD
             }
         }
 
-        internal void Refresh(TelemetrySnapshot snap)
+        public void Refresh(TelemetrySnapshot snap)
         {
             RwrContact[] contacts = snap.Rwr ?? Array.Empty<RwrContact>();
             EnsureContactPool(contacts.Length);
@@ -284,11 +284,10 @@ namespace NOXMFD
                 // Traced through rwr.js's own vector math rather than assumed: its dart uses
                 // (ux,uy)=(-sn,cs), the exact NEGATIVE of (sn,-cs) — the same outward-at-this-
                 // azimuth vector (mx,my) itself is placed with. So the apex sits INWARD from the
-                // line's outer end, toward the player, not continuing further out as guessed the
-                // first time (that guess is what "pointing backwards" was live-testing against).
-                // Same rotation as the line itself, no extra 180 - the dart's own apex already
-                // points local -Y unrotated (see ResolveTriangleSprite), i.e. already inward once
-                // rotated by -az the same way the line is.
+                // line's outer end, toward the player. Same rotation as the line itself, no extra
+                // 180 - the dart's own apex already points local -Y unrotated (see
+                // ResolveTriangleSprite), i.e. already inward once rotated by -az the same way the
+                // line is.
                 _missileDarts[i].rectTransform.anchoredPosition = PolarToLocal(az, outerFrac);
                 _missileDarts[i].rectTransform.localRotation = Quaternion.Euler(0f, 0f, -az);
                 _missileDarts[i].color = flickerColor;
@@ -340,7 +339,7 @@ namespace NOXMFD
 
         private static void BuildRing(RectTransform parent, int layer, Sprite ring, float diameter)
         {
-            var go = NewUi("Ring", parent, layer, typeof(Image));
+            var go = InternalMfdUi.NewUi("Ring", parent, layer, typeof(Image));
             var rt = go.GetComponent<RectTransform>();
             rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
             rt.sizeDelta = new Vector2(diameter, diameter);
@@ -351,12 +350,15 @@ namespace NOXMFD
         }
 
         // A thin bar from innerFrac*Radius to outerFrac*Radius along angleDeg (clockwise from the
-        // nose, same convention as contact/missile azimuth) — shared by the cardinal ticks (fixed
-        // angle) and the missile indicators (rotated live to the missile's bearing).
+        // nose, same convention as contact/missile azimuth) — used by the fixed-angle cardinal
+        // ticks. (Missiles need their own inline construction in EnsureMissilePool/Refresh instead
+        // of this helper — their angle changes every frame, and this helper bakes anchoredPosition
+        // in at the angle passed at construction time, which only holds for elements that never
+        // rotate again.)
         private RectTransform PlaceRadialBar(RectTransform parent, int layer, string name,
             float angleDeg, float innerFrac, float outerFrac, float widthPx, Color color)
         {
-            var go = NewUi(name, parent, layer, typeof(Image));
+            var go = InternalMfdUi.NewUi(name, parent, layer, typeof(Image));
             var rt = go.GetComponent<RectTransform>();
             rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
             rt.pivot = new Vector2(0.5f, 0f); // extends outward along local +Y from its anchored point
@@ -374,7 +376,7 @@ namespace NOXMFD
         // mark visible just above the scope.
         private void BuildHeadingTriangle(RectTransform parent, int layer)
         {
-            var go = NewUi("HeadingTri", parent, layer, typeof(Image));
+            var go = InternalMfdUi.NewUi("HeadingTri", parent, layer, typeof(Image));
             var rt = go.GetComponent<RectTransform>();
             rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
             // Triangle spans viewBox y 18..50 (450..482 units above the 500,500 centre); as a
@@ -396,7 +398,7 @@ namespace NOXMFD
         // not a plain triangle or a dot.
         private void BuildOwnshipCaret(RectTransform parent, int layer)
         {
-            var go = NewUi("Ownship", parent, layer, typeof(Image));
+            var go = InternalMfdUi.NewUi("Ownship", parent, layer, typeof(Image));
             var rt = go.GetComponent<RectTransform>();
             rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
             const float shapeWidth = 50f;  // 525-475
@@ -439,21 +441,13 @@ namespace NOXMFD
             return _dashedLineSprite;
         }
 
-        private static GameObject NewUi(string name, Transform parent, int layer, Type extraComponent)
-        {
-            var go = new GameObject(name, typeof(RectTransform), extraComponent);
-            go.layer = layer;
-            go.GetComponent<RectTransform>().SetParent(parent, false);
-            return go;
-        }
-
         private static Sprite? _solidRingSprite;
         private static Sprite? _dashedRingSprite;
 
         // Procedural antialiased ring (annulus): alpha=1 only in a thin band near the edge. The
         // dashed variant additionally zeroes alpha in angular gaps (rwr.html's two inner rings use
-        // stroke-dasharray; the outer ring is solid) — same runtime-generated-texture approach as
-        // InternalMfdPoc's FUEL dial circle, so range rings need no shipped art either.
+        // stroke-dasharray; the outer ring is solid) — a runtime-generated texture, so range rings
+        // need no shipped art either.
         private static Sprite ResolveRingSprite(bool dashed)
         {
             if (dashed && _dashedRingSprite != null) return _dashedRingSprite;

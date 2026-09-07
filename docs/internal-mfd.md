@@ -2,16 +2,42 @@
 
 ## Status
 
-**Proof-of-concept live-verified on one aircraft (T/A-30 Compass)**, `feature/internal-mfd-poc`,
-paused here for review before further implementation. `InternalMfdPoc.cs` inserts a placeholder
-panel (magenta background + a label) as a child of `TacScreen`'s `Canvas`, toggled by a keybind
-(`internal-mfd-poc-toggle`, unbound by default). Confirmed live: the panel paints on top of the
-native content, and — after the fix below — only on the T/A-30's large center screen, not the two
-smaller side screens sharing the same canvas.
+**Proof-of-concept live-verified on one aircraft (T/A-30 Compass)**, `feature/internal-mfd-poc`.
+Code lives in `src/plugin/InternalMFD/` — see [Code organization](#code-organization) for the
+per-file split. The T/A-30's center screen splits into two panes (see
+[Split-screen layout](#split-screen-layout)): a live, source-matched **RWR** scope
+(`InternalMfdRwrPage.cs` — concentric range rings, contact blips, inbound-missile bearing
+indicators, all confirmed live against the real page's own SVG/JS values) on one side, and a
+**TGP** placeholder (`InternalMfdTgpPage.cs` — a labeled panel only, no live content yet) on the
+other. AVN (speed/altitude/fuel) was implemented, live-verified, and then removed — real visual
+parity with the web AVN page (icon tiles, tick-ring dial gauges) was judged too large a job to
+chase incrementally; RWR was picked instead as a smaller, single-page target to prove native
+content can match a real page closely (see [Live findings](#live-findings)).
 
-Not yet done: real telemetry content (still a static placeholder), and live verification of the
-restore-cleanly paths (toggle-off is exercised every test session; aircraft-change and mission-exit
-are coded but not explicitly confirmed live).
+Not yet done: TGP's actual content, and live verification of the restore-cleanly paths (toggle-off
+is exercised every test session; aircraft-change and mission-exit are coded but not explicitly
+confirmed live).
+
+## Code organization
+
+`src/plugin/InternalMFD/`, split by responsibility rather than kept as one growing file:
+
+- **`InternalMfdPoc.cs`** — the `MonoBehaviour`: toggle, canvas-resolution dispatch, split-vs-single
+  layout construction, per-frame `Refresh` dispatch to whichever pages are mounted. Doesn't know
+  what a page actually draws.
+- **`InternalMfdScreenResolver.cs`** — finds the local player's `Cockpit`/`TacScreen`/`Canvas` for a
+  given aircraft (the reflection chain, the T/A-30 UV crop constant, attach diagnostics). A distinct
+  concern from what gets drawn once the canvas is found.
+- **`IInternalMfdPage.cs`** — the interface every page's content implements: `Refresh
+  (TelemetrySnapshot)` only. Construction is deliberately not part of the interface — each page
+  type takes whatever constructor parameters it needs, which the controller already knows at the
+  call site.
+- **`InternalMfdUi.cs`** — small UI-construction primitives (`NewUi`, `ResolveFont`) shared by every
+  page, instead of duplicated per page (which is exactly what started happening once a second page
+  existed).
+- **`InternalMfdRwrPage.cs`**, **`InternalMfdTgpPage.cs`** — one file per page, each implementing
+  `IInternalMfdPage`. A new page is a new `InternalMfd<Name>Page.cs`, not a growing switch statement
+  in the controller.
 
 ## Goal
 
@@ -101,9 +127,14 @@ shows today:
 
 | Native cockpit shows (today) | NOXMFD equivalent | Notes |
 |---|---|---|
-| Radar picture | `RDR` page | Sweep/contact rendering — highest native-redraw cost of the three |
-| Aircraft gauges (throttle/gear/status tiles) | `AVN` page | Mostly static layout + numeric/needle updates — cheapest to port, and the current POC's target |
+| Radar picture | `RDR` page | Sweep/contact rendering — RWR (a related but simpler radar-warning page, not the main `RDR` radar picture) is the current live page — see [Status](#status) |
+| Targeting pod feed | `TGP` page | Camera feed + manual-control readout — currently a labeled placeholder only, see [Status](#status) |
 | Pylon/loadout display | `WPN` page | Icon-per-station grid, already fairly static-shaped |
+
+AVN (aircraft gauges: speed/altitude/fuel) was implemented and live-verified, then removed —
+matching the web AVN page's icon tiles and tick-ring dial gauges closely enough to be worth
+keeping was judged a larger job than the POC's next step warranted; RWR was picked instead as a
+smaller target to prove native content could match a real page closely, and did.
 
 Scope for a first pass: **one** page at a time replacing the cockpit MFD content, with some way
 to cycle which one is shown (see [Toggle / page selection](#toggle--page-selection)). Standing
@@ -148,15 +179,18 @@ proportions decide this, not a global setting.
 
 The T/A-30's own center screen (the only screen measured so far) is a data point for this rule: its
 UV band is roughly 1024×364 px within the shared texture (see
-[Feasibility approach](#feasibility-approach)), a ≈2.8:1 aspect ratio — wide, a split candidate under
-this rule, not yet implemented as one.
+[Feasibility approach](#feasibility-approach)), a ≈2.8:1 aspect ratio — wide, and implemented as a
+split: `InternalMfdPoc.cs` builds a left and right `RectTransform` half with a vertical separator
+between them, and mounts one `IInternalMfdPage` per half (currently `InternalMfdTgpPage` on the
+left, `InternalMfdRwrPage` on the right — see [Status](#status) and
+[Code organization](#code-organization)).
 
 Open, not yet decided:
 
 - Exact threshold (or per-aircraft judgment call) for "wide" vs. "square-ish" — no numeric aspect
   ratio picked yet.
-- What each half shows once split — two different pages, a fixed pairing, or player-selectable
-  per half independently.
+- Whether the current left/right pairing (TGP/RWR) is fixed or should become player-selectable per
+  half independently.
 - How the separator itself is drawn (a thin native `Image` divider vs. just the gap between two
   independently-anchored regions).
 - Whether "split" reuses any of the external shell's existing split-view concepts

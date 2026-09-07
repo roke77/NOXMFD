@@ -263,7 +263,7 @@ release proceed.
 ## Folder architecture
 
 Current split: `src/plugin/` (C# runtime; `Hud/`, `Http/`, `Stores/`, `Telemetry/`, `Input/`,
-`Tgp/`, and `Akf/` already broken out as internal groupings — see below), `src/web/pages/`
+`Tgp/`, `Akf/`, and `InternalMFD/` already broken out as internal groupings — see below), `src/web/pages/`
 (page-specific browser code), `src/web/shell/`
 (shell/layout code, mixing shared shell mechanics with classic/f35 subfolders),
 `src/web/services/` (shared browser services), `src/web/shared/` (shared CSS/fonts/
@@ -279,8 +279,21 @@ runtime-coupled code. Keep composition roots (`Plugin.cs`, `TelemetryServer.cs`,
 responsibility-group per commit — large reshuffles are hard to review and wreck blame.
 
 `src/plugin/Hud/`, `src/plugin/Http/`, `src/plugin/Stores/`, `src/plugin/Telemetry/`,
-`src/plugin/Input/`, `src/plugin/Tgp/`, `src/plugin/Akf/`, and `src/web/shell/shared/` are
-done — the rest of `src/plugin/` stays flat until enough files are ready to move together.
+`src/plugin/Input/`, `src/plugin/Tgp/`, `src/plugin/Akf/`, `src/plugin/InternalMFD/`, and
+`src/web/shell/shared/` are done — the rest of `src/plugin/` stays flat until enough files
+are ready to move together.
+
+`src/plugin/InternalMFD/` (issue #43, docs/internal-mfd.md) splits by responsibility, not
+just "everything about this feature in one folder": `InternalMfdPoc.cs` (the `MonoBehaviour`
+— toggle, canvas resolution dispatch, split-vs-single layout, per-frame Refresh dispatch to
+whichever pages are mounted), `InternalMfdScreenResolver.cs` (finding the cockpit TacScreen
+canvas for a given aircraft — a distinct concern from what gets drawn on it once found),
+`IInternalMfdPage.cs` (the interface every page's content implements — `Refresh
+(TelemetrySnapshot)` only; construction stays page-type-specific, not part of the
+interface), `InternalMfdUi.cs` (small UI-construction primitives every page shares), and one
+file per page (`InternalMfdRwrPage.cs`, `InternalMfdTgpPage.cs`, ...). Add a new page as a
+new `InternalMfd<Name>Page.cs` implementing `IInternalMfdPage`, not by growing an existing
+page's file or the controller.
 If/when it grows enough to need more internal structure, this is the target shape:
 
 - **`src/plugin/`**: `Core/` (`Plugin.cs`, `MissionLifecycle.cs`, `HarmonyPatches.cs`) ·
