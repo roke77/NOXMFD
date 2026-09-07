@@ -42,13 +42,16 @@ namespace NOXMFD
         private static readonly float[] CenRangeNm = { 10f, 20f, 40f, 80f, 160f };
         private static readonly float[] DepRangeNm = { 15f, 30f, 60f, 120f, 240f };
 
-        // hsd.js: CX=CEN_CY=300 (dead centre), CEN_OUTER=220, DEP_CY=500, DEP_OUTER=420, in a 600
-        // viewBox — expressed here as fractions of this page's own half-width (radius): the ownship
-        // offset is (CY-300)/300, the ring radius is OUTER/300. DEP_OUTER > radius on purpose (the
-        // ring runs past the visible square, same as the real page's own SVG clip) — the RectMask2D
-        // on _center reproduces that.
+        // hsd.js's own CX=CEN_CY=300/CEN_OUTER=220/DEP_CY=500/DEP_OUTER=420 (in a 600 viewBox)
+        // leave real margin above/below CEN's ring for header/footer text this pane doesn't draw
+        // inside the scope the same way — asked to close most of that gap instead of matching the
+        // source ratio exactly, so CenOuterFrac is bumped well past 220/300 (kept as a comment for
+        // reference), leaving just enough margin for the corner readouts. DepOuterFrac keeps the
+        // source's own 420/300 — that one wasn't the problem; the ring was being clipped by a
+        // narrower-than-necessary container (see _center's own construction comment), not by an
+        // undersized radius.
         private const float CenCyOffsetFrac = 0f;
-        private const float CenOuterFrac = 220f / 300f;
+        private const float CenOuterFrac = 0.92f; // hsd.js: 220/300 = 0.733
         private const float DepCyOffsetFrac = 200f / 300f;
         private const float DepOuterFrac = 420f / 300f;
 
@@ -106,12 +109,16 @@ namespace NOXMFD
             _diameter = Mathf.Min(parent.rect.width, parent.rect.height) * FillFrac;
             _radius = _diameter / 2f;
 
+            // Stretched to the FULL pane, not a _diameter-square centered inside it: the pane itself
+            // is wider than it is tall (it's half of the T/A-30's own wide center screen), and DEP
+            // mode's ring (DepOuterFrac > 1) is sized to use that extra width — a square container
+            // sized to the smaller dimension clipped it at the square's own edges well short of the
+            // pane's actual edges, which is exactly the "cutting its sides" gap this fixes. CEN
+            // mode's own ring stays comfortably inside either way (CenOuterFrac < 1). The RectMask2D
+            // still crops whatever a ring runs past even the pane's real bounds.
             var scopeGo = InternalMfdUi.NewUi("Scope", parent, layer, typeof(RectTransform));
             _center = scopeGo.GetComponent<RectTransform>();
-            _center.anchorMin = _center.anchorMax = new Vector2(0.5f, 0.5f);
-            _center.sizeDelta = new Vector2(_diameter, _diameter);
-            // DEP mode's ring runs past this square on purpose (see the class header comment) — a
-            // mask crops it at the pane edge instead of drawing over/past neighboring UI.
+            InternalMfdUi.Stretch(_center);
             scopeGo.AddComponent<RectMask2D>();
 
             _ownship = BuildOwnship();
