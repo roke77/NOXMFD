@@ -21,9 +21,9 @@ namespace NOXMFD
                     sb.Append("{\"id\":\"").Append(TelemetryServer.EscapeJson(list[i].Id))
                       .Append("\",\"label\":\"").Append(TelemetryServer.EscapeJson(list[i].Label)).Append("\"}");
                 }
-                TelemetryServer.WriteJson(ctx, sb.Append(']').ToString());
+                TelemetryServer.WriteJson(ctx, sb.Append(']').ToString(), "/ext-manifest");
             }
-            catch { }
+            catch (Exception ex) { TelemetryServer.LogHttpFailure(ctx, "/ext-manifest", ex); }
             finally { try { ctx.Response.Close(); } catch { } }
         }
 
@@ -75,8 +75,7 @@ namespace NOXMFD
             }
             catch (Exception ex)
             {
-                Plugin.Log?.LogDebug($"[NOXMFD] /ext/{id}/{relPath} error: {ex.Message}");
-                try { ctx.Response.Abort(); } catch { }
+                TelemetryServer.LogHttpFailure(ctx, "/ext/" + id + "/" + relPath, ex);
                 return;
             }
             finally { try { ctx.Response.Close(); } catch { } }
@@ -115,8 +114,11 @@ namespace NOXMFD
                     await Task.Delay(30, ct).ConfigureAwait(false);
                 }
             }
-            catch (OperationCanceledException) { }
-            catch (Exception) { /* client disconnected, normal */ }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { }
+            catch (Exception ex)
+            {
+                TelemetryServer.LogHttpFailure(ctx, "/ext/" + id + "/feed.mjpg", ex);
+            }
             finally
             {
                 ExtensionRegistry.MjpegUnsubscribe(id);

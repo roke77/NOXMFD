@@ -582,7 +582,9 @@ namespace NOXMFD
         {
             if (_navLightsField == null)
                 _navLightsField = typeof(Aircraft).GetField("navLights", BindingFlags.NonPublic | BindingFlags.Instance);
-            object? nl = _navLightsField?.GetValue(ac);
+            object? nl;
+            try { nl = _navLightsField?.GetValue(ac); }
+            catch { return false; }
             if (nl == null) return false;
             if (_navLightsIsOnField == null)
                 _navLightsIsOnField = typeof(NavLights).GetField("isOn", BindingFlags.NonPublic | BindingFlags.Instance);
@@ -1456,7 +1458,8 @@ namespace NOXMFD
         {
             if (_radarConeField == null)
                 _radarConeField = typeof(Radar).GetField("radarCone", BindingFlags.NonPublic | BindingFlags.Instance);
-            return _radarConeField?.GetValue(radar) is float f ? f : 0f;
+            try { return _radarConeField?.GetValue(radar) is float f ? f : 0f; }
+            catch { return 0f; }
         }
 
         // RWR label: the unit's display name (bogeyName is the generic fallback).

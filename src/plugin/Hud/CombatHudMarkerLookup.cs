@@ -20,7 +20,18 @@ namespace NOXMFD
         {
             lookup = null!;
             if (!EnsureReflection()) return false;
-            if (_field!.GetValue(hud) is not Dictionary<Unit, HUDUnitMarker> map)
+            Dictionary<Unit, HUDUnitMarker>? map;
+            try { map = _field!.GetValue(hud) as Dictionary<Unit, HUDUnitMarker>; }
+            catch (System.Exception ex)
+            {
+                if (!_loggedBadType)
+                {
+                    _loggedBadType = true;
+                    Plugin.Log?.LogWarning($"[NOXMFD] HUD marker cue: CombatHUD.markerLookup read failed — disabled: {ex}");
+                }
+                return false;
+            }
+            if (map == null)
             {
                 if (!_loggedBadType)
                 {

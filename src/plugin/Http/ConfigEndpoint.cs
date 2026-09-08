@@ -19,9 +19,9 @@ namespace NOXMFD
                     "{{\"localhost\":\"http://localhost:{0}\",\"lanUrl\":\"{1}\",\"port\":{0},\"version\":\"{2}\"}}",
                     TelemetryServer.Port, TelemetryServer.EscapeJson(TelemetryServer.LanUrl ?? string.Empty),
                     TelemetryServer.EscapeJson(MyPluginInfo.PLUGIN_VERSION));
-                TelemetryServer.WriteJson(ctx, json);
+                TelemetryServer.WriteJson(ctx, json, "/config");
             }
-            catch { }
+            catch (Exception ex) { TelemetryServer.LogHttpFailure(ctx, "/config", ex); }
             finally { try { ctx.Response.Close(); } catch { } }
         }
 
@@ -32,9 +32,9 @@ namespace NOXMFD
         {
             try
             {
-                TelemetryServer.WriteJson(ctx, BuildKeybindsConfig(ctx));
+                TelemetryServer.WriteJson(ctx, BuildKeybindsConfig(ctx), "/keybinds-config");
             }
-            catch { }
+            catch (Exception ex) { TelemetryServer.LogHttpFailure(ctx, "/keybinds-config", ex); }
             finally { try { ctx.Response.Close(); } catch { } }
         }
 
@@ -135,7 +135,7 @@ namespace NOXMFD
                     }
                 }
             }
-            catch { }
+            catch (Exception ex) { Plugin.Log?.LogWarning($"[NOXMFD] local-address enumeration failed while building /keybinds-config: {ex}"); }
             _localAddressCache = set;
             return set;
         }
@@ -152,9 +152,9 @@ namespace NOXMFD
         {
             try
             {
-                TelemetryServer.WriteJson(ctx, TelemetryServer.HudOptionsJson ?? "{}");
+                TelemetryServer.WriteJson(ctx, TelemetryServer.HudOptionsJson ?? "{}", "/hud-options");
             }
-            catch { }
+            catch (Exception ex) { TelemetryServer.LogHttpFailure(ctx, "/hud-options", ex); }
             finally { try { ctx.Response.Close(); } catch { } }
         }
 
@@ -162,9 +162,9 @@ namespace NOXMFD
         {
             try
             {
-                TelemetryServer.WriteJson(ctx, RouteStore.RoutesJson ?? "{\"activeRouteId\":null,\"routes\":[]}");
+                TelemetryServer.WriteJson(ctx, RouteStore.RoutesJson ?? "{\"activeRouteId\":null,\"routes\":[]}", "/wpt-options");
             }
-            catch { }
+            catch (Exception ex) { TelemetryServer.LogHttpFailure(ctx, "/wpt-options", ex); }
             finally { try { ctx.Response.Close(); } catch { } }
         }
 
@@ -172,9 +172,9 @@ namespace NOXMFD
         {
             try
             {
-                TelemetryServer.WriteJson(ctx, LayoutStore.LayoutsJson ?? "{\"layouts\":[]}");
+                TelemetryServer.WriteJson(ctx, LayoutStore.LayoutsJson ?? "{\"layouts\":[]}", "/layout-options");
             }
-            catch { }
+            catch (Exception ex) { TelemetryServer.LogHttpFailure(ctx, "/layout-options", ex); }
             finally { try { ctx.Response.Close(); } catch { } }
         }
 
@@ -182,9 +182,9 @@ namespace NOXMFD
         {
             try
             {
-                TelemetryServer.WriteJson(ctx, HudPresetStore.PresetsJson ?? "{\"current\":1,\"presets\":[]}");
+                TelemetryServer.WriteJson(ctx, HudPresetStore.PresetsJson ?? "{\"current\":1,\"presets\":[]}", "/hud-presets");
             }
-            catch { }
+            catch (Exception ex) { TelemetryServer.LogHttpFailure(ctx, "/hud-presets", ex); }
             finally { try { ctx.Response.Close(); } catch { } }
         }
 
@@ -192,9 +192,9 @@ namespace NOXMFD
         {
             try
             {
-                TelemetryServer.WriteJson(ctx, TgtPresetStore.PresetsJson ?? "{\"current\":1,\"presets\":[]}");
+                TelemetryServer.WriteJson(ctx, TgtPresetStore.PresetsJson ?? "{\"current\":1,\"presets\":[]}", "/tgt-presets");
             }
-            catch { }
+            catch (Exception ex) { TelemetryServer.LogHttpFailure(ctx, "/tgt-presets", ex); }
             finally { try { ctx.Response.Close(); } catch { } }
         }
 
@@ -208,9 +208,9 @@ namespace NOXMFD
             try
             {
                 string cid = ctx.Request.QueryString["cid"] ?? string.Empty;
-                TelemetryServer.WriteJson(ctx, "{\"excluded\":" + SoiFocus.ExcludedJson(cid) + "}");
+                TelemetryServer.WriteJson(ctx, "{\"excluded\":" + SoiFocus.ExcludedJson(cid) + "}", "/soi-excluded");
             }
-            catch { }
+            catch (Exception ex) { TelemetryServer.LogHttpFailure(ctx, "/soi-excluded", ex); }
             finally { try { ctx.Response.Close(); } catch { } }
         }
 
@@ -223,9 +223,9 @@ namespace NOXMFD
                     RatesConfig.FastHz, RatesConfig.ContactHz, RatesConfig.TgpHz, RatesConfig.TgpResolutionName,
                     RatesConfig.TgpJpegQualityName, RatesConfig.TgpLegacyQualityName,
                     RatesConfig.TgpSuppressNative ? "true" : "false");
-                TelemetryServer.WriteJson(ctx, json);
+                TelemetryServer.WriteJson(ctx, json, "/rates-config");
             }
-            catch { }
+            catch (Exception ex) { TelemetryServer.LogHttpFailure(ctx, "/rates-config", ex); }
             finally { try { ctx.Response.Close(); } catch { } }
         }
     }

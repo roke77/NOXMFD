@@ -214,9 +214,9 @@ namespace NOXMFD
                 // bind is denied we try to add both ourselves (works only when the game is elevated;
                 // they persist, so it's one-time); otherwise we fall back to localhost-only and log
                 // the manual fix.
-                bool boundAll = TryBindWildcard();
-                if (!boundAll && _autoSetupLan && TryAutoSetupLanAccess())
-                    boundAll = TryBindWildcard();
+                bool boundAll = TryBindWildcard(out bool wildcardAccessDenied);
+                if (!boundAll && wildcardAccessDenied && _autoSetupLan && TryAutoSetupLanAccess())
+                    boundAll = TryBindWildcard(out _);
 
                 if (!boundAll)
                 {
@@ -251,6 +251,7 @@ namespace NOXMFD
                     _acceptThread = null;
                     _listener = null;
                     cts.Cancel();
+                    cts.Dispose();
                     try { activeListener.Close(); } catch { }
                     Plugin.Log?.LogError($"[NOXMFD] Failed to start the server thread on port {Port}: {ex.Message}");
                     return;
@@ -278,14 +279,22 @@ namespace NOXMFD
         // Try to bind the wildcard prefix (all interfaces). Returns false on the access-denied
         // HttpListenerException that a missing URL reservation raises; rethrows nothing else so
         // the caller can decide whether to attempt setup or fall back.
-        private static bool TryBindWildcard()
+        private static bool TryBindWildcard(out bool accessDenied)
         {
+            accessDenied = false;
             var listener = new HttpListener();
             listener.Prefixes.Add($"http://+:{Port}/");
             try { listener.Start(); _listener = listener; return true; }
-            catch (HttpListenerException)
+            catch (HttpListenerException ex) when (ex.ErrorCode == 5)
+            {
+                accessDenied = true;
+                try { listener.Close(); } catch { }
+                return false;
+            }
+            catch (HttpListenerException ex)
             {
                 try { listener.Close(); } catch { }
+                Plugin.Log?.LogWarning($"[NOXMFD] Wildcard bind on port {Port} failed (Win32={ex.ErrorCode}): {ex.Message}");
                 return false;
             }
             catch (Exception ex)
@@ -327,8 +336,16 @@ namespace NOXMFD
                 using (var p = Process.Start(psi))
                 {
                     if (p == null) return false;
-                    p.WaitForExit(5000);
-                    return p.HasExited && p.ExitCode == 0;
+                    if (!p.WaitForExit(5000))
+                    {
+                        Plugin.Log?.LogWarning($"[NOXMFD] netsh '{args}' timed out after 5000 ms.");
+                        try { p.Kill(); } catch { }
+                        return false;
+                    }
+                    if (p.ExitCode == 0) return true;
+                    string error = p.StandardError.ReadToEnd().Trim();
+                    Plugin.Log?.LogWarning($"[NOXMFD] netsh '{args}' exited {p.ExitCode}: {error}");
+                    return false;
                 }
             }
             catch (Exception ex)
@@ -436,6 +453,7 @@ namespace NOXMFD
                 Plugin.Log?.LogInfo($"[NOXMFD] Port {Port} released after {shutdownWatch.ElapsedMilliseconds} ms.");
             else if (!portReleased)
                 Plugin.Log?.LogWarning($"[NOXMFD] Port {Port} is still listening after {shutdownWatch.ElapsedMilliseconds} ms.");
+            cts?.Dispose();
         }
 
         // Called from Unity main thread — just stores the latest snapshot.
@@ -637,7 +655,26 @@ namespace NOXMFD
         // serving: status/content-type/length/write/close, plus Cache-Control for the small
         // on-demand JSON snapshots. Orthogonal to *what* gets serialized (that's the JSON-writer
         // layer docs/server-hardening.md already scopes) — this is just the plumbing.
-        internal static void WriteJson(HttpListenerContext ctx, string json)
+        // A client closing its browser while a response is being written is expected. Everything
+        // else at an HTTP boundary needs enough context to diagnose without exposing details to a
+        // remote caller.
+        internal static void LogHttpFailure(HttpListenerContext ctx, string endpoint, Exception ex)
+        {
+            if (IsExpectedClientDisconnect(ex)) return;
+            Plugin.Log?.LogWarning($"[NOXMFD] HTTP {endpoint} failed for {ctx.Request.RemoteEndPoint}: {ex}");
+            try { ctx.Response.StatusCode = 500; } catch { }
+        }
+
+        internal static bool IsExpectedClientDisconnect(Exception ex)
+        {
+            if (ex is OperationCanceledException || ex is ObjectDisposedException || ex is System.IO.IOException)
+                return true;
+            if (ex is HttpListenerException listenerEx)
+                return listenerEx.ErrorCode == 64 || listenerEx.ErrorCode == 995 || listenerEx.ErrorCode == 1229;
+            return false;
+        }
+
+        internal static void WriteJson(HttpListenerContext ctx, string json, string endpoint = "json")
         {
             try
             {
@@ -648,11 +685,11 @@ namespace NOXMFD
                 ctx.Response.Headers.Add("Cache-Control", "no-cache");
                 ctx.Response.OutputStream.Write(body, 0, body.Length);
             }
-            catch { }
+            catch (Exception ex) { LogHttpFailure(ctx, endpoint, ex); }
             finally { try { ctx.Response.Close(); } catch { } }
         }
 
-        internal static void WriteBinary(HttpListenerContext ctx, byte[] body, string contentType)
+        internal static void WriteBinary(HttpListenerContext ctx, byte[] body, string contentType, string endpoint = "binary")
         {
             try
             {
@@ -661,7 +698,7 @@ namespace NOXMFD
                 ctx.Response.ContentLength64 = body.Length;
                 ctx.Response.OutputStream.Write(body, 0, body.Length);
             }
-            catch { }
+            catch (Exception ex) { LogHttpFailure(ctx, endpoint, ex); }
             finally { try { ctx.Response.Close(); } catch { } }
         }
 
@@ -773,7 +810,7 @@ namespace NOXMFD
                 ctx.Response.StatusCode = 302;
                 ctx.Response.RedirectLocation = location;
             }
-            catch { }
+            catch (Exception ex) { LogHttpFailure(ctx, "redirect", ex); }
             finally { try { ctx.Response.Close(); } catch { } }
         }
 

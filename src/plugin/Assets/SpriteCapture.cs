@@ -73,19 +73,19 @@ namespace NOXMFD
         {
             try
             {
-                if (req.hasError) { onEncoded(null); return; }
+                if (req.hasError) { Deliver(onEncoded, null); return; }
 
                 // The NativeArray is only valid during this callback — copy out before scheduling.
                 var data = req.GetData<byte>();
                 byte[] bytes = new byte[data.Length];
                 data.CopyTo(bytes);
 
-                Task.Run(() => EncodeAndDeliver(bytes, w, h, enc, synthAlpha, quality, onEncoded));
+                _ = Task.Run(() => EncodeAndDeliver(bytes, w, h, enc, synthAlpha, quality, onEncoded));
             }
             catch (Exception ex)
             {
                 Plugin.Log?.LogWarning($"[NOXMFD] SpriteCapture readback failed: {ex.Message}");
-                onEncoded(null);
+                Deliver(onEncoded, null);
             }
             finally
             {
@@ -98,28 +98,32 @@ namespace NOXMFD
                                         Encoding enc, bool synthAlpha, int quality, Action<byte[]?> onEncoded)
         {
             RenderTexture rt = RenderTexture.GetTemporary(w, h, 0, RenderTextureFormat.ARGB32, RenderTextureReadWrite.sRGB);
+            Texture2D? readable = null;
+            RenderTexture prev = RenderTexture.active;
             try
             {
                 Graphics.Blit(tex, rt, scale, offset);
-                RenderTexture prev = RenderTexture.active;
                 RenderTexture.active = rt;
-                var readable = new Texture2D(w, h, TextureFormat.RGBA32, false);
+                readable = new Texture2D(w, h, TextureFormat.RGBA32, false);
                 readable.ReadPixels(new Rect(0f, 0f, w, h), 0, 0);
                 readable.Apply();
-                RenderTexture.active = prev;
 
                 byte[] bytes = readable.GetRawTextureData();
-                UnityEngine.Object.Destroy(readable);
                 EncodeAndDeliver(bytes, w, h, enc, synthAlpha, quality, onEncoded);
                 return true;
             }
             catch (Exception ex)
             {
                 Plugin.Log?.LogWarning($"[NOXMFD] SpriteCapture (sync) failed: {ex.Message}");
-                onEncoded(null);
+                Deliver(onEncoded, null);
                 return false;
             }
-            finally { RenderTexture.ReleaseTemporary(rt); }
+            finally
+            {
+                RenderTexture.active = prev;
+                if (readable != null) UnityEngine.Object.Destroy(readable);
+                RenderTexture.ReleaseTemporary(rt);
+            }
         }
 
         // Pure-CPU: safe on a background thread. ImageConversion.EncodeArray* operate on raw
@@ -133,13 +137,19 @@ namespace NOXMFD
                 byte[] outp = enc == Encoding.Jpg
                     ? ImageConversion.EncodeArrayToJPG(rgba, Fmt, (uint)w, (uint)h, 0, quality)
                     : ImageConversion.EncodeArrayToPNG(rgba, Fmt, (uint)w, (uint)h, 0);
-                onEncoded(outp);
+                Deliver(onEncoded, outp);
             }
             catch (Exception ex)
             {
                 Plugin.Log?.LogWarning($"[NOXMFD] SpriteCapture encode failed: {ex.Message}");
-                onEncoded(null);
+                Deliver(onEncoded, null);
             }
+        }
+
+        private static void Deliver(Action<byte[]?> onEncoded, byte[]? bytes)
+        {
+            try { onEncoded(bytes); }
+            catch (Exception ex) { Plugin.Log?.LogWarning($"[NOXMFD] SpriteCapture consumer failed: {ex}"); }
         }
 
         // Icons stored without alpha (DXT1/RGB24) read as fully opaque, so a straight tint gives

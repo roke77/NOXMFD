@@ -146,7 +146,7 @@ namespace NOXMFD
             if (captured != null)
             {
                 // The captured map is JPEG (downscaled in TelemetryReader.MapSpriteToJpg).
-                TelemetryServer.WriteBinary(ctx, captured, "image/jpeg");
+                TelemetryServer.WriteBinary(ctx, captured, "image/jpeg", "/map");
                 return;
             }
 
@@ -175,9 +175,9 @@ namespace NOXMFD
 
             try
             {
-                TelemetryServer.WriteBinary(ctx, File.ReadAllBytes(filePath), contentType);
+                TelemetryServer.WriteBinary(ctx, File.ReadAllBytes(filePath), contentType, "/map");
             }
-            catch { }
+            catch (Exception ex) { TelemetryServer.LogHttpFailure(ctx, "/map", ex); }
             finally { try { ctx.Response.Close(); } catch { } }
         }
 
@@ -210,7 +210,7 @@ namespace NOXMFD
                 ctx.Response.Headers.Add("Cache-Control", "no-cache");
                 ctx.Response.OutputStream.Write(bytes, 0, bytes.Length);
             }
-            catch { }
+            catch (Exception ex) { TelemetryServer.LogHttpFailure(ctx, "/icon-types", ex); }
             finally { try { ctx.Response.Close(); } catch { } }
         }
 
@@ -228,7 +228,7 @@ namespace NOXMFD
                 return;
             }
 
-            TelemetryServer.WriteBinary(ctx, png, "image/png");
+            TelemetryServer.WriteBinary(ctx, png, "image/png", "/icon");
         }
 
         internal static void ServeAirframeImage(HttpListenerContext ctx)
@@ -246,7 +246,7 @@ namespace NOXMFD
                 return;
             }
 
-            TelemetryServer.WriteBinary(ctx, png, "image/png");
+            TelemetryServer.WriteBinary(ctx, png, "image/png", "/airframe");
         }
 
         internal static void ServeAirframeLayout(HttpListenerContext ctx)
@@ -263,7 +263,7 @@ namespace NOXMFD
                 return;
             }
 
-            TelemetryServer.WriteBinary(ctx, Encoding.UTF8.GetBytes(json), "application/json; charset=utf-8");
+            TelemetryServer.WriteBinary(ctx, Encoding.UTF8.GetBytes(json), "application/json; charset=utf-8", "/airframe-layout");
         }
     }
 }

@@ -96,8 +96,11 @@ namespace NOXMFD
                     await Task.Delay(40, ct).ConfigureAwait(false);
                 }
             }
-            catch (OperationCanceledException) { }
-            catch (Exception) { /* client disconnected, normal */ }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { }
+            catch (Exception ex)
+            {
+                TelemetryServer.LogHttpFailure(ctx, "/tgp.mjpg", ex);
+            }
             finally
             {
                 Interlocked.Decrement(ref _subscribers);

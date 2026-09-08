@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using System.IO;
 
 namespace NOXMFD
@@ -13,6 +15,11 @@ namespace NOXMFD
     // notices still loses the last good state. Upgrade path: timestamped rotation, keep last N.
     internal static class ConfigBackup
     {
+        // Storage seam: Plugin wires this to BepInEx logging while the standalone test project
+        // leaves it null and keeps this backup primitive BCL-only.
+        internal static Action<string>? LogWarning;
+        private static readonly HashSet<string> _warnedPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
         internal static void BackupIfExists(string path)
         {
             try
@@ -20,7 +27,23 @@ namespace NOXMFD
                 if (!File.Exists(path)) return;
                 File.Copy(path, path + ".bak", overwrite: true);
             }
-            catch { }   // best-effort — never let a backup failure break config saving
+            catch (IOException ex)
+            {
+                WarnOnce(path, ex);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                WarnOnce(path, ex);
+            }
+        }
+
+        private static void WarnOnce(string path, Exception ex)
+        {
+            lock (_warnedPaths)
+            {
+                if (!_warnedPaths.Add(path)) return;
+            }
+            LogWarning?.Invoke($"[NOXMFD] could not back up '{path}': {ex.Message}; saving will continue.");
         }
     }
 }

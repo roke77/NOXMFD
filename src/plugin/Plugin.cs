@@ -43,6 +43,7 @@ namespace NOXMFD
             TryBind("JSON self-check", JsonLite.SelfCheck);                     // docs/hud-waypoint-indicator.md — pure parser, no C# test runner exists in this repo
             RouteStore.ConfigDir = Paths.ConfigPath;                           // injected so RouteStore.cs stays BepInEx-free
             RouteStore.LogWarning = msg => Log?.LogWarning(msg);
+            ConfigBackup.LogWarning = msg => Log?.LogWarning(msg);
             TelemetryAssets.LogDebug = msg => Log?.LogDebug(msg);                  // same BepInEx-free seam, for /assets error logging
             TdStore.LogInfo = msg => Log?.LogInfo(msg);                          // same BepInEx-free seam, for TdStore.cs's DESIGNATE-receipt log
             PresetSlots.LogWarning = msg => Log?.LogWarning(msg);                 // same BepInEx-free seam, shared by HudPresetStore/TgtPresetStore

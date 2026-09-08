@@ -30,6 +30,7 @@ namespace NOXMFD
         // Latest published high-rate event JSON per event name, same shape as _slices.
         private static readonly ConcurrentDictionary<string, string> _events = new ConcurrentDictionary<string, string>(StringComparer.Ordinal);
         private static readonly Dictionary<string, string> _emptyEvents = new Dictionary<string, string>(StringComparer.Ordinal);
+        private static readonly ConcurrentDictionary<string, byte> _invalidPayloadWarnings = new ConcurrentDictionary<string, byte>(StringComparer.Ordinal);
 
         private const int MaxQueuedCommands = 64;
         private static readonly Queue<(string Id, string Json)> _cmdQueue = new Queue<(string, string)>();
@@ -78,6 +79,11 @@ namespace NOXMFD
         internal static void PublishSlice(string id, string json)
         {
             if (string.IsNullOrEmpty(id) || json == null) return;
+            if (!ExtensionJsonValidator.IsCompleteValue(json))
+            {
+                WarnInvalidPayload("slice", id);
+                return;
+            }
             _slices[id] = json;
         }
 
@@ -100,7 +106,19 @@ namespace NOXMFD
         internal static void PublishEvent(string eventName, string json)
         {
             if (string.IsNullOrEmpty(eventName) || json == null) return;
+            if (!ExtensionJsonValidator.IsCompleteValue(json))
+            {
+                WarnInvalidPayload("event", eventName);
+                return;
+            }
             _events[eventName] = json;
+        }
+
+        private static void WarnInvalidPayload(string kind, string name)
+        {
+            string key = kind + ":" + name;
+            if (_invalidPayloadWarnings.TryAdd(key, 0))
+                Plugin.Log?.LogWarning($"[NOXMFD] extension {kind} '{name}' published invalid JSON; keeping the last valid value.");
         }
 
         // Snapshot for one SSE connection's per-tick diff pass — a copy so that connection's own

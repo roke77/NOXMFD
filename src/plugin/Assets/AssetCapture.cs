@@ -49,6 +49,7 @@ namespace NOXMFD
         private bool _capturedJammerIcon = false;
         private bool _missileIconCaptured;
         private bool _mapCaptured;
+        private bool _statusDisplayReadFailureLogged;
 
         // Cached reflection handles into StatusDisplay's private serialized fields.
         private static FieldInfo? _sdStatusDisplaysField;
@@ -88,8 +89,22 @@ namespace NOXMFD
                 return;
             }
 
-            Image? bgImage = _sdBackgroundField.GetValue(sd) as Image;
-            System.Collections.IList? partsList = _sdStatusDisplaysField.GetValue(sd) as System.Collections.IList;
+            Image? bgImage;
+            System.Collections.IList? partsList;
+            try
+            {
+                bgImage = _sdBackgroundField.GetValue(sd) as Image;
+                partsList = _sdStatusDisplaysField.GetValue(sd) as System.Collections.IList;
+            }
+            catch (Exception ex)
+            {
+                if (!_statusDisplayReadFailureLogged)
+                {
+                    _statusDisplayReadFailureLogged = true;
+                    Plugin.Log?.LogWarning($"[NOXMFD] AVN: StatusDisplay read failed; airframe capture will retry: {ex}");
+                }
+                return;
+            }
             if (bgImage == null || partsList == null)
                 return;   // StatusDisplay found but not populated yet — retry next slow scan (don't cache a miss)
 
@@ -182,7 +197,9 @@ namespace NOXMFD
             // page owns visual styling. The reader polls activeSelf on these each tick to know
             // which messages are currently firing.
             var failureGOs = new List<GameObject>();
-            System.Collections.IList? failureList = _sdFailureIndicatorsField?.GetValue(sd) as System.Collections.IList;
+            System.Collections.IList? failureList = null;
+            try { failureList = _sdFailureIndicatorsField?.GetValue(sd) as System.Collections.IList; }
+            catch (Exception ex) { Plugin.Log?.LogWarning($"[NOXMFD] AVN: failure-indicator read failed: {ex}"); }
             if (failureList != null)
             {
                 for (int i = 0; i < failureList.Count; i++)

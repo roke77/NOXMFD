@@ -73,6 +73,7 @@ namespace NOXMFD
         private int            _encoderDrops;
         private bool           _cockpitDisplaySuppressed;
         private bool           _toggleMissingLogged;
+        private bool           _targetCamReadFailureLogged;
         private bool           _lastDiagWantsTgp;
         private bool           _lastDiagSuppressSetting;
         private bool           _lastDiagCockpitSuppressed;
@@ -140,8 +141,11 @@ namespace NOXMFD
             }
             if (_camField == null || _screenRendererField == null) { ClearFeed(showTargetCam: false, restoreCockpit: !SuppressNativeDisplay); return; }
 
-            Camera? cam = _camField.GetValue(tc) as Camera;
-            Renderer? screenRenderer = _screenRendererField.GetValue(tc) as Renderer;
+            if (!TryReadTargetCamFields(tc, out Camera? cam, out Renderer? screenRenderer))
+            {
+                ClearFeed(showTargetCam: false, restoreCockpit: !SuppressNativeDisplay);
+                return;
+            }
 
             // Only refresh the camTimeout while a target is actually locked — SetTargetCam
             // would crash on an empty list, and not calling it is what gives us the 3-second
@@ -163,8 +167,11 @@ namespace NOXMFD
 
             // After the game's 3-second timeout expires, cam.enabled flips to false. Stop
             // pushing then so MJPEG clients see "no feed" and fall back to NO TARGET.
-            cam = _camField.GetValue(tc) as Camera;
-            screenRenderer = _screenRendererField.GetValue(tc) as Renderer;
+            if (!TryReadTargetCamFields(tc, out cam, out screenRenderer))
+            {
+                ClearFeed(showTargetCam: false, restoreCockpit: !SuppressNativeDisplay);
+                return;
+            }
             if (cam == null || !cam.enabled) { ClearFeed(showTargetCam: false, restoreCockpit: !SuppressNativeDisplay); return; }
 
             TgpCaptureSettings settings = TgpFeedSettings.Resolve(Resolution, JpegQuality);
@@ -306,9 +313,16 @@ namespace NOXMFD
             if (!TelemetryServer.WantsTgpFrames) return;              // disengaged while in flight
             if (settingsGeneration != Volatile.Read(ref _settingsGeneration)) return;
 
-            byte[] data = request.GetData<byte>().ToArray();
-            EnqueueEncode(new EncodeWork(data, w, h, ir, jpegQuality,
-                                         captureGeneration, settingsGeneration));
+            try
+            {
+                byte[] data = request.GetData<byte>().ToArray();
+                EnqueueEncode(new EncodeWork(data, w, h, ir, jpegQuality,
+                                             captureGeneration, settingsGeneration));
+            }
+            catch (Exception ex)
+            {
+                Plugin.Log?.LogWarning($"[NOXMFD] TGP readback copy failed: {ex}");
+            }
         }
 
         private void EnqueueEncode(EncodeWork work)
@@ -333,7 +347,13 @@ namespace NOXMFD
                     IsBackground = true,
                     Name = "NOXMFD TGP JPEG",
                 };
-                worker.Start();
+                try { worker.Start(); }
+                catch (Exception ex)
+                {
+                    lock (_encoderGate) { _encoderStarted = false; _pendingEncode = null; }
+                    Plugin.Log?.LogWarning($"[NOXMFD] TGP JPEG worker failed to start: {ex}");
+                    return;
+                }
             }
             _encoderSignal.Set();
         }
@@ -495,6 +515,27 @@ namespace NOXMFD
                 Plugin.Log?.LogWarning("[NOXMFD] TGP: could not locate TargetCam private fields — feed disabled.");
         }
 
+        private bool TryReadTargetCamFields(TargetCam tc, out Camera? cam, out Renderer? screenRenderer)
+        {
+            cam = null;
+            screenRenderer = null;
+            try
+            {
+                cam = _camField!.GetValue(tc) as Camera;
+                screenRenderer = _screenRendererField!.GetValue(tc) as Renderer;
+                return true;
+            }
+            catch (Exception ex)
+            {
+                if (!_targetCamReadFailureLogged)
+                {
+                    _targetCamReadFailureLogged = true;
+                    Plugin.Log?.LogWarning($"[NOXMFD] TGP: TargetCam field read failed; feed is temporarily unavailable: {ex}");
+                }
+                return false;
+            }
+        }
+
         private void UpdateNativeSuppressionGate()
         {
             GameManager.GetLocalAircraft(out Aircraft ac);
@@ -553,13 +594,27 @@ namespace NOXMFD
 
         private void InvokeTargetCamToggle(TargetCam tc, bool enabled)
         {
-            if (_onCamToggleField?.GetValue(tc) is Action<TargetCam.OnCamToggle> toggle)
+            Action<TargetCam.OnCamToggle>? toggle = null;
+            try { toggle = _onCamToggleField?.GetValue(tc) as Action<TargetCam.OnCamToggle>; }
+            catch (Exception ex)
             {
-                toggle.Invoke(new TargetCam.OnCamToggle
+                Plugin.Log?.LogWarning($"[NOXMFD] TGP: TargetCam.onCamToggle read failed; cockpit suppression skipped: {ex}");
+                return;
+            }
+            if (toggle != null)
+            {
+                try
                 {
-                    enabled = enabled,
-                    camMode = TargetCam.CamMode.targetForward
-                });
+                    toggle.Invoke(new TargetCam.OnCamToggle
+                    {
+                        enabled = enabled,
+                        camMode = TargetCam.CamMode.targetForward
+                    });
+                }
+                catch (Exception ex)
+                {
+                    Plugin.Log?.LogWarning($"[NOXMFD] TGP: TargetCam.onCamToggle invocation failed; cockpit suppression skipped: {ex}");
+                }
             }
             else
             {

@@ -108,7 +108,14 @@ namespace NOXMFD
                 return false;
             }
             // The live radarAlt label is TextMeshPro, matching the current native HUD UI stack.
-            if (_radarAltField!.GetValue(altitude) is not TMP_Text radarAlt || radarAlt == null)
+            TMP_Text? radarAlt;
+            try { radarAlt = _radarAltField!.GetValue(altitude) as TMP_Text; }
+            catch (System.Exception ex)
+            {
+                if (!_loggedBadField) { _loggedBadField = true; Plugin.Log?.LogWarning($"[NOXMFD] HUD TTI: Altitude.radarAlt read failed — cue disabled: {ex}"); }
+                return false;
+            }
+            if (radarAlt == null)
             {
                 if (!_loggedBadField) { _loggedBadField = true; Plugin.Log?.LogWarning("[NOXMFD] HUD TTI: Altitude found, but radarAlt field read null/wrong type — cue disabled."); }
                 return false;

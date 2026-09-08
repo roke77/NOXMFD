@@ -64,6 +64,7 @@
     <!-- RemoteInputState.cs (issue #77) — pure BCL (System.Collections.Generic + DateTime.UtcNow),
          no TelemetryServer/Keybinds touchpoint. -->
     <Compile Include="..\..\src\plugin\Input\RemoteInputState.cs" Link="Source\RemoteInputState.cs" />
+    <Compile Include="..\..\src\plugin\Extensions\ExtensionJsonValidator.cs" Link="Source\ExtensionJsonValidator.cs" />
     <!-- ConfigBackup.cs (post-0.36.1) — pure System.IO, no Unity/BepInEx touchpoint. -->
     <Compile Include="..\..\src\plugin\ConfigBackup.cs" Link="Source\ConfigBackup.cs" />
     <Compile Include="..\..\src\plugin\Input\WeaponSelectorLogic.cs" Link="Source\WeaponSelectorLogic.cs" />

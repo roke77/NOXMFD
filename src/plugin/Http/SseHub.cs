@@ -249,8 +249,8 @@ namespace NOXMFD
                     sinceFrame += CursorTickMs;
                 }
             }
-            catch (OperationCanceledException) { }
-            catch (Exception ex) { Plugin.Log?.LogWarning($"[NOXMFD] Client error: {ex.Message}"); }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { }
+            catch (Exception ex) { TelemetryServer.LogHttpFailure(ctx, "/stream", ex); }
             finally
             {
                 _instances.TryRemove(conn, out _);
@@ -281,9 +281,9 @@ namespace NOXMFD
                         (DateTime.UtcNow - it.ConnectedUtc).TotalSeconds);
                 }
                 sb.Append("]}");
-                TelemetryServer.WriteJson(ctx, sb.ToString());
+                TelemetryServer.WriteJson(ctx, sb.ToString(), "/soi-instances");
             }
-            catch { }
+            catch (Exception ex) { TelemetryServer.LogHttpFailure(ctx, "/soi-instances", ex); }
             finally { try { ctx.Response.Close(); } catch { } }
         }
 

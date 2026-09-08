@@ -9,6 +9,8 @@ namespace NOXMFD
     {
         private static FieldInfo?  _stationsField;
         private static MethodInfo? _getFirstMethod;
+        private static bool _loggedStationsFailure;
+        private static bool _loggedCountermeasureFailure;
 
         // CountermeasureManager.countermeasureStations, or null if unresolved.
         public static IList? GetStations(CountermeasureManager mgr)
@@ -16,7 +18,16 @@ namespace NOXMFD
             if (_stationsField == null)
                 _stationsField = typeof(CountermeasureManager)
                     .GetField("countermeasureStations", BindingFlags.NonPublic | BindingFlags.Instance);
-            return _stationsField?.GetValue(mgr) as IList;
+            try { return _stationsField?.GetValue(mgr) as IList; }
+            catch (System.Exception ex)
+            {
+                if (!_loggedStationsFailure)
+                {
+                    _loggedStationsFailure = true;
+                    Plugin.Log?.LogWarning($"[NOXMFD] countermeasure station read failed; CM integration is unavailable: {ex}");
+                }
+                return null;
+            }
         }
 
         // Cached against the first station's type; assumes all stations share one runtime type.
@@ -25,7 +36,16 @@ namespace NOXMFD
             if (_getFirstMethod == null)
                 _getFirstMethod = station.GetType()
                     .GetMethod("GetFirstCountermeasure", BindingFlags.Public | BindingFlags.Instance);
-            return _getFirstMethod?.Invoke(station, null) as Countermeasure;
+            try { return _getFirstMethod?.Invoke(station, null) as Countermeasure; }
+            catch (System.Exception ex)
+            {
+                if (!_loggedCountermeasureFailure)
+                {
+                    _loggedCountermeasureFailure = true;
+                    Plugin.Log?.LogWarning($"[NOXMFD] countermeasure station read failed; CM integration is unavailable: {ex}");
+                }
+                return null;
+            }
         }
     }
 }

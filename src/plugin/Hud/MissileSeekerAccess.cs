@@ -22,6 +22,7 @@ namespace NOXMFD
     {
         private static bool _reflectionTried;
         private static FieldInfo? _targetUnitField;
+        private static bool _loggedReadFailure;
 
         private static bool Ensure()
         {
@@ -33,7 +34,19 @@ namespace NOXMFD
             return _targetUnitField != null;
         }
 
-        internal static Unit? GetTargetUnit(MissileSeeker seeker) =>
-            Ensure() ? _targetUnitField!.GetValue(seeker) as Unit : null;
+        internal static Unit? GetTargetUnit(MissileSeeker seeker)
+        {
+            if (!Ensure()) return null;
+            try { return _targetUnitField!.GetValue(seeker) as Unit; }
+            catch (System.Exception ex)
+            {
+                if (!_loggedReadFailure)
+                {
+                    _loggedReadFailure = true;
+                    Plugin.Log?.LogWarning($"[NOXMFD] TTI: MissileSeeker.targetUnit read failed; falling back to Missile.targetID only: {ex}");
+                }
+                return null;
+            }
+        }
     }
 }

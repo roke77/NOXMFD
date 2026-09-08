@@ -22,11 +22,11 @@ namespace NOXMFD
         public static void UnregisterExtension(string id) => ExtensionRegistry.Unregister(id);
 
         // Spliced into the outgoing 10 Hz frame under "ext":{"<id>":<json>}; last-write-wins.
-        // json must already be valid JSON — never parsed or validated.
+        // json must be a complete JSON value. Invalid input is rejected and the previous value stays live.
         public static void PublishSlice(string id, string json) => ExtensionRegistry.PublishSlice(id, json);
 
         // High-rate, change-gated value on its own SSE channel, for anything too laggy on the 10 Hz
-        // frame. Arrives client-side as "ext-<eventName>". json must already be valid JSON.
+        // frame. Arrives client-side as "ext-<eventName>". json must be a complete JSON value.
         public static void PublishEvent(string eventName, string json) => ExtensionRegistry.PublishEvent(eventName, json);
 
         // Continuous MJPEG feed served at /ext/<id>/feed.mjpg. WantsMjpegFrames reports whether

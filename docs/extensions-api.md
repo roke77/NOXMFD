@@ -85,8 +85,9 @@ slice into its iframe using the stable page-facing message:
 { mfd: true, type: 'ext', data: payload }
 ```
 
-Published JSON is trusted and appended without parsing or validation, so the extension must provide
-valid JSON.
+Published JSON must be a complete JSON value. NOXMFD validates syntax at publication time; invalid
+payloads are rejected, the last valid value remains live, and the plugin logs one warning for that
+extension slice or event name.
 
 `Api.PublishEvent(eventName, json)` stores a latest-value, change-gated SSE event. `SseHub` sends it
 as `event: ext-<eventName>`. The server side exists, but the shells do not automatically subscribe
@@ -148,7 +149,7 @@ handler polls for a changed frame every 30 ms; the extension controls the actual
 - Mission-end `_emitEmpties()` cannot emit id-specific clears because the telemetry service does not
   own the runtime extension manifest. An extension page should also derive mission availability from
   normal frame state when stale data matters.
-- Published telemetry and SSE strings are not JSON-validated by NOXMFD.
+- Published telemetry and SSE strings are syntax-validated by NOXMFD before they are retained.
 - Extension ids are not normalized or escaped for use as route segments; extensions must choose
   stable URL-safe ids.
 - The API does not provide a generic browser command helper. An extension posts to its own endpoint
