@@ -5,21 +5,23 @@ using UnityEngine.UI;
 namespace NOXMFD
 {
     // Proof-of-concept for issue #43 (docs/internal-mfd.md): native NOXMFD page content drawn
-    // directly on the T/A-30 Compass's center cockpit screen — split left/right on this screen's
-    // wide aspect ratio (docs/internal-mfd.md's "Split-screen layout" requirement). This file only
-    // owns the overlay's own lifecycle (toggle, canvas resolution, split-vs-single layout, dispatching
-    // Refresh once per pane) — what's actually drawn in a pane is an IInternalMfdPage, built and
-    // owned by the page's own class (InternalMfdHsdPage, InternalMfdRwrPage, InternalMfdTgpPage,
-    // ...), not this one. InternalMfdScreenResolver owns finding the cockpit canvas itself; this
-    // class doesn't reach into Cockpit/TacScreen directly any more.
+    // directly on a cockpit screen — split left/right for a wide screen (InternalMfdScreenResolver's
+    // per-aircraft Split flag), one full region for a squarish one (docs/internal-mfd.md's
+    // "Split-screen layout" requirement). This file only owns the overlay's own lifecycle (toggle,
+    // canvas resolution, split-vs-single layout, dispatching Refresh once per pane) — what's
+    // actually drawn in a pane is an IInternalMfdPage, built and owned by the page's own class
+    // (InternalMfdHsdPage, InternalMfdRwrPage, InternalMfdTgpPage, ...), not this one.
+    // InternalMfdScreenResolver owns finding the cockpit canvas itself; this class doesn't reach
+    // into Cockpit/TacScreen directly any more.
     //
-    // The left pane isn't a single fixed page: HSD mounts there by default, but InternalMfdTgpPage
-    // takes over the instant the TGP has a real weapon lock or TgpManualControl's manual mode is
-    // engaged, then HSD remounts the moment neither is true any more — the same "TGP owns the
-    // screen while it's actually showing something" behavior the real cockpit's own small TGP
-    // display already has, just extended to this whole pane. Both pages are built once and kept
-    // alive behind their own wrapper GameObject; switching is a SetActive toggle, not a rebuild, so
-    // neither page loses state across a swap.
+    // One pane isn't a single fixed page: a default page (HSD for a split layout's left half, RWR
+    // for a squarish layout's one region) mounts there normally, but InternalMfdTgpPage takes over
+    // the instant the TGP has a real weapon lock or TgpManualControl's manual mode is engaged, then
+    // the default page remounts the moment neither is true any more — the same "TGP owns the screen
+    // while it's actually showing something" behavior the real cockpit's own small TGP display
+    // already has, just extended to this whole pane. Both pages are built once and kept alive
+    // behind their own wrapper GameObject; switching is a SetActive toggle, not a rebuild, so
+    // neither page loses state across a swap. A split layout's right half (fixed RWR) never swaps.
     //
     // Mission-scoped (added in MissionLifecycle.StartReader, same as the Hud* cues), because the
     // Cockpit/TacScreen chain only exists for a live local-player aircraft.
@@ -31,11 +33,11 @@ namespace NOXMFD
         private Aircraft?   _tacAircraft; // which aircraft _tacCanvas belongs to, so a switch is caught
                                            // even if the old Canvas hasn't gone fake-null yet
         private GameObject? _overlay;
-        private GameObject? _leftHsdRoot;
-        private GameObject? _leftTgpRoot;
-        private IInternalMfdPage? _leftHsdPage;
-        private IInternalMfdPage? _leftTgpPage;
-        private IInternalMfdPage? _rightPage;
+        private GameObject? _swapDefaultRoot; // HSD (split) or RWR (squarish) — whichever TGP overrides
+        private GameObject? _swapTgpRoot;
+        private IInternalMfdPage? _swapDefaultPage;
+        private IInternalMfdPage? _swapTgpPage;
+        private IInternalMfdPage? _rightPage; // split layout only; fixed RWR, never overridden
         private float       _lastRefresh;
 
         internal static void Toggle()
@@ -73,10 +75,10 @@ namespace NOXMFD
         {
             if (_overlay != null) Destroy(_overlay);
             _overlay = null;
-            _leftHsdRoot = null;
-            _leftTgpRoot = null;
-            _leftHsdPage = null;
-            _leftTgpPage = null;
+            _swapDefaultRoot = null;
+            _swapTgpRoot = null;
+            _swapDefaultPage = null;
+            _swapTgpPage = null;
             _rightPage = null;
             _tacCanvas = null;
             _tacAircraft = null;
@@ -91,23 +93,23 @@ namespace NOXMFD
         // a frame apart.
         private void RefreshPages()
         {
-            if (_leftHsdPage == null && _leftTgpPage == null && _rightPage == null) return;
+            if (_swapDefaultPage == null && _swapTgpPage == null && _rightPage == null) return;
             if (Time.time - _lastRefresh < 0.1f) return;
             _lastRefresh = Time.time;
 
-            if (_leftHsdRoot != null && _leftTgpRoot != null)
+            if (_swapDefaultRoot != null && _swapTgpRoot != null)
             {
                 bool tgpActive = IsTgpActive();
-                _leftHsdRoot.SetActive(!tgpActive);
-                _leftTgpRoot.SetActive(tgpActive);
+                _swapDefaultRoot.SetActive(!tgpActive);
+                _swapTgpRoot.SetActive(tgpActive);
             }
 
             if (!TelemetryServer.TryGetLatestSnapshot(out TelemetrySnapshot snap)) return;
-            // Only the currently-mounted left page gets refreshed — the hidden one has nothing on
+            // Only the currently-mounted swap page gets refreshed — the hidden one has nothing on
             // screen to update, and skipping it (rather than refreshing both every tick regardless
             // of visibility) is free since SetActive above already decided which one that is.
-            if (_leftHsdRoot != null && _leftHsdRoot.activeSelf) _leftHsdPage?.Refresh(snap);
-            if (_leftTgpRoot != null && _leftTgpRoot.activeSelf) _leftTgpPage?.Refresh(snap);
+            if (_swapDefaultRoot != null && _swapDefaultRoot.activeSelf) _swapDefaultPage?.Refresh(snap);
+            if (_swapTgpRoot != null && _swapTgpRoot.activeSelf) _swapTgpPage?.Refresh(snap);
             _rightPage?.Refresh(snap);
         }
 
@@ -131,16 +133,15 @@ namespace NOXMFD
             overlay.layer = canvas.gameObject.layer; // SetParent does NOT inherit the parent's layer
 
             string unitName = aircraft.definition != null ? aircraft.definition.unitName : "?";
-            bool knownCenterScreen = unitName == InternalMfdScreenResolver.CenterScreenAircraft;
-            Vector2 anchorMin = knownCenterScreen ? InternalMfdScreenResolver.CenterScreenUvMin : Vector2.zero;
-            if (!knownCenterScreen)
-                Plugin.Log?.LogInfo($"[NOXMFD] Internal MFD POC: no verified center-screen crop for '{unitName}' — using the full (all-three-screens) canvas.");
+            bool knownScreen = InternalMfdScreenResolver.ScreenGeometryByAircraft.TryGetValue(unitName, out InternalMfdScreenResolver.ScreenGeometry geometry);
+            if (!knownScreen)
+                Plugin.Log?.LogInfo($"[NOXMFD] Internal MFD POC: no verified screen crop for '{unitName}' — using the full (all-screens) canvas.");
 
             var rt = overlay.GetComponent<RectTransform>();
             rt.SetParent(canvas.transform, false);
             rt.SetAsLastSibling(); // top of paint order — confirmed live to cover native content
-            rt.anchorMin = anchorMin;
-            rt.anchorMax = Vector2.one;
+            rt.anchorMin = knownScreen ? geometry.AnchorMin : Vector2.zero;
+            rt.anchorMax = knownScreen ? geometry.AnchorMax : Vector2.one;
             rt.offsetMin = Vector2.zero;
             rt.offsetMax = Vector2.zero;
 
@@ -155,34 +156,43 @@ namespace NOXMFD
             Font? font = InternalMfdUi.ResolveFont();
 
             // Split-screen layout (docs/internal-mfd.md "Split-screen layout"): a wide screen splits
-            // into two independently-addressable halves with a vertical separator; a square-ish
-            // screen stays one full-view region. T/A-30's center screen is the only aircraft
-            // calibrated so far (~2.8:1 — unambiguously wide), so it's the only one that splits.
-            // Unverified aircraft get the background panel only, no page content — there's nothing
-            // calibrated to show there yet (open question, docs/internal-mfd.md "Per-aircraft screen
-            // geometry"), and guessing at a full-canvas page would just bleed onto its side screens
-            // the same way the very first version of this POC did.
-            if (knownCenterScreen)
+            // into two independently-addressable halves with a vertical separator, left half
+            // swapping HSD/TGP and right half a fixed RWR; a squarish screen stays one full-view
+            // region, swapping RWR/TGP instead (no separate fixed RWR pane to put it in). Unverified
+            // aircraft get the background panel only, no page content — there's nothing calibrated
+            // to show there yet, and guessing at a full-canvas page would just bleed onto its side
+            // screens the same way the very first version of this POC did.
+            if (knownScreen && geometry.Split)
             {
                 RectTransform left = BuildHalf(rt, "Left", right: false);
                 RectTransform rightHalf = BuildHalf(rt, "Right", right: true);
                 BuildSeparator(rt);
 
-                // Both left-pane pages are built up front and kept alive behind their own wrapper —
-                // RefreshPages() toggles which wrapper is active each tick rather than tearing one
-                // down and rebuilding the other, so neither page loses its pooled UI state (contact
-                // markers, etc.) across a swap.
-                RectTransform leftHsd = BuildFullChild(left, "Hsd");
-                RectTransform leftTgp = BuildFullChild(left, "Tgp");
-                _leftHsdPage = new InternalMfdHsdPage(leftHsd, font);
-                _leftTgpPage = new InternalMfdTgpPage(leftTgp, font);
-                _leftHsdRoot = leftHsd.gameObject;
-                _leftTgpRoot = leftTgp.gameObject;
-
+                BuildSwapPane(left, font, useHsdDefault: true);
                 _rightPage = new InternalMfdRwrPage(rightHalf, font);
+            }
+            else if (knownScreen)
+            {
+                RectTransform full = BuildFullChild(rt, "Main");
+                BuildSwapPane(full, font, useHsdDefault: false);
             }
 
             _overlay = overlay;
+        }
+
+        // Both swap-pair pages are built up front and kept alive behind their own wrapper —
+        // RefreshPages() toggles which wrapper is active each tick rather than tearing one down and
+        // rebuilding the other, so neither page loses its pooled UI state (contact markers, etc.)
+        // across a swap. useHsdDefault picks HSD (split layout's left half) vs RWR (a squarish
+        // layout's one region) as the page InternalMfdTgpPage overrides.
+        private void BuildSwapPane(RectTransform region, Font? font, bool useHsdDefault)
+        {
+            RectTransform defaultRegion = BuildFullChild(region, useHsdDefault ? "Hsd" : "Rwr");
+            RectTransform tgpRegion = BuildFullChild(region, "Tgp");
+            _swapDefaultPage = useHsdDefault ? new InternalMfdHsdPage(defaultRegion, font) : new InternalMfdRwrPage(defaultRegion, font);
+            _swapTgpPage = new InternalMfdTgpPage(tgpRegion, font);
+            _swapDefaultRoot = defaultRegion.gameObject;
+            _swapTgpRoot = tgpRegion.gameObject;
         }
 
         // A full-stretch child of parent, its own GameObject so InternalMfdController can

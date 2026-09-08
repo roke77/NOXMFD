@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Reflection;
 using UnityEngine;
 
@@ -12,15 +13,58 @@ namespace NOXMFD
         // A live test showed a full-canvas overlay painting on all three cockpit screens (center
         // MFD + two side sub-displays), not just the center one. Confirmed by directly inspecting
         // the game's mesh/material assets (not just decompiled C#): all three screens are ONE mesh
-        // ("tacscreen"), ONE Renderer, ONE material — the three screens are different vertical bands
-        // of the SAME 1024x512 texture, with the crop baked directly into the mesh's own per-vertex
-        // UVs. For the T/A-30 Compass specifically, the large center screen occupies roughly the top
-        // 71% of the texture (V ~0.29068-1.0, full width); the two small screens split the bottom
-        // ~29% horizontally. This is per-aircraft mesh data, not guaranteed to hold for any other
-        // airframe (docs/internal-mfd.md's open per-airframe-geometry question) — only applied when
-        // the T/A-30 is confirmed; callers fall back to the full canvas otherwise.
-        internal const string CenterScreenAircraft = "T/A-30 Compass";
-        internal static readonly Vector2 CenterScreenUvMin = new Vector2(0f, 0.29068f);
+        // ("tacscreen"), ONE Renderer, ONE material — the three screens are different regions of
+        // the SAME 1024x512 texture, with the crop baked directly into the mesh's own per-vertex
+        // UVs. This is per-aircraft mesh data (docs/internal-mfd.md's per-airframe-geometry
+        // question) — callers fall back to the full canvas for any aircraft not in this table.
+        //
+        // The T/A-30 Compass entry (V 0.29068-1.0, full width) is live-measured and cross-checked
+        // (docs/internal-mfd.md "Live findings"); the rest are converted from MFDCustomizer
+        // (https://github.com/9138noms/MFDCustomizer, MIT license)'s own hand-measured "main" slot
+        // per aircraft, which already matched this repo's own T/A-30 measurement to within rounding.
+        // Its rects are local canvas coordinates (centerX, centerY, width, height) on the same
+        // 1024x512 canvas; converting to anchor fractions is (center ± size/2 + canvasHalfSize) /
+        // canvasSize, independently per axis (1024 wide, 512 tall). Each entry here still needs a
+        // live spot-check in the actual cockpit (the conversion is geometry, not a guarantee the
+        // game's canvas hasn't moved since MFDCustomizer measured it) — treat as "probably right,
+        // not yet confirmed" until checked, same bar as the T/A-30 entry was held to.
+        //
+        // Split marks a wide screen (~2.8:1 like the T/A-30) that gets HSD/TGP-left + RWR-right
+        // (docs/internal-mfd.md "Split-screen layout"); false means a squarish screen (~1.3-1.7:1)
+        // that gets one full region showing RWR, with InternalMfdTgpPage overriding it the same way
+        // TGP overrides the split layout's HSD pane. SAH-46 Chicane's ~2.0:1 sits between the two
+        // clusters seen in the rest of this table (wide: ~2.8:1, squarish: ~1.3-1.7:1) — classified
+        // squarish here as the closer cluster, but this one specifically is a judgment call pending
+        // its own live check, more than the others are.
+        internal readonly struct ScreenGeometry
+        {
+            internal readonly Vector2 AnchorMin;
+            internal readonly Vector2 AnchorMax;
+            internal readonly bool Split;
+
+            internal ScreenGeometry(Vector2 anchorMin, Vector2 anchorMax, bool split)
+            {
+                AnchorMin = anchorMin;
+                AnchorMax = anchorMax;
+                Split = split;
+            }
+        }
+
+        internal static readonly Dictionary<string, ScreenGeometry> ScreenGeometryByAircraft = new Dictionary<string, ScreenGeometry>
+        {
+            ["T/A-30 Compass"]   = new ScreenGeometry(new Vector2(0f, 0.29068f), new Vector2(1f, 1f), split: true),
+            ["A-19 Brawler"]     = new ScreenGeometry(new Vector2(0.002f, 0.2969f), new Vector2(0.998f, 1f), split: true),
+            ["FS-12 Revoker"]    = new ScreenGeometry(new Vector2(0.002f, 0.2959f), new Vector2(1f, 0.9932f), split: true),
+            ["FS-20 Vortex"]     = new ScreenGeometry(new Vector2(0.002f, 0.2939f), new Vector2(0.998f, 0.9951f), split: true),
+            ["SAH-46 Chicane"]   = new ScreenGeometry(new Vector2(0.002f, 0.2568f), new Vector2(0.748f, 1f), split: false),
+            ["KR-67 Ifrit"]      = new ScreenGeometry(new Vector2(0.001f, 0.1807f), new Vector2(0.7471f, 1f), split: false),
+            ["CI-22 Cricket"]    = new ScreenGeometry(new Vector2(0.0889f, 0.0039f), new Vector2(0.7627f, 0.9961f), split: false),
+            ["SFB-81 Darkreach"] = new ScreenGeometry(new Vector2(0f, 0.2832f), new Vector2(0.5708f, 0.998f), split: false),
+            ["EW-25 Medusa"]     = new ScreenGeometry(new Vector2(0.0034f, 0.2568f), new Vector2(0.5591f, 0.9932f), split: false),
+            ["VL-49 Tarantula"]  = new ScreenGeometry(new Vector2(0f, 0.2715f), new Vector2(0.5005f, 0.998f), split: false),
+            ["UH-90 Ibis"]       = new ScreenGeometry(new Vector2(0f, 0.252f), new Vector2(0.52f, 0.998f), split: false),
+            ["Alkyon AB-4"]      = new ScreenGeometry(new Vector2(0f, 0.2842f), new Vector2(0.5703f, 0.958f), split: false),
+        };
 
         private static FieldInfo? _cockpitAircraftField;
         private static FieldInfo? _tacScreenField;

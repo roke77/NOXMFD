@@ -2,14 +2,18 @@
 
 ## Status
 
-**Proof-of-concept live-verified on one aircraft (T/A-30 Compass)**, `feature/internal-mfd-poc`.
-Code lives in `src/plugin/InternalMFD/` — see [Code organization](#code-organization) for the
-per-file split. The T/A-30's center screen splits into two panes (see
+**Live-verified on one aircraft (T/A-30 Compass)**, `feature/internal-mfd-poc`; a second branch,
+`feature/internal-mfd-other-aircraft`, is extending screen geometry to the other 11 aircraft (see
+[Per-aircraft screen geometry](#per-aircraft-screen-geometry)) — each entry there still needs its
+own live spot-check before it's held to the same "confirmed" bar as the T/A-30's. Code lives in
+`src/plugin/InternalMFD/` — see [Code organization](#code-organization) for the per-file split. A
+wide screen (the T/A-30's ~2.8:1 center screen and a few others) splits into two panes (see
 [Split-screen layout](#split-screen-layout)): the right pane is a live, source-matched **RWR**
 scope (`InternalMfdRwrPage.cs` — concentric range rings, contact blips, inbound-missile bearing
 indicators, all confirmed live against the real page's own SVG/JS values); the left pane switches
 between two pages rather than holding one fixed page (see
-[Left-pane TGP override](#left-pane-tgp-override) below).
+[Left-pane TGP override](#left-pane-tgp-override) below). A squarish screen stays one full-view
+region instead, swapping RWR/TGP the same way the split layout's left pane swaps HSD/TGP.
 
 Live-verified: the TGP camera feed's overlay (RNG/ALT/MODE/...) shows up automatically —
 `cam.targetTexture` (what `InternalMfdTgpPage.cs`'s `RawImage` reads) turned out to already carry
@@ -25,12 +29,15 @@ session; aircraft-change and mission-exit are coded but not explicitly confirmed
 
 ## Left-pane TGP override
 
-The left pane isn't a single fixed page. **HSD** (`InternalMfdHsdPage.cs`) mounts there by
-default; **TGP** (`InternalMfdTgpPage.cs`) takes over the instant the player has a real weapon lock
-or `TgpManualControl.ManualMode` is on (`InternalMfdController.IsTgpActive()` — the same
-hasTargets/ManualMode check `TgpFeed.CaptureFrame`/`TgpFullScreen.Tick` already use, so this can't
-disagree with whether the TGP feed itself is actually live), and HSD remounts the moment neither is
-true. Both pages are built once at overlay-construction time and kept alive behind their own
+The swap pane isn't a single fixed page. On a split layout's left half, **HSD**
+(`InternalMfdHsdPage.cs`) mounts by default; on a squarish layout's one full region, **RWR**
+(`InternalMfdRwrPage.cs`) mounts there instead (`InternalMfdController.BuildSwapPane`'s
+`useHsdDefault`). Either way, **TGP** (`InternalMfdTgpPage.cs`) takes over the instant the player
+has a real weapon lock or `TgpManualControl.ManualMode` is on (`InternalMfdController.IsTgpActive()`
+— the same hasTargets/ManualMode check `TgpFeed.CaptureFrame`/`TgpFullScreen.Tick` already use, so
+this can't disagree with whether the TGP feed itself is actually live), and the default page
+remounts the moment neither is true. Both pages are built once at overlay-construction time and
+kept alive behind their own
 wrapper `GameObject`; the swap is a `SetActive` toggle on whichever wrapper, checked at the
 controller's normal 10Hz page-refresh cadence — not a rebuild, so neither page loses its pooled UI
 state (contact markers, etc.) across a swap.
@@ -80,8 +87,10 @@ still per-tab `sessionStorage`) because that's the sync this was asked for — t
   layout construction, per-frame `Refresh` dispatch to whichever pages are mounted. Doesn't know
   what a page actually draws.
 - **`InternalMfdScreenResolver.cs`** — finds the local player's `Cockpit`/`TacScreen`/`Canvas` for a
-  given aircraft (the reflection chain, the T/A-30 UV crop constant, attach diagnostics). A distinct
-  concern from what gets drawn once the canvas is found.
+  given aircraft (the reflection chain, attach diagnostics) and holds `ScreenGeometryByAircraft`,
+  the per-aircraft UV-crop + split table (see
+  [Per-aircraft screen geometry](#per-aircraft-screen-geometry)). A distinct concern from what gets
+  drawn once the canvas is found.
 - **`IInternalMfdPage.cs`** — the interface every page's content implements: `Refresh
   (TelemetrySnapshot)` only. Construction is deliberately not part of the interface — each page
   type takes whatever constructor parameters it needs, which the controller already knows at the
@@ -152,7 +161,7 @@ rt.anchorMax = Vector2.one;
 ```
 
 Confirmed live. The exact band is per-aircraft mesh data (see
-[Per-aircraft screen geometry](#per-aircraft-screen-geometry-open)) — camera culling masks and
+[Per-aircraft screen geometry](#per-aircraft-screen-geometry)) — camera culling masks and
 canvas render mode were tried first and don't isolate anything, since there's only one Renderer to
 begin with; see [Live findings](#live-findings) for the dead ends.
 
@@ -214,42 +223,48 @@ layout on the physical screens shaped for it.
    not necessarily the same one. Still open — out of scope for the current placeholder-only POC,
    which covers its content rather than suppressing what drives it.
 
-## Per-aircraft screen geometry (open)
+## Per-aircraft screen geometry
 
-The T/A-30 Compass's three-screens-one-mesh layout, and its exact UV bands, are one aircraft's data
-— confirmed correct for that aircraft only (cross-checked two ways, see
-[Live findings](#live-findings)), not assumed to generalize. Before a real (non-placeholder) page
-targets a second aircraft, its own screen(s) need the same treatment: identify the mesh/Renderer,
-confirm whether it's shared across multiple physical screens or not, and get that aircraft's own UV
-band(s). Two ways to get there without repeating this session's live trial-and-error, both
-third-party prior art (not yet pulled into this repo — see [External precedent](#external-precedent)
-for licensing/attribution before reusing either):
+The T/A-30 Compass's three-screens-one-mesh layout, and its exact UV bands, were one aircraft's
+data — confirmed correct for that aircraft only (cross-checked two ways, see
+[Live findings](#live-findings)), not assumed to generalize. `InternalMfdScreenResolver.
+ScreenGeometryByAircraft` (`feature/internal-mfd-other-aircraft`) now holds all 12 fixed-/rotary-
+wing aircraft: the T/A-30 entry stays the original live measurement; the other 11 are converted
+from [MFDCustomizer](#external-precedent) (MIT license)'s own hand-measured per-aircraft `"main"`
+slot rects, using the same local-canvas-coordinate math that already cross-checked correctly
+against the T/A-30's own live measurement (see that table's own header comment for the conversion
+formula). Each of those 11 conversions still needs its own live spot-check in the cockpit before
+it's held to the same "confirmed" bar the T/A-30 entry has — the conversion is geometry, not a
+guarantee the game's canvas hasn't moved since MFDCustomizer measured it.
 
-- A hand-measured lookup table, if another mod has already measured the target aircraft.
-- A runtime tool that computes UV islands directly from the mesh's own vertex data (GPU readback +
-  union-find clustering on shared UV edges) — no hand-measurement needed, works on any aircraft.
+Two aircraft the wiki lists aren't in the table: `CargoPlane1` (unreleased/WIP) and the event-only
+UFO — neither has a stable, checkable cockpit to measure yet.
 
 ## Split-screen layout
 
 **Standing requirement, established after the T/A-30 POC:** a wide physical screen splits into two
 independently-addressable halves with a vertical separator; a square-ish screen stays one full-view
 region. Per-aircraft, following the same reasoning as
-[Per-aircraft screen geometry](#per-aircraft-screen-geometry-open) — the physical screen's own
-proportions decide this, not a global setting.
+[Per-aircraft screen geometry](#per-aircraft-screen-geometry) — the physical screen's own
+proportions decide this, not a global setting. `InternalMfdScreenResolver.ScreenGeometry.Split`
+carries the decision per table entry.
 
-The T/A-30's own center screen (the only screen measured so far) is a data point for this rule: its
-UV band is roughly 1024×364 px within the shared texture (see
-[Feasibility approach](#feasibility-approach)), a ≈2.8:1 aspect ratio — wide, and implemented as a
-split: `InternalMfdController.cs` builds a left and right `RectTransform` half with a vertical separator
+The T/A-30's own center screen is a ≈2.8:1 aspect ratio — wide, and implemented as a split:
+`InternalMfdController.cs` builds a left and right `RectTransform` half with a vertical separator
 between them, and mounts `IInternalMfdPage`s into each half — the right half holds
 `InternalMfdRwrPage` (fixed); the left half holds both `InternalMfdHsdPage` and `InternalMfdTgpPage`
 and switches between them (see [Left-pane TGP override](#left-pane-tgp-override) and
-[Status](#status)).
+[Status](#status)). A-19 Brawler, FS-12 Revoker, and FS-20 Vortex share that same ~2.8:1 shape and
+also split. The other 8 aircraft in the table are squarish (~1.3-1.7:1) and stay one full region,
+mounting `InternalMfdRwrPage`/`InternalMfdTgpPage` as the swap pair instead of `InternalMfdHsdPage`/
+`InternalMfdTgpPage` — no fixed RWR pane to hold a non-swapping RWR, so RWR itself is what TGP
+overrides there. SAH-46 Chicane's ~2.0:1 sits between the two clusters this table's aspect ratios
+otherwise fall into cleanly; it's classified squarish (the closer cluster numerically) but is more
+of a judgment call than the rest, pending its own live check — see
+`InternalMfdScreenResolver.ScreenGeometryByAircraft`'s own header comment.
 
 Open, not yet decided:
 
-- Exact threshold (or per-aircraft judgment call) for "wide" vs. "square-ish" — no numeric aspect
-  ratio picked yet.
 - Whether the right half's fixed RWR should also become player-selectable, matching the left half's
   now-dynamic content.
 - How the separator itself is drawn (a thin native `Image` divider vs. just the gap between two
@@ -314,24 +329,26 @@ the overlay now shows only on the center screen, not the two smaller side screen
 - Do the driving methods for radar/gauges/pylons need the same "invoke the game's own toggle
   event" treatment `tgp-suppress-native-render.md` uses (cosmetic-only, camera/renderer untouched),
   or does full content replacement need guarded Harmony-prefix suppression?
-- See [Per-aircraft screen geometry](#per-aircraft-screen-geometry-open) for the still-open
-  per-airframe question.
+- See [Per-aircraft screen geometry](#per-aircraft-screen-geometry) — the table's 11 converted
+  entries still need their own live spot-check.
 
 ## External precedent
 
 Four existing third-party BepInEx mods manipulate this same cockpit surface, found mid-investigation
-(not previously known to this repo). Not depended on or pulled into this codebase — noted here as
-prior art, since re-deriving what they've already solved would be wasted effort if this feature
-grows further:
+(not previously known to this repo). Noted here as prior art, since re-deriving what they've
+already solved would be wasted effort if this feature grows further:
 
-- **[MFDCustomizer](https://github.com/9138noms/MFDCustomizer)** — independently arrived at the same
-  `Cockpit.tacScreen`/`TacScreen.canvas` reflection chain this doc uses, plus a simpler local-player
-  check (`Behaviour.isActiveAndEnabled`, since `Cockpit_OnAircraftInitialize` only enables the local
-  player's own instance — simpler than this POC's "match every `Cockpit`'s own `aircraft` field"
-  scan). Ships a hand-measured, per-aircraft, per-*slot* (multiple named screens, e.g. `main`,
-  `panel`, `AoA`, `engine`) pixel-rect table covering over a dozen aircraft, T/A-30 Compass
-  included — the source of this doc's cross-check above. Confirms the render texture is 1024×512 for
-  every aircraft, not just the T/A-30.
+- **[MFDCustomizer](https://github.com/9138noms/MFDCustomizer)** (MIT license) — independently
+  arrived at the same `Cockpit.tacScreen`/`TacScreen.canvas` reflection chain this doc uses, plus a
+  simpler local-player check (`Behaviour.isActiveAndEnabled`, since `Cockpit_OnAircraftInitialize`
+  only enables the local player's own instance — simpler than this POC's "match every `Cockpit`'s
+  own `aircraft` field" scan). Ships a hand-measured, per-aircraft, per-*slot* (multiple named
+  screens, e.g. `main`, `panel`, `AoA`, `engine`) pixel-rect table covering a dozen aircraft, T/A-30
+  Compass included — the source of this doc's cross-check above, and (converted to anchor
+  fractions, `main` slot only) now the source of `InternalMfdScreenResolver.
+  ScreenGeometryByAircraft`'s other 11 entries too (see
+  [Per-aircraft screen geometry](#per-aircraft-screen-geometry)). Confirms the render texture is
+  1024×512 for every aircraft, not just the T/A-30.
 - **[3DWebviewLoader](https://github.com/Assassin1076/3DWebviewLoader)** — takes a different
   insertion approach (swaps the target Renderer's material outright to show a Vuplex webview
   texture, rather than inserting into the existing canvas). Ships a genuinely reusable diagnostic:
