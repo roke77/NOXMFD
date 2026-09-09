@@ -73,15 +73,25 @@ namespace NOXMFD
             ["SAH-46 Chicane"]   = new ScreenGeometry(new Vector2(0.002f, 0.2568f), new Vector2(0.748f, 1f), split: false),
             ["KR-67 Ifrit"]      = new ScreenGeometry(new Vector2(0.001f, 0.1807f), new Vector2(0.7471f, 1f), split: false),
             // Widened from MFDCustomizer's own (0.0889,0.7627) — left has no neighboring slot in
-            // their table (room to spare), right is fenced by their own "engine" slot starting at
-            // X~0.805 (converted), so only pushed modestly there. Live-reported (2026-09-09):
-            // visible unused black space on both sides of the RWR scope at the original crop.
-            ["CI-22 Cricket"]    = new ScreenGeometry(new Vector2(0.02f, 0.0039f), new Vector2(0.79f, 0.9961f), split: false, nativeTgpOnLock: true),
+            // their table (room to spare, pushed to the canvas edge), right is fenced by their own
+            // "engine" slot starting at X~0.805 (converted), so only pushed modestly there.
+            // Live-reported (2026-09-09): visible unused black space on both sides of the RWR scope
+            // at the original crop, then still on the left specifically after the first widening.
+            ["CI-22 Cricket"]    = new ScreenGeometry(new Vector2(0f, 0.0039f), new Vector2(0.79f, 0.9961f), split: false, nativeTgpOnLock: true),
             ["SFB-81 Darkreach"] = new ScreenGeometry(new Vector2(0f, 0.2832f), new Vector2(0.5708f, 0.998f), split: false),
             ["EW-25 Medusa"]     = new ScreenGeometry(new Vector2(0.0034f, 0.2568f), new Vector2(0.5591f, 0.9932f), split: false),
             ["VL-49 Tarantula"]  = new ScreenGeometry(new Vector2(0f, 0.2715f), new Vector2(0.5005f, 0.998f), split: false),
             ["UH-90 Ibis"]       = new ScreenGeometry(new Vector2(0f, 0.252f), new Vector2(0.52f, 0.998f), split: false),
             ["Alkyon AB-4"]      = new ScreenGeometry(new Vector2(0f, 0.2842f), new Vector2(0.5703f, 0.958f), split: false),
+
+            // Not in MFDCustomizer's table (12 aircraft, no Vagrant) — no conversion source, so
+            // this starts at the full canvas (same as the "unknown aircraft" fallback, just with an
+            // actual page mounted instead of background-only) and narrows from here via live
+            // screenshots, the same loop used to widen the Cricket's crop above. Live-reported
+            // (2026-09-09): the full-canvas fallback with no page content just hides native cockpit
+            // overlays (warning icons, etc.) that share the same canvas, without showing anything
+            // useful in return — worth an actual page even before the crop is narrowed.
+            ["VT-7 Vagrant"]     = new ScreenGeometry(Vector2.zero, Vector2.one, split: false),
         };
 
         private static FieldInfo? _cockpitAircraftField;
