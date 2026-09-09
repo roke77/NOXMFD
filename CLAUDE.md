@@ -251,6 +251,11 @@ an ordinary development build made while working — only the build that becomes
    files ready to move into a new one. Don't reshuffle for its own sake — only move at least
    two related files or a real new module, and update `NOXMFD.csproj`/embedded-resource paths
    in the same commit as any move.
+9. Check error handling on important logic nodes in the changed files — reflection lookups,
+   file/network I/O, parsing, anything that can throw on unexpected input or a missing/renamed
+   game API. This repo's own pattern is fail-safe with a logged reason (`Plugin.Log?.LogWarning`/
+   `LogInfo`, e.g. `SpriteCapture`'s try/catch around its GPU readback), not an unguarded crash or
+   a silent no-op — bring new code up to that bar rather than inventing a new error-handling style.
 
 Only after this pass is done (or confirmed to have nothing to change) should the actual
 release proceed.
