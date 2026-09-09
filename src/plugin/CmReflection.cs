@@ -24,7 +24,7 @@ namespace NOXMFD
                 if (!_loggedStationsFailure)
                 {
                     _loggedStationsFailure = true;
-                    Plugin.Log?.LogWarning($"[NOXMFD] countermeasure station read failed; CM integration is unavailable: {ex}");
+                    Plugin.Log?.LogWarning($"[NOXMFD] countermeasure GetFirstCountermeasure invocation failed; CM integration is unavailable: {ex}");
                 }
                 return null;
             }

@@ -44,5 +44,30 @@ namespace NOXMFD.Tests
             ConfigBackup.BackupIfExists(path);
             Assert.False(File.Exists(path + ".bak"));
         }
+
+        [Fact]
+        public void WarnsOnlyOnceWhenBackupCannotReplaceAnExistingDirectory()
+        {
+            string path = Path.GetTempFileName();
+            string bakDirectory = path + ".bak";
+            var warnings = new System.Collections.Generic.List<string>();
+            try
+            {
+                Directory.CreateDirectory(bakDirectory);
+                ConfigBackup.LogWarning = warnings.Add;
+
+                ConfigBackup.BackupIfExists(path);
+                ConfigBackup.BackupIfExists(path);
+
+                Assert.Single(warnings);
+                Assert.Contains(path, warnings[0]);
+            }
+            finally
+            {
+                ConfigBackup.LogWarning = null;
+                File.Delete(path);
+                Directory.Delete(bakDirectory);
+            }
+        }
     }
 }

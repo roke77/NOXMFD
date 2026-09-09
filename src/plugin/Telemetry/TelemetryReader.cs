@@ -578,19 +578,36 @@ namespace NOXMFD
         // authoritative "are they lit" flag.
         private static FieldInfo? _navLightsField;
         private static FieldInfo? _navLightsIsOnField;
+        private static bool _loggedNavLightsReadFailure;
         private static bool GetNavLightsOn(Aircraft ac)
         {
             if (_navLightsField == null)
                 _navLightsField = typeof(Aircraft).GetField("navLights", BindingFlags.NonPublic | BindingFlags.Instance);
             object? nl;
             try { nl = _navLightsField?.GetValue(ac); }
-            catch { return false; }
+            catch (Exception ex)
+            {
+                if (!_loggedNavLightsReadFailure)
+                {
+                    _loggedNavLightsReadFailure = true;
+                    Plugin.Log?.LogWarning($"[NOXMFD] nav-light reflection read failed; nav-light telemetry is unavailable: {ex}");
+                }
+                return false;
+            }
             if (nl == null) return false;
             if (_navLightsIsOnField == null)
                 _navLightsIsOnField = typeof(NavLights).GetField("isOn", BindingFlags.NonPublic | BindingFlags.Instance);
             if (_navLightsIsOnField == null) return false;
             try { return _navLightsIsOnField.GetValue(nl) is bool b && b; }
-            catch { return false; }
+            catch (Exception ex)
+            {
+                if (!_loggedNavLightsReadFailure)
+                {
+                    _loggedNavLightsReadFailure = true;
+                    Plugin.Log?.LogWarning($"[NOXMFD] nav-light reflection read failed; nav-light telemetry is unavailable: {ex}");
+                }
+                return false;
+            }
         }
 
         // Unit.IRSources is a private List<IRSource> — every heat-emitting engine registers into it
@@ -1202,6 +1219,7 @@ namespace NOXMFD
         // Reflection handle for Radar's private cone half-angle (degrees). Cached once — it's a
         // SerializeField baked per radar prefab, so it never changes at runtime.
         private static FieldInfo? _radarConeField;
+        private static bool _loggedRadarConeReadFailure;
 
         // The air contacts the player's OWN radar currently detects (docs/rdr-page.md). The game's
         // Radar already maintains this per scan as TargetDetector.detectedTargets (cleared + refilled
@@ -1459,7 +1477,15 @@ namespace NOXMFD
             if (_radarConeField == null)
                 _radarConeField = typeof(Radar).GetField("radarCone", BindingFlags.NonPublic | BindingFlags.Instance);
             try { return _radarConeField?.GetValue(radar) is float f ? f : 0f; }
-            catch { return 0f; }
+            catch (Exception ex)
+            {
+                if (!_loggedRadarConeReadFailure)
+                {
+                    _loggedRadarConeReadFailure = true;
+                    Plugin.Log?.LogWarning($"[NOXMFD] radar-cone reflection read failed; radar cone telemetry is unavailable: {ex}");
+                }
+                return 0f;
+            }
         }
 
         // RWR label: the unit's display name (bogeyName is the generic fallback).

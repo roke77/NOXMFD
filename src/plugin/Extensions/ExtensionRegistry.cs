@@ -56,6 +56,7 @@ namespace NOXMFD
         {
             lock (_extLock) _extensions.Remove(id);
             _slices.TryRemove(id, out _);
+            _invalidPayloadWarnings.TryRemove("slice:" + id, out _);
         }
 
         internal static bool TryGet(string id, out Entry entry)

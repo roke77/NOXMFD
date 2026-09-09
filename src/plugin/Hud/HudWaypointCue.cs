@@ -28,6 +28,7 @@ namespace NOXMFD
 
         private static FieldInfo? _compassField;
         private static Font?      _font;
+        private static bool       _loggedCompassReadFailure;
 
         private RawImage?     _compass;    // the tape we're anchored to; fake-null after a respawn
         private RectTransform? _bug;       // the caret container — rotating it aims the chevron
@@ -126,7 +127,18 @@ namespace NOXMFD
 
             if (_compassField == null)
                 _compassField = typeof(FlightHud).GetField("compass", BindingFlags.Instance | BindingFlags.NonPublic);
-            if (_compassField?.GetValue(hud) is not RawImage compass || compass == null) return false;
+            RawImage? compass;
+            try { compass = _compassField?.GetValue(hud) as RawImage; }
+            catch (System.Exception ex)
+            {
+                if (!_loggedCompassReadFailure)
+                {
+                    _loggedCompassReadFailure = true;
+                    Plugin.Log?.LogWarning($"[NOXMFD] HUD waypoint compass reflection read failed; waypoint cue is unavailable: {ex}");
+                }
+                return false;
+            }
+            if (compass == null) return false;
 
             _compass = compass;
             _bug     = BuildChevron(compass.rectTransform);

@@ -50,6 +50,7 @@ namespace NOXMFD
         private bool _missileIconCaptured;
         private bool _mapCaptured;
         private bool _statusDisplayReadFailureLogged;
+        private bool _failureIndicatorReadFailureLogged;
 
         // Cached reflection handles into StatusDisplay's private serialized fields.
         private static FieldInfo? _sdStatusDisplaysField;
@@ -199,7 +200,14 @@ namespace NOXMFD
             var failureGOs = new List<GameObject>();
             System.Collections.IList? failureList = null;
             try { failureList = _sdFailureIndicatorsField?.GetValue(sd) as System.Collections.IList; }
-            catch (Exception ex) { Plugin.Log?.LogWarning($"[NOXMFD] AVN: failure-indicator read failed: {ex}"); }
+            catch (Exception ex)
+            {
+                if (!_failureIndicatorReadFailureLogged)
+                {
+                    _failureIndicatorReadFailureLogged = true;
+                    Plugin.Log?.LogWarning($"[NOXMFD] AVN: failure-indicator read failed: {ex}");
+                }
+            }
             if (failureList != null)
             {
                 for (int i = 0; i < failureList.Count; i++)

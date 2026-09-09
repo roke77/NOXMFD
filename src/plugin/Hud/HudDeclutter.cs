@@ -25,6 +25,7 @@ namespace NOXMFD
         private readonly HashSet<Graphic> _hiddenGraphics = new HashSet<Graphic>();
 
         private static readonly Dictionary<Type, FieldInfo?> _borderFields = new Dictionary<Type, FieldInfo?>();
+        private static bool _loggedBorderReadFailure;
 
         private void Update()
         {
@@ -99,6 +100,7 @@ namespace NOXMFD
         // Top-right weapon / ammo / countermeasure / capacitor cluster = CombatHUD's private
         // 'topRightPanel' GameObject.
         private static FieldInfo? _topRightPanelField;
+        private static bool _loggedWeaponPanelReadFailure;
         private bool _weaponPanelHidden;
 
         private void UpdateWeaponPanel(bool shouldHide)
@@ -107,7 +109,18 @@ namespace NOXMFD
             if (hud == null) return;
             if (_topRightPanelField == null)
                 _topRightPanelField = typeof(CombatHUD).GetField("topRightPanel", BindingFlags.Instance | BindingFlags.NonPublic);
-            if (_topRightPanelField?.GetValue(hud) is not GameObject panel || panel == null) return;
+            GameObject? panel;
+            try { panel = _topRightPanelField?.GetValue(hud) as GameObject; }
+            catch (Exception ex)
+            {
+                if (!_loggedWeaponPanelReadFailure)
+                {
+                    _loggedWeaponPanelReadFailure = true;
+                    Plugin.Log?.LogWarning($"[NOXMFD] HUD weapon-panel reflection read failed; declutter is unavailable: {ex}");
+                }
+                return;
+            }
+            if (panel == null) return;
 
             if (shouldHide)
             {
@@ -130,6 +143,7 @@ namespace NOXMFD
         // on-screen text needs to disappear. MessageUI's general message feed ('messageText') is a
         // separate field, untouched.
         private static FieldInfo? _killFeedTextField;
+        private static bool _loggedKillFeedReadFailure;
         private bool _killFeedHidden;
 
         private void UpdateKillFeed(bool shouldHide)
@@ -138,7 +152,18 @@ namespace NOXMFD
             if (ui == null) return;
             if (_killFeedTextField == null)
                 _killFeedTextField = typeof(MessageUI).GetField("killFeedText", BindingFlags.Instance | BindingFlags.NonPublic);
-            if (_killFeedTextField?.GetValue(ui) is not Graphic feed || feed == null) return;
+            Graphic? feed;
+            try { feed = _killFeedTextField?.GetValue(ui) as Graphic; }
+            catch (Exception ex)
+            {
+                if (!_loggedKillFeedReadFailure)
+                {
+                    _loggedKillFeedReadFailure = true;
+                    Plugin.Log?.LogWarning($"[NOXMFD] HUD kill-feed reflection read failed; declutter is unavailable: {ex}");
+                }
+                return;
+            }
+            if (feed == null) return;
 
             if (shouldHide)
             {
@@ -234,7 +259,17 @@ namespace NOXMFD
                 f = t.GetField("border", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
                 _borderFields[t] = f;
             }
-            return f != null && f.GetValue(inst) is Image img && img != null;
+            if (f == null) return false;
+            try { return f.GetValue(inst) is Image img && img != null; }
+            catch (Exception ex)
+            {
+                if (!_loggedBorderReadFailure)
+                {
+                    _loggedBorderReadFailure = true;
+                    Plugin.Log?.LogWarning($"[NOXMFD] HUD border reflection read failed; boxed-readout declutter is unavailable: {ex}");
+                }
+                return false;
+            }
         }
 
         private void OnDestroy()

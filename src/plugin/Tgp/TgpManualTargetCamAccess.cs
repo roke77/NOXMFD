@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Reflection;
 using UnityEngine;
 
@@ -16,7 +17,8 @@ namespace NOXMFD
         private static FieldInfo? _camTimeoutField;
         private static MethodInfo? _switchIrStateMethod;
         private static MethodInfo? _updateExposureMethod;
-        private static bool _loggedAccessFailure;
+        private static readonly ConcurrentDictionary<string, byte> _loggedAccessFailures =
+            new ConcurrentDictionary<string, byte>(StringComparer.Ordinal);
 
         internal static bool Ensure()
         {
@@ -91,8 +93,7 @@ namespace NOXMFD
 
         private static void LogAccessFailure(string member, Exception ex)
         {
-            if (_loggedAccessFailure) return;
-            _loggedAccessFailure = true;
+            if (!_loggedAccessFailures.TryAdd(member, 0)) return;
             Plugin.Log?.LogWarning($"[NOXMFD] TGP manual control: TargetCam.{member} access failed; the operation was skipped and will be retried: {ex}");
         }
     }
