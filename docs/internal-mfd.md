@@ -2,10 +2,14 @@
 
 ## Status
 
-**Live-verified on one aircraft (T/A-30 Compass)**, `feature/internal-mfd-poc`; a second branch,
-`feature/internal-mfd-other-aircraft`, is extending screen geometry to the other 11 aircraft (see
-[Per-aircraft screen geometry](#per-aircraft-screen-geometry)) — each entry there still needs its
-own live spot-check before it's held to the same "confirmed" bar as the T/A-30's. Code lives in
+**Live-verified on two aircraft (T/A-30 Compass, CI-22 Cricket)**, `feature/internal-mfd-poc` and
+`feature/internal-mfd-other-aircraft`; the latter is extending screen geometry to the remaining 10
+(see [Per-aircraft screen geometry](#per-aircraft-screen-geometry)) — each still-unconfirmed entry
+needs its own live spot-check before it's held to the same "confirmed" bar as the T/A-30 and
+Cricket. The Cricket's crop needed widening from MFDCustomizer's own numbers (visible unused
+canvas on both sides at the original crop) and turned out to need `NativeTgpOnLock` too (see
+[Left-pane TGP override](#left-pane-tgp-override)) — a useful data point that a straight geometry
+conversion isn't always the whole story per aircraft. Code lives in
 `src/plugin/InternalMFD/` — see [Code organization](#code-organization) for the per-file split. A
 wide screen (the T/A-30's ~2.8:1 center screen and a few others) splits into two panes (see
 [Split-screen layout](#split-screen-layout)): the right pane is a live, source-matched **RWR**
@@ -41,6 +45,16 @@ kept alive behind their own
 wrapper `GameObject`; the swap is a `SetActive` toggle on whichever wrapper, checked at the
 controller's normal 10Hz page-refresh cadence — not a rebuild, so neither page loses its pooled UI
 state (contact markers, etc.) across a swap.
+
+Not every aircraft gets a TGP-override page at all: `ScreenGeometry.NativeTgpOnLock` (currently
+just CI-22 Cricket, confirmed live) marks an aircraft whose covered screen already natively shows a
+correct TGP view on lock with no internal-MFD involvement — unlike the T/A-30, where this same
+screen shows something else natively during a lock, which is why the override page exists in the
+first place. For a `NativeTgpOnLock` aircraft, `InternalMfdController` never builds a TGP page at
+all; instead it hides the *entire* overlay (default page and background both) whenever locked, so
+the native feed shows through clean. Building our own redundant copy there was tried first and
+looked like ghosted/doubled overlay text (two near-identical renders of the same feed stacked, e.g.
+a locked-target label showing as "HLT HLT") rather than anything useful.
 
 HSD itself (`InternalMfdHsdPage.cs`) is a deliberately simplified read of the real page
 (`src/web/pages/hsd/hsd.js`): the grid rings (theme.css `--no-hsd-pink-rgb`), the notched

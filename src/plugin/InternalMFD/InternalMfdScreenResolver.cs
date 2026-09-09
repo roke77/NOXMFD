@@ -42,11 +42,25 @@ namespace NOXMFD
             internal readonly Vector2 AnchorMax;
             internal readonly bool Split;
 
-            internal ScreenGeometry(Vector2 anchorMin, Vector2 anchorMax, bool split)
+            // True when this aircraft's covered screen already natively shows a correct TGP view
+            // on lock, with no internal-MFD involvement (confirmed live on CI-22 Cricket: toggling
+            // internal MFD off during a lock shows the same clean feed on the same screen) — unlike
+            // the T/A-30, where this screen shows something else natively during a lock, which is
+            // why InternalMfdTgpPage exists at all. When true, InternalMfdController skips building
+            // a TGP-override page for this aircraft entirely and hides the whole overlay (not just
+            // swaps to our own TGP page) whenever locked, so the native feed shows through clean
+            // instead of a second, slightly misaligned copy stacking on top of it (seen live as
+            // doubled/ghosted overlay text). Defaults false — most aircraft haven't been checked
+            // for this yet, and the default (build our own override) matches the T/A-30's confirmed
+            // behavior.
+            internal readonly bool NativeTgpOnLock;
+
+            internal ScreenGeometry(Vector2 anchorMin, Vector2 anchorMax, bool split, bool nativeTgpOnLock = false)
             {
                 AnchorMin = anchorMin;
                 AnchorMax = anchorMax;
                 Split = split;
+                NativeTgpOnLock = nativeTgpOnLock;
             }
         }
 
@@ -58,7 +72,11 @@ namespace NOXMFD
             ["FS-20 Vortex"]     = new ScreenGeometry(new Vector2(0.002f, 0.2939f), new Vector2(0.998f, 0.9951f), split: true),
             ["SAH-46 Chicane"]   = new ScreenGeometry(new Vector2(0.002f, 0.2568f), new Vector2(0.748f, 1f), split: false),
             ["KR-67 Ifrit"]      = new ScreenGeometry(new Vector2(0.001f, 0.1807f), new Vector2(0.7471f, 1f), split: false),
-            ["CI-22 Cricket"]    = new ScreenGeometry(new Vector2(0.0889f, 0.0039f), new Vector2(0.7627f, 0.9961f), split: false),
+            // Widened from MFDCustomizer's own (0.0889,0.7627) — left has no neighboring slot in
+            // their table (room to spare), right is fenced by their own "engine" slot starting at
+            // X~0.805 (converted), so only pushed modestly there. Live-reported (2026-09-09):
+            // visible unused black space on both sides of the RWR scope at the original crop.
+            ["CI-22 Cricket"]    = new ScreenGeometry(new Vector2(0.02f, 0.0039f), new Vector2(0.79f, 0.9961f), split: false, nativeTgpOnLock: true),
             ["SFB-81 Darkreach"] = new ScreenGeometry(new Vector2(0f, 0.2832f), new Vector2(0.5708f, 0.998f), split: false),
             ["EW-25 Medusa"]     = new ScreenGeometry(new Vector2(0.0034f, 0.2568f), new Vector2(0.5591f, 0.9932f), split: false),
             ["VL-49 Tarantula"]  = new ScreenGeometry(new Vector2(0f, 0.2715f), new Vector2(0.5005f, 0.998f), split: false),

@@ -33,8 +33,9 @@ namespace NOXMFD
         private Aircraft?   _tacAircraft; // which aircraft _tacCanvas belongs to, so a switch is caught
                                            // even if the old Canvas hasn't gone fake-null yet
         private GameObject? _overlay;
+        private Image?      _bgImage; // toggled off alongside _swapDefaultRoot when NativeTgpOnLock hides the overlay
         private GameObject? _swapDefaultRoot; // HSD (split) or RWR (squarish) — whichever TGP overrides
-        private GameObject? _swapTgpRoot;
+        private GameObject? _swapTgpRoot; // null when ScreenGeometry.NativeTgpOnLock — see BuildSwapPane
         private IInternalMfdPage? _swapDefaultPage;
         private IInternalMfdPage? _swapTgpPage;
         private IInternalMfdPage? _rightPage; // split layout only; fixed RWR, never overridden
@@ -75,6 +76,7 @@ namespace NOXMFD
         {
             if (_overlay != null) Destroy(_overlay);
             _overlay = null;
+            _bgImage = null;
             _swapDefaultRoot = null;
             _swapTgpRoot = null;
             _swapDefaultPage = null;
@@ -102,6 +104,18 @@ namespace NOXMFD
                 bool tgpActive = IsTgpActive();
                 _swapDefaultRoot.SetActive(!tgpActive);
                 _swapTgpRoot.SetActive(tgpActive);
+            }
+            else if (_swapDefaultRoot != null)
+            {
+                // No TGP-override page for this aircraft (ScreenGeometry.NativeTgpOnLock —
+                // BuildSwapPane's allowTgpOverride=false) — the native cockpit already shows a
+                // correct TGP view on this exact screen when locked, so hide the whole overlay
+                // (background included) instead of drawing a redundant, slightly misaligned second
+                // copy on top of it, rather than just swapping to our own TGP page like the default
+                // case above does.
+                bool tgpActive = IsTgpActive();
+                _swapDefaultRoot.SetActive(!tgpActive);
+                if (_bgImage != null) _bgImage.enabled = !tgpActive;
             }
 
             if (!TelemetryServer.TryGetLatestSnapshot(out TelemetrySnapshot snap)) return;
@@ -152,6 +166,7 @@ namespace NOXMFD
             var bg = overlay.AddComponent<Image>();
             bg.color = new Color(0.03f, 0.05f, 0.03f, 1f);
             bg.raycastTarget = false;
+            _bgImage = bg;
 
             Font? font = InternalMfdUi.ResolveFont();
 
@@ -162,19 +177,20 @@ namespace NOXMFD
             // aircraft get the background panel only, no page content — there's nothing calibrated
             // to show there yet, and guessing at a full-canvas page would just bleed onto its side
             // screens the same way the very first version of this POC did.
+            bool allowTgpOverride = !(knownScreen && geometry.NativeTgpOnLock);
             if (knownScreen && geometry.Split)
             {
                 RectTransform left = BuildHalf(rt, "Left", right: false);
                 RectTransform rightHalf = BuildHalf(rt, "Right", right: true);
                 BuildSeparator(rt);
 
-                BuildSwapPane(left, font, useHsdDefault: true);
+                BuildSwapPane(left, font, useHsdDefault: true, allowTgpOverride);
                 _rightPage = new InternalMfdRwrPage(rightHalf, font);
             }
             else if (knownScreen)
             {
                 RectTransform full = BuildFullChild(rt, "Main");
-                BuildSwapPane(full, font, useHsdDefault: false);
+                BuildSwapPane(full, font, useHsdDefault: false, allowTgpOverride);
             }
 
             _overlay = overlay;
@@ -184,14 +200,19 @@ namespace NOXMFD
         // RefreshPages() toggles which wrapper is active each tick rather than tearing one down and
         // rebuilding the other, so neither page loses its pooled UI state (contact markers, etc.)
         // across a swap. useHsdDefault picks HSD (split layout's left half) vs RWR (a squarish
-        // layout's one region) as the page InternalMfdTgpPage overrides.
-        private void BuildSwapPane(RectTransform region, Font? font, bool useHsdDefault)
+        // layout's one region) as the page InternalMfdTgpPage overrides. allowTgpOverride is false
+        // only for ScreenGeometry.NativeTgpOnLock aircraft — no TGP page is built at all there;
+        // RefreshPages hides the whole overlay on lock instead (see its own comment).
+        private void BuildSwapPane(RectTransform region, Font? font, bool useHsdDefault, bool allowTgpOverride)
         {
             RectTransform defaultRegion = BuildFullChild(region, useHsdDefault ? "Hsd" : "Rwr");
-            RectTransform tgpRegion = BuildFullChild(region, "Tgp");
             _swapDefaultPage = useHsdDefault ? new InternalMfdHsdPage(defaultRegion, font) : new InternalMfdRwrPage(defaultRegion, font);
-            _swapTgpPage = new InternalMfdTgpPage(tgpRegion, font);
             _swapDefaultRoot = defaultRegion.gameObject;
+
+            if (!allowTgpOverride) return;
+
+            RectTransform tgpRegion = BuildFullChild(region, "Tgp");
+            _swapTgpPage = new InternalMfdTgpPage(tgpRegion, font);
             _swapTgpRoot = tgpRegion.gameObject;
         }
 
