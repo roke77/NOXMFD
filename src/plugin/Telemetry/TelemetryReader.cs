@@ -1138,8 +1138,8 @@ namespace NOXMFD
             }
         }
 
-        // Another mod's own radar patch can corrupt RadarParameters.maxRange into NaN/Infinity;
-        // TelemetryJson's hand-rolled formatter has no guard against that, so an unclamped value
+        // A missing or invalid game value can be NaN/Infinity; TelemetryJson's formatter has no
+        // guard against that, so an unclamped value
         // would emit an invalid bare token and break every client's JSON.parse from that frame on.
         private static float ClampFiniteRange(float range) => float.IsFinite(range) ? range : 0f;
 

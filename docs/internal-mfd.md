@@ -4,12 +4,11 @@
 
 **Live-verified on all 13 aircraft** (`feature/internal-mfd-poc` for the original T/A-30 Compass
 POC; `feature/internal-mfd-other-aircraft` for the other 12, see
-[Per-aircraft screen geometry](#per-aircraft-screen-geometry)). Two needed adjustment past a
-straight geometry conversion: CI-22 Cricket's crop needed widening past MFDCustomizer's own
-numbers (visible unused canvas on both sides at the original crop) plus `NativeTgpOnLock` (see
-[Left-pane TGP override](#left-pane-tgp-override)); VT-7 Vagrant isn't in MFDCustomizer's table at
-all and was measured from scratch, landing on the same crop as FS-20 Vortex. Every other
-conversion held up as-is. Code lives in
+[Per-aircraft screen geometry](#per-aircraft-screen-geometry)). Two needed adjustment after live
+inspection: CI-22 Cricket's crop needed widening (visible unused canvas on both sides at the
+original crop) plus `NativeTgpOnLock` (see [Left-pane TGP override](#left-pane-tgp-override));
+VT-7 Vagrant was measured from scratch, landing on the same crop as FS-20 Vortex. Every other
+calibration held up as-is. Code lives in
 `src/plugin/InternalMFD/` — see [Code organization](#code-organization) for the per-file split. A
 wide screen (the T/A-30's ~2.8:1 center screen and a few others) splits into two panes (see
 [Split-screen layout](#split-screen-layout)): the right pane is a live, source-matched **RWR**
@@ -144,9 +143,8 @@ matches the local player's `Aircraft` (`GameManager.GetLocalAircraft`) — it do
 `aircraft.cockpit` (that's a different GameObject, the structural/damage `UnitPart` `EscapeCapsule`
 happens to sit on) or anywhere under `Aircraft`'s own transform hierarchy; both were tried live and
 found nothing. A resolved `Cockpit`'s `tacScreen` field is only non-null for the local player's own
-aircraft (`Cockpit_OnAircraftInitialize` sets `base.enabled` accordingly for everyone else too —
-`isActiveAndEnabled` alone is a simpler equivalent check, per an existing third-party mod, see
-[External precedent](#external-precedent)).
+aircraft (`Cockpit_OnAircraftInitialize` sets `base.enabled` accordingly for everyone else too), so
+`isActiveAndEnabled` is an equivalent local-player check.
 
 Insert a `GameObject` as a child of that `Canvas`, last-sibling so it paints on top:
 
@@ -243,15 +241,11 @@ The T/A-30 Compass's three-screens-one-mesh layout, and its exact UV bands, were
 data — confirmed correct for that aircraft only (cross-checked two ways, see
 [Live findings](#live-findings)), not assumed to generalize without checking each one.
 `InternalMfdScreenResolver.ScreenGeometryByAircraft` (`feature/internal-mfd-other-aircraft`) now
-holds all 13 fixed-/rotary-wing aircraft, every entry live-confirmed: the T/A-30 entry stays the
-original live measurement; 10 more are converted from [MFDCustomizer](#external-precedent) (MIT
-license)'s own hand-measured per-aircraft `"main"` slot rects, using the same local-canvas-
-coordinate math that already cross-checked correctly against the T/A-30's own live measurement
-(see that table's own header comment for the conversion formula), and held up as-is on live
-confirmation. CI-22 Cricket's conversion needed its crop widened past MFDCustomizer's own numbers
-plus `NativeTgpOnLock` (see [Left-pane TGP override](#left-pane-tgp-override)). VT-7 Vagrant isn't
-in MFDCustomizer's table at all — measured from scratch, it turned out to match FS-20 Vortex's own
-entry exactly.
+holds all 13 fixed-/rotary-wing aircraft, every entry live-confirmed. The T/A-30 entry stays the
+original live measurement; the remaining entries use calibrated local-canvas coordinates and held
+up as-is on live confirmation except CI-22 Cricket, whose crop needed widening plus
+`NativeTgpOnLock` (see [Left-pane TGP override](#left-pane-tgp-override)). VT-7 Vagrant was
+measured from scratch and matches FS-20 Vortex's entry exactly.
 
 Two aircraft the wiki lists aren't in the table: `CargoPlane1` (unreleased/WIP) and the event-only
 UFO — neither has a stable, checkable cockpit to measure yet.
@@ -331,11 +325,8 @@ what doesn't work and why, so it isn't retried:
 The eventual fix (crop the overlay to the center screen's own UV band within that one shared
 texture) was reached by a different route than the above: a review inspected the T/A-30's actual
 mesh/material/UV data directly (not decompiled C#, actual asset data) and reported the center
-screen's band as V ≈ 0.29068–1.0 (full width). That number was cross-checked against `MFDCustomizer`
-(see [External precedent](#external-precedent)), an unrelated third-party mod with its own
-independently hand-measured layout table that includes this exact aircraft — its measurement for the
-same screen converts to V ≈ 0.299–0.994, matching to within rounding. Applied and confirmed live:
-the overlay now shows only on the center screen, not the two smaller side screens sharing the canvas.
+screen's band as V ≈ 0.29068–1.0 (full width). Applied and confirmed live: the overlay now shows
+only on the center screen, not the two smaller side screens sharing the canvas.
 
 ## Open questions
 
@@ -345,37 +336,6 @@ the overlay now shows only on the center screen, not the two smaller side screen
 - Do the driving methods for radar/gauges/pylons need the same "invoke the game's own toggle
   event" treatment `tgp-suppress-native-render.md` uses (cosmetic-only, camera/renderer untouched),
   or does full content replacement need guarded Harmony-prefix suppression?
-
-## External precedent
-
-Four existing third-party BepInEx mods manipulate this same cockpit surface, found mid-investigation
-(not previously known to this repo). Noted here as prior art, since re-deriving what they've
-already solved would be wasted effort if this feature grows further:
-
-- **[MFDCustomizer](https://github.com/9138noms/MFDCustomizer)** (MIT license) — independently
-  arrived at the same `Cockpit.tacScreen`/`TacScreen.canvas` reflection chain this doc uses, plus a
-  simpler local-player check (`Behaviour.isActiveAndEnabled`, since `Cockpit_OnAircraftInitialize`
-  only enables the local player's own instance — simpler than this POC's "match every `Cockpit`'s
-  own `aircraft` field" scan). Ships a hand-measured, per-aircraft, per-*slot* (multiple named
-  screens, e.g. `main`, `panel`, `AoA`, `engine`) pixel-rect table covering a dozen aircraft, T/A-30
-  Compass included — the source of this doc's cross-check above, and (converted to anchor
-  fractions, `main` slot only) now the source of `InternalMfdScreenResolver.
-  ScreenGeometryByAircraft`'s other 11 entries too (see
-  [Per-aircraft screen geometry](#per-aircraft-screen-geometry)). Confirms the render texture is
-  1024×512 for every aircraft, not just the T/A-30.
-- **[3DWebviewLoader](https://github.com/Assassin1076/3DWebviewLoader)** — takes a different
-  insertion approach (swaps the target Renderer's material outright to show a Vuplex webview
-  texture, rather than inserting into the existing canvas). Ships a genuinely reusable diagnostic:
-  `RuntimeMeshExtractor` reads a mesh's GPU vertex/index buffers back asynchronously and clusters
-  triangles into UV islands (union-find over shared UV edges), exporting a bounding box per island
-  plus a labeled preview PNG — an automated alternative to hand-measuring a new aircraft's screen
-  regions, used there as a developer-facing tool rather than at runtime for automatic per-screen
-  targeting.
-- **[NuclearOption-MFDBlockBlast](https://github.com/9138noms/NuclearOption-MFDBlockBlast)** and
-  **[NuclearOption-MFDVideoPlayer](https://github.com/9138noms/NuclearOption-MFDVideoPlayer)** — same
-  problem space (content in the cockpit MFD); not inspected in depth.
-
-Check each repo's license before reusing any code or measured data directly.
 
 ## Out of scope (for this doc)
 

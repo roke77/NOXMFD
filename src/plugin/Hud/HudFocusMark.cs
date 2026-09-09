@@ -19,7 +19,7 @@ namespace NOXMFD
     // of that for free instead of re-deriving it.
     internal sealed class HudFocusMark : MonoBehaviour
     {
-        // Same amber as every other mod-added HUD cue (HudWaypointCue/HudTtiCue's own #FFAA00).
+        // Matches the shared amber used by the other NOXMFD HUD cues.
         private static readonly Color Amber = new Color(1f, 0.6667f, 0f, 1f);
 
         // ponytail: a fixed screen-pixel offset rather than one that scales with the target marker's
