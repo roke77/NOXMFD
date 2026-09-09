@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
 
@@ -94,7 +95,8 @@ namespace NOXMFD
             sb.Append("\"loadout\":").Append(LoadoutArray(s.Loadout))
               .Append(",\"colors\":{\"f\":\"").Append(JsonLite.EscapeJson(s.ColFriendly ?? "#39ff14"))
               .Append("\",\"e\":\"").Append(JsonLite.EscapeJson(s.ColHostile ?? "#ff4040"))
-              .Append("\",\"n\":\"").Append(JsonLite.EscapeJson(s.ColNeutral ?? "#9aa0a6")).Append("\"}")
+              .Append("\",\"n\":\"").Append(JsonLite.EscapeJson(s.ColNeutral ?? "#9aa0a6"))
+              .Append("\",\"types\":").Append(TypeColorOverridesJson(s.TypeColorOverrides)).Append('}')
               .Append(",\"contacts\":").Append(UnitsArray(s.Units))
               .Append(",\"playerId\":").Append(s.PlayerId)
               .Append(",\"pjm\":").Append(JsonBool(s.PlayerJammed))
@@ -128,6 +130,27 @@ namespace NOXMFD
         }
 
         private static string JsonBool(bool value) => value ? "true" : "false";
+
+        // Per-unit-type icon color overrides (docs/vanilla-icons-plus-extension.md), keyed by the
+        // same type name a contact's "t" field and icon lookup use. factionFilter is included only
+        // when set — its absence means "any faction" on the client side.
+        private static string TypeColorOverridesJson(Dictionary<string, IconColorRegistry.TypeOverride>? overrides)
+        {
+            if (overrides == null || overrides.Count == 0) return "{}";
+            var sb = new StringBuilder("{");
+            bool first = true;
+            foreach (var kv in overrides)
+            {
+                if (!first) sb.Append(',');
+                first = false;
+                sb.Append('"').Append(JsonLite.EscapeJson(kv.Key)).Append("\":{\"hex\":\"")
+                  .Append(JsonLite.EscapeJson(kv.Value.Hex)).Append('"');
+                if (kv.Value.FactionFilter.HasValue)
+                    sb.Append(",\"f\":").Append(kv.Value.FactionFilter.Value);
+                sb.Append('}');
+            }
+            return sb.Append('}').ToString();
+        }
 
         // AKF advanced kill feed (docs/akf-page.md). Always present while a mission runs (no "faction
         // has no HQ yet" gate like MIS/OBJ — an empty session just reads as all-zero). Kills are

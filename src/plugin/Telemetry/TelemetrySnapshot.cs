@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 namespace NOXMFD
 {
     internal struct TelemetrySnapshot
@@ -120,10 +122,16 @@ namespace NOXMFD
         // focused one the native HUD cue already does.
         public float[] LockedTargetTti;
 
-        // The game's own HUD faction colors (hex), so the web map matches the game.
+        // The game's own HUD faction colors (hex), so the web map matches the game. An extension
+        // can override these live via Api.SetFactionColorOverride (docs/vanilla-icons-plus-extension.md).
         public string ColFriendly;
         public string ColHostile;
         public string ColNeutral;
+
+        // Per-unit-type color overrides from a registered extension, keyed by the same type name
+        // each contact's "t" field and icon lookup (/icon?type=) already use. Empty outside that
+        // use case.
+        public Dictionary<string, IconColorRegistry.TypeOverride> TypeColorOverrides;
 
         // True while the targeting-pod feed is producing frames (a target is locked, or the
         // game's 3-second post-loss hold is still running). Drives the MFD's NO TARGET fallback.

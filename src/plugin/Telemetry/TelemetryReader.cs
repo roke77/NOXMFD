@@ -835,6 +835,8 @@ namespace NOXMFD
             TargetListSelector tgtSel = SceneSingleton<TargetListSelector>.i;
             bool tgtOk = tgtSel != null;
 
+            var factionOverride = IconColorRegistry.FactionOverride;
+
             TelemetryServer.Push(new TelemetrySnapshot
             {
                 Valid          = true,
@@ -890,9 +892,10 @@ namespace NOXMFD
                 FocusedTargetId = TargetFocus.Id,
                 LockedTargetIds = _cachedLockedIds,
                 LockedTargetTti = _cachedLockedTti,
-                ColFriendly    = _colFriendly,
-                ColHostile     = _colHostile,
-                ColNeutral     = _colNeutral,
+                ColFriendly    = factionOverride.Friendly ?? _colFriendly,
+                ColHostile     = factionOverride.Enemy    ?? _colHostile,
+                ColNeutral     = factionOverride.Neutral  ?? _colNeutral,
+                TypeColorOverrides = IconColorRegistry.TypeOverridesSnapshot(),
                 TgpActive      = _tgp.Active,
                 TgpResolution   = RatesConfig.TgpResolutionName,
                 TgpQuality      = RatesConfig.TgpLegacyQualityName,

@@ -1,5 +1,12 @@
 # Vanilla Icons PLUS bridge — NOXMFD-side plan
 
+## Status
+
+NOXMFD's side (sections 1–4 below) is built, as API version 2 — see `docs/extensions-api.md`'s
+"6. Icon color overrides" for the shipped surface. Section 5 (documentation) is this same update.
+The extension itself, in its own repo, is not started; the rest of this document is still that
+project's plan.
+
 ## Goal
 
 [NO-VanillaIconsPLUS](https://github.com/xHellcat92x/NO-VanillaIconsPLUS) recolors the game's

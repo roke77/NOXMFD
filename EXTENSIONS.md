@@ -23,6 +23,7 @@ seen NOXMFD's internals — everything you need is the public surface described 
   - [3. Publishing telemetry](#3-publishing-telemetry)
   - [4. Receiving commands](#4-receiving-commands)
   - [5. A continuous video feed](#5-a-continuous-video-feed)
+  - [6. Icon color overrides](#6-icon-color-overrides)
 - [Appearing in the EXT nav — automatic](#appearing-in-the-ext-nav--automatic)
 - [Reusing NOXMFD's shared assets](#reusing-noxmfds-shared-assets)
 - [Versioning](#versioning)
@@ -85,10 +86,10 @@ Build, drop the DLL into `BepInEx/plugins/`, restart the game. Your page appears
 **EXT** nav, labeled "MY PAGE", reachable in both the classic bezel and F-35 layouts, in full
 view and split panes — you didn't write any of that wiring yourself.
 
-## The five surfaces
+## The six surfaces
 
 Everything an extension can do goes through `NOXMFD.Api` (`using NOXMFD;`), a static class with
-five capabilities. You don't need all five — the quick-start example above only used the first.
+six capabilities. You don't need all six — the quick-start example above only used the first.
 
 ### 1. Registering your extension
 
@@ -265,6 +266,34 @@ On your page, point an `<img>` straight at the stream:
 <img src="/ext/my-extension/feed.mjpg">
 ```
 
+### 6. Icon color overrides
+
+If your extension is a bridge to a mod that already recolors the game's own native HUD/map icons
+(docs/vanilla-icons-plus-extension.md is the worked example), you can carry those colors over to
+NOXMFD's own MAP page icons — no MAP-page registration of your own required for this part:
+
+```csharp
+public static void SetFactionColorOverride(string? friendlyHex, string? enemyHex, string? neutralHex);
+public static void ClearFactionColorOverride();
+public static void SetUnitTypeColorOverride(string unitType, string hex, int? factionFilter = null);
+public static void ClearUnitTypeColorOverride(string unitType);
+```
+
+`SetFactionColorOverride` replaces NOXMFD's own once-per-session read of the game's HUD faction
+colors; any hex you pass as `null` falls back to that read instead. Call it again whenever your
+source colors change — there is no polling, the next telemetry frame picks up the new value.
+
+`SetUnitTypeColorOverride` colors one specific unit type, keyed by the exact `unitName` string
+the game itself uses — the same key NOXMFD's telemetry already reports as a contact's `t` field
+and already uses to look up that type's icon sprite, so you don't need to teach NOXMFD anything
+about unit classification. `factionFilter` restricts the override to one faction (`0` neutral,
+`1` friendly, `2` enemy); leave it `null` to apply regardless of faction — this is how you'd
+reproduce a mod's "enemy-only AA unit tint" pattern:
+
+```csharp
+NOXMFD.Api.SetUnitTypeColorOverride("AFV-6 AA", "#ff5eff", factionFilter: 2);
+```
+
 ## Appearing in the EXT nav — automatic
 
 Once `RegisterExtension` succeeds, your `id`/`label` show up in `GET /ext-manifest`, which
@@ -298,7 +327,7 @@ without hand-matching colors.
 ## Versioning
 
 ```csharp
-public const int ApiVersion = 1;
+public const int ApiVersion = 2;
 ```
 
 `NOXMFD.Api.ApiVersion` is there if you want to branch on it at runtime, but the real enforcement

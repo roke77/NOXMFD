@@ -2,9 +2,9 @@
 
 ## Status
 
-**Built and available as API version 1.** A separate BepInEx plugin can register an MFD page,
+**Built and available as API version 2.** A separate BepInEx plugin can register an MFD page,
 publish telemetry, receive commands on the Unity main thread, appear under the EXT navigation hub,
-and provide an MJPEG feed without changing NOXMFD source.
+provide an MJPEG feed, and override MAP's unit icon colors — all without changing NOXMFD source.
 
 The concrete example is
 [NOXMFD-Extension-Remote-Control-Missile-Camera-POC](https://github.com/roke77/NOXMFD-Extension-Remote-Control-Missile-Camera-POC),
@@ -143,6 +143,28 @@ current frame.
 The registry keeps independent frame, sequence, lock, and subscriber state for each id. The HTTP
 handler polls for a changed frame every 30 ms; the extension controls the actual publish cadence.
 
+## 6. Icon color overrides
+
+An extension can recolor MAP's unit icons without owning MAP's rendering itself — the intended
+use is a bridge to a third-party mod that already recolors the game's own native HUD/map icons
+(docs/vanilla-icons-plus-extension.md is the worked example, VanillaIconsPLUS):
+
+```csharp
+Api.SetFactionColorOverride(string? friendlyHex, string? enemyHex, string? neutralHex);
+Api.ClearFactionColorOverride();
+Api.SetUnitTypeColorOverride(string unitType, string hex, int? factionFilter = null);
+Api.ClearUnitTypeColorOverride(string unitType);
+```
+
+`SetFactionColorOverride` supersedes NOXMFD's own once-per-session read of the game's HUD faction
+colors — any hex left `null` falls back to that read, and any override can be replaced or cleared
+at any time; there is no polling, the next telemetry frame carries the new value.
+`SetUnitTypeColorOverride` colors one unit type regardless of (or, with `factionFilter` set to `0`
+neutral / `1` friendly / `2` enemy, restricted to) its faction — `unitType` is the same key a
+contact's `t` telemetry field and the `/icon?type=` lookup already use, so no separate
+classification step is needed. Both channels ship to the browser inside the existing telemetry
+frame's `colors` object (`{"f","e","n","types"}`), additive to its prior shape.
+
 ## Known limitations
 
 - The generic browser side does not subscribe to names published through `Api.PublishEvent`.
@@ -167,3 +189,5 @@ handler polls for a changed frame every 30 ms; the extension controls the actual
 - `src/web/shell/shared/ext-nav.js` and `src/web/pages/ext/ext.html` — runtime discovery and EXT hub.
 - `src/web/services/telemetry-source.js` plus the classic and F-35 shells — extension telemetry
   forwarding.
+- `src/plugin/Extensions/IconColorRegistry.cs` — faction and per-unit-type color override storage.
+- `src/web/pages/map/map.js` — consumes `colors.types` alongside the existing `colors.f/e/n`.

@@ -117,6 +117,10 @@ const STALE_ALPHA  = 0.5;                           // faded icon opacity for a 
 const SQUAD_COLOR = '#4ec9c9';
 let   factionColors = { 0: '#9aa0a6', 1: '#39ff14', 2: '#ff4040' };  // updated from the game's HUD colors —
                                                      // 1/2 default to --no-green/--no-red until then
+// Per-unit-type overrides from a registered extension (docs/vanilla-icons-plus-extension.md),
+// keyed by the same type name contacts carry as "t". { hex, f? } — f, when present, restricts the
+// override to that one faction (0 neutral/1 friendly/2 enemy), matching factionColors' own keys.
+let   typeColors = {};
 const iconImages = {};         // unitName -> { img, ready }   (raw sprite, fetched once)
 const iconTints  = {};         // "unitName|#hex" -> { cv, iw, ih }  (pre-tinted + pre-glowed)
 
@@ -636,7 +640,9 @@ function drawOverlay() {
       const p = worldToOverlay(u.x, u.z);
       if (!onScreen(p, 48)) continue;
       ensureIconImage(u.t);
-      const hex = u.sq ? SQUAD_COLOR : (factionColors[u.f] || factionColors[0]);
+      const typeOv = typeColors[u.t];
+      const typeHex = typeOv && (typeOv.f == null || typeOv.f === u.f) ? typeOv.hex : null;
+      const hex = u.sq ? SQUAD_COLOR : (typeHex || factionColors[u.f] || factionColors[0]);
       if (u.st) oc.globalAlpha = STALE_ALPHA;
       const r = drawIcon(u.t, hex, p.cx, p.cy, u.h, u.o, iconBase(), u.s);
       if (u.st) oc.globalAlpha = 1;
@@ -776,7 +782,10 @@ function requestDraw() {
 function renderFrame(d) {
   lastData = d;
   ensureIconImage(d.name);
-  if (d.colors) factionColors = { 0: d.colors.n, 1: d.colors.f, 2: d.colors.e };
+  if (d.colors) {
+    factionColors = { 0: d.colors.n, 1: d.colors.f, 2: d.colors.e };
+    typeColors = d.colors.types || {};
+  }
 
   if (d.map && d.map.valid) {
     // rw/rh (issue #65): the mission's real reachable extent, which can run past w/h, the smaller

@@ -5,7 +5,7 @@ namespace NOXMFD
     public static class Api
     {
         // Bump on breaking changes; extensions pin a minimum via BepInDependency MinimumVersion.
-        public const int ApiVersion = 1;
+        public const int ApiVersion = 2;
 
         // Called on an HTTP worker: relPath "" is the page's own HTML (/ext/<id>); otherwise it is
         // an asset under that path. Return null for 404. Content-Type is inferred from its path suffix.
@@ -34,5 +34,23 @@ namespace NOXMFD
         public static void PushMjpegFrame(string id, byte[] jpg) => ExtensionRegistry.PushMjpegFrame(id, jpg);
         public static void ClearMjpegFrame(string id) => ExtensionRegistry.ClearMjpegFrame(id);
         public static bool WantsMjpegFrames(string id) => ExtensionRegistry.WantsMjpegFrames(id);
+
+        // Live override for MAP's three base faction tints (docs/vanilla-icons-plus-extension.md),
+        // superseding TelemetryReader's once-per-session GameAssets read. Any hex left null falls
+        // back to that read. Call again whenever the source colors change — there is no polling,
+        // the next telemetry frame picks up the new value.
+        public static void SetFactionColorOverride(string? friendlyHex, string? enemyHex, string? neutralHex)
+            => IconColorRegistry.SetFactionOverride(friendlyHex, enemyHex, neutralHex);
+
+        public static void ClearFactionColorOverride() => IconColorRegistry.ClearFactionOverride();
+
+        // Per-unit-type MAP icon color, keyed by the same type name a contact's "t" field and the
+        // icon lookup (/icon?type=) already use — no separate classification needed on NOXMFD's
+        // side. factionFilter restricts the override to one faction (0 neutral/1 friendly/2
+        // enemy); null applies regardless of faction.
+        public static void SetUnitTypeColorOverride(string unitType, string hex, int? factionFilter = null)
+            => IconColorRegistry.SetTypeOverride(unitType, hex, factionFilter);
+
+        public static void ClearUnitTypeColorOverride(string unitType) => IconColorRegistry.ClearTypeOverride(unitType);
     }
 }
