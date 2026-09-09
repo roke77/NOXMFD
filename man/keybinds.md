@@ -95,6 +95,14 @@ the shared [PAD cursor](#pad-cursor) binds above, not a dedicated pan/tilt/zoom 
 - **Full Screen HUD Toggle** — show or hide the readout overlay (range/altitude/heading/mode)
   while full screen is active, for a clean, unobstructed view of the feed itself.
 
+## Internal MFD
+
+- **Internal MFD POC Toggle** — turn the experimental in-cockpit NOXMFD overlay on or off during a
+  mission. It is off and unbound by default. On aircraft with a calibrated cockpit screen, it
+  replaces that screen with native RWR/HSD content and switches to TGP content while the TGP is
+  active. See [the internal-MFD design record](../docs/internal-mfd.md) for supported layouts and
+  current limitations.
+
 ## Other settings
 
 Two toggles sit above the bind table (neither is a bind itself):

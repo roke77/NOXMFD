@@ -13,9 +13,7 @@ namespace NOXMFD
         // and a 0..1 distance fraction into an (x,y) offset radiusPx out from (0,0). This exact
         // sign/axis pairing (sin for X, cos for Y) is what every scope-style page's contact/missile/
         // threat placement depends on — a plausible-looking but wrong pairing (or a flipped sign)
-        // still compiles and still draws something, just in the wrong place/direction, which is
-        // exactly the class of bug RWR's own missile-dart direction shipped with once before being
-        // traced through the source math by hand.
+        // still compiles and draws, but puts contacts in the wrong direction.
         internal static (float X, float Y) PolarOffset(float azimuthDeg, float distFrac, float radiusPx)
         {
             double rad = azimuthDeg * Math.PI / 180.0;

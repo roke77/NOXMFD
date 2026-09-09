@@ -4,9 +4,8 @@ using UnityEngine.UI;
 
 namespace NOXMFD
 {
-    // Small UI-construction primitives shared by every internal-MFD page — kept here once instead
-    // of duplicated per page (this is exactly the small overlap InternalMfdRwrPage's own private
-    // copy of NewUi already showed, before InternalMfdTgpPage would have needed a third copy).
+    // Small UI-construction primitives shared by every internal-MFD page. Keeping these here
+    // preserves one consistent UI hierarchy and procedural-sprite implementation across pages.
     internal static class InternalMfdUi
     {
         internal static GameObject NewUi(string name, Transform parent, int layer, Type extraComponent)

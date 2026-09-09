@@ -40,6 +40,7 @@ namespace NOXMFD
         private IInternalMfdPage? _swapTgpPage;
         private IInternalMfdPage? _rightPage; // split layout only; fixed RWR, never overridden
         private float       _lastRefresh;
+        private bool        _overlayBuildFailureLogged;
 
         internal static void Toggle()
         {
@@ -142,14 +143,13 @@ namespace NOXMFD
 
         private void BuildOverlay(Aircraft aircraft, Canvas canvas)
         {
-            // Build into a local first: on an exception partway through, the field stays null and
-            // the next frame's LateUpdate retries cleanly, instead of caching a half-built overlay.
             var overlay = new GameObject("NOXMFD_InternalMfdController", typeof(RectTransform));
+            _overlay = overlay; // Teardown destroys this partial tree if construction fails.
+            try
+            {
             overlay.layer = canvas.gameObject.layer; // SetParent does NOT inherit the parent's layer
 
-            // ?? "?", not just the `definition == null` case the ?. already covers: a null unitName
-            // on an otherwise-valid definition would pass a null key into TryGetValue below, which
-            // throws ArgumentNullException — every LateUpdate tick, since _overlay never gets set.
+            // Dictionary lookup rejects a null key, so keep unknown definitions on the safe fallback.
             string unitName = aircraft.definition?.unitName ?? "?";
             bool knownScreen = InternalMfdScreenResolver.ScreenGeometryByAircraft.TryGetValue(unitName, out InternalMfdScreenResolver.ScreenGeometry geometry);
             if (!knownScreen)
@@ -157,16 +157,14 @@ namespace NOXMFD
 
             var rt = overlay.GetComponent<RectTransform>();
             rt.SetParent(canvas.transform, false);
-            rt.SetAsLastSibling(); // top of paint order — confirmed live to cover native content
+            rt.SetAsLastSibling(); // top of paint order so the overlay covers native content
             rt.anchorMin = knownScreen ? geometry.AnchorMin : Vector2.zero;
             rt.anchorMax = knownScreen ? geometry.AnchorMax : Vector2.one;
             rt.offsetMin = Vector2.zero;
             rt.offsetMax = Vector2.zero;
 
-            // No sprite — an Image with none draws a flat tinted quad, same trick HudWaypointCue
-            // uses, so this ships no art and can't fail on a missing asset. Fully opaque (alpha 1) —
-            // anything less lets the native content underneath show through, which is what "solid
-            // background" reports were seeing.
+            // No sprite — an Image with none draws a flat tinted quad, so this ships no art and
+            // cannot fail on a missing asset. Opaque background blocks native content underneath.
             var bg = overlay.AddComponent<Image>();
             bg.color = new Color(0.03f, 0.05f, 0.03f, 1f);
             bg.raycastTarget = false;
@@ -174,13 +172,9 @@ namespace NOXMFD
 
             Font? font = InternalMfdUi.ResolveFont();
 
-            // Split-screen layout (docs/internal-mfd.md "Split-screen layout"): a wide screen splits
-            // into two independently-addressable halves with a vertical separator, left half
-            // swapping HSD/TGP and right half a fixed RWR; a squarish screen stays one full-view
-            // region, swapping RWR/TGP instead (no separate fixed RWR pane to put it in). Unverified
-            // aircraft get the background panel only, no page content — there's nothing calibrated
-            // to show there yet, and guessing at a full-canvas page would just bleed onto its side
-            // screens the same way the very first version of this POC did.
+            // A wide screen splits into independently-addressable halves, with HSD/TGP left and
+            // fixed RWR right. A squarish screen swaps RWR/TGP in one region. Unknown aircraft
+            // keep only the background because an uncalibrated crop could cover another screen.
             bool allowTgpOverride = !(knownScreen && geometry.NativeTgpOnLock);
             if (knownScreen && geometry.Split)
             {
@@ -197,7 +191,16 @@ namespace NOXMFD
                 BuildSwapPane(full, font, useHsdDefault: false, allowTgpOverride);
             }
 
-            _overlay = overlay;
+            }
+            catch (System.Exception ex)
+            {
+                if (!_overlayBuildFailureLogged)
+                {
+                    _overlayBuildFailureLogged = true;
+                    Plugin.Log?.LogWarning($"[NOXMFD] Internal MFD POC overlay construction failed; retrying safely: {ex}");
+                }
+                Teardown();
+            }
         }
 
         // Both swap-pair pages are built up front and kept alive behind their own wrapper —
