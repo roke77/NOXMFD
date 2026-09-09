@@ -2,14 +2,14 @@
 
 ## Status
 
-**Live-verified on two aircraft (T/A-30 Compass, CI-22 Cricket)**, `feature/internal-mfd-poc` and
-`feature/internal-mfd-other-aircraft`; the latter is extending screen geometry to the remaining 10
-(see [Per-aircraft screen geometry](#per-aircraft-screen-geometry)) — each still-unconfirmed entry
-needs its own live spot-check before it's held to the same "confirmed" bar as the T/A-30 and
-Cricket. The Cricket's crop needed widening from MFDCustomizer's own numbers (visible unused
-canvas on both sides at the original crop) and turned out to need `NativeTgpOnLock` too (see
-[Left-pane TGP override](#left-pane-tgp-override)) — a useful data point that a straight geometry
-conversion isn't always the whole story per aircraft. Code lives in
+**Live-verified on all 13 aircraft** (`feature/internal-mfd-poc` for the original T/A-30 Compass
+POC; `feature/internal-mfd-other-aircraft` for the other 12, see
+[Per-aircraft screen geometry](#per-aircraft-screen-geometry)). Two needed adjustment past a
+straight geometry conversion: CI-22 Cricket's crop needed widening past MFDCustomizer's own
+numbers (visible unused canvas on both sides at the original crop) plus `NativeTgpOnLock` (see
+[Left-pane TGP override](#left-pane-tgp-override)); VT-7 Vagrant isn't in MFDCustomizer's table at
+all and was measured from scratch, landing on the same crop as FS-20 Vortex. Every other
+conversion held up as-is. Code lives in
 `src/plugin/InternalMFD/` — see [Code organization](#code-organization) for the per-file split. A
 wide screen (the T/A-30's ~2.8:1 center screen and a few others) splits into two panes (see
 [Split-screen layout](#split-screen-layout)): the right pane is a live, source-matched **RWR**
@@ -241,15 +241,17 @@ layout on the physical screens shaped for it.
 
 The T/A-30 Compass's three-screens-one-mesh layout, and its exact UV bands, were one aircraft's
 data — confirmed correct for that aircraft only (cross-checked two ways, see
-[Live findings](#live-findings)), not assumed to generalize. `InternalMfdScreenResolver.
-ScreenGeometryByAircraft` (`feature/internal-mfd-other-aircraft`) now holds all 12 fixed-/rotary-
-wing aircraft: the T/A-30 entry stays the original live measurement; the other 11 are converted
-from [MFDCustomizer](#external-precedent) (MIT license)'s own hand-measured per-aircraft `"main"`
-slot rects, using the same local-canvas-coordinate math that already cross-checked correctly
-against the T/A-30's own live measurement (see that table's own header comment for the conversion
-formula). Each of those 11 conversions still needs its own live spot-check in the cockpit before
-it's held to the same "confirmed" bar the T/A-30 entry has — the conversion is geometry, not a
-guarantee the game's canvas hasn't moved since MFDCustomizer measured it.
+[Live findings](#live-findings)), not assumed to generalize without checking each one.
+`InternalMfdScreenResolver.ScreenGeometryByAircraft` (`feature/internal-mfd-other-aircraft`) now
+holds all 13 fixed-/rotary-wing aircraft, every entry live-confirmed: the T/A-30 entry stays the
+original live measurement; 10 more are converted from [MFDCustomizer](#external-precedent) (MIT
+license)'s own hand-measured per-aircraft `"main"` slot rects, using the same local-canvas-
+coordinate math that already cross-checked correctly against the T/A-30's own live measurement
+(see that table's own header comment for the conversion formula), and held up as-is on live
+confirmation. CI-22 Cricket's conversion needed its crop widened past MFDCustomizer's own numbers
+plus `NativeTgpOnLock` (see [Left-pane TGP override](#left-pane-tgp-override)). VT-7 Vagrant isn't
+in MFDCustomizer's table at all — measured from scratch, it turned out to match FS-20 Vortex's own
+entry exactly.
 
 Two aircraft the wiki lists aren't in the table: `CargoPlane1` (unreleased/WIP) and the event-only
 UFO — neither has a stable, checkable cockpit to measure yet.
@@ -268,14 +270,13 @@ The T/A-30's own center screen is a ≈2.8:1 aspect ratio — wide, and implemen
 between them, and mounts `IInternalMfdPage`s into each half — the right half holds
 `InternalMfdRwrPage` (fixed); the left half holds both `InternalMfdHsdPage` and `InternalMfdTgpPage`
 and switches between them (see [Left-pane TGP override](#left-pane-tgp-override) and
-[Status](#status)). A-19 Brawler, FS-12 Revoker, and FS-20 Vortex share that same ~2.8:1 shape and
-also split. The other 8 aircraft in the table are squarish (~1.3-1.7:1) and stay one full region,
+[Status](#status)). A-19 Brawler, FS-12 Revoker, FS-20 Vortex, and VT-7 Vagrant share that same
+~2.8:1 shape and also split (Vagrant measured from scratch, landing on the same crop as the
+Vortex). The other 8 aircraft in the table are squarish (~1.3-1.7:1) and stay one full region,
 mounting `InternalMfdRwrPage`/`InternalMfdTgpPage` as the swap pair instead of `InternalMfdHsdPage`/
 `InternalMfdTgpPage` — no fixed RWR pane to hold a non-swapping RWR, so RWR itself is what TGP
-overrides there. SAH-46 Chicane's ~2.0:1 sits between the two clusters this table's aspect ratios
-otherwise fall into cleanly; it's classified squarish (the closer cluster numerically) but is more
-of a judgment call than the rest, pending its own live check — see
-`InternalMfdScreenResolver.ScreenGeometryByAircraft`'s own header comment.
+overrides there. SAH-46 Chicane's ~2.0:1 sat between the two clusters this table's aspect ratios
+otherwise fall into cleanly; classified and confirmed squarish.
 
 Open, not yet decided:
 
@@ -343,8 +344,6 @@ the overlay now shows only on the center screen, not the two smaller side screen
 - Do the driving methods for radar/gauges/pylons need the same "invoke the game's own toggle
   event" treatment `tgp-suppress-native-render.md` uses (cosmetic-only, camera/renderer untouched),
   or does full content replacement need guarded Harmony-prefix suppression?
-- See [Per-aircraft screen geometry](#per-aircraft-screen-geometry) — the table's 11 converted
-  entries still need their own live spot-check.
 
 ## External precedent
 

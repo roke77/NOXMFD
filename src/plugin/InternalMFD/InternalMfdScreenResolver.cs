@@ -18,24 +18,23 @@ namespace NOXMFD
         // UVs. This is per-aircraft mesh data (docs/internal-mfd.md's per-airframe-geometry
         // question) — callers fall back to the full canvas for any aircraft not in this table.
         //
-        // The T/A-30 Compass entry (V 0.29068-1.0, full width) is live-measured and cross-checked
-        // (docs/internal-mfd.md "Live findings"); the rest are converted from MFDCustomizer
-        // (https://github.com/9138noms/MFDCustomizer, MIT license)'s own hand-measured "main" slot
-        // per aircraft, which already matched this repo's own T/A-30 measurement to within rounding.
-        // Its rects are local canvas coordinates (centerX, centerY, width, height) on the same
-        // 1024x512 canvas; converting to anchor fractions is (center ± size/2 + canvasHalfSize) /
-        // canvasSize, independently per axis (1024 wide, 512 tall). Each entry here still needs a
-        // live spot-check in the actual cockpit (the conversion is geometry, not a guarantee the
-        // game's canvas hasn't moved since MFDCustomizer measured it) — treat as "probably right,
-        // not yet confirmed" until checked, same bar as the T/A-30 entry was held to.
+        // The T/A-30 Compass entry (V 0.29068-1.0, full width) is live-measured; the rest were
+        // converted from MFDCustomizer (https://github.com/9138noms/MFDCustomizer, MIT license)'s
+        // own hand-measured "main" slot per aircraft, which already matched this repo's own T/A-30
+        // measurement to within rounding. Its rects are local canvas coordinates (centerX, centerY,
+        // width, height) on the same 1024x512 canvas; converting to anchor fractions is
+        // (center ± size/2 + canvasHalfSize) / canvasSize, independently per axis (1024 wide, 512
+        // tall). All 13 entries are now live-confirmed (2026-09-09) — CI-22 Cricket needed its crop
+        // widened past MFDCustomizer's own numbers plus NativeTgpOnLock (see below); VT-7 Vagrant
+        // isn't in MFDCustomizer's table at all and was measured from scratch, ending up matching
+        // FS-20 Vortex's own entry; every other conversion held up as-is.
         //
         // Split marks a wide screen (~2.8:1 like the T/A-30) that gets HSD/TGP-left + RWR-right
         // (docs/internal-mfd.md "Split-screen layout"); false means a squarish screen (~1.3-1.7:1)
         // that gets one full region showing RWR, with InternalMfdTgpPage overriding it the same way
-        // TGP overrides the split layout's HSD pane. SAH-46 Chicane's ~2.0:1 sits between the two
+        // TGP overrides the split layout's HSD pane. SAH-46 Chicane's ~2.0:1 sat between the two
         // clusters seen in the rest of this table (wide: ~2.8:1, squarish: ~1.3-1.7:1) — classified
-        // squarish here as the closer cluster, but this one specifically is a judgment call pending
-        // its own live check, more than the others are.
+        // and confirmed squarish.
         internal readonly struct ScreenGeometry
         {
             internal readonly Vector2 AnchorMin;
@@ -50,9 +49,9 @@ namespace NOXMFD
             // a TGP-override page for this aircraft entirely and hides the whole overlay (not just
             // swaps to our own TGP page) whenever locked, so the native feed shows through clean
             // instead of a second, slightly misaligned copy stacking on top of it (seen live as
-            // doubled/ghosted overlay text). Defaults false — most aircraft haven't been checked
-            // for this yet, and the default (build our own override) matches the T/A-30's confirmed
-            // behavior.
+            // doubled/ghosted overlay text). Defaults false — confirmed live as the correct default
+            // (build our own override, matching the T/A-30) for every other aircraft in this table;
+            // CI-22 Cricket is the only one that needs it set.
             internal readonly bool NativeTgpOnLock;
 
             internal ScreenGeometry(Vector2 anchorMin, Vector2 anchorMax, bool split, bool nativeTgpOnLock = false)
@@ -85,10 +84,10 @@ namespace NOXMFD
             ["Alkyon AB-4"]      = new ScreenGeometry(new Vector2(0f, 0.2842f), new Vector2(0.5703f, 0.958f), split: false),
 
             // Not in MFDCustomizer's table (12 aircraft, no Vagrant) — no conversion source. A
-            // full-canvas live screenshot (2026-09-09) showed its screen boundary at roughly a
-            // ≈2.7:1 aspect, matching the wide/split cluster (T/A-30, A-19, FS-12, FS-20) rather
-            // than the squarish one — reusing FS-20 Vortex's own crop entry as the starting point
-            // rather than measuring from scratch, pending its own live confirmation.
+            // full-canvas live screenshot showed its screen boundary at roughly a ≈2.7:1 aspect,
+            // matching the wide/split cluster (T/A-30, A-19, FS-12, FS-20) rather than the squarish
+            // one; reusing FS-20 Vortex's own crop entry outright (rather than measuring from
+            // scratch) turned out to be correct, confirmed live.
             ["VT-7 Vagrant"]     = new ScreenGeometry(new Vector2(0.002f, 0.2939f), new Vector2(0.998f, 0.9951f), split: true),
         };
 
