@@ -47,6 +47,8 @@ namespace NOXMFD.Tests
             Assert.Empty(Arr(akf["all"]));
             Assert.Empty(Arr(akf["player"]));
             Assert.Equal(0.0, Obj(akf["kills"])["aircraft"]);
+
+            Assert.Empty(Obj(Obj(root["colors"])["types"]));
         }
 
         [Fact]
@@ -156,6 +158,29 @@ namespace NOXMFD.Tests
             Assert.Equal(1.0, contact["dl"]);
             Assert.Equal(1.0, contact["st"]);
             Assert.Equal(1.0, contact["sq"]);
+        }
+
+        [Fact]
+        public void Colors_types_carries_a_faction_filter_when_set_and_omits_it_when_not()
+        {
+            // docs/vanilla-icons-plus-extension.md — Api.SetUnitTypeColorOverride's two shapes:
+            // a faction-scoped entry (the enemy-only "AA unit" pattern) and an any-faction one.
+            var s = default(TelemetrySnapshot);
+            s.TypeColorOverrides = new System.Collections.Generic.Dictionary<string, IconColorRegistry.TypeOverride>
+            {
+                ["AFV-6 AA"] = new IconColorRegistry.TypeOverride("#ff5eff", 2),
+                ["Generic Truck"] = new IconColorRegistry.TypeOverride("#abcdef", null),
+            };
+
+            var types = Obj(Obj(Root(s)["colors"])["types"]);
+
+            var aa = Obj(types["AFV-6 AA"]);
+            Assert.Equal("#ff5eff", aa["hex"]);
+            Assert.Equal(2.0, aa["f"]);
+
+            var truck = Obj(types["Generic Truck"]);
+            Assert.Equal("#abcdef", truck["hex"]);
+            Assert.False(truck.ContainsKey("f"));
         }
 
         [Fact]
