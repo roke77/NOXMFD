@@ -147,50 +147,49 @@ namespace NOXMFD
             _overlay = overlay; // Teardown destroys this partial tree if construction fails.
             try
             {
-            overlay.layer = canvas.gameObject.layer; // SetParent does NOT inherit the parent's layer
+                overlay.layer = canvas.gameObject.layer; // SetParent does NOT inherit the parent's layer
 
-            // Dictionary lookup rejects a null key, so keep unknown definitions on the safe fallback.
-            string unitName = aircraft.definition?.unitName ?? "?";
-            bool knownScreen = InternalMfdScreenResolver.ScreenGeometryByAircraft.TryGetValue(unitName, out InternalMfdScreenResolver.ScreenGeometry geometry);
-            if (!knownScreen)
-                Plugin.Log?.LogInfo($"[NOXMFD] Internal MFD POC: no verified screen crop for '{unitName}' — using the full (all-screens) canvas.");
+                // Dictionary lookup rejects a null key, so keep unknown definitions on the safe fallback.
+                string unitName = aircraft.definition?.unitName ?? "?";
+                bool knownScreen = InternalMfdScreenResolver.ScreenGeometryByAircraft.TryGetValue(unitName, out InternalMfdScreenResolver.ScreenGeometry geometry);
+                if (!knownScreen)
+                    Plugin.Log?.LogInfo($"[NOXMFD] Internal MFD POC: no verified screen crop for '{unitName}' — using the full (all-screens) canvas.");
 
-            var rt = overlay.GetComponent<RectTransform>();
-            rt.SetParent(canvas.transform, false);
-            rt.SetAsLastSibling(); // top of paint order so the overlay covers native content
-            rt.anchorMin = knownScreen ? geometry.AnchorMin : Vector2.zero;
-            rt.anchorMax = knownScreen ? geometry.AnchorMax : Vector2.one;
-            rt.offsetMin = Vector2.zero;
-            rt.offsetMax = Vector2.zero;
+                var rt = overlay.GetComponent<RectTransform>();
+                rt.SetParent(canvas.transform, false);
+                rt.SetAsLastSibling(); // top of paint order so the overlay covers native content
+                rt.anchorMin = knownScreen ? geometry.AnchorMin : Vector2.zero;
+                rt.anchorMax = knownScreen ? geometry.AnchorMax : Vector2.one;
+                rt.offsetMin = Vector2.zero;
+                rt.offsetMax = Vector2.zero;
 
-            // No sprite — an Image with none draws a flat tinted quad, so this ships no art and
-            // cannot fail on a missing asset. Opaque background blocks native content underneath.
-            var bg = overlay.AddComponent<Image>();
-            bg.color = new Color(0.03f, 0.05f, 0.03f, 1f);
-            bg.raycastTarget = false;
-            _bgImage = bg;
+                // No sprite — an Image with none draws a flat tinted quad, so this ships no art and
+                // cannot fail on a missing asset. Opaque background blocks native content underneath.
+                var bg = overlay.AddComponent<Image>();
+                bg.color = new Color(0.03f, 0.05f, 0.03f, 1f);
+                bg.raycastTarget = false;
+                _bgImage = bg;
 
-            Font? font = InternalMfdUi.ResolveFont();
+                Font? font = InternalMfdUi.ResolveFont();
 
-            // A wide screen splits into independently-addressable halves, with HSD/TGP left and
-            // fixed RWR right. A squarish screen swaps RWR/TGP in one region. Unknown aircraft
-            // keep only the background because an uncalibrated crop could cover another screen.
-            bool allowTgpOverride = !(knownScreen && geometry.NativeTgpOnLock);
-            if (knownScreen && geometry.Split)
-            {
-                RectTransform left = BuildHalf(rt, "Left", right: false);
-                RectTransform rightHalf = BuildHalf(rt, "Right", right: true);
-                BuildSeparator(rt);
+                // A wide screen splits into independently-addressable halves, with HSD/TGP left and
+                // fixed RWR right. A squarish screen swaps RWR/TGP in one region. Unknown aircraft
+                // keep only the background because an uncalibrated crop could cover another screen.
+                bool allowTgpOverride = !(knownScreen && geometry.NativeTgpOnLock);
+                if (knownScreen && geometry.Split)
+                {
+                    RectTransform left = BuildHalf(rt, "Left", right: false);
+                    RectTransform rightHalf = BuildHalf(rt, "Right", right: true);
+                    BuildSeparator(rt);
 
-                BuildSwapPane(left, font, useHsdDefault: true, allowTgpOverride);
-                _rightPage = new InternalMfdRwrPage(rightHalf, font);
-            }
-            else if (knownScreen)
-            {
-                RectTransform full = BuildFullChild(rt, "Main");
-                BuildSwapPane(full, font, useHsdDefault: false, allowTgpOverride);
-            }
-
+                    BuildSwapPane(left, font, useHsdDefault: true, allowTgpOverride);
+                    _rightPage = new InternalMfdRwrPage(rightHalf, font);
+                }
+                else if (knownScreen)
+                {
+                    RectTransform full = BuildFullChild(rt, "Main");
+                    BuildSwapPane(full, font, useHsdDefault: false, allowTgpOverride);
+                }
             }
             catch (System.Exception ex)
             {

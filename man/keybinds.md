@@ -57,6 +57,13 @@ below, which also drives [manual TGP camera](tgp.md#manual-camera-control) zoom.
 - **Clear Datalink / Clear Stale** — the keybind equivalents of tapping [TGT](tgt.md)'s own
   DATALINK/STALE buttons.
 
+## TD
+
+- **Assign 1** through **Assign 9** — mirror the leader's own [TD](td.md) squad buttons: tap to
+  assign your current TD selection to that squad slot and clear the selection, hold to assign
+  without clearing so the same selection can go to several slots in a row. Only meaningful on the
+  leader's own TD display while it holds SOI.
+
 ## Cursor
 
 **Cursor Up / Down / Left / Right / Select**, plus two HOTAS axis binds (horizontal/vertical) —

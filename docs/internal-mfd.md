@@ -295,9 +295,10 @@ Implemented for the POC: `internal-mfd-poc-toggle` (`Keybinds.cs`, `DefFree`, of
 unbound until set on `/keybinds`), with a matching `/command` case
 (`internal-mfd.poc-toggle`) so a remote keybind press also works. Restoring native content is
 handled for toggle-off, aircraft change (an aircraft-identity check, not just a fake-null check on
-the cached `Canvas`), and mission exit (the static enabled flag resets in `OnDestroy`, which fires
-when `MissionLifecycle` tears down the mission-scoped reader). Not yet handled: any restore-on-
-init-failure case beyond "the overlay object is simply never cached and the next frame retries."
+the cached `Canvas`), mission exit (the static enabled flag resets in `OnDestroy`, which fires
+when `MissionLifecycle` tears down the mission-scoped reader), and a failed build (`BuildOverlay`
+runs inside a try/catch that tears the partial overlay down and logs once on failure, instead of
+leaving a half-built tree cached or crashing the frame).
 
 ## Live findings
 

@@ -154,59 +154,59 @@ namespace NOXMFD
             }
         }
 
-            // Logged on attach so a live test can distinguish resolution failure from rendering
-            // failure without emitting diagnostics every frame.
+        // Logged on attach so a live test can distinguish resolution failure from rendering
+        // failure without emitting diagnostics every frame.
         private static void LogAttachDiagnostics(Aircraft aircraft, TacScreen tacScreen, Canvas canvas, Camera? cam)
         {
             try
             {
-            string unitName = aircraft.definition?.unitName ?? "?";
+                string unitName = aircraft.definition?.unitName ?? "?";
 
-            Plugin.Log?.LogInfo(
-                $"[NOXMFD] Internal MFD POC attached: aircraft={unitName}, canvas.renderMode={canvas.renderMode}, " +
-                $"canvas.layer={canvas.gameObject.layer} ({LayerMask.LayerToName(canvas.gameObject.layer)}), " +
-                $"cam={(cam != null ? cam.name : "null")}, cam.cullingMask={(cam != null ? cam.cullingMask : 0)}.");
+                Plugin.Log?.LogInfo(
+                    $"[NOXMFD] Internal MFD POC attached: aircraft={unitName}, canvas.renderMode={canvas.renderMode}, " +
+                    $"canvas.layer={canvas.gameObject.layer} ({LayerMask.LayerToName(canvas.gameObject.layer)}), " +
+                    $"cam={(cam != null ? cam.name : "null")}, cam.cullingMask={(cam != null ? cam.cullingMask : 0)}.");
 
-            // Confirms, every attach, that the mesh/material story hasn't changed: exactly one
-            // Renderer should reference this RenderTexture (see the class-level comment — all three
-            // screens are one mesh, one material). A second match, or zero, would mean an aircraft
-            // whose cockpit doesn't follow the T/A-30's layout this was calibrated against.
-            if (_renderTextureField == null)
-                _renderTextureField = typeof(TacScreen).GetField("renderTexture", BindingFlags.Instance | BindingFlags.NonPublic);
-            if (_renderTextureField == null)
-            {
-                Plugin.Log?.LogInfo("[NOXMFD] Internal MFD POC: TacScreen.renderTexture field is unavailable, can't check for sharing.");
-                return;
-            }
-            if (!TryRead(_renderTextureField, tacScreen, "TacScreen.renderTexture", out object? renderTextureValue)) return;
-            if (renderTextureValue is not RenderTexture rt || rt == null)
-            {
-                Plugin.Log?.LogInfo("[NOXMFD] Internal MFD POC: TacScreen.renderTexture is null, can't check for sharing.");
-                return;
-            }
-
-            int matches = 0;
-            foreach (var renderer in Object.FindObjectsByType<Renderer>(FindObjectsInactive.Include, FindObjectsSortMode.None))
-            {
-                Material? mat = renderer.sharedMaterial;
-                if (mat == null) continue;
-
-                // Not just .mainTexture (the shader's default/albedo slot) — TacScreen.Update() sets
-                // _EmissionColor on this material, so an emissive screen shader most likely binds the
-                // RT to an emission texture slot instead, which .mainTexture alone would miss.
-                string? matchedSlot = null;
-                foreach (string slot in mat.GetTexturePropertyNames())
+                // Confirms, every attach, that the mesh/material story hasn't changed: exactly one
+                // Renderer should reference this RenderTexture (see the class-level comment — all three
+                // screens are one mesh, one material). A second match, or zero, would mean an aircraft
+                // whose cockpit doesn't follow the T/A-30's layout this was calibrated against.
+                if (_renderTextureField == null)
+                    _renderTextureField = typeof(TacScreen).GetField("renderTexture", BindingFlags.Instance | BindingFlags.NonPublic);
+                if (_renderTextureField == null)
                 {
-                    if (mat.GetTexture(slot) == rt) { matchedSlot = slot; break; }
+                    Plugin.Log?.LogInfo("[NOXMFD] Internal MFD POC: TacScreen.renderTexture field is unavailable, can't check for sharing.");
+                    return;
                 }
-                if (matchedSlot == null) continue;
+                if (!TryRead(_renderTextureField, tacScreen, "TacScreen.renderTexture", out object? renderTextureValue)) return;
+                if (renderTextureValue is not RenderTexture rt || rt == null)
+                {
+                    Plugin.Log?.LogInfo("[NOXMFD] Internal MFD POC: TacScreen.renderTexture is null, can't check for sharing.");
+                    return;
+                }
 
-                matches++;
-                string path = renderer.gameObject.name;
-                for (var t = renderer.transform.parent; t != null; t = t.parent) path = t.name + "/" + path;
-                Plugin.Log?.LogInfo($"[NOXMFD] Internal MFD POC: renderer '{path}' (layer {renderer.gameObject.layer}) uses TacScreen.renderTexture via '{matchedSlot}'.");
-            }
-            Plugin.Log?.LogInfo($"[NOXMFD] Internal MFD POC: {matches} renderer(s) total reference TacScreen.renderTexture.");
+                int matches = 0;
+                foreach (var renderer in Object.FindObjectsByType<Renderer>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+                {
+                    Material? mat = renderer.sharedMaterial;
+                    if (mat == null) continue;
+
+                    // Not just .mainTexture (the shader's default/albedo slot) — TacScreen.Update() sets
+                    // _EmissionColor on this material, so an emissive screen shader most likely binds the
+                    // RT to an emission texture slot instead, which .mainTexture alone would miss.
+                    string? matchedSlot = null;
+                    foreach (string slot in mat.GetTexturePropertyNames())
+                    {
+                        if (mat.GetTexture(slot) == rt) { matchedSlot = slot; break; }
+                    }
+                    if (matchedSlot == null) continue;
+
+                    matches++;
+                    string path = renderer.gameObject.name;
+                    for (var t = renderer.transform.parent; t != null; t = t.parent) path = t.name + "/" + path;
+                    Plugin.Log?.LogInfo($"[NOXMFD] Internal MFD POC: renderer '{path}' (layer {renderer.gameObject.layer}) uses TacScreen.renderTexture via '{matchedSlot}'.");
+                }
+                Plugin.Log?.LogInfo($"[NOXMFD] Internal MFD POC: {matches} renderer(s) total reference TacScreen.renderTexture.");
             }
             catch (System.Exception ex)
             {
