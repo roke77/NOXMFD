@@ -99,23 +99,24 @@ namespace NOXMFD
             if (Time.time - _lastRefresh < 0.1f) return;
             _lastRefresh = Time.time;
 
-            if (_swapDefaultRoot != null && _swapTgpRoot != null)
+            if (_swapDefaultRoot != null)
             {
                 bool tgpActive = IsTgpActive();
                 _swapDefaultRoot.SetActive(!tgpActive);
-                _swapTgpRoot.SetActive(tgpActive);
-            }
-            else if (_swapDefaultRoot != null)
-            {
-                // No TGP-override page for this aircraft (ScreenGeometry.NativeTgpOnLock —
-                // BuildSwapPane's allowTgpOverride=false) — the native cockpit already shows a
-                // correct TGP view on this exact screen when locked, so hide the whole overlay
-                // (background included) instead of drawing a redundant, slightly misaligned second
-                // copy on top of it, rather than just swapping to our own TGP page like the default
-                // case above does.
-                bool tgpActive = IsTgpActive();
-                _swapDefaultRoot.SetActive(!tgpActive);
-                if (_bgImage != null) _bgImage.enabled = !tgpActive;
+                if (_swapTgpRoot != null)
+                {
+                    _swapTgpRoot.SetActive(tgpActive);
+                }
+                else
+                {
+                    // No TGP-override page for this aircraft (ScreenGeometry.NativeTgpOnLock —
+                    // BuildSwapPane's allowTgpOverride=false) — the native cockpit already shows a
+                    // correct TGP view on this exact screen when locked, so hide the whole overlay
+                    // (background included) instead of drawing a redundant, slightly misaligned
+                    // second copy on top of it, rather than just swapping to our own TGP page like
+                    // the default case above does.
+                    if (_bgImage != null) _bgImage.enabled = !tgpActive;
+                }
             }
 
             if (!TelemetryServer.TryGetLatestSnapshot(out TelemetrySnapshot snap)) return;

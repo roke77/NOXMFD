@@ -18,16 +18,15 @@ namespace NOXMFD
         // UVs. This is per-aircraft mesh data (docs/internal-mfd.md's per-airframe-geometry
         // question) — callers fall back to the full canvas for any aircraft not in this table.
         //
-        // The T/A-30 Compass entry (V 0.29068-1.0, full width) is live-measured; the rest were
+        // The T/A-30 Compass entry (V 0.29068-1.0, full width) is live-measured; 11 more are
         // converted from MFDCustomizer (https://github.com/9138noms/MFDCustomizer, MIT license)'s
         // own hand-measured "main" slot per aircraft, which already matched this repo's own T/A-30
         // measurement to within rounding. Its rects are local canvas coordinates (centerX, centerY,
         // width, height) on the same 1024x512 canvas; converting to anchor fractions is
         // (center ± size/2 + canvasHalfSize) / canvasSize, independently per axis (1024 wide, 512
-        // tall). All 13 entries are now live-confirmed (2026-09-09) — CI-22 Cricket needed its crop
-        // widened past MFDCustomizer's own numbers plus NativeTgpOnLock (see below); VT-7 Vagrant
-        // isn't in MFDCustomizer's table at all and was measured from scratch, ending up matching
-        // FS-20 Vortex's own entry; every other conversion held up as-is.
+        // tall). VT-7 Vagrant isn't in MFDCustomizer's table at all — it shares FS-20 Vortex's own
+        // crop instead (see Fs20VortexGeometry below). All 13 entries are live-confirmed; CI-22
+        // Cricket's own comment below covers the one conversion that needed adjustment.
         //
         // Split marks a wide screen (~2.8:1 like the T/A-30) that gets HSD/TGP-left + RWR-right
         // (docs/internal-mfd.md "Split-screen layout"); false means a squarish screen (~1.3-1.7:1)
@@ -63,32 +62,30 @@ namespace NOXMFD
             }
         }
 
+        // VT-7 Vagrant's screen (~2.7:1, matching the wide/split cluster rather than the squarish
+        // one) shares this exact crop with FS-20 Vortex, confirmed live — a named value instead of
+        // a second copy of the same literals, so the two entries can't silently drift apart.
+        private static readonly ScreenGeometry Fs20VortexGeometry =
+            new ScreenGeometry(new Vector2(0.002f, 0.2939f), new Vector2(0.998f, 0.9951f), split: true);
+
         internal static readonly Dictionary<string, ScreenGeometry> ScreenGeometryByAircraft = new Dictionary<string, ScreenGeometry>
         {
             ["T/A-30 Compass"]   = new ScreenGeometry(new Vector2(0f, 0.29068f), new Vector2(1f, 1f), split: true),
             ["A-19 Brawler"]     = new ScreenGeometry(new Vector2(0.002f, 0.2969f), new Vector2(0.998f, 1f), split: true),
             ["FS-12 Revoker"]    = new ScreenGeometry(new Vector2(0.002f, 0.2959f), new Vector2(1f, 0.9932f), split: true),
-            ["FS-20 Vortex"]     = new ScreenGeometry(new Vector2(0.002f, 0.2939f), new Vector2(0.998f, 0.9951f), split: true),
+            ["FS-20 Vortex"]     = Fs20VortexGeometry,
+            ["VT-7 Vagrant"]     = Fs20VortexGeometry,
             ["SAH-46 Chicane"]   = new ScreenGeometry(new Vector2(0.002f, 0.2568f), new Vector2(0.748f, 1f), split: false),
             ["KR-67 Ifrit"]      = new ScreenGeometry(new Vector2(0.001f, 0.1807f), new Vector2(0.7471f, 1f), split: false),
-            // Widened from MFDCustomizer's own (0.0889,0.7627) — left has no neighboring slot in
-            // their table (room to spare, pushed to the canvas edge), right is fenced by their own
-            // "engine" slot starting at X~0.805 (converted), so only pushed modestly there.
-            // Live-reported (2026-09-09): visible unused black space on both sides of the RWR scope
-            // at the original crop, then still on the left specifically after the first widening.
+            // Widened past MFDCustomizer's own (0.0889,0.7627): left is pushed to the canvas edge —
+            // nothing in their table claims that space; right is fenced by their own "engine" slot
+            // starting at X~0.805 (converted), so only modestly widened there.
             ["CI-22 Cricket"]    = new ScreenGeometry(new Vector2(0f, 0.0039f), new Vector2(0.79f, 0.9961f), split: false, nativeTgpOnLock: true),
             ["SFB-81 Darkreach"] = new ScreenGeometry(new Vector2(0f, 0.2832f), new Vector2(0.5708f, 0.998f), split: false),
             ["EW-25 Medusa"]     = new ScreenGeometry(new Vector2(0.0034f, 0.2568f), new Vector2(0.5591f, 0.9932f), split: false),
             ["VL-49 Tarantula"]  = new ScreenGeometry(new Vector2(0f, 0.2715f), new Vector2(0.5005f, 0.998f), split: false),
             ["UH-90 Ibis"]       = new ScreenGeometry(new Vector2(0f, 0.252f), new Vector2(0.52f, 0.998f), split: false),
             ["Alkyon AB-4"]      = new ScreenGeometry(new Vector2(0f, 0.2842f), new Vector2(0.5703f, 0.958f), split: false),
-
-            // Not in MFDCustomizer's table (12 aircraft, no Vagrant) — no conversion source. A
-            // full-canvas live screenshot showed its screen boundary at roughly a ≈2.7:1 aspect,
-            // matching the wide/split cluster (T/A-30, A-19, FS-12, FS-20) rather than the squarish
-            // one; reusing FS-20 Vortex's own crop entry outright (rather than measuring from
-            // scratch) turned out to be correct, confirmed live.
-            ["VT-7 Vagrant"]     = new ScreenGeometry(new Vector2(0.002f, 0.2939f), new Vector2(0.998f, 0.9951f), split: true),
         };
 
         private static FieldInfo? _cockpitAircraftField;
