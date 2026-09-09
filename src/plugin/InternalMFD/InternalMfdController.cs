@@ -147,7 +147,10 @@ namespace NOXMFD
             var overlay = new GameObject("NOXMFD_InternalMfdController", typeof(RectTransform));
             overlay.layer = canvas.gameObject.layer; // SetParent does NOT inherit the parent's layer
 
-            string unitName = aircraft.definition != null ? aircraft.definition.unitName : "?";
+            // ?? "?", not just the `definition == null` case the ?. already covers: a null unitName
+            // on an otherwise-valid definition would pass a null key into TryGetValue below, which
+            // throws ArgumentNullException — every LateUpdate tick, since _overlay never gets set.
+            string unitName = aircraft.definition?.unitName ?? "?";
             bool knownScreen = InternalMfdScreenResolver.ScreenGeometryByAircraft.TryGetValue(unitName, out InternalMfdScreenResolver.ScreenGeometry geometry);
             if (!knownScreen)
                 Plugin.Log?.LogInfo($"[NOXMFD] Internal MFD POC: no verified screen crop for '{unitName}' — using the full (all-screens) canvas.");

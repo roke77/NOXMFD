@@ -113,11 +113,18 @@ namespace NOXMFD
 
             if (_cockpitAircraftField == null)
                 _cockpitAircraftField = typeof(Cockpit).GetField("aircraft", BindingFlags.Instance | BindingFlags.NonPublic);
+            // Distinct from "no Cockpit component references this aircraft" below, same as every
+            // other reflection field in this method — without this check, a renamed/removed
+            // Cockpit.aircraft field would silently fall through to that message instead, which
+            // reads as "the scan ran and found no match" rather than "the reflection assumption
+            // itself broke," sending a future debugger at the wrong half of this method.
+            if (_cockpitAircraftField == null)
+            { LogFailure("Cockpit.aircraft field not found via reflection"); return false; }
 
             Cockpit? cockpit = null;
             foreach (var candidate in Object.FindObjectsByType<Cockpit>(FindObjectsInactive.Include, FindObjectsSortMode.None))
             {
-                if (ReferenceEquals(_cockpitAircraftField?.GetValue(candidate), aircraft)) { cockpit = candidate; break; }
+                if (ReferenceEquals(_cockpitAircraftField.GetValue(candidate), aircraft)) { cockpit = candidate; break; }
             }
             if (cockpit == null) { LogFailure("no Cockpit component references this aircraft"); return false; }
 
@@ -160,7 +167,7 @@ namespace NOXMFD
         // layer/render setup doesn't show it", without spamming a per-frame log.
         private static void LogAttachDiagnostics(Aircraft aircraft, TacScreen tacScreen, Canvas canvas, Camera? cam)
         {
-            string unitName = aircraft.definition != null ? aircraft.definition.unitName : "?";
+            string unitName = aircraft.definition?.unitName ?? "?";
 
             Plugin.Log?.LogInfo(
                 $"[NOXMFD] Internal MFD POC attached: aircraft={unitName}, canvas.renderMode={canvas.renderMode}, " +
