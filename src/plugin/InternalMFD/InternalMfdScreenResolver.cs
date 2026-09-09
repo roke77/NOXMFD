@@ -84,14 +84,12 @@ namespace NOXMFD
             ["UH-90 Ibis"]       = new ScreenGeometry(new Vector2(0f, 0.252f), new Vector2(0.52f, 0.998f), split: false),
             ["Alkyon AB-4"]      = new ScreenGeometry(new Vector2(0f, 0.2842f), new Vector2(0.5703f, 0.958f), split: false),
 
-            // Not in MFDCustomizer's table (12 aircraft, no Vagrant) — no conversion source, so
-            // this starts at the full canvas (same as the "unknown aircraft" fallback, just with an
-            // actual page mounted instead of background-only) and narrows from here via live
-            // screenshots, the same loop used to widen the Cricket's crop above. Live-reported
-            // (2026-09-09): the full-canvas fallback with no page content just hides native cockpit
-            // overlays (warning icons, etc.) that share the same canvas, without showing anything
-            // useful in return — worth an actual page even before the crop is narrowed.
-            ["VT-7 Vagrant"]     = new ScreenGeometry(Vector2.zero, Vector2.one, split: false),
+            // Not in MFDCustomizer's table (12 aircraft, no Vagrant) — no conversion source. A
+            // full-canvas live screenshot (2026-09-09) showed its screen boundary at roughly a
+            // ≈2.7:1 aspect, matching the wide/split cluster (T/A-30, A-19, FS-12, FS-20) rather
+            // than the squarish one — reusing FS-20 Vortex's own crop entry as the starting point
+            // rather than measuring from scratch, pending its own live confirmation.
+            ["VT-7 Vagrant"]     = new ScreenGeometry(new Vector2(0.002f, 0.2939f), new Vector2(0.998f, 0.9951f), split: true),
         };
 
         private static FieldInfo? _cockpitAircraftField;
