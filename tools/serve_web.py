@@ -52,6 +52,8 @@ import urllib.parse
 import uuid
 import webbrowser
 
+import keybinds_source
+
 REPO = pathlib.Path(__file__).resolve().parent.parent
 WEB = REPO / "src" / "web"
 PREV = REPO / "preview"
@@ -810,197 +812,22 @@ def _soi_command(env):
     return True
 
 
+# Built from the plugin's real keybind registry (src/plugin/Input/Keybinds.cs) via
+# keybinds_source.py, so this preview can never drift from it the way a hand-maintained copy of
+# the bind list did. Adding a keybind is still just adding one Def()/DefFree()/DefKeyOnly()/
+# AddAxis() call in Keybinds.cs; nothing here needs to change to pick it up.
+#
 # Stateful mock of the plugin's /keybinds-config + keybind.* commands, so the /keybinds page's
 # whole flow (render, keyboard set, joystick arm-capture) is drivable in the harness. Arming a
 # joystick capture "captures" a fake button ~1.5s later (simulated on the next poll after the
 # deadline — no threads).
-KEYBINDS = [
-    {"id": "flares", "section": "COUNTERMEASURES", "label": "Flares",
-     "description": "Select + deploy IR flares. Tap to pop a set, hold to keep popping.",
-     "key": "", "joyButton": -1, "joyNum": 0},
-    {"id": "jammer", "section": "COUNTERMEASURES", "label": "Jammer",
-     "description": "Select + activate the radar jammer. HOLD to jam.",
-     "key": "J", "joyButton": 3, "joyNum": 2},
-    {"id": "jammer-pod", "section": "COUNTERMEASURES", "label": "Jamming Pod",
-     "description": "Select + activate a weapon-mounted radar jamming pod. HOLD to keep jamming. With another weapon selected, the first press only switches to it — press again to activate.",
-     "key": "", "joyButton": -1, "joyNum": 0},
-    {"id": "cycle-guns", "section": "WEAPONS", "label": "Cycle Guns",
-     "description": "Select a gun.", "key": "", "joyButton": -1, "joyNum": 0},
-    {"id": "cycle-missiles", "section": "WEAPONS", "label": "Cycle Missiles",
-     "description": "Select a missile or rocket.", "key": "", "joyButton": -1, "joyNum": 0},
-    {"id": "cycle-bombs", "section": "WEAPONS", "label": "Cycle Bombs",
-     "description": "Select a bomb.", "key": "", "joyButton": -1, "joyNum": 0},
-    {"id": "gun-trigger", "section": "WEAPONS", "label": "Gun Trigger",
-     "description": "Fire your gun; HOLD for continuous fire. With a non-gun selected, the first press only switches to the gun — press again to fire.",
-     "key": "", "joyButton": -1, "joyNum": 0},
-    {"id": "weapon-release", "section": "WEAPONS", "label": "Weapon Release",
-     "description": "Release your missile/bomb; HOLD to keep releasing. With a gun selected, the first press only switches to it — press again to release.",
-     "key": "", "joyButton": -1, "joyNum": 0},
-    {"id": "gear-up", "section": "GEAR", "label": "Gear Up",
-     "description": "Raise the landing gear.", "key": "", "joyButton": -1, "joyNum": 0},
-    {"id": "gear-down", "section": "GEAR", "label": "Gear Down",
-     "description": "Lower the landing gear.", "key": "", "joyButton": -1, "joyNum": 0},
-    {"id": "map-follow", "section": "MAP", "label": "Follow",
-     "description": "Toggle FLW on the focused MAP display.",
-     "key": "", "joyButton": -1, "joyNum": 0},
-    {"id": "map-route-next", "section": "MAP", "label": "Next Route",
-     "description": "Switch the focused MAP display's active waypoint route to the next one (R+).",
-     "key": "", "joyButton": -1, "joyNum": 0},
-    {"id": "map-route-prev", "section": "MAP", "label": "Previous Route",
-     "description": "Switch the focused MAP display's active waypoint route to the previous one (R-).",
-     "key": "", "joyButton": -1, "joyNum": 0},
-    {"id": "map-waypoint-next", "section": "MAP", "label": "Next Waypoint / Steer Point",
-     "description": "Step the active route to its next waypoint (W+), or select the next steer "
-                     "point (S+) when no route is active.",
-     "key": "", "joyButton": -1, "joyNum": 0},
-    {"id": "map-waypoint-prev", "section": "MAP", "label": "Previous Waypoint / Steer Point",
-     "description": "Step the active route to its previous waypoint (W-), or select the previous "
-                     "steer point (S-) when no route is active. Hold to reset the active route "
-                     "back to its first waypoint — no-op with no active route.",
-     "key": "", "joyButton": -1, "joyNum": 0},
-    {"id": "tgt-next", "section": "TGT", "label": "Next Target",
-     "description": "Highlight the next locked target on the focused TGT display.",
-     "key": "", "joyButton": -1, "joyNum": 0},
-    {"id": "tgt-prev", "section": "TGT", "label": "Previous Target",
-     "description": "Highlight the previous locked target on the focused TGT display.",
-     "key": "", "joyButton": -1, "joyNum": 0},
-    {"id": "tgt-datalink", "section": "TGT", "label": "Clear Datalink",
-     "description": "Deselect the datalink-only locks on the focused TGT display — same as tapping its DATALINK button.",
-     "key": "", "joyButton": -1, "joyNum": 0},
-    {"id": "tgt-stale", "section": "TGT", "label": "Clear Stale",
-     "description": "Deselect the stale locks on the focused TGT display — same as tapping its STALE button.",
-     "key": "", "joyButton": -1, "joyNum": 0},
-] + [
-    {"id": "td-assign-" + str(n), "section": "TD", "label": "Assign " + str(n),
-     "description": "Assign the leader's currently-selected TD targets to squad slot " + str(n) + ".",
-     "key": "", "joyButton": -1, "joyNum": 0}
-    for n in range(1, 10)
-] + [
-    {"id": "soi-next", "section": "SOI", "label": "SOI Next",
-     "description": "Move focus to the next display.", "key": "", "joyButton": -1, "joyNum": 0},
-    {"id": "soi-prev", "section": "SOI", "label": "SOI Prev",
-     "description": "Move focus to the previous display.", "key": "", "joyButton": -1, "joyNum": 0},
-    {"id": "soi-nav-up", "section": "SOI", "label": "Nav Up",
-     "description": "Move the cursor up the focused display's key labels.",
-     "key": "", "joyButton": -1, "joyNum": 0},
-    {"id": "soi-nav-down", "section": "SOI", "label": "Nav Down",
-     "description": "Move the cursor down the focused display's key labels.",
-     "key": "", "joyButton": -1, "joyNum": 0},
-    {"id": "soi-select", "section": "SOI", "label": "Nav Select",
-     "description": "Press the label the cursor is on, as if you had clicked that key.",
-     "key": "", "joyButton": -1, "joyNum": 0},
-    {"id": "cursor-up", "section": "CURSOR", "label": "Cursor Up",
-     "description": "Move the cursor up. Only acts while a display with a cursor is focused.",
-     "key": "", "joyButton": -1, "joyNum": 0},
-    {"id": "cursor-down", "section": "CURSOR", "label": "Cursor Down",
-     "description": "Move the cursor down. Only acts while a display with a cursor is focused.",
-     "key": "", "joyButton": -1, "joyNum": 0},
-    {"id": "cursor-left", "section": "CURSOR", "label": "Cursor Left",
-     "description": "Move the cursor left. Only acts while a display with a cursor is focused.",
-     "key": "", "joyButton": -1, "joyNum": 0},
-    {"id": "cursor-right", "section": "CURSOR", "label": "Cursor Right",
-     "description": "Move the cursor right. Only acts while a display with a cursor is focused.",
-     "key": "", "joyButton": -1, "joyNum": 0},
-    {"id": "cursor-select", "section": "CURSOR", "label": "Cursor Select",
-     "description": "Select whatever the cursor is on. Only acts while a display with a cursor is focused.",
-     "key": "", "joyButton": -1, "joyNum": 0},
-    # Axis-only (docs/map-cursor.md): no key/joyButton/joyNum fields at all — the real server omits
-    # them for an axis-capable bind too, and keybinds.js renders one wide cell instead of empty
-    # key/joy cells when a row has no "key" field.
-    {"id": "cursor-axis-h", "section": "CURSOR", "label": "Cursor Horizontal",
-     "description": "Analog axis (HOTAS mini-stick/hat) driving the cursor left/right — overrides "
-                     "Cursor Left/Right when deflected. Only acts while a display with a cursor "
-                     "is focused.",
-     "axis": -1, "axisNum": 0, "axisInvert": False},
-    {"id": "cursor-axis-v", "section": "CURSOR", "label": "Cursor Vertical",
-     "description": "Analog axis driving the cursor up/down — overrides Cursor Up/Down when "
-                     "deflected. Only acts while a display with a cursor is focused.",
-     "axis": -1, "axisNum": 0, "axisInvert": False},
-    # PAD Cursor zoom (docs/tgp-manual-control.md's PAD Cursor consolidation plan) — one bind pair
-    # drives both the manual TGP camera's zoom (while it holds SOI) and every other display's
-    # MAP-style zoom.
-    {"id": "cursor-zoom-in", "section": "CURSOR", "label": "Cursor Zoom In",
-     "description": "Zoom in the manual TGP camera while it holds SOI. Otherwise, zooms in on the "
-                     "focused MAP display — on a scrollable page, scrolls it up instead.",
-     "key": "", "joyButton": -1, "joyNum": 0},
-    {"id": "cursor-zoom-out", "section": "CURSOR", "label": "Cursor Zoom Out",
-     "description": "Zoom out the manual TGP camera while it holds SOI. Otherwise, zooms out on "
-                     "the focused MAP display — on a scrollable page, scrolls it down instead.",
-     "key": "", "joyButton": -1, "joyNum": 0},
-    {"id": "cursor-zoom-axis", "section": "CURSOR", "label": "Cursor Zoom Axis",
-     "description": "Calibrated analog axis (e.g. a HOTAS slider) — moving the axis jumps the "
-                     "manual TGP camera's zoom to that absolute position, min to max. Cursor Zoom "
-                     "In/Out still work while the axis is stationary. Only acts while the manual "
-                     "TGP camera holds SOI.",
-     "axis": -1, "axisNum": 0, "axisInvert": False},
-    # TGP manual control keybinds (docs/tgp-manual-control.md) — lifecycle only; pan/tilt/zoom live
-    # on the CURSOR block above instead (the PAD Cursor consolidation plan).
-    {"id": "tgp-manual-toggle", "section": "TGP", "label": "Manual Control Toggle",
-     "description": "Toggle manual TGP pointing on/off. Centers on the aircraft's nose at "
-                     "minimum zoom on entry. Auto-exits on a real target lock, aircraft loss, "
-                     "or a landing-gear/cam conflict.",
-     "key": "", "joyButton": -1, "joyNum": 0},
-    {"id": "tgp-manual-reset", "section": "TGP", "label": "Manual Control Reset",
-     "description": "Recenter the TGP manual camera on the aircraft's forward direction at "
-                     "minimum zoom.",
-     "key": "", "joyButton": -1, "joyNum": 0},
-    {"id": "tgp-point-track", "section": "TGP", "label": "Point Track",
-     "description": "Lock the TGP manual camera onto whatever it's currently pointed at — it "
-                     "holds that world point steady as the aircraft moves, instead of a fixed "
-                     "direction. Press again to release; Pan/Tilt nudges the point and "
-                     "redesignates on release. Only acts while TGP manual control is on.",
-     "key": "", "joyButton": -1, "joyNum": 0},
-    {"id": "tgp-manual-ir-toggle", "section": "TGP", "label": "Toggle IR",
-     "description": "Switch the active TGP camera between COLOR and IR — the manual camera, or a "
-                     "real unit lock. The game normally switches this automatically by time of "
-                     "day/distance/the \"always IR\" setting; this bind overrides that with your "
-                     "own choice, which sticks until you flip it again.",
-     "key": "", "joyButton": -1, "joyNum": 0},
-    # Layout keybinds (issue #51 follow-up) — SAVE/LOAD LAYOUT. Key-only: no joyButton/joyNum
-    # fields at all (mirrors the axis-only rows omitting key/joyButton) — browser-side only,
-    # deliberately no joystick/HOTAS, so the page renders one wide key cell for these two.
-    {"id": "layout-save", "section": "LAYOUT", "label": "Save Layout",
-     "description": "Save the current screen layout under a name.",
-     "key": ""},
-    {"id": "layout-load", "section": "LAYOUT", "label": "Load Layout",
-     "description": "Load a previously saved screen layout.",
-     "key": ""},
-    # HUD preset keybinds (issue #50 follow-up) — unlike layout-save/load above, these ARE real
-    # binds (joyButton/joyNum present): pressing one directly recalls that numbered preset.
-    *[{"id": f"hud-preset-{n}", "section": "HUD PRESETS", "label": f"HUD Preset {n}",
-       "description": f"Load HUD preset {n}'s saved filters onto the HUD page.",
-       "key": "", "joyButton": -1, "joyNum": 0} for n in range(1, 6)],
-    # TGT filter preset keybinds (issue #78) — same shape as HUD's own above.
-    *[{"id": f"tgt-preset-{n}", "section": "TGT PRESETS", "label": f"TGT Preset {n}",
-       "description": f"Load TGT preset {n}'s saved filters onto the TGT page.",
-       "key": "", "joyButton": -1, "joyNum": 0} for n in range(1, 6)],
-    # Immersion keybinds (docs/radar-master-arms.md, issue #32) — deliberately last, so the
-    # "Immersion options" block (this section + the three settings below) reads as one group at
-    # the bottom of the page.
-    {"id": "master-arms-on", "section": "IMMERSION OPTIONS", "label": "Master Arms ON",
-     "description": "Arm — weapons/countermeasures free to fire.", "key": "", "joyButton": -1, "joyNum": 0},
-    {"id": "master-arms-off", "section": "IMMERSION OPTIONS", "label": "Master Arms OFF",
-     "description": "Disarm — weapons/countermeasures blocked.", "key": "", "joyButton": -1, "joyNum": 0},
-    {"id": "power-on", "section": "IMMERSION OPTIONS", "label": "Power ON",
-     "description": "Restore power — the in-cockpit HUD reappears.", "key": "", "joyButton": -1, "joyNum": 0},
-    {"id": "power-off", "section": "IMMERSION OPTIONS", "label": "Power OFF",
-     "description": "Cut power — the entire in-cockpit HUD disappears (no display, no symbology).",
-     "key": "", "joyButton": -1, "joyNum": 0},
-    {"id": "radar-on", "section": "IMMERSION OPTIONS", "label": "Radar ON",
-     "description": "Turn the radar on.", "key": "", "joyButton": -1, "joyNum": 0},
-    {"id": "radar-off", "section": "IMMERSION OPTIONS", "label": "Radar OFF",
-     "description": "Turn the radar off.", "key": "", "joyButton": -1, "joyNum": 0},
-    {"id": "engine-on", "section": "IMMERSION OPTIONS", "label": "Engine ON",
-     "description": "Turn the engine on.", "key": "", "joyButton": -1, "joyNum": 0},
-    {"id": "engine-off", "section": "IMMERSION OPTIONS", "label": "Engine OFF",
-     "description": "Turn the engine off.", "key": "", "joyButton": -1, "joyNum": 0},
-    {"id": "combat-mode-aa", "section": "IMMERSION OPTIONS", "label": "A/A",
-     "description": "Tap to restrict Cycle Missile to air-to-air missiles only, and disable Cycle "
-                     "Bombs. Hold to reset to ALL (unrestricted).", "key": "", "joyButton": -1, "joyNum": 0},
-    {"id": "combat-mode-ag", "section": "IMMERSION OPTIONS", "label": "A/G",
-     "description": "Tap to restrict Cycle Missile to air-to-ground missiles only. Hold to reset to "
-                     "ALL (unrestricted).", "key": "", "joyButton": -1, "joyNum": 0},
-]
+keybinds_source.self_check(REPO)
+KEYBINDS, _KEYBIND_NOTES = keybinds_source.load_keybinds(REPO)
+# Seed one already-bound example so the preview shows what a bound row looks like.
+for _b in KEYBINDS:
+    if _b["id"] == "jammer":
+        _b["key"], _b["joyButton"], _b["joyNum"] = "J", 3, 2
+        break
 KB_STATE = {"capturing": None, "capturingKind": None, "armed_at": 0.0, "bgInput": False,
             "radarOnOnStart": True, "engineOnOnStart": True, "masterArmsOnOnStart": True,
             "powerOnOnStart": True, "hudFiltersOnCombatMode": False}
@@ -1017,36 +844,7 @@ def _keybinds_config():
                     b["joyButton"], b["joyNum"] = 7, 1
         KB_STATE["capturing"] = None
         KB_STATE["capturingKind"] = None
-    notes = {"MAP": "Follow / Zoom In / Zoom Out / Next & Previous Route / Next & Previous Waypoint "
-                    "are direct binds for what the bezel's FLW, Z+/Z-, R+/R- and W+/W- keys already "
-                    "do on the focused MAP display.",
-             "TGT": "Next/Previous highlight a row instead of moving the crosshair — moving Cursor "
-                    "Up/Down/Left/Right (or its axis) clears the highlight and hands Cursor Select "
-                    "back to the crosshair. While a row is highlighted, Cursor Select deselects it. "
-                    "Datalink/Stale mirror the DATALINK/STALE buttons.",
-             "SOI": "One display at a time is the sensor of interest — it rings itself in white, and "
-                    "these keys drive it. Nothing is focused until you press SOI Next or Prev; from "
-                    "there they cycle through the open displays.",
-             "CURSOR": "Moves a cursor over whichever focused display has one (MAP, for now) and "
-                       "selects what it's on. Cursor Horizontal/Vertical are the same movement as an "
-                       "analog HOTAS axis — bind either or both; a deflected axis overrides its two keys.",
-             "TGP": "Manual pointing of the targeting-pod camera, independent of the "
-                       "game's own auto-lock. Pan/Tilt Axis are the same movement as an analog HOTAS "
-                       "axis — bind either or both; a deflected axis overrides its two keys. Zoom Axis "
-                       "is different: moving a calibrated slider jumps zoom to that absolute level, "
-                       "while Zoom In/Out still work between axis moves. Point Track locks the camera "
-                       "onto whatever it's aimed at; Pan/Tilt nudges and redesignates on release. Off by default; "
-                       "toggling on centers at minimum zoom, and auto-exits the moment a real target "
-                       "locks, the aircraft is lost, or gear/landing cam takes over.",
-             "WEAPONS": "Cycle keys select the last soft-selected weapon of their type, or the first "
-                        "in the list. Repeated presses cycle to the next one, skipping depleted "
-                        "weapons. Cycling to a different type leaves the current one soft-selected.",
-             "LAYOUT": "Keyboard only, no joystick/HOTAS. Acts on whichever browser window has focus "
-                       "when pressed, and applies to every connected browser.",
-             "IMMERSION OPTIONS": "A/A and A/G each restrict Cycle Missile on a tap; hold either one "
-                        "to reset to ALL (unrestricted). Every other bind here is a plain dedicated "
-                        "action."}
-    return json.dumps({"binds": KEYBINDS, "notes": notes,
+    return json.dumps({"binds": KEYBINDS, "notes": _KEYBIND_NOTES,
                        "capturing": KB_STATE["capturing"],
                        "capturingKind": KB_STATE["capturingKind"],
                        "bgInput": KB_STATE["bgInput"],
