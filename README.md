@@ -21,6 +21,7 @@ any web browser, on the same PC or on another device on the same network.
 - [Mod compatibility](#mod-compatibility)
 - [Extensions](#extensions)
 - [Security & privacy](#security--privacy)
+- [Credits](#credits)
 - [License](#license)
 
 ## Requirements
@@ -157,6 +158,13 @@ unsandboxed, so it's worth knowing exactly what it can access: see **[SECURITY.m
 for the full capability disclosure, both network caveats (the LAN server and the squad transport
 are each unauthenticated in their own way), and how to verify the build yourself.
 Network/firewall setup is covered in [NETWORKING.md](NETWORKING.md).
+
+## Credits
+
+Other Nuclear Option mods whose approaches informed NO XMFD's own concepts and features:
+
+- **[NOBlackBox](https://github.com/KopterBuzz/NOBlackBox)**
+- **[MFDCustomizer](https://github.com/9138noms/MFDCustomizer)**
 
 ## License
 
