@@ -44,9 +44,13 @@ actually locked:
 2. Calls `TgpLockCameraAccess.TryComputeSingleTargetFraming` — the private
    `SingleTargetPositionAndSize(List<Unit>, out GlobalPosition, out float)` with a **synthetic
    one-target list** containing just the focused `Unit` — the exact same private method the native
-   single-lock path itself uses, so the result is pixel-identical to "only the focused target was
-   ever locked." A reused scratch `List<Unit>` (cleared and re-added each call,
-   `WeaponSelectors._loadout`'s own precedent) avoids a per-tick allocation.
+   single-lock path itself uses. Its own second out param is not a FOV, it's the target's raw
+   `definition.length` in meters; `TryComputeSingleTargetFraming` applies the same
+   `Clamp(size * 75f / targetDist, 0.25f, 20f)` conversion `SetTargetCam()` itself applies right
+   after calling it (`_scratch/full/TargetCam.cs`), so the result is pixel-identical to "only the
+   focused target was ever locked," not just position-identical with a garbage FOV. A reused
+   scratch `List<Unit>` (cleared and re-added each call, `WeaponSelectors._loadout`'s own
+   precedent) avoids a per-tick allocation.
 3. Writes the result into `TargetCam`'s own private `targetPosition`/`targetFOV` fields (the same
    two fields `SetTargetCam()` itself just set, via `SingleTargetPositionAndSize`'s own branch).
 

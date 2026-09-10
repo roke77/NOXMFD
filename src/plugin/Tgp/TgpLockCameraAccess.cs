@@ -2,6 +2,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Reflection;
+using UnityEngine;
 
 namespace NOXMFD
 {
@@ -38,8 +39,14 @@ namespace NOXMFD
         }
 
         // The same private method the native single-lock path itself uses, called with a synthetic
-        // one-target list so a caller's reframe is pixel-identical to a real single lock. Returns
-        // false (leaving position/fov at their defaults) on a missing member or a reflection failure.
+        // one-target list so a caller's reframe is pixel-identical to a real single lock.
+        // SingleTargetPositionAndSize's own second out param is NOT a FOV — it's the target's raw
+        // `definition.length` (meters), unbounded and target-size-dependent. SetTargetCam() only
+        // ever turns that into a real FOV via `Clamp(size * 75f / targetDist, 0.25f, 20f)`
+        // (_scratch/full/TargetCam.cs) immediately after calling this; replicated here so this
+        // method hands back an already-valid, correctly distance-scaled FOV — the contract its own
+        // name promises, not the raw intermediate value. Returns false (leaving position/fov at
+        // their defaults) on a missing member or a reflection failure.
         internal static bool TryComputeSingleTargetFraming(TargetCam tc, List<Unit> singleTarget, out GlobalPosition position, out float fov)
         {
             position = default;
@@ -50,7 +57,9 @@ namespace NOXMFD
                 var args = new object?[] { singleTarget, null, null };
                 _singleTargetPositionAndSizeMethod!.Invoke(tc, args);
                 position = (GlobalPosition)args[1]!;
-                fov = (float)args[2]!;
+                float size = (float)args[2]!;
+                float dist = FastMath.Distance(position, tc.transform.GlobalPosition());
+                fov = Mathf.Clamp(size * 75f / dist, 0.25f, 20f);
                 return true;
             }
             catch (Exception ex)
