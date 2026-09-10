@@ -158,12 +158,13 @@ namespace NOXMFD
                 // TGP page's WTV/STV view toggle (issue #81) — same explicit-state shape as
                 // tgp.ir.set above. on:true = STV, on:false = WTV (default).
                 { "tgp.view.set",   e => TgpSingleTargetView.SetStv(e.on) },
-                // Remote-keybind twins of the Manual Control Toggle / Toggle IR keybinds
-                // (docs/remote-keybinds.md) — a blind flip, unlike the explicit-state .set commands
-                // above, since a remote browser has no reliable read of the current state to send
-                // the opposite of.
+                // Remote-keybind twins of the Manual Control Toggle / Toggle IR / Toggle View
+                // keybinds (docs/remote-keybinds.md) — a blind flip, unlike the explicit-state .set
+                // commands above, since a remote browser has no reliable read of the current state
+                // to send the opposite of.
                 { "tgp.manual-toggle", e => TgpManualControl.Toggle() },
                 { "tgp.ir-toggle",     e => TgpManualControl.ToggleIR() },
+                { "tgp.view-toggle",   e => TgpSingleTargetView.ToggleStv() },
                 // Remote-keybind twin of the Snap To Head Tracker keybind.
                 { "tgp.snap-headtracker", e => TgpManualControl.SnapToHeadTracker() },
                 // Remote-keybind twins of the Full Screen Toggle / Full Screen HUD Toggle keybinds —

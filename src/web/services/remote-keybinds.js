@@ -123,6 +123,7 @@
       case 'tgp-point-track':             return { cmd: 'tgp.point-track' };
       case 'tgp-manual-snap-headtracker': return { cmd: 'tgp.snap-headtracker' };
       case 'tgp-manual-ir-toggle':        return { cmd: 'tgp.ir-toggle' };
+      case 'tgp-view-toggle':             return { cmd: 'tgp.view-toggle' };
       case 'tgp-mark-steerpoint':         return { cmd: 'tgp.mark-steerpoint' };
       case 'tgp-fullscreen-toggle':       return { cmd: 'tgp.fullscreen-toggle' };
       case 'tgp-fullscreen-hud-toggle':   return { cmd: 'tgp.fullscreen-hud-toggle' };

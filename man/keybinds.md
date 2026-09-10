@@ -93,6 +93,9 @@ the shared [PAD cursor](#pad-cursor) binds above, not a dedicated pan/tilt/zoom 
   unit lock. The game normally switches this automatically by time of day, distance, or the
   "always IR" setting; this overrides that with your own choice, which sticks until you flip it
   again.
+- **Toggle View** — switch the TGP page's [VIEW](tgp.md#man-clrir-wtvstv) between **WTV** (wide
+  target view, the default) and **STV** (single target view). No effect with zero or one locked
+  targets.
 - **Mark Steer Point** — mark whatever the TGP camera is currently showing (a real unit lock's
   position, or the manual camera's aim point) as a new [steer point](wpt.md#steer-points). Does
   nothing with neither a lock nor manual control on.

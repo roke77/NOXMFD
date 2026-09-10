@@ -377,6 +377,12 @@ namespace NOXMFD
                 "the \"always IR\" setting; this bind overrides that with your own choice, which " +
                 "sticks until you flip it again.",
                 () => TgpManualControl.ToggleIR());
+            DefFree(config, "tgp-view-toggle", tgp, "TgpViewToggle", "Toggle View", edge: true,
+                "Switch the TGP page's VIEW between WTV (wide target view, the default — a 2+ " +
+                "target lock zooms out to fit all of them) and STV (single target view — frames " +
+                "just whichever target Next/Previous Target currently has focused). No effect " +
+                "with 0-1 locked targets.",
+                () => TgpSingleTargetView.ToggleStv());
             DefFree(config, "tgp-mark-steerpoint", tgp, "TgpMarkSteerPoint", "Mark Steer Point", edge: true,
                 "Mark whatever the TGP camera is currently showing — a real unit lock's position, or " +
                 "the manual camera's current aim point — as a new steer point (see WPT). Does nothing " +

@@ -62,6 +62,11 @@ exists to protect.
 
 - `tgp.view.set { on }` (`CommandDispatcher.cs`) → `TgpSingleTargetView.SetStv(on)` — explicit-state,
   same shape as `tgp.ir.set` (`docs/tgp-manual-control.md`): `on:true` = STV, `on:false` = WTV.
+- **Toggle View** keybind (`Keybinds.cs`'s `tgp-view-toggle`, TGP Keybinds group) → blind flip via
+  `TgpSingleTargetView.ToggleStv()` — same shape as Manual Control Toggle/Toggle IR, added because a
+  keybind (unlike a remote browser sending `tgp.view.set`) can't read current state to send the
+  opposite of. `tgp.view-toggle` is its `CommandDispatcher.cs`/remote-keybind twin
+  (`remote-keybinds.js`), same pairing Manual Control Toggle/Toggle IR already have.
 - `TelemetrySnapshot.TgpStv` (set from `TgpSingleTargetView.Stv` in `TelemetryReader.cs`) rides the
   SSE frame as a **top-level** `tgpStv` field (`TelemetryJson.cs`'s `AppendFrameHeader`), the same
   "outside the `tgp` block, so it's visible even with `{cnt:0}`" shape `tgpManual` already uses —

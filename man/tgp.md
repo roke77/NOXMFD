@@ -148,7 +148,9 @@ Five extra buttons on this page's own nav row, alongside MAIN/CFG:
   the default) zooms out to keep every locked target in frame. **STV** (single target view)
   instead frames just whichever target Next/Previous Target currently has focused (see
   [KEY](keybinds.md#target-list)) — stepping again while in STV moves the camera to follow. With
-  zero or one locked targets, STV does exactly what WTV does; there's nothing to reframe.
+  zero or one locked targets, STV does exactly what WTV does; there's nothing to reframe. Flip
+  between the two with the page buttons directly, or the **Toggle View** keybind (see
+  [KEY](keybinds.md#tgp)).
 
 CLR/IR and WTV/STV reflect what's actually showing rather than acting like a page switch — lighting
 up to show the active color mode and view mode — and go dark with no feed up at all. MAN lights up

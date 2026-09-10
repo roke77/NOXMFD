@@ -26,6 +26,11 @@ namespace NOXMFD
             Plugin.Log?.LogInfo($"[NOXMFD] TGP view: {(Stv ? "STV" : "WTV")}.");
         }
 
+        // Blind-flip twin of SetStv — the "Toggle View" keybind's own action, same shape as
+        // TgpManualControl.ToggleIR(). No aircraft/TargetCam lookup needed: Stv is a plain static
+        // preference, not read from live game state.
+        internal static void ToggleStv() => SetStv(!Stv);
+
         // Reused across ticks — one target, replaced in place, not reallocated (WeaponSelectors'
         // own _loadout scratch list is the precedent for this pattern in this codebase).
         private static readonly List<Unit> _singleTargetScratch = new List<Unit>(1);
