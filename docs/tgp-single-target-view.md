@@ -1,6 +1,9 @@
-# TGP VIEW toggle: WTV / STV
+# TGP VIEW toggle: WTV / STV, and the real-lock zoom override
 
-[Issue #81](https://github.com/roke77/NOXMFD/issues/81).
+[Issue #81](https://github.com/roke77/NOXMFD/issues/81) (WTV/STV) and
+[issue #83](https://github.com/roke77/NOXMFD/issues/83) (Z+/Z− during a real lock) — two features
+sharing one Harmony postfix on `TargetCam.SetTargetCam`, covered in one doc since #83 changed that
+postfix's own shape.
 
 ## Goal
 
@@ -28,35 +31,32 @@ inside `SetTargetCam()`'s own private call graph — `GetPositionAndSize`, and t
 picks between, `SingleTargetPositionAndSize`/`MultipleTargetPositionAndSize`, deciding by list
 count — with no public hook to steer with a plain parameter or override list.
 
-`TgpSingleTargetView.cs` reuses this instead of reimplementing it: a
-`[HarmonyPatch(typeof(TargetCam), "SetTargetCam")]` **postfix**
-(`TargetCam_SetTargetCam_SingleTargetViewOverride`, `HarmonyPatches.cs`, alongside its existing
-`TargetCam_SetTargetCam_IrOverride` neighbor — same shape, same target method) lets the native call
-run first (producing WTV's wide framing), then — only when `Stv` is on and 2+ targets are actually
-locked — reflectively:
+`TgpSingleTargetView.cs` reuses this instead of reimplementing it, via `TgpLockCameraAccess.cs` —
+a small reflection cache (the same "cached `FieldInfo`/`MethodInfo`, rate-limited failure logging"
+shape as `TgpManualTargetCamAccess.cs`, split out separately because it covers the opposite case: a
+*real* lock, not manual control) exposing `SingleTargetPositionAndSize`, `targetPosition`/
+`targetFOV`, and `AimCamera()`. `ApplyIfActive(TargetCam)`, when `Stv` is on and 2+ targets are
+actually locked:
 
 1. Resolves the focused `Unit` via `TargetUnitLookup.TryResolve(TargetFocus.Id, out Unit)` (the
    same helper `WeaponSelectors.FireSingleAtFocused` and `HudFocusMark` already use for "the one
    locked target the pilot means right now"), and confirms it's still in the current lock list.
-2. Calls the private `SingleTargetPositionAndSize(List<Unit>, out GlobalPosition, out float)` with
-   a **synthetic one-target list** containing just the focused `Unit` — the exact same private
-   method the native single-lock path itself uses, so the result is pixel-identical to "only the
-   focused target was ever locked." A reused scratch `List<Unit>` (cleared and re-added each call,
+2. Calls `TgpLockCameraAccess.TryComputeSingleTargetFraming` — the private
+   `SingleTargetPositionAndSize(List<Unit>, out GlobalPosition, out float)` with a **synthetic
+   one-target list** containing just the focused `Unit` — the exact same private method the native
+   single-lock path itself uses, so the result is pixel-identical to "only the focused target was
+   ever locked." A reused scratch `List<Unit>` (cleared and re-added each call,
    `WeaponSelectors._loadout`'s own precedent) avoids a per-tick allocation.
 3. Writes the result into `TargetCam`'s own private `targetPosition`/`targetFOV` fields (the same
    two fields `SetTargetCam()` itself just set, via `SingleTargetPositionAndSize`'s own branch).
-4. Immediately re-invokes the private `AimCamera()` so the reframe applies this same tick, instead
-   of lagging a frame behind whatever next calls it (`Update()`'s own tick, gated off entirely
-   during `ManualMode` by the neighboring `TargetCam_AimCamera_ManualGate` patch).
 
-The one-time reflection lookup (`Ensure()`) is cached the same way `TgpManualTargetCamAccess`
-caches its own; a failed lookup logs once and leaves STV a permanent no-op rather than throwing
-every tick.
+It does **not** call `AimCamera()` itself — see [Z+/Z− during a real lock](#zz-during-a-real-lock)
+below for why that now lives one level up, in `HarmonyPatches.cs`.
 
-`ManualMode` is checked first and short-circuits the whole thing: manual control has no real lock
-to reframe at all (`TgpManualControl.Tick()` drives the camera directly every frame instead), so
-this postfix would otherwise be fighting the exact `AimCamera()` gate `TargetCam_AimCamera_ManualGate`
-already exists to protect.
+`ManualMode` is checked first and short-circuits the whole postfix: manual control has no real lock
+to reframe at all (`TgpManualControl.Tick()` drives the camera directly every frame instead), so it
+would otherwise be fighting the exact `AimCamera()` gate `TargetCam_AimCamera_ManualGate` already
+exists to protect.
 
 ## Commands and telemetry
 
@@ -77,10 +77,50 @@ already exists to protect.
 across the classic bezel (full view and split pane) and the F-35 glass, and why `MAN` moved rather
 than being removed.
 
+## Z+/Z− during a real lock
+
+The game auto-computes `targetFOV` every tick `SetTargetCam()` runs — tight on one target, wide
+enough to fit several — with no public hook to adjust it, the same "no parameter, only a private
+call graph" gap WTV/STV hit above. `TgpLockZoom.cs` lets the TGP page's own Z+/Z− bezel buttons
+(already on the nav row, no placement change needed) nudge it anyway, through the same fixed
+magnification ladder (`TgpManualAimMath.ZoomLevelsMag`) manual control's own Z+/Z− already step
+through — `MinFov`/`MaxFov` promoted from `private` to `internal` on `TgpManualControl` so both
+share the exact same clamp range (the same physical camera's FOV bounds either way).
+
+- **No override until the pilot presses Z+/Z− at least once.** A fresh lock always starts at
+  whatever the native call (or WTV/STV's own reframe) computed, untouched — matching "the default
+  zoom level is set by the game" from the original ask.
+- **The first press seeds its own starting level from the live `targetFOV`** at that moment (via
+  `TgpLockCameraAccess.GetTargetFov`) rather than some fixed starting point, so it always feels
+  like "one notch from wherever the picture already is" — including a picture WTV/STV already
+  reframed, if STV is on.
+- **`TgpLockZoom.Tick()`** (`TelemetryReader.Update`, called every frame regardless of TGP
+  camera/page state) watches `TargetFocus.Id` for a 0-to-locked transition — the same "nothing
+  focused" signal `TargetFocus.cs` itself defines — and clears the override right as a new lock
+  begins, so the *next* lock again starts at the game's own default.
+- `tgp.zoom.step { index }` (`CommandDispatcher.cs`, the existing Z+/Z− command) now routes by
+  mode: `TgpManualControl.StepZoom` while `ManualMode` is on, `TgpLockZoom.StepZoom` otherwise —
+  same wire shape, no web-side change needed since the buttons already sent this command
+  unconditionally (the server-side handler was the only thing that no-op'd outside manual mode).
+
+### Why the postfix applies both overrides together
+
+Splitting WTV/STV and the zoom override into two independent `SetTargetCam` postfixes seemed
+natural at first, but both **write `targetFOV` wholesale**, not a relative nudge — and Harmony
+doesn't guarantee which of two postfixes on the same method runs first. If STV's reframe ran after
+the zoom postfix, it would silently overwrite the pilot's chosen zoom with its own auto-computed
+value the very next tick. So `HarmonyPatches.cs` has one postfix
+(`TargetCam_SetTargetCam_LockCameraOverrides`) that applies them in an explicit, deterministic
+order — `TgpSingleTargetView.ApplyIfActive` first, then `TgpLockZoom.ApplyIfActive` on top of
+whatever that left — and calls `TgpLockCameraAccess.InvokeAimCamera` once at the end, only if
+either actually changed something, rather than each feature invoking it independently.
+
 ## Testing
 
-`TgpSingleTargetView`'s own reflection/Harmony plumbing is Unity-coupled the same way
-`TgpManualControl`/`TgpFeed` already are, so — like them — it isn't unit tested directly; only in
-game. The pure client-side highlight rule (`tgpMarks`'s `wtv`/`stv` fields) is covered by
+Both features' own reflection/Harmony plumbing (`TgpSingleTargetView`, `TgpLockZoom`,
+`TgpLockCameraAccess`) is Unity-coupled the same way `TgpManualControl`/`TgpFeed` already are, so —
+like them — none of it is unit tested directly; only in game. `TgpLockZoom` reuses
+`TgpManualAimMath.NextZoomLevelMag`, already covered by manual control's own tests, for its actual
+step math. The pure client-side highlight rule (`tgpMarks`'s `wtv`/`stv` fields) is covered by
 `tgp-marks.test.js`, and the SSE wiring (`tgpStv` → `'tgp'` slice's `stv`) by
 `telemetry-source.test.js`.

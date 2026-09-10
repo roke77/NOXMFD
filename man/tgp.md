@@ -99,8 +99,8 @@ Manual control reuses the same PAD Cursor every other display already uses (see
   pointing, it just stops listening for input until SOI comes back to it.
 - **Z+ / Z−** on this page's own nav row jump the zoom to the next fixed magnification level
   (roughly doubling each press: 0.5x, 1x, 2x, 4x, 8x, 16x, 32x, 40x) — no SOI needed. Press and
-  hold to keep stepping through levels until you let go. No effect while a real unit is locked
-  instead of the manual camera.
+  hold to keep stepping through levels until you let go. See [Zoom during a real
+  lock](#zoom-during-a-real-lock) for what they do outside manual control.
 - A **joystick** in the bottom-right corner of the picture, for a mouse or touch screen: press and
   drag it, and the camera pans and tilts toward the direction you dragged, the further the faster.
   Let go and it snaps back to center. Works without SOI too. White and dim while idle, amber while
@@ -153,6 +153,15 @@ Five extra buttons on this page's own nav row, alongside MAIN/CFG:
 CLR/IR and WTV/STV reflect what's actually showing rather than acting like a page switch — lighting
 up to show the active color mode and view mode — and go dark with no feed up at all. MAN lights up
 whenever the manual camera is active, regardless of feed.
+
+## Zoom during a real lock
+
+**Z+ / Z−** also work with a real (native) unit lock, not just the manual camera — the same
+page nav-row buttons, the same fixed magnification ladder as [manual
+control](#manual-camera-control)'s own. The game sets the zoom automatically the moment you lock a
+target (tight on one, wide enough to fit several) — press either button to take over from there,
+stepping up or down the ladder from wherever it started. Locking a fresh target afterward hands
+zoom back to the game's own automatic choice until you press Z+/Z− again.
 
 ![MAN and CLR lit during Point Track, locked onto a helicopter](images/TPG_MAN.png)
 

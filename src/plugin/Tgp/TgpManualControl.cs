@@ -23,9 +23,11 @@ namespace NOXMFD
     internal static class TgpManualControl
     {
         // Matches TargetCam.SetTargetCam()'s own targetFOV clamp range — the native camera never
-        // goes tighter/wider than this, so reusing it needs no separate config.
-        private const float MinFov = 0.25f;
-        private const float MaxFov = 20f;
+        // goes tighter/wider than this, so reusing it needs no separate config. Internal (not
+        // private): TgpLockZoom reuses the same range for its own real-lock zoom override
+        // (docs/tgp-single-target-view.md), the same physical camera's FOV either way.
+        internal const float MinFov = 0.25f;
+        internal const float MaxFov = 20f;
         private const float ZoomRateFovPerSec = 6f;
         // How far a bound zoom axis has to move (in its own -1..1 units) before it's treated as
         // "the pilot actually moved it" and reclaims authority from Zoom In/Out — see Tick()'s

@@ -208,17 +208,25 @@ namespace NOXMFD
             }
         }
 
-        // TGP page's WTV/STV view toggle (issue #81, docs/tgp-single-target-view.md). Same postfix
-        // shape as the IR override above: let the native call compute its normal framing (wide for
-        // 2+ targets) first, then TgpSingleTargetView re-frames onto just the TGT-focused target
-        // when its own conditions are met (STV on, 2+ targets, not manual mode).
+        // TGP page's WTV/STV view toggle (issue #81, docs/tgp-single-target-view.md) and its Z+/Z-
+        // real-lock zoom override (issue #83, docs/tgp-single-target-view.md). Same postfix shape
+        // as the IR override above: let the native call compute its normal framing (wide for 2+
+        // targets, auto-zoomed) first, then apply each override IN ORDER — STV's reframe, then the
+        // zoom override on top of whatever FOV that left (native or STV's own) — and invoke
+        // AimCamera() once at the end, only if either actually changed something. Both live in one
+        // postfix rather than two independent ones so the ordering is explicit: two separate
+        // Harmony postfixes on the same method don't guarantee which runs first, and each of these
+        // WRITES targetFOV wholesale (not a relative nudge), so whichever ran second would silently
+        // discard the other's change if they raced.
         [HarmonyPatch(typeof(TargetCam), "SetTargetCam")]
-        private static class TargetCam_SetTargetCam_SingleTargetViewOverride
+        private static class TargetCam_SetTargetCam_LockCameraOverrides
         {
             private static void Postfix(TargetCam __instance)
             {
                 if (TgpManualControl.ManualMode) return;
-                TgpSingleTargetView.ApplyIfActive(__instance);
+                bool reframed = TgpSingleTargetView.ApplyIfActive(__instance);
+                bool zoomed = TgpLockZoom.ApplyIfActive(__instance);
+                if (reframed || zoomed) TgpLockCameraAccess.InvokeAimCamera(__instance);
             }
         }
 

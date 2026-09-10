@@ -240,6 +240,10 @@ namespace NOXMFD
             _tgp.Tick(dt);   // TGP feed cadence is owned by TgpFeed (captures at its own interval)
             TgpManualControl.Tick(dt);   // docs/tgp-manual-control.md — no-op while manual mode is off
             TgpFullScreen.Tick(dt);      // docs/tgp-full-screen.md — no-op while inactive
+            // issue #83 — watches TargetFocus.Id for a fresh lock so the real-lock Z+/Z- override
+            // resets to the game's own default zoom on the next one; runs regardless of TGP camera/
+            // page state, same as TargetFocus.Id itself already does.
+            TgpLockZoom.Tick();
         }
 
         private void ScanWorld()

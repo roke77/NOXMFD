@@ -1,6 +1,4 @@
-using System;
 using System.Collections.Generic;
-using System.Reflection;
 
 namespace NOXMFD
 {
@@ -12,10 +10,11 @@ namespace NOXMFD
     // Implemented as a HarmonyPatches.cs postfix on TargetCam.SetTargetCam (same shape as its
     // neighboring TargetCam_SetTargetCam_IrOverride): let the native call compute its normal wide
     // framing first, then — only for a 2+ target STV lock — recompute framing against a synthetic
-    // one-target list via the same private SingleTargetPositionAndSize the native single-lock path
-    // itself uses, so the result is pixel-identical to "only the focused target was ever locked".
-    // AimCamera() is re-invoked immediately after so the reframe applies this same tick rather than
-    // lagging a frame behind Update()'s own next AimCamera() call.
+    // one-target list via TgpLockCameraAccess (the same private SingleTargetPositionAndSize the
+    // native single-lock path itself uses, so the result is pixel-identical to "only the focused
+    // target was ever locked"). The postfix invokes AimCamera() itself once, after this AND
+    // TgpLockZoom's own override have both had a chance to run — see HarmonyPatches.cs — so this
+    // class only ever sets targetPosition/targetFOV, never calls AimCamera directly.
     internal static class TgpSingleTargetView
     {
         internal static bool Stv { get; private set; }
@@ -31,53 +30,26 @@ namespace NOXMFD
         // own _loadout scratch list is the precedent for this pattern in this codebase).
         private static readonly List<Unit> _singleTargetScratch = new List<Unit>(1);
 
-        private static bool _reflectionTried;
-        private static MethodInfo? _singleTargetPositionAndSizeMethod;
-        private static FieldInfo? _targetPositionField;
-        private static FieldInfo? _targetFovField;
-        private static MethodInfo? _aimCameraMethod;
-
-        private static bool Ensure()
-        {
-            if (_reflectionTried) return _singleTargetPositionAndSizeMethod != null;
-            _reflectionTried = true;
-            var t = typeof(TargetCam);
-            _singleTargetPositionAndSizeMethod = t.GetMethod("SingleTargetPositionAndSize", BindingFlags.NonPublic | BindingFlags.Instance);
-            _targetPositionField = t.GetField("targetPosition", BindingFlags.NonPublic | BindingFlags.Instance);
-            _targetFovField = t.GetField("targetFOV", BindingFlags.NonPublic | BindingFlags.Instance);
-            _aimCameraMethod = t.GetMethod("AimCamera", BindingFlags.NonPublic | BindingFlags.Instance);
-            if (_singleTargetPositionAndSizeMethod == null || _targetPositionField == null ||
-                _targetFovField == null || _aimCameraMethod == null)
-                Plugin.Log?.LogWarning("[NOXMFD] TGP single-target view: could not locate TargetCam internals — STV disabled.");
-            return _singleTargetPositionAndSizeMethod != null;
-        }
-
         // Called from the SetTargetCam postfix every tick a real (non-manual) lock exists — resolves
         // and validates everything itself, same self-contained shape TgpManualControl.SetIR already
-        // uses. No-op unless STV is on AND 2+ targets are locked — 0-1 already matches STV's own spec.
-        internal static void ApplyIfActive(TargetCam tc)
+        // uses. No-op unless STV is on AND 2+ targets are locked — 0-1 already matches STV's own
+        // spec. Returns whether it actually reframed, so the caller knows whether AimCamera() needs
+        // to be invoked afterward.
+        internal static bool ApplyIfActive(TargetCam tc)
         {
-            if (!Stv) return;
-            if (!GameManager.GetLocalAircraft(out Aircraft ac) || ac.weaponManager == null) return;
+            if (!Stv) return false;
+            if (!GameManager.GetLocalAircraft(out Aircraft ac) || ac.weaponManager == null) return false;
             List<Unit>? targets = ac.weaponManager.GetTargetList();
-            if (targets == null || targets.Count <= 1) return;
-            if (!TargetUnitLookup.TryResolve(TargetFocus.Id, out Unit focused) || !targets.Contains(focused)) return;
-            if (!Ensure()) return;
+            if (targets == null || targets.Count <= 1) return false;
+            if (!TargetUnitLookup.TryResolve(TargetFocus.Id, out Unit focused) || !targets.Contains(focused)) return false;
 
             _singleTargetScratch.Clear();
             _singleTargetScratch.Add(focused);
-            var args = new object?[] { _singleTargetScratch, null, null };
-            try
-            {
-                _singleTargetPositionAndSizeMethod!.Invoke(tc, args);
-                _targetPositionField!.SetValue(tc, args[1]);
-                _targetFovField!.SetValue(tc, args[2]);
-                _aimCameraMethod!.Invoke(tc, null);
-            }
-            catch (Exception ex)
-            {
-                Plugin.Log?.LogDebug($"[NOXMFD] TGP single-target view: reframe failed: {ex.Message}");
-            }
+            if (!TgpLockCameraAccess.TryComputeSingleTargetFraming(tc, _singleTargetScratch, out GlobalPosition position, out float fov))
+                return false;
+            TgpLockCameraAccess.SetTargetPosition(tc, position);
+            TgpLockCameraAccess.SetTargetFov(tc, fov);
+            return true;
         }
     }
 }

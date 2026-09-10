@@ -42,8 +42,9 @@ namespace NOXMFD
                                 // sqd.create / sqd.set-callsign : the squad's flight number 1-9
                                 // (Squadron Callsign System, docs/squadron-transport.md) — editable
                                 // later via sqd.set-callsign too, not fixed for the squad's life
-                                // tgp.zoom.set / tgp.zoom.step : +1 = zoom in, -1 = zoom out
-                                // (TgpManualControl.SetZoom/StepZoom's dir)
+                                // tgp.zoom.set : +1 = zoom in, -1 = zoom out (TgpManualControl.SetZoom's
+                                // dir). tgp.zoom.step : same +1/-1 meaning, routed by mode to
+                                // TgpManualControl.StepZoom or TgpLockZoom.StepZoom (issue #83)
                                 // hsd.set-view : desired range-ladder index (hsd.js's own rangeIdx,
                                 // 0-4 into whichever of CEN_RANGE_NM/DEP_RANGE_NM the mode selects)
         public bool   on;      // tgt.set / tgt.laser / tgt.hud : desired toggle state
@@ -185,14 +186,17 @@ namespace NOXMFD
                 // Control Reset keybinds, just reachable from the page directly.
                 { "tgp.point-track",  e => TgpManualControl.TogglePointTrack() },
                 { "tgp.manual-reset", e => TgpManualControl.Reset() },
-                // TGP page's own Z+/Z- bezel buttons — discrete magnification LEVELS
-                // (TgpManualControl.StepZoom), one jump per command, not the physical Cursor Zoom
-                // In/Out keybind's own continuous held rate (tgp.zoom.set below is still that
-                // rate, kept for the keybind). The page itself repeats this command at a fixed
-                // interval while the bezel button is held (tgp.js), rather than the plugin timing
-                // a "held" rate — a no-op while ManualMode is off (a real/auto lock), since
-                // TgpManualControl.Tick() never reads _desiredFov outside manual control.
-                { "tgp.zoom.step",  e => TgpManualControl.StepZoom(e.index) },
+                // TGP page's own Z+/Z- bezel buttons — discrete magnification LEVELS, one jump per
+                // command, not the physical Cursor Zoom In/Out keybind's own continuous held rate
+                // (tgp.zoom.set below is still that rate, kept for the keybind). The page itself
+                // repeats this command at a fixed interval while the bezel button is held (tgp.js),
+                // rather than the plugin timing a "held" rate. Routed by mode (issue #83):
+                // TgpManualControl.StepZoom while manual control owns the camera, TgpLockZoom's own
+                // real-lock override otherwise (docs/tgp-single-target-view.md).
+                { "tgp.zoom.step",  e => {
+                    if (TgpManualControl.ManualMode) TgpManualControl.StepZoom(e.index);
+                    else TgpLockZoom.StepZoom(e.index);
+                } },
                 // Physical Cursor Zoom In/Out keybind's own continuous held rate — same API/shape
                 // as before; unaffected by the bezel buttons switching to discrete steps above.
                 { "tgp.zoom.set",   e => TgpManualControl.SetZoom(e.index, e.on) },
