@@ -7,8 +7,7 @@
 // is currently showing. `cnt` is 0 with no lock and no manual mode (TelemetryJson.cs's TgpBlock),
 // so hasFeed — not just cnt > 0 — is what gates ir/clr meaningfully having a value at all. WTV/STV,
 // like MAN, is a standing preference rather than something a feed gates — exactly one of the two
-// is always lit, feed or no feed. (There used to be a `tgt` mark for the LCK button; LCK was
-// removed in issue #81 and MAN became a blind toggle, so it's gone too.)
+// is always lit, feed or no feed.
 (function (root) {
   function tgpMarks(cnt, manual, ir, stv) {
     const hasFeed = cnt > 0 || manual;

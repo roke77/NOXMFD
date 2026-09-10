@@ -510,19 +510,19 @@ function renderSplitLabels() {
       // (tgpMarks()), so like full view they're hand-placed rather than read off NAV.tgp/
       // SPLIT_SLOTS.tgp (which stay MAIN+CFG only, same "empty NAV, hand-rolled labels" shape as
       // WPN's ARM/SAFE/A-A/A-G split rendering). A pane only has 3 slots per bank (6 total), and
-      // TGP now has 12 destinations — more than even two pages fit. Rather than a generic
+      // TGP has 12 destinations — more than even two pages fit. Rather than a generic
       // list-pagination scheme (MAIN/MAP's own, built for an open-ended list), this just steps
       // through three fixed sets (paneTgpPage), since TGP only ever needs exactly three.
       // Page 0 matches full view's own left-then-right column order (placeTgpNavLabels): MAIN,
       // CFG, TRK poured into left0-2, RST, STP poured into right0-1, NEXT anchoring right2.
-      // Pages 1-2 deliberately REGROUP rather than keep pouring sequentially (issue #81): MAN no
-      // longer pairs with anything (LCK is gone), so it sits alone on page 1 leaving left2 spare,
-      // and WTV/STV — the new pair — take the right bank so their VIEW decorator has two adjacent
-      // same-bank keys to sit between. CLR/IR moved to page 2 alongside Z+/Z- for the same
-      // same-bank-pair reason, leaving right2 spare there instead. Every decorated pair here MUST
-      // land on the same bank, adjacent — placeWpnDecorator only draws between two keys of one
-      // bank — so this hand-placement, not a blind pour, is what keeps VIEW/IMG/ZOOM each landing
-      // on a real pair. PREV takes over MAIN's own slot (left0) on every page after the first
+      // Pages 1-2 deliberately REGROUP rather than pour the fixed reading order sequentially
+      // (issue #81): MAN doesn't pair with anything, so it sits alone on page 1 leaving left2
+      // spare, and WTV/STV take the right bank so their VIEW decorator has two adjacent same-bank
+      // keys to sit between. CLR/IR sits on page 2 alongside Z+/Z- for the same same-bank-pair
+      // reason, leaving right2 spare there instead. Every decorated pair here MUST land on the
+      // same bank, adjacent — placeWpnDecorator only draws between two keys of one bank — so this
+      // hand-placement, not a blind pour, is what keeps VIEW/IMG/ZOOM each landing on a real pair.
+      // PREV takes over MAIN's own slot (left0) on every page after the first
       // rather than sharing NEXT's slot — same "PREV anchors the first physical key" convention
       // listPaneLayout/mainPaneSlice already use for MAIN/MAP's own paging, so a page's "go back"
       // key is always in the same place whether it means back-to-MAIN or back-a-page. NEXT anchors
@@ -545,8 +545,8 @@ function renderSplitLabels() {
           placeSplitKey(paneKey(paneIdx, 'right', 2), 'NEXT', 'tgp-nav-next', paneTag),
         ];
       } else if (tgpPage === 1) {
-        // MAN alone (left2 spare — no more LCK to pair it with); WTV/STV take the right bank so
-        // their VIEW decorator lands between two adjacent same-bank keys.
+        // MAN doesn't pair with anything, so it sits alone (left2 spare); WTV/STV take the right
+        // bank so their VIEW decorator lands between two adjacent same-bank keys.
         labels = [
           placeSplitKey(paneKey(paneIdx, 'left', 0), 'PREV', 'tgp-nav-prev', paneTag),
           placeSplitKey(paneKey(paneIdx, 'left', 1), 'MAN', 'tgp-manual-toggle', paneTag, marks.man),
@@ -1185,12 +1185,11 @@ function placeTgpNavLabels(force) {
   placeOverlayLabel('left', 2, 'TRK', 'tgp-point-track');
   placeOverlayLabel('left', 3, 'RST', 'tgp-manual-reset');
   placeOverlayLabel('left', 4, 'STP', 'tgp-mark-steerpoint');
-  // MAN (issue #81) — the left bank's previously-spare 6th slot, right after STP. A blind toggle
-  // now that LCK is gone: pressing it flips manual mode either way, unlike CLR/IR/WTV/STV's
-  // explicit-state pairs.
+  // MAN (issue #81) — the left bank's 6th slot, right after STP. A blind toggle, unlike
+  // CLR/IR/WTV/STV's explicit-state pairs: pressing it flips manual mode either way.
   placeOverlayLabel('left', 5, 'MAN', 'tgp-manual-toggle', marks.man);
-  // WTV/STV (issue #81, docs/tgp-single-target-view.md) — takes over LCK/MAN's old right-bank pair
-  // slot and MODE decorator (now VIEW).
+  // WTV/STV (issue #81, docs/tgp-single-target-view.md) — the right bank's first pair, with a
+  // VIEW decorator between them.
   placeOverlayLabel('right', 0, 'WTV', 'tgp-view-wtv', marks.wtv);
   placeOverlayLabel('right', 1, 'STV', 'tgp-view-stv', marks.stv);
   placeOverlayLabel('right', 2, 'CLR', 'tgp-ir-off',     marks.clr);
@@ -2481,8 +2480,8 @@ function mfdButton(el) {
     case 'combat-mode-aa':  sendCommand('combat-mode.set', { group: 'aa'  }).catch(function() {}); break;
     case 'combat-mode-ag':  sendCommand('combat-mode.set', { group: 'ag'  }).catch(function() {}); break;
     case 'tgp':  showPage('tgp');  break;
-    // MAN is a blind toggle (no LCK twin anymore, issue #81); CLR/IR and the new WTV/STV
-    // (docs/tgp-single-target-view.md) stay explicit-state commands, same shape as
+    // MAN is a blind toggle, with no paired "off" button (issue #81); CLR/IR and WTV/STV
+    // (docs/tgp-single-target-view.md) are explicit-state commands, same shape as
     // master-arms.set/combat-mode.set above.
     case 'tgp-manual-toggle': sendCommand('tgp.manual-toggle').catch(function() {}); break;
     case 'tgp-ir-on':      sendCommand('tgp.ir.set', { on: true  }).catch(function() {}); break;

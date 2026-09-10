@@ -151,8 +151,8 @@ namespace NOXMFD
                 // TGP page's CLR/IR button pair (docs/tgp-manual-control.md's NAV additions) —
                 // explicit-state twin of the tgp-manual-ir-toggle keybind, same "set" shape as
                 // master-arms.set above rather than a blind flip. MAN (the page's own manual-mode
-                // button) dispatches the blind tgp.manual-toggle below instead — issue #81 removed
-                // its old LCK twin, so there's no longer a second explicit state to set "to".
+                // button, issue #81) dispatches the blind tgp.manual-toggle below instead: it has
+                // no paired "off" button, so there's no second explicit state to set "to".
                 { "tgp.ir.set",     e => TgpManualControl.SetIR(e.on) },
                 // TGP page's WTV/STV view toggle (issue #81) — same explicit-state shape as
                 // tgp.ir.set above. on:true = STV, on:false = WTV (default).

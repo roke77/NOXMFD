@@ -52,11 +52,15 @@ namespace NOXMFD
             return _singleTargetPositionAndSizeMethod != null;
         }
 
-        // Called from the SetTargetCam postfix, every tick a real (non-manual) lock exists. No-op
-        // unless STV is on AND 2+ targets are locked — 0-1 already matches STV's own spec.
-        internal static void ApplyIfActive(TargetCam tc, List<Unit> targets)
+        // Called from the SetTargetCam postfix every tick a real (non-manual) lock exists — resolves
+        // and validates everything itself, same self-contained shape TgpManualControl.SetIR already
+        // uses. No-op unless STV is on AND 2+ targets are locked — 0-1 already matches STV's own spec.
+        internal static void ApplyIfActive(TargetCam tc)
         {
-            if (!Stv || targets.Count <= 1) return;
+            if (!Stv) return;
+            if (!GameManager.GetLocalAircraft(out Aircraft ac) || ac.weaponManager == null) return;
+            List<Unit>? targets = ac.weaponManager.GetTargetList();
+            if (targets == null || targets.Count <= 1) return;
             if (!TargetUnitLookup.TryResolve(TargetFocus.Id, out Unit focused) || !targets.Contains(focused)) return;
             if (!Ensure()) return;
 

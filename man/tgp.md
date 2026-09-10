@@ -62,7 +62,7 @@ Point the targeting-pod camera yourself, independent of the game's own automatic
 instead of only ever seeing whatever's currently locked, aim it wherever you're looking.
 
 - Turn it on/off with the **Manual Control Toggle** keybind (see [KEY](keybinds.md#tgp)), or the
-  **MAN**/**LCK** buttons on this page's own nav row — see [LCK/MAN, CLR/IR](#lckman-clrir) below.
+  **MAN** button on this page's own nav row — see [MAN, CLR/IR, WTV/STV](#man-clrir-wtvstv) below.
 - Turning it on centers the camera on your aircraft's nose at minimum zoom, and immediately gives
   it PAD Cursor focus so you can start pointing right away.
 - It turns back off on its own the moment a real target locks, your aircraft is lost, or the
@@ -133,20 +133,26 @@ happens.
 
 ![Cursor Select just promoted the tracked unit to a real lock — the amber TGP marker is gone, replaced by the game's own target reticle](images/TGP_HUD_OVERLAY_TARGET.jpg)
 
-## LCK/MAN, CLR/IR
+## MAN, CLR/IR, WTV/STV
 
-Four extra buttons on this page's own nav row, alongside MAIN/CFG:
+Five extra buttons on this page's own nav row, alongside MAIN/CFG:
 
-- **LCK / MAN** — which camera feeds the page: a real (native) unit lock, or the manual camera.
-  Picks one directly, rather than using the Manual Control Toggle keybind.
+- **MAN** — switches to the manual camera; press again to switch back to whatever's actually
+  locked. Same effect as the **Manual Control Toggle** keybind, just reachable from the page
+  directly.
 - **CLR / IR** — the active camera's color mode. Works the same for either camera: switching it
   while a real unit is locked overrides the game's own automatic day/night IR switching with your
   own choice, which sticks until you change it again — the same thing the **Toggle IR** keybind
   does (see [KEY](keybinds.md#tgp)).
+- **WTV / STV** — how the camera frames a lock of two or more targets. **WTV** (wide target view,
+  the default) zooms out to keep every locked target in frame. **STV** (single target view)
+  instead frames just whichever target Next/Previous Target currently has focused (see
+  [KEY](keybinds.md#target-list)) — stepping again while in STV moves the camera to follow. With
+  zero or one locked targets, STV does exactly what WTV does; there's nothing to reframe.
 
-All four reflect what's actually showing rather than acting like a page switch — LCK/MAN light up
-to show which camera is live, CLR/IR show that camera's current color mode — and all go dark with
-no feed up at all.
+CLR/IR and WTV/STV reflect what's actually showing rather than acting like a page switch — lighting
+up to show the active color mode and view mode — and go dark with no feed up at all. MAN lights up
+whenever the manual camera is active, regardless of feed.
 
 ![MAN and CLR lit during Point Track, locked onto a helicopter](images/TPG_MAN.png)
 
