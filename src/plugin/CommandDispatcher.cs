@@ -47,8 +47,8 @@ namespace NOXMFD
                                 // hsd.set-view : desired range-ladder index (hsd.js's own rangeIdx,
                                 // 0-4 into whichever of CEN_RANGE_NM/DEP_RANGE_NM the mode selects)
         public bool   on;      // tgt.set / tgt.laser / tgt.hud : desired toggle state
-                                // tgp.manual.set : desired ManualMode state
                                 // tgp.ir.set : desired IR state (true = IR, false = COLOR)
+                                // tgp.view.set : desired view state (true = STV, false = WTV)
                                 // tgp.zoom.set : held state — true on press, false on release
                                 // td.assign : true when the squad button was long-pressed (issue #47
                                 // follow-up, td.js's own tap-vs-hold gesture) — skips clearing the
@@ -148,11 +148,15 @@ namespace NOXMFD
                 { "td.designate",           TdDesignate },
                 { "td.member-clear",        e => TdStore.ClearDesignated() },
                 { "td.acquire-all",         e => TdAcquireAll() },
-                // TGP page's LCK/MAN and CLR/IR button pairs (docs/tgp-manual-control.md's NAV
-                // additions) — explicit-state twins of the tgp-manual-toggle/tgp-manual-ir-toggle
-                // keybinds, same "set" shape as master-arms.set above rather than a blind flip.
-                { "tgp.manual.set", e => TgpManualControl.SetManual(e.on) },
+                // TGP page's CLR/IR button pair (docs/tgp-manual-control.md's NAV additions) —
+                // explicit-state twin of the tgp-manual-ir-toggle keybind, same "set" shape as
+                // master-arms.set above rather than a blind flip. MAN (the page's own manual-mode
+                // button) dispatches the blind tgp.manual-toggle below instead — issue #81 removed
+                // its old LCK twin, so there's no longer a second explicit state to set "to".
                 { "tgp.ir.set",     e => TgpManualControl.SetIR(e.on) },
+                // TGP page's WTV/STV view toggle (issue #81) — same explicit-state shape as
+                // tgp.ir.set above. on:true = STV, on:false = WTV (default).
+                { "tgp.view.set",   e => TgpSingleTargetView.SetStv(e.on) },
                 // Remote-keybind twins of the Manual Control Toggle / Toggle IR keybinds
                 // (docs/remote-keybinds.md) — a blind flip, unlike the explicit-state .set commands
                 // above, since a remote browser has no reliable read of the current state to send
@@ -186,7 +190,7 @@ namespace NOXMFD
                 // In/Out keybind's own continuous held rate (tgp.zoom.set below is still that
                 // rate, kept for the keybind). The page itself repeats this command at a fixed
                 // interval while the bezel button is held (tgp.js), rather than the plugin timing
-                // a "held" rate — a no-op while ManualMode is off (LCK mode), since
+                // a "held" rate — a no-op while ManualMode is off (a real/auto lock), since
                 // TgpManualControl.Tick() never reads _desiredFov outside manual control.
                 { "tgp.zoom.step",  e => TgpManualControl.StepZoom(e.index) },
                 // Physical Cursor Zoom In/Out keybind's own continuous held rate — same API/shape

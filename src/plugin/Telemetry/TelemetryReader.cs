@@ -907,6 +907,7 @@ namespace NOXMFD
                 TgpTargetCount  = _tgp.Overlay.TargetCount,
                 TgpManualActive = TgpManualControl.ManualMode,
                 TgpManualPointTrack = _tgp.Overlay.PointTrackActive,
+                TgpStv          = TgpSingleTargetView.Stv,
                 TgpElevationDeg = _tgp.Overlay.ElevationDeg,
                 TgpClosureReading = _tgp.Overlay.ClosureReading,
                 TgpType         = _tgp.Overlay.TargetType,

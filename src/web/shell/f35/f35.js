@@ -187,17 +187,21 @@
     { label: 'A/G', action: 'combat-mode-ag', cell: { row: 5, col: 2 } },
   ];
 
-  // LCK/MAN and CLR/IR (docs/tgp-manual-control.md's NAV additions) — the bezel's mfd.js twin
-  // (placeTgpNavLabels/tgpMarks), same shape as MASTER_ARMS_ACTIONS/COMBAT_MODE_ACTIONS above:
-  // an unconditional command pair, dispatched rather than paged to, with its own mark state
-  // (markTgpMode/markTgpImg) since NAV.tgp carries no dynamic `mark`. Column 1 is the "go
-  // somewhere else" column (MAIN/CFG plus the one-shot TRK/RST/STP below, tgpNavItems); column 2
-  // is the "change how the feed looks" column (LCK/MAN, CLR/IR, Z+/Z-), matching mfd.js's own
-  // placeTgpNavLabels left/right split.
-  const TGP_MODE_ACTIONS = { 'tgp-manual-on': true, 'tgp-manual-off': false };
-  const TGP_MODE_NAV = [
-    { label: 'LCK', action: 'tgp-manual-off', cell: { row: 1, col: 2 } },
-    { label: 'MAN', action: 'tgp-manual-on',  cell: { row: 2, col: 2 } },
+  // MAN, WTV/STV, and CLR/IR (docs/tgp-manual-control.md's NAV additions,
+  // docs/tgp-single-target-view.md's VIEW toggle, issue #81) — the bezel's mfd.js twin
+  // (placeTgpNavLabels/tgpMarks). Column 1 is the "go somewhere else" column (MAIN/CFG, the
+  // one-shot TRK/RST/STP below, and MAN — a blind toggle, no destination); column 2 is the
+  // "change how the feed looks" column (WTV/STV, CLR/IR, Z+/Z-), matching mfd.js's own
+  // placeTgpNavLabels left/right split. MAN dispatches directly (no ACTIONS-map entry — see
+  // dispatch()) since a blind toggle has no "set to X" value to look up, same as TRK/RST/STP;
+  // WTV/STV stays an explicit-state pair like ARM/SAFE above, so it keeps its own ACTIONS map.
+  const TGP_MAN_NAV = [
+    { label: 'MAN', action: 'tgp-manual-toggle', cell: { row: 6, col: 1 } },
+  ];
+  const TGP_VIEW_ACTIONS = { 'tgp-view-stv': true, 'tgp-view-wtv': false };
+  const TGP_VIEW_NAV = [
+    { label: 'WTV', action: 'tgp-view-wtv', cell: { row: 1, col: 2 } },
+    { label: 'STV', action: 'tgp-view-stv', cell: { row: 2, col: 2 } },
   ];
   const TGP_IR_ACTIONS = { 'tgp-ir-on': true, 'tgp-ir-off': false };
   const TGP_IR_NAV = [
@@ -205,7 +209,7 @@
     { label: 'IR',  action: 'tgp-ir-on',  cell: { row: 4, col: 2 } },
   ];
   // Z+/Z- (manual camera zoom) — column 2's own rows 5-6, unlike COMBAT_MODE_ACTIONS/
-  // TGP_MODE_ACTIONS/TGP_IR_ACTIONS this isn't an explicit-state "set" (no single boolean value to
+  // TGP_VIEW_ACTIONS/TGP_IR_ACTIONS this isn't an explicit-state "set" (no single boolean value to
   // react to) — it jumps between discrete magnification LEVELS (tgp.zoom.step,
   // TgpManualControl.StepZoom), wired with its own pointerdown/pointerup pair in renderNav() below
   // rather than through dispatch(); the value here is the dir tgp.zoom.step's `index` field
@@ -219,15 +223,15 @@
     { label: 'Z+', action: 'tgp-zoom-in',  cell: { row: 5, col: 2 } },
     { label: 'Z-', action: 'tgp-zoom-out', cell: { row: 6, col: 2 } },
   ];
-  // TRK/RST/STP's three actions, dispatched directly (below) rather than through an ACTIONS lookup
-  // like TGP_MODE_ACTIONS/TGP_IR_ACTIONS/TGP_ZOOM_ACTIONS above — canDo() needs its own explicit
-  // list for these since it has no ACTIONS object to check `in`.
-  const TGP_ONESHOT_ACTIONS = ['tgp-point-track', 'tgp-manual-reset', 'tgp-mark-steerpoint'];
+  // TRK/RST/STP's three actions, plus MAN's own blind toggle, dispatched directly (below) rather
+  // than through an ACTIONS lookup like TGP_VIEW_ACTIONS/TGP_IR_ACTIONS/TGP_ZOOM_ACTIONS above —
+  // canDo() needs its own explicit list for these since it has no ACTIONS object to check `in`.
+  const TGP_ONESHOT_ACTIONS = ['tgp-point-track', 'tgp-manual-reset', 'tgp-mark-steerpoint', 'tgp-manual-toggle'];
   // TRK/RST/STP — page-button twins of the Point Track / Manual Control Reset keybinds
   // (docs/tgp-manual-control.md) and the MARK STEER POINT command (docs/steer-points.md). One-shot
   // actions, not explicit-state pairs like the others above, so each is dispatched directly rather
   // than through an ACTIONS lookup. Column 1's rows 3-5 are free (MAIN/CFG only spoke for rows 1-2,
-  // tgpNavItems); row 6 stays spare.
+  // tgpNavItems; row 6 is MAN, TGP_MAN_NAV above).
   const TGP_TRK_NAV = [
     { label: 'TRK', action: 'tgp-point-track', cell: { row: 3, col: 1 } },
   ];
@@ -290,7 +294,7 @@
   function canDo(action) {
     return has(action) || (action in PAGER) || (action in MAP_ACTIONS) || (action in GLASS_ACTIONS) ||
            (action in MASTER_ARMS_ACTIONS) || (action in COMBAT_MODE_ACTIONS) ||
-           (action in TGP_MODE_ACTIONS) || (action in TGP_IR_ACTIONS) || (action in TGP_ZOOM_ACTIONS) ||
+           (action in TGP_VIEW_ACTIONS) || (action in TGP_IR_ACTIONS) || (action in TGP_ZOOM_ACTIONS) ||
            TGP_ONESHOT_ACTIONS.indexOf(action) !== -1;
   }
 
@@ -417,10 +421,11 @@
     }
     function onSlice(type) {
       if (feedsFor(currentPage).indexOf(type) !== -1) forwardSlice(type);
-      // LCK/MAN/CLR/IR can change without the page changing (docs/tgp-manual-control.md's NAV
-      // additions) — same "re-apply on every tick" need as markMasterArms/markCombatMode, which
-      // get theirs via the 'loadout' feed's own forwardWpn() instead since WPN is a DERIVED feed.
-      if (type === 'tgp' && currentPage === 'tgp') { markTgpMode(); markTgpImg(); }
+      // MAN/CLR/IR/WTV/STV can change without the page changing (docs/tgp-manual-control.md's NAV
+      // additions, docs/tgp-single-target-view.md) — same "re-apply on every tick" need as
+      // markMasterArms/markCombatMode, which get theirs via the 'loadout' feed's own forwardWpn()
+      // instead since WPN is a DERIVED feed.
+      if (type === 'tgp' && currentPage === 'tgp') { markTgpManual(); markTgpView(); markTgpImg(); }
     }
     // Everything the current page needs — on its load, and whenever it changes.
     function forwardToPage() {
@@ -551,7 +556,7 @@
     function itemsFor(page) {
       if (page === 'wpn') return wpnState().nav.concat(MASTER_ARMS_NAV, COMBAT_MODE_NAV);
       if (page === 'map') return mapNavItems();
-      if (page === 'tgp') return tgpNavItems().concat(TGP_MODE_NAV, TGP_IR_NAV, TGP_ZOOM_NAV, TGP_STP_NAV, TGP_TRK_NAV, TGP_RST_NAV);
+      if (page === 'tgp') return tgpNavItems().concat(TGP_MAN_NAV, TGP_VIEW_NAV, TGP_IR_NAV, TGP_ZOOM_NAV, TGP_STP_NAV, TGP_TRK_NAV, TGP_RST_NAV);
       const items = (NAV[page] || []).slice();
       if (page !== 'main') return items;
       return items.concat(MAIN_EXTRAS).sort(function (a, b) { return a.label.localeCompare(b.label); });
@@ -603,21 +608,26 @@
       });
     }
 
-    // LCK/MAN/CLR/IR (docs/tgp-manual-control.md's NAV additions) — read straight off the cached
-    // tgp slice rather than tracked local state (no click here can change it on its own, unlike
+    // MAN/CLR/IR/WTV/STV (docs/tgp-manual-control.md's NAV additions,
+    // docs/tgp-single-target-view.md's VIEW toggle) — read straight off the cached tgp slice
+    // rather than tracked local state (no click here can change it on its own, unlike
     // followOn/gridOn). The actual rule lives in tgp-marks.js (shared with mfd.js's own equivalent,
     // so the two can't drift). Called on every 'tgp' slice tick (onSlice) as well as on nav rebuild.
     function tgpMarks() {
       const s = slices.tgp;
       const data = s && s.data;
-      return TgpMarks.tgpMarks(data ? data.cnt : 0, s && s.manual, data && data.ir);
+      return TgpMarks.tgpMarks(data ? data.cnt : 0, s && s.manual, data && data.ir, s && s.stv);
     }
-    function markTgpMode() {
+    function markTgpManual() {
+      const man = grid.querySelector('.nav-item[data-action="tgp-manual-toggle"]');
+      if (man) man.classList.toggle('on', tgpMarks().man);
+    }
+    function markTgpView() {
       const marks = tgpMarks();
-      const tgt = grid.querySelector('.nav-item[data-action="tgp-manual-off"]');
-      const man = grid.querySelector('.nav-item[data-action="tgp-manual-on"]');
-      if (tgt) tgt.classList.toggle('on', marks.tgt);
-      if (man) man.classList.toggle('on', marks.man);
+      const wtv = grid.querySelector('.nav-item[data-action="tgp-view-wtv"]');
+      const stv = grid.querySelector('.nav-item[data-action="tgp-view-stv"]');
+      if (wtv) wtv.classList.toggle('on', marks.wtv);
+      if (stv) stv.classList.toggle('on', marks.stv);
     }
     function markTgpImg() {
       const marks = tgpMarks();
@@ -690,8 +700,12 @@
         sendCommand('combat-mode.set', { group: COMBAT_MODE_ACTIONS[action] }).catch(function () {});
         return;
       }
-      if (action in TGP_MODE_ACTIONS) {
-        sendCommand('tgp.manual.set', { on: TGP_MODE_ACTIONS[action] }).catch(function () {});
+      if (action === 'tgp-manual-toggle') {
+        sendCommand('tgp.manual-toggle').catch(function () {});
+        return;
+      }
+      if (action in TGP_VIEW_ACTIONS) {
+        sendCommand('tgp.view.set', { on: TGP_VIEW_ACTIONS[action] }).catch(function () {});
         return;
       }
       if (action in TGP_IR_ACTIONS) {
@@ -804,8 +818,8 @@
       });
       if (currentPage === 'wpn') { addWeaponHits(); markMasterArms(); markCombatMode(); placeWpnDecorators(); }
       if (currentPage === 'tgp') {
-        markTgpMode(); markTgpImg();
-        placeWpnDecorator('tgp-manual-off', 'tgp-manual-on', 'MODE');
+        markTgpManual(); markTgpView(); markTgpImg();
+        placeWpnDecorator('tgp-view-wtv', 'tgp-view-stv', 'VIEW');
         placeWpnDecorator('tgp-ir-off', 'tgp-ir-on', 'IMG');
         placeWpnDecorator('tgp-zoom-in', 'tgp-zoom-out', 'ZOOM');
       }
@@ -873,7 +887,7 @@
         if (currentPage === 'map') { placeWpnDecorator('zin', 'zout', 'ZOOM'); placeWpnDecorator('rt-next', 'rt-prev', 'ROUTE'); placeWpnDecorator('wpt-next', 'wpt-prev', WaypointsStore.getActiveRoute() ? 'WYPT' : 'STRP'); }
         if (currentPage === 'rdr' || currentPage === 'hsd') placeWpnDecorator('rng-out', 'rng-in', 'RANGE');
         if (currentPage === 'tgp') {
-          placeWpnDecorator('tgp-manual-off', 'tgp-manual-on', 'MODE');
+          placeWpnDecorator('tgp-view-wtv', 'tgp-view-stv', 'VIEW');
           placeWpnDecorator('tgp-ir-off', 'tgp-ir-on', 'IMG');
           placeWpnDecorator('tgp-zoom-in', 'tgp-zoom-out', 'ZOOM');
         }

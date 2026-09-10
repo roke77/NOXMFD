@@ -163,6 +163,10 @@ namespace NOXMFD
         // True while Point Track is locked (docs/tgp-manual-control.md) — manual mode only;
         // distinguishes the "POINT TRACK" vs "MANUAL" label client-side.
         public bool   TgpManualPointTrack;
+        // True while the TGP page's VIEW toggle is set to STV (issue #81,
+        // docs/tgp-single-target-view.md) — drives the WTV/STV NAV highlight client-side, same
+        // shape as TgpManualActive driving MAN's.
+        public bool   TgpStv;
         // Aim elevation, degrees, aircraft-relative (0 = nose) — manual mode only; a locked target
         // never needed this (bearing alone was enough to point back at it).
         public float  TgpElevationDeg;

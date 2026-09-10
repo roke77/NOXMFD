@@ -87,6 +87,7 @@ namespace NOXMFD
             sb.Append("\"tgpResolution\":\"").Append(JsonLite.EscapeJson(s.TgpResolution ?? "native")).Append("\",");
             sb.Append("\"tgpQuality\":\"").Append(JsonLite.EscapeJson(s.TgpQuality ?? "native")).Append("\",");
             sb.Append("\"tgpManual\":").Append(JsonBool(s.TgpManualActive)).Append(',');
+            sb.Append("\"tgpStv\":").Append(JsonBool(s.TgpStv)).Append(',');
             sb.Append(soiJson).Append(',');
         }
 
@@ -345,13 +346,13 @@ namespace NOXMFD
                 "{{\"cnt\":{0},\"mag\":{1:0.0},\"range\":{2:0.0},\"grid\":\"{3}\",\"ir\":{4}," +
                 "\"brg\":{5:0.0},\"type\":\"{6}\",\"pilot\":\"{7}\",\"status\":\"{8}\",\"hasDetail\":{9}," +
                 "\"hdg\":{10:0.0},\"alt\":{11:0.0},\"relAlt\":{12:0.0},\"spd\":{13:0.0},\"relSpd\":{14:0.0}," +
-                "\"manual\":{15},\"pointTrack\":{16},\"el\":{17:0.0},\"clo\":\"{18}\"",
+                "\"manual\":{15},\"pointTrack\":{16},\"el\":{17:0.0},\"clo\":\"{18}\",\"stv\":{19}",
                 s.TgpTargetCount, s.TgpMag, s.TgpRangeM, JsonLite.EscapeJson(s.TgpGrid ?? ""), JsonBool(s.TgpIR),
                 s.TgpBearingDeg, JsonLite.EscapeJson(s.TgpType ?? ""), JsonLite.EscapeJson(s.TgpPilot ?? ""),
                 JsonLite.EscapeJson(s.TgpStatus ?? "normal"), JsonBool(s.TgpHasDetail),
                 s.TgpHeadingDeg, s.TgpAltitudeM, s.TgpRelAltitudeM, s.TgpSpeedMps, s.TgpRelSpeedMps,
                 JsonBool(s.TgpManualActive), JsonBool(s.TgpManualPointTrack), s.TgpElevationDeg,
-                JsonLite.EscapeJson(s.TgpClosureReading ?? "-"));
+                JsonLite.EscapeJson(s.TgpClosureReading ?? "-"), JsonBool(s.TgpStv));
             return head + ",\"boxes\":" + TgpBoxArray(s.TgpBoxes) + "}";
         }
 

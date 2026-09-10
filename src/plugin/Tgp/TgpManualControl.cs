@@ -187,16 +187,6 @@ namespace NOXMFD
             Engage(tc, aircraft);
         }
 
-        // Explicit-state twin of Toggle() — the TGP page's TGT/MAN buttons (docs/tgp-manual-
-        // control.md's NAV additions) are a two-button mutually-exclusive pair like WPN's ARM/SAFE,
-        // so they need an idempotent "set to X" rather than a blind flip. Reuses Toggle()'s own
-        // aircraft/TargetCam guards rather than duplicating them.
-        internal static void SetManual(bool on)
-        {
-            if (on == ManualMode) return;
-            Toggle();
-        }
-
         internal static void Reset()
         {
             if (!ManualMode) return;

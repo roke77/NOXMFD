@@ -712,43 +712,49 @@ next to the real fields.
   synthetic SOI target — it already just calls `TryLockTrackedUnit()` unconditionally, self-gated
   on `ManualMode`; that method resolves the current look point for either Area or Point Track.
 
-## TGP page NAV additions — LCK/MAN, CLR/IR (built)
+## TGP page NAV additions — MAN, CLR/IR (built)
 
-The TGP page's bezel/glass nav gained four buttons alongside MAIN/CFG: `LCK`, `MAN`, `CLR`, `IR`
-(the button's own `data-action`/command name stayed `tgp-manual-off` — only the on-screen label
-changed, from `TGT` to `LCK`). `LCK`/`MAN` is a mutually-exclusive pair choosing which camera feeds
-the page — a real (native) unit lock, or the manual camera — and `CLR`/`IR` is a second pair
-choosing that active feed's color mode. Each pair gets a small decorative label between its two
-buttons (`MODE` between LCK/MAN, `IMG` between CLR/IR), same word-plus-triangle treatment as WPN's
-MASTER/MODE (`docs/radar-master-arms.md`).
+> **Update (issue #81):** this section originally shipped a `LCK`/`MAN` mutually-exclusive pair
+> (`LCK` = a real lock, `MAN` = the manual camera) with a `MODE` decorator between them. `LCK` and
+> `MODE` are gone; `MAN` is now a standalone blind toggle, and its old right-bank pair slot (plus
+> the `MODE` decorator) went to the new `WTV`/`STV` view-mode pair instead. See
+> `docs/tgp-single-target-view.md` for what `WTV`/`STV` actually does; this section (and its
+> history below) is kept for `CLR`/`IR`'s own design and as the origin of the layout math the new
+> doc builds on.
 
-**Highlight state**, not a page selection: unlike every other NAV entry, all four buttons reflect
-live game state rather than "which page is this." `LCK` lights when a real unit is locked
-(`!manual && data.cnt > 0`); `MAN` lights when `TgpManualControl.ManualMode` is on; `CLR`/`IR`
-mirror whichever feed is actually active's `data.ir` flag. All four go dark with no feed up at all
-(`data` is only ever `{cnt:0}` in that case — `TelemetryJson.cs`'s `TgpBlock`). The rule itself is
-one shared `tgpMarks(cnt, manual, ir)` (`src/web/shell/shared/tgp-marks.js`), called by both `mfd.js` and
-`f35.js` rather than each shell computing it independently, so the two can't drift — its own
-`{tgt, man}` return shape kept the pre-rename property name since it's internal, read only by
-`markTgpMode`/`placeTgpNavLabels`, not shown anywhere. Because this needs live data no static
-table has, `LCK`/`MAN`/`CLR`/`IR` are **not** NAV.tgp entries — `NAV.tgp` stays exactly
-`[MAIN, CFG]`, and the four are hand-placed by each layout's own renderer, the same "NAV stays
-empty, the layout hand-rolls it" shape WPN's ARM/SAFE/A-A/A-G already use for the same reason
-(`combatMode`/`masterArmsOn` are live state too).
+The TGP page's bezel/glass nav has `MAN`, `CLR`, `IR` alongside MAIN/CFG. `CLR`/`IR` is a
+mutually-exclusive pair choosing the active feed's color mode, with a small decorative label
+between its two buttons (`IMG`), same word-plus-triangle treatment as WPN's MASTER/MODE
+(`docs/radar-master-arms.md`). `MAN` has no such pair anymore — pressing it just flips
+`TgpManualControl.ManualMode` either way.
 
-**Commands.** Each pair is an explicit-state "set", not a toggle — pressing an already-lit button
-is a no-op, matching `master-arms.set`/`combat-mode.set`'s own shape rather than replaying
-`tgp-manual-toggle`/`tgp-manual-ir-toggle`'s blind flip:
-- `tgp.manual.set { on }` → `TgpManualControl.SetManual(on)` — idempotent twin of `Toggle()`;
-  `on:true` engages (same aircraft/TargetCam guards as the keybind), `on:false` exits.
-- `tgp.ir.set { on }` → `TgpManualControl.SetIR(on)` — idempotent twin of `ToggleIR()`, and unlike
-  `tgp.manual.set` it acts identically whether `ManualMode` is on or a real target is locked. See
+**Highlight state**, not a page selection: unlike every other NAV entry, these buttons reflect live
+game state rather than "which page is this." `MAN` lights when `TgpManualControl.ManualMode` is
+on; `CLR`/`IR` mirror whichever feed is actually active's `data.ir` flag. Both go dark with no feed
+up at all (`data` is only ever `{cnt:0}` in that case — `TelemetryJson.cs`'s `TgpBlock`) — `MAN` is
+the one exception, matching `WTV`/`STV`'s own "still lit either way" reasoning
+(`docs/tgp-single-target-view.md`): it's a standing mode, not something a feed gates. The rule
+itself is one shared `tgpMarks(cnt, manual, ir, stv)` (`src/web/shell/shared/tgp-marks.js`), called
+by both `mfd.js` and `f35.js` rather than each shell computing it independently, so the two can't
+drift — its `man`/`clr`/`ir` fields feed `MAN`/`CLR`/`IR`'s own highlight, `wtv`/`stv` feed the
+view-mode pair. Because this needs live data no static table has, none of these are NAV.tgp
+entries — `NAV.tgp` stays exactly `[MAIN, CFG]`, and the rest are hand-placed by each layout's own
+renderer, the same "NAV stays empty, the layout hand-rolls it" shape WPN's ARM/SAFE/A-A/A-G already
+use for the same reason (`combatMode`/`masterArmsOn` are live state too).
+
+**Commands.**
+- `MAN` → `tgp.manual-toggle` → `TgpManualControl.Toggle()` — a blind flip, the same remote-keybind
+  command the physical Manual Control Toggle keybind already sent; with no `LCK` twin left there's
+  no second explicit state to "set to", so the page button just reuses the keybind's own toggle
+  rather than keeping a now-pointless `tgp.manual.set { on }` around.
+- `tgp.ir.set { on }` → `TgpManualControl.SetIR(on)` — idempotent twin of `ToggleIR()`, acting
+  identically whether `ManualMode` is on or a real target is locked. See
   [Native-lock CLR/IR override](#native-lock-clrir-override-built) below for the real-lock half —
   the automatic behavior it overrides, and why it needs its own Harmony patch to stick.
 
 Recomputed on page entry and on every `tgp` telemetry tick, the same re-render-in-place shape
-`placeWpnNavLabels` uses for ARM/SAFE (`markTgpMode`/`markTgpImg` do the equivalent on F-35, off
-the cached `tgp` slice on every tick (`onSlice`) and on nav rebuild, mirroring
+`placeWpnNavLabels` uses for ARM/SAFE (`markTgpManual`/`markTgpView`/`markTgpImg` do the equivalent
+on F-35, off the cached `tgp` slice on every tick (`onSlice`) and on nav rebuild, mirroring
 `markMasterArms`/`markCombatMode`). See [Layout placement](#layout-placement-all-tgp-nav-buttons)
 below for where each button actually lands in each layout.
 
@@ -763,7 +769,7 @@ number, so the bezel buttons instead jump straight to the next of a fixed list o
 covering the same 0.5x-40x range the continuous zoom already does). `NextZoomLevelMag(currentMag,
 dir)` picks the next level up/down from wherever the FOV currently sits (not necessarily itself a
 level, e.g. left over from the keybind's continuous zoom), clamping at the ends rather than
-wrapping. A no-op while `ManualMode` is off (LCK mode): `TgpManualControl.Tick()` never reads
+wrapping. A no-op while `ManualMode` is off (a real/auto lock): `TgpManualControl.Tick()` never reads
 `_desiredFov` outside manual mode, so a step taken while off just sits there unseen until the next
 `Engage()` resets it to `MaxFov` anyway — no extra gating needed in the command handler.
 - Both shells wire a plain pointerdown/pointerup pair per button: pointerdown sends one step
@@ -779,7 +785,7 @@ keybind (`TGP Keybinds`, `TgpManualControl.MarkSteerPoint()`), both driving one 
 `tgp.mark-steerpoint` (no wire fields — `CommandDispatcher.cs`). `MarkSteerPoint()` mirrors the
 exact `hasTargets`/`ManualMode` branch `TgpFeed.CaptureFrame` already uses to pick `Populate` vs
 `PopulateManual`, so it can't disagree with what the overlay is showing the moment it's pressed:
-- A real unit lock (LCK mode) → the primary target's own `GlobalPosition()`.
+- A real unit lock (`ManualMode` off) → the primary target's own `GlobalPosition()`.
 - Manual control (MAN/Point Track) with a hit → `ComputeOverlaySample`'s already-computed hit
   point, reusing the same raycast the overlay's RNG/ALT/GRID fields already paid for rather than
   firing a second one. `ManualOverlaySample` grew `PosX`/`PosZ` (the same floating-origin-corrected
@@ -797,28 +803,33 @@ reaches the identical method, not a separate copy of the guard.
 
 ### Layout placement (all TGP nav buttons)
 
-All eleven buttons read in one fixed order: `MAIN, CFG, TRK, RST, STP` — one-shot actions and page
-navigation, none of which reflect the feed's own live state — then `LCK, MAN, CLR, IR, Z+, Z-` —
-the two highlighted state pairs plus zoom.
+> **Update (issue #81):** `LCK` is gone and `MAN` moved into what used to be its column's spare
+> slot; `WTV`/`STV` (`docs/tgp-single-target-view.md`) took over `LCK`/`MAN`'s old pair slot and
+> `MODE` decorator (renamed `VIEW`). The description below is current; see that doc for why the
+> split-pane/F-35 grouping isn't a blind pour anymore.
+
+All twelve buttons read in one fixed order: `MAIN, CFG, TRK, RST, STP, MAN` — one-shot actions,
+page navigation, and the now-standalone manual toggle, none of which pair with anything — then
+`WTV, STV, CLR, IR, Z+, Z-` — three highlighted state pairs.
 
 - **Classic bezel, full view** (`mfd.js`'s `placeTgpNavLabels`): the first group fills the left
-  column top to bottom (`MAIN, CFG, TRK, RST, STP` — `left0`-`left4`, `left5` spare), the second
-  fills the right column (`LCK, MAN, CLR, IR, Z+, Z-` — `right0`-`right5`, filling the bank
-  exactly), with `MODE` between `LCK`/`MAN` and `IMG` between `CLR`/`IR` (same word-plus-triangle
-  decorator WPN's MASTER/MODE uses) and `ZOOM` between `Z+`/`Z-`.
+  column top to bottom (`MAIN, CFG, TRK, RST, STP, MAN` — `left0`-`left5`, filling the bank
+  exactly — `MAN` took over the slot that used to sit spare), the second fills the right column
+  (`WTV, STV, CLR, IR, Z+, Z-` — `right0`-`right5`, filling the bank exactly), with `VIEW` between
+  `WTV`/`STV` and `IMG` between `CLR`/`IR` (same word-plus-triangle decorator WPN's MASTER/MODE
+  uses) and `ZOOM` between `Z+`/`Z-`.
 - **Classic bezel, split pane** (`renderSplitLabels`' own `tgp` branch, `paneTgpPage`): a pane only
-  has 3 slots per bank (6 total), and 11 destinations are more than even two pages fit — this steps
+  has 3 slots per bank (6 total), and 12 destinations are more than even two pages fit — this steps
   through three fixed sets rather than a generic list-pagination scheme (MAIN/MAP's own, built for
-  an open-ended list), since TGP only ever needs exactly three. The same fixed order above pours
-  straight into `left1, left2, right0, right1[, right2]` per page (the same slot-fill order
-  `mainPaneSlice`/`listPaneLayout` use for MAIN/MAP) — a page's left/right split is a physical
-  3-vs-3 accident, not a semantic one, so the sequence crosses the left/right boundary mid-page
-  wherever it lands (`LCK`/`MAN` sit in the *left* bank on page 1, simply because that's where the
-  count lands after `MAIN, CFG, TRK, RST, STP` fill page 0):
-  - Page 0: left = `MAIN, CFG, TRK`; right = `RST, STP`, `NEXT`.
-  - Page 1: left = `PREV, LCK, MAN`; right = `CLR, IR`, `NEXT`.
-  - Page 2 (last): left = `PREV, Z+, Z-`; right empty (only two items remained, and no `NEXT` is
-    needed on the last page).
+  an open-ended list), since TGP only ever needs exactly three. Pages 1-2 deliberately REGROUP
+  rather than keep pouring the fixed order sequentially the way they used to (when `LCK`/`MAN` sat
+  wherever the count landed): `MAN` no longer pairs with anything, so it sits alone; `WTV`/`STV`
+  and `CLR`/`IR` each need to land on the SAME bank, adjacent, for their decorator to draw at all
+  (`placeWpnDecorator` only draws between two keys of one bank) — a blind pour would split one of
+  those pairs across the left/right boundary or across pages entirely:
+  - Page 0: left = `MAIN, CFG, TRK`; right = `RST, STP`, `NEXT`. (Unchanged.)
+  - Page 1: left = `PREV, MAN`, spare; right = `WTV, STV`, `NEXT`.
+  - Page 2 (last): left = `PREV, CLR, IR`; right = `Z+, Z-`, spare.
 
   `PREV` takes over `left0` (`MAIN`'s own slot) on every page after the first, rather than sharing
   `NEXT`'s slot — same "PREV anchors the first physical key" convention `listPaneLayout`/
@@ -826,12 +837,14 @@ the two highlighted state pairs plus zoom.
   place whether it means back-to-MAIN or back-a-page. `NEXT` anchors the last slot in use on every
   page but the last. `tgp-nav-prev`/`tgp-nav-next` bump `paneTgpPage[paneIdx]` by ±1, clamped to
   `[0, 2]`, and re-render; reset to 0 whenever a pane (re)enters TGP (`paneNavigate`), same as
-  `paneWpnPage`/`paneMainPage`/etc. Decorators (`MODE`/`IMG`/`ZOOM`) stay on whichever page/slots
+  `paneWpnPage`/`paneMainPage`/etc. Decorators (`VIEW`/`IMG`/`ZOOM`) stay on whichever page/slots
   their pair actually lands on.
-- **F-35 glass** (`f35.js`): column 1 top to bottom is `MAIN, CFG, TRK, RST, STP` (rows 1-5, row 6
-  spare); column 2 top to bottom is `LCK, MAN, CLR, IR, Z+, Z-` (rows 1-6, filling the column
-  exactly) — a portal's grid has 2 columns × 6 rows = 12 cells total, so no split-pane-style
-  capacity problem here at all, F-35 needed no pagination.
+- **F-35 glass** (`f35.js`): column 1 top to bottom is `MAIN, CFG, TRK, RST, STP, MAN` (rows 1-6,
+  filling the column exactly); column 2 top to bottom is `WTV, STV, CLR, IR, Z+, Z-` (rows 1-6,
+  filling the column exactly) — a portal's grid has 2 columns × 6 rows = 12 cells total, so no
+  split-pane-style capacity problem here at all, F-35 needed no pagination or regrouping (its
+  `placeWpnDecorator` finds pairs by `data-action`, not by bank/row adjacency, so it never had the
+  split-pane version's same-bank constraint to begin with).
 
 **Readability over the live picture.** These labels sit directly on top of TGP's own feed
 (`tgp.css`'s `.tgp-panel` runs full width/height, unlike every other page's plain background) —

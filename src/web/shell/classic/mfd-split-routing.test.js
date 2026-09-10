@@ -26,8 +26,9 @@ const dynamicBehaviors = [
   'master-arms-on', 'master-arms-off',
   'combat-mode-aa', 'combat-mode-ag',
   'avn.toggle',
-  'tgp-manual-on', 'tgp-manual-off',
+  'tgp-manual-toggle',
   'tgp-ir-on', 'tgp-ir-off',
+  'tgp-view-wtv', 'tgp-view-stv',
   'tgp-nav-prev', 'tgp-nav-next',
   'tgp-zoom-in', 'tgp-zoom-out',
   'tgp-mark-steerpoint',
@@ -38,10 +39,12 @@ for (const action of [...staticBehaviors, ...dynamicBehaviors]) {
   assert.ok(splitDispatcher.includes("act === '" + action + "'"),
     `${action} is not handled in the split dispatcher and would not perform its behavior`);
 }
-assert.ok(splitDispatcher.includes("sendCommand('tgp.manual.set', { on: act === 'tgp-manual-on' })"),
-  'split TGT/MAN controls must dispatch tgp.manual.set');
+assert.ok(splitDispatcher.includes("sendCommand('tgp.manual-toggle')"),
+  'split MAN control must dispatch tgp.manual-toggle');
 assert.ok(splitDispatcher.includes("sendCommand('tgp.ir.set', { on: act === 'tgp-ir-on' })"),
   'split CLR/IR controls must dispatch tgp.ir.set');
+assert.ok(splitDispatcher.includes("sendCommand('tgp.view.set', { on: act === 'tgp-view-stv' })"),
+  'split WTV/STV controls must dispatch tgp.view.set');
 
 const navigateStart = source.indexOf('function paneNavigate(paneIdx, page)');
 const navigateEnd = source.indexOf('// Forwarding from shell', navigateStart);

@@ -114,8 +114,8 @@ const assert = require('assert');
     console.error = realErr;
   }
 
-  // TGP manual state is a top-level telemetry flag that the shell forwards to the TGP iframe
-  // as `manual`, independent of the lock overlay payload.
+  // TGP manual state and the VIEW toggle (issue #81) are top-level telemetry flags that the shell
+  // forwards to the TGP iframe as `manual`/`stv`, independent of the lock overlay payload.
   {
     const messages = [];
     const realWindow = global.window;
@@ -124,18 +124,18 @@ const assert = require('assert');
     src3._postUp = (m) => messages.push(m);
 
     try {
-      src3._emit({ tgpActive: true, tgpResolution: 'high', tgpQuality: 'hq', tgpManual: true, tgp: { cnt: 1 } });
+      src3._emit({ tgpActive: true, tgpResolution: 'high', tgpQuality: 'hq', tgpManual: true, tgpStv: true, tgp: { cnt: 1 } });
       assert.deepStrictEqual(
         messages.find((m) => m.type === 'tgp'),
-        { type: 'tgp', active: true, resolution: 'high', quality: 'hq', data: { cnt: 1 }, manual: true },
-        'tgpManual should forward to the TGP page as manual:true');
+        { type: 'tgp', active: true, resolution: 'high', quality: 'hq', data: { cnt: 1 }, manual: true, stv: true },
+        'tgpManual/tgpStv should forward to the TGP page as manual:true/stv:true');
 
       messages.length = 0;
       src3._emitEmpties();
       assert.deepStrictEqual(
         messages.find((m) => m.type === 'tgp'),
-        { type: 'tgp', active: false, resolution: 'native', quality: 'native', data: null, manual: false },
-        'mission-end empties should clear manual state');
+        { type: 'tgp', active: false, resolution: 'native', quality: 'native', data: null, manual: false, stv: false },
+        'mission-end empties should clear manual/stv state');
     } finally {
       global.window = realWindow;
     }

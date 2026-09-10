@@ -506,22 +506,24 @@ function renderSplitLabels() {
     }
 
     if (page === 'tgp') {
-      // TGP's split-pane twin of placeTgpNavLabels (full view) — LCK/MAN/CLR/IR are dynamic
+      // TGP's split-pane twin of placeTgpNavLabels (full view) — MAN/CLR/IR/WTV/STV are dynamic
       // (tgpMarks()), so like full view they're hand-placed rather than read off NAV.tgp/
       // SPLIT_SLOTS.tgp (which stay MAIN+CFG only, same "empty NAV, hand-rolled labels" shape as
       // WPN's ARM/SAFE/A-A/A-G split rendering). A pane only has 3 slots per bank (6 total), and
-      // TGP now has 11 destinations — more than even two pages fit. Rather than a generic
+      // TGP now has 12 destinations — more than even two pages fit. Rather than a generic
       // list-pagination scheme (MAIN/MAP's own, built for an open-ended list), this just steps
       // through three fixed sets (paneTgpPage), since TGP only ever needs exactly three.
-      // Reading order matches full view's own left-then-right column order (placeTgpNavLabels):
-      // MAIN, CFG, TRK, RST, STP, LCK, MAN, CLR, IR, Z+, Z- — poured straight into left1, left2,
-      // right0, right1[, right2] per page (same slot-fill order mainPaneSlice/listPaneLayout use
-      // for MAIN/MAP), NOT constrained to keep left-bank slots holding only "left-column" items —
-      // a page's left/right split is a physical 3-vs-3 accident, not a semantic one, so the item
-      // sequence flows across the left/right boundary mid-page wherever it lands (LCK/MAN sit in
-      // the LEFT bank on page 1 here, for exactly that reason).
-      // PREV takes over MAIN's own slot (left0) on every page after the first rather than sharing
-      // NEXT's slot — same "PREV anchors the first physical key" convention
+      // Page 0 matches full view's own left-then-right column order (placeTgpNavLabels): MAIN,
+      // CFG, TRK poured into left0-2, RST, STP poured into right0-1, NEXT anchoring right2.
+      // Pages 1-2 deliberately REGROUP rather than keep pouring sequentially (issue #81): MAN no
+      // longer pairs with anything (LCK is gone), so it sits alone on page 1 leaving left2 spare,
+      // and WTV/STV — the new pair — take the right bank so their VIEW decorator has two adjacent
+      // same-bank keys to sit between. CLR/IR moved to page 2 alongside Z+/Z- for the same
+      // same-bank-pair reason, leaving right2 spare there instead. Every decorated pair here MUST
+      // land on the same bank, adjacent — placeWpnDecorator only draws between two keys of one
+      // bank — so this hand-placement, not a blind pour, is what keeps VIEW/IMG/ZOOM each landing
+      // on a real pair. PREV takes over MAIN's own slot (left0) on every page after the first
+      // rather than sharing NEXT's slot — same "PREV anchors the first physical key" convention
       // listPaneLayout/mainPaneSlice already use for MAIN/MAP's own paging, so a page's "go back"
       // key is always in the same place whether it means back-to-MAIN or back-a-page. NEXT anchors
       // the last slot in use on every page but the last, the same way.
@@ -543,27 +545,31 @@ function renderSplitLabels() {
           placeSplitKey(paneKey(paneIdx, 'right', 2), 'NEXT', 'tgp-nav-next', paneTag),
         ];
       } else if (tgpPage === 1) {
+        // MAN alone (left2 spare — no more LCK to pair it with); WTV/STV take the right bank so
+        // their VIEW decorator lands between two adjacent same-bank keys.
         labels = [
           placeSplitKey(paneKey(paneIdx, 'left', 0), 'PREV', 'tgp-nav-prev', paneTag),
-          placeSplitKey(paneKey(paneIdx, 'left', 1), 'LCK', 'tgp-manual-off', paneTag, marks.tgt),
-          placeSplitKey(paneKey(paneIdx, 'left', 2), 'MAN', 'tgp-manual-on',  paneTag, marks.man),
-          placeSplitKey(paneKey(paneIdx, 'right', 0), 'CLR', 'tgp-ir-off',    paneTag, marks.clr),
-          placeSplitKey(paneKey(paneIdx, 'right', 1), 'IR',  'tgp-ir-on',     paneTag, marks.ir),
+          placeSplitKey(paneKey(paneIdx, 'left', 1), 'MAN', 'tgp-manual-toggle', paneTag, marks.man),
+          placeSplitKey(paneKey(paneIdx, 'right', 0), 'WTV', 'tgp-view-wtv', paneTag, marks.wtv),
+          placeSplitKey(paneKey(paneIdx, 'right', 1), 'STV', 'tgp-view-stv', paneTag, marks.stv),
           placeSplitKey(paneKey(paneIdx, 'right', 2), 'NEXT', 'tgp-nav-next', paneTag),
         ];
-        const lckKey = paneKey(paneIdx, 'left', 1);
-        const clrKey = paneKey(paneIdx, 'right', 0);
-        placeWpnDecorator(lckKey.bank, lckKey.index + 1, 'MODE', '6,0 12,8 0,8', '0,0 12,0 6,8');
-        placeWpnDecorator(clrKey.bank, clrKey.index + 1, 'IMG',  '6,0 12,8 0,8', '0,0 12,0 6,8');
+        const wtvKey = paneKey(paneIdx, 'right', 0);
+        placeWpnDecorator(wtvKey.bank, wtvKey.index + 1, 'VIEW', '6,0 12,8 0,8', '0,0 12,0 6,8');
       } else {
-        // Last page: only Z+/Z- remain, so right0-2 are left empty rather than reshuffled further
-        // — same "an unused slot is fine" shape HUD/KEYS's own 4-of-6 split placement already uses.
+        // Last page: CLR/IR joins Z+/Z- here (moved off page 1 to keep WTV/STV's pair intact) —
+        // right2 is left empty rather than reshuffled further, same "an unused slot is fine" shape
+        // HUD/KEYS's own 4-of-6 split placement already uses.
         labels = [
           placeSplitKey(paneKey(paneIdx, 'left', 0), 'PREV', 'tgp-nav-prev', paneTag),
-          placeSplitKey(paneKey(paneIdx, 'left', 1), 'Z+', 'tgp-zoom-in',  paneTag),
-          placeSplitKey(paneKey(paneIdx, 'left', 2), 'Z-', 'tgp-zoom-out', paneTag),
+          placeSplitKey(paneKey(paneIdx, 'left', 1), 'CLR', 'tgp-ir-off', paneTag, marks.clr),
+          placeSplitKey(paneKey(paneIdx, 'left', 2), 'IR',  'tgp-ir-on',  paneTag, marks.ir),
+          placeSplitKey(paneKey(paneIdx, 'right', 0), 'Z+', 'tgp-zoom-in',  paneTag),
+          placeSplitKey(paneKey(paneIdx, 'right', 1), 'Z-', 'tgp-zoom-out', paneTag),
         ];
-        const zKey = paneKey(paneIdx, 'left', 1);
+        const clrKey = paneKey(paneIdx, 'left', 1);
+        const zKey = paneKey(paneIdx, 'right', 0);
+        placeWpnDecorator(clrKey.bank, clrKey.index + 1, 'IMG',  '6,0 12,8 0,8', '0,0 12,0 6,8');
         placeWpnDecorator(zKey.bank, zKey.index + 1, 'ZOOM', '6,0 12,8 0,8', '0,0 12,0 6,8');
       }
       labels.forEach(function(el) { if (el) el.classList.add('tgp-scrim'); });
@@ -1153,20 +1159,21 @@ function placeWpnDecorators() {
   placeWpnDecorator('right', 4, 'MODE',   '6,0 12,8 0,8', '0,0 12,0 6,8');
 }
 
-// TGP's full-view nav (docs/tgp-manual-control.md's NAV additions) — not the generic fullViewSlot
-// sweep every other single-MAIN page uses: LCK/MAN and CLR/IR light dynamically off tgpMarks(), so
-// like WPN's ARM/SAFE/A-A/A-G (NAV.wpn is empty by design) they're hand-placed here rather than
-// carrying a static `mark` in NAV.tgp. Left bank is the "go somewhere else" column — MAIN, CFG,
-// and the three one-shot actions (TRK/RST/STP) that don't reflect live feed state; right bank is
-// the "change how the feed looks" column — LCK/MAN, CLR/IR, and Z+/Z-, in that reading order.
-// Called once on page entry (showPage, force=true) and again on every tgp telemetry tick so the
-// highlight tracks live state — same rebuild-guard shape as placeWpnNavLabels above
-// (docs/web-efficiency-audit.md finding 03): only LCK/MAN/CLR/IR actually change between calls, so
-// the tick-driven calls skip the full teardown/rebuild when none of them have.
+// TGP's full-view nav (docs/tgp-manual-control.md's NAV additions, docs/tgp-single-target-view.md's
+// VIEW toggle) — not the generic fullViewSlot sweep every other single-MAIN page uses: MAN and
+// CLR/IR/WTV/STV light dynamically off tgpMarks(), so like WPN's ARM/SAFE/A-A/A-G (NAV.wpn is empty
+// by design) they're hand-placed here rather than carrying a static `mark` in NAV.tgp. Left bank is
+// the "go somewhere else" column — MAIN, CFG, the three one-shot actions (TRK/RST/STP), and MAN
+// (a blind toggle, no destination); right bank is the "change how the feed looks" column — WTV/STV,
+// CLR/IR, and Z+/Z-, in that reading order. Called once on page entry (showPage, force=true) and
+// again on every tgp telemetry tick so the highlight tracks live state — same rebuild-guard shape
+// as placeWpnNavLabels above (docs/web-efficiency-audit.md finding 03): only MAN/CLR/IR/WTV/STV
+// actually change between calls, so the tick-driven calls skip the full teardown/rebuild when none
+// of them have.
 let tgpNavLabelsKey = null;
 function placeTgpNavLabels(force) {
   const marks = tgpMarks();
-  const key = marks.tgt + '|' + marks.man + '|' + marks.clr + '|' + marks.ir;
+  const key = marks.man + '|' + marks.clr + '|' + marks.ir + '|' + marks.wtv;
   if (!force && key === tgpNavLabelsKey) return;
   tgpNavLabelsKey = key;
 
@@ -1174,16 +1181,21 @@ function placeTgpNavLabels(force) {
   placeOverlayLabel('left', 0, NAV.tgp[0].label, NAV.tgp[0].action);
   placeOverlayLabel('left', 1, NAV.tgp[1].label, NAV.tgp[1].action);
   // TRK/RST/STP — page-button twins of the Point Track / Manual Control Reset keybinds
-  // (docs/tgp-manual-control.md) and the MARK STEER POINT command (docs/steer-points.md). left5
-  // stays spare.
+  // (docs/tgp-manual-control.md) and the MARK STEER POINT command (docs/steer-points.md).
   placeOverlayLabel('left', 2, 'TRK', 'tgp-point-track');
   placeOverlayLabel('left', 3, 'RST', 'tgp-manual-reset');
   placeOverlayLabel('left', 4, 'STP', 'tgp-mark-steerpoint');
-  placeOverlayLabel('right', 0, 'LCK', 'tgp-manual-off', marks.tgt);
-  placeOverlayLabel('right', 1, 'MAN', 'tgp-manual-on',  marks.man);
+  // MAN (issue #81) — the left bank's previously-spare 6th slot, right after STP. A blind toggle
+  // now that LCK is gone: pressing it flips manual mode either way, unlike CLR/IR/WTV/STV's
+  // explicit-state pairs.
+  placeOverlayLabel('left', 5, 'MAN', 'tgp-manual-toggle', marks.man);
+  // WTV/STV (issue #81, docs/tgp-single-target-view.md) — takes over LCK/MAN's old right-bank pair
+  // slot and MODE decorator (now VIEW).
+  placeOverlayLabel('right', 0, 'WTV', 'tgp-view-wtv', marks.wtv);
+  placeOverlayLabel('right', 1, 'STV', 'tgp-view-stv', marks.stv);
   placeOverlayLabel('right', 2, 'CLR', 'tgp-ir-off',     marks.clr);
   placeOverlayLabel('right', 3, 'IR',  'tgp-ir-on',      marks.ir);
-  placeWpnDecorator('right', 1, 'MODE', '6,0 12,8 0,8', '0,0 12,0 6,8');
+  placeWpnDecorator('right', 1, 'VIEW', '6,0 12,8 0,8', '0,0 12,0 6,8');
   placeWpnDecorator('right', 3, 'IMG',  '6,0 12,8 0,8', '0,0 12,0 6,8');
   // Z+/Z- (manual camera zoom, docs/tgp-manual-control.md's remote-ready SetZoom(dir, on)).
   placeOverlayLabel('right', 4, 'Z+', 'tgp-zoom-in');
@@ -1520,12 +1532,14 @@ let tgpResolution = 'native';
 let tgpQuality = 'native';
 let tgpData = null;
 let tgpManual = false;   // docs/tgp-manual-control.md — TgpManualControl.ManualMode, mirrored for the TGP page's status indicator
+let tgpStv = false;      // docs/tgp-single-target-view.md — TgpSingleTargetView.Stv (issue #81), mirrored for the WTV/STV NAV highlight
 
-// LCK/MAN/CLR/IR highlight state (docs/tgp-manual-control.md's NAV additions) — the actual rule
-// lives in tgp-marks.js (shared with f35.js's own equivalent, so the two can't drift). tgpData is
-// only ever {cnt:0} with no lock and no manual mode (TelemetryJson.cs's TgpBlock).
+// MAN/CLR/IR/WTV/STV highlight state (docs/tgp-manual-control.md's NAV additions,
+// docs/tgp-single-target-view.md's VIEW toggle) — the actual rule lives in tgp-marks.js (shared
+// with f35.js's own equivalent, so the two can't drift). tgpData is only ever {cnt:0} with no lock
+// and no manual mode (TelemetryJson.cs's TgpBlock).
 function tgpMarks() {
-  return TgpMarks.tgpMarks(tgpData ? tgpData.cnt : 0, tgpManual, tgpData && tgpData.ir);
+  return TgpMarks.tgpMarks(tgpData ? tgpData.cnt : 0, tgpManual, tgpData && tgpData.ir, tgpStv);
 }
 
 // Latest published slice per installed extension (docs/extensions-api.md), keyed by extension
@@ -1956,8 +1970,9 @@ window.addEventListener('message', function(e) {
     tgpQuality = m.quality || 'native';
     tgpData    = m.data || null;
     tgpManual  = !!m.manual;
+    tgpStv     = !!m.stv;
     // Only matters while the TGP page is in view — outside it the frame/pane isn't shown. Full
-    // view also refreshes the LCK/MAN/CLR/IR highlight (placeTgpNavLabels); split only re-renders
+    // view also refreshes the MAN/CLR/IR/WTV/STV highlight (placeTgpNavLabels); split only re-renders
     // when a pane is actually showing TGP, same guard MAP's own tick-driven re-render uses below.
     if (currentPage === 'tgp' && !splitMode) { forwardTgpToFrame(); placeTgpNavLabels(); }
     if (splitMode) {
@@ -2423,13 +2438,16 @@ function mfdButton(el) {
       // An avionics toggle: mod/game state, not a destination page — same reasoning as
       // weapon.select above. Only carries a data-pane tag so the SOI cursor can scope to it.
       if (el.dataset.group) sendCommand('avn.toggle', { group: el.dataset.group }).catch(function() {});
-    } else if (act === 'tgp-manual-on' || act === 'tgp-manual-off') {
-      // LCK/MAN changes aircraft-global TGP state without navigating the pane. The pane tag only
+    } else if (act === 'tgp-manual-toggle') {
+      // MAN flips aircraft-global TGP manual mode without navigating the pane. The pane tag only
       // scopes the physical key to its split surface; treating the action as a page blanks it.
-      sendCommand('tgp.manual.set', { on: act === 'tgp-manual-on' }).catch(function() {});
+      sendCommand('tgp.manual-toggle').catch(function() {});
     } else if (act === 'tgp-ir-on' || act === 'tgp-ir-off') {
-      // CLR/IR has the same in-place behavior as LCK/MAN.
+      // CLR/IR has the same in-place behavior as MAN.
       sendCommand('tgp.ir.set', { on: act === 'tgp-ir-on' }).catch(function() {});
+    } else if (act === 'tgp-view-wtv' || act === 'tgp-view-stv') {
+      // WTV/STV (issue #81) — same explicit-state in-place behavior as CLR/IR.
+      sendCommand('tgp.view.set', { on: act === 'tgp-view-stv' }).catch(function() {});
     } else if (act === 'tgp-mark-steerpoint') {
       // STP (docs/steer-points.md) — a one-shot action, not a destination page.
       sendCommand('tgp.mark-steerpoint').catch(function() {});
@@ -2463,12 +2481,14 @@ function mfdButton(el) {
     case 'combat-mode-aa':  sendCommand('combat-mode.set', { group: 'aa'  }).catch(function() {}); break;
     case 'combat-mode-ag':  sendCommand('combat-mode.set', { group: 'ag'  }).catch(function() {}); break;
     case 'tgp':  showPage('tgp');  break;
-    // LCK/MAN and CLR/IR (docs/tgp-manual-control.md's NAV additions) — explicit-state commands,
-    // same shape as master-arms.set/combat-mode.set above rather than a blind toggle.
-    case 'tgp-manual-on':  sendCommand('tgp.manual.set', { on: true  }).catch(function() {}); break;
-    case 'tgp-manual-off': sendCommand('tgp.manual.set', { on: false }).catch(function() {}); break;
+    // MAN is a blind toggle (no LCK twin anymore, issue #81); CLR/IR and the new WTV/STV
+    // (docs/tgp-single-target-view.md) stay explicit-state commands, same shape as
+    // master-arms.set/combat-mode.set above.
+    case 'tgp-manual-toggle': sendCommand('tgp.manual-toggle').catch(function() {}); break;
     case 'tgp-ir-on':      sendCommand('tgp.ir.set', { on: true  }).catch(function() {}); break;
     case 'tgp-ir-off':     sendCommand('tgp.ir.set', { on: false }).catch(function() {}); break;
+    case 'tgp-view-wtv':   sendCommand('tgp.view.set', { on: false }).catch(function() {}); break;
+    case 'tgp-view-stv':   sendCommand('tgp.view.set', { on: true  }).catch(function() {}); break;
     case 'tgp-mark-steerpoint': sendCommand('tgp.mark-steerpoint').catch(function() {}); break;
     case 'tgp-point-track':     sendCommand('tgp.point-track').catch(function() {}); break;
     case 'tgp-manual-reset':    sendCommand('tgp.manual-reset').catch(function() {}); break;

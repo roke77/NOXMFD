@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Reflection;
 using HarmonyLib;
 using TMPro;
@@ -205,6 +206,24 @@ namespace NOXMFD
                 bool? ir = TgpManualControl.NativeIrOverride;
                 if (ir == null || __instance.UsingIR() == ir.Value || !TgpManualTargetCamAccess.Ensure()) return;
                 TgpManualTargetCamAccess.SwitchIR(__instance, ir.Value);
+            }
+        }
+
+        // TGP page's WTV/STV view toggle (issue #81, docs/tgp-single-target-view.md). Same postfix
+        // shape as the IR override above: let the native call compute its normal framing (wide for
+        // 2+ targets) first, then re-frame onto just the TGT-focused target when STV is on and 2+
+        // are locked. No-op during manual mode (no real lock to frame) or with 0-1 targets (already
+        // matches STV's own spec).
+        [HarmonyPatch(typeof(TargetCam), "SetTargetCam")]
+        private static class TargetCam_SetTargetCam_SingleTargetViewOverride
+        {
+            private static void Postfix(TargetCam __instance)
+            {
+                if (TgpManualControl.ManualMode || !TgpSingleTargetView.Stv) return;
+                if (!GameManager.GetLocalAircraft(out Aircraft ac) || ac.weaponManager == null) return;
+                List<Unit>? targets = ac.weaponManager.GetTargetList();
+                if (targets == null || targets.Count <= 1) return;
+                TgpSingleTargetView.ApplyIfActive(__instance, targets);
             }
         }
 
