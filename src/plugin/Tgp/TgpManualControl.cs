@@ -152,8 +152,7 @@ namespace NOXMFD
         // MaxFov on the next entry regardless.
         internal static void StepZoom(int dir)
         {
-            float targetMag = TgpManualAimMath.NextZoomLevelMag(10f / _desiredFov, dir);
-            _desiredFov = Mathf.Clamp(10f / targetMag, MinFov, MaxFov);
+            _desiredFov = TgpManualAimMath.NextZoomLevelFov(_desiredFov, dir, MinFov, MaxFov);
         }
 
         // A calibrated physical axis (e.g. a HOTAS slider), driving zoom as an absolute position

@@ -91,6 +91,17 @@ namespace NOXMFD
             return currentMag;
         }
 
+        // FOV-space twin of NextZoomLevelMag, for the two callers (TgpManualControl.StepZoom,
+        // TgpLockZoom.StepZoom) that track a desired FOV rather than a magnification directly —
+        // wraps the mag = 10/FOV conversion (TgpManualControl.ComputeOverlaySample's own formula)
+        // and the resulting clamp so neither caller repeats that three-line shape itself.
+        internal static float NextZoomLevelFov(float currentFov, int dir, float minFov, float maxFov)
+        {
+            float targetMag = NextZoomLevelMag(10f / currentFov, dir);
+            float fov = 10f / targetMag;
+            return Math.Max(minFov, Math.Min(maxFov, fov));
+        }
+
         internal static AimVector NudgeDirection(float x, float y, float z,
             float panInputX, float panInputY, float dt,
             float desiredFov, float maxFov,

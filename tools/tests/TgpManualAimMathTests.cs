@@ -99,5 +99,23 @@ namespace NOXMFD.Tests
             Near(TgpManualAimMath.NextZoomLevelMag(40f, dir: 1), 40f);
             Near(TgpManualAimMath.NextZoomLevelMag(0.5f, dir: -1), 0.5f);
         }
+
+        [Fact]
+        public void Next_zoom_level_fov_steps_through_the_same_fixed_list_as_the_mag_form()
+        {
+            // mag = 10/FOV: FOV 10 is 1x. Stepping in should land on the next level up (2x -> FOV 5),
+            // stepping out on the next one down (0.5x -> FOV 20).
+            Near(TgpManualAimMath.NextZoomLevelFov(10f, dir: 1, minFov: 0.25f, maxFov: 20f), 5f);
+            Near(TgpManualAimMath.NextZoomLevelFov(10f, dir: -1, minFov: 0.25f, maxFov: 20f), 20f);
+        }
+
+        [Fact]
+        public void Next_zoom_level_fov_clamps_to_the_supplied_range()
+        {
+            // 40x (FOV 0.25) is already the top level; stepping in further must not go past minFov.
+            Near(TgpManualAimMath.NextZoomLevelFov(0.25f, dir: 1, minFov: 0.25f, maxFov: 20f), 0.25f);
+            // 0.5x (FOV 20) is already the bottom level; stepping out further must not go past maxFov.
+            Near(TgpManualAimMath.NextZoomLevelFov(20f, dir: -1, minFov: 0.25f, maxFov: 20f), 20f);
+        }
     }
 }

@@ -1,5 +1,3 @@
-using UnityEngine;
-
 namespace NOXMFD
 {
     // TGP page's Z+/Z- during a real (non-manual) lock — issue #83. The native camera always
@@ -54,8 +52,7 @@ namespace NOXMFD
 
             float baseline = _active ? _overrideFov : TgpLockCameraAccess.GetTargetFov(ac.targetCam);
             if (baseline <= 0f) baseline = TgpManualControl.MaxFov;   // defensive: a zero/negative read would divide-by-zero below
-            float targetMag = TgpManualAimMath.NextZoomLevelMag(10f / baseline, dir);
-            _overrideFov = Mathf.Clamp(10f / targetMag, TgpManualControl.MinFov, TgpManualControl.MaxFov);
+            _overrideFov = TgpManualAimMath.NextZoomLevelFov(baseline, dir, TgpManualControl.MinFov, TgpManualControl.MaxFov);
             _active = true;
         }
 
