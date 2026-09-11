@@ -484,6 +484,13 @@ namespace NOXMFD
                 "first gun (guns already selected are left alone). Hold to reset to ALL (unrestricted).",
                 () => { });
 
+            // issue #84 — see ToggleUnits() below for what it does and why.
+            const string units = "Units Keybinds";
+            DefFree(config, "units-toggle", units, "UnitsToggle", "Toggle Units", edge: true,
+                "Switch every readout (cockpit HUD, NOXMFD pages) between Metric and Imperial — the " +
+                "same setting as the pause menu's Gameplay options.",
+                ToggleUnits);
+
             // issue #43 proof-of-concept only (docs/internal-mfd.md) — toggles native NOXMFD page
             // content (HSD/RWR/TGP, InternalMfdController) drawn directly onto the T/A-30 Compass's
             // own cockpit TacScreen canvas.
@@ -1049,6 +1056,23 @@ namespace NOXMFD
         internal static void SetEngine(Aircraft ac, bool on)
         {
             if (ac.Ignition != on) ac.CmdToggleIgnition();
+        }
+
+        // issue #84 — flips the game's own PlayerSettings.unitSystem, the same field the native
+        // Gameplay options menu's Unit System dropdown sets, so it drives every native readout
+        // (UnitConverter.*, cockpit HUD) and NOXMFD's own RDR/HSD pages (RdrMetric/state.metric
+        // already mirror this same field) with no new telemetry needed. Also written to PlayerPrefs,
+        // matching GameplayMenu.ApplySettings — PlayerSettings.LoadPrefs() re-reads it whenever that
+        // menu closes, which would otherwise silently revert this toggle back to the last saved value.
+        // Also the entry point for CommandDispatcher's units.toggle (remote-keybind twin).
+        internal static void ToggleUnits()
+        {
+            var next = PlayerSettings.unitSystem == PlayerSettings.UnitSystem.Metric
+                ? PlayerSettings.UnitSystem.Imperial
+                : PlayerSettings.UnitSystem.Metric;
+            PlayerSettings.unitSystem = next;
+            PlayerPrefs.SetInt("UnitSystem", (int)next);
+            PlayerPrefs.Save();
         }
 
         // Sets combat mode and, on a live aircraft, lets WeaponSelectors auto-switch away from a

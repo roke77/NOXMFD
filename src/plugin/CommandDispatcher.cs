@@ -174,6 +174,8 @@ namespace NOXMFD
                 { "tgp.fullscreen-hud-toggle", e => TgpFullScreen.ToggleHud() },
                 // Remote-keybind twin of the Internal MFD POC Toggle keybind (issue #43 POC).
                 { "internal-mfd.poc-toggle", e => InternalMfdController.Toggle() },
+                // Remote-keybind twin of the Toggle Units keybind (issue #84).
+                { "units.toggle", e => Keybinds.ToggleUnits() },
                 // HSD page's own CEN/DEP mode toggle + range step (hsd.js's saveRange(), the one
                 // choke point both mutations funnel through) — reported to the server so
                 // InternalMfdHsdPage can track the same view instead of a fixed range/mode, rather

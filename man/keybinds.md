@@ -113,6 +113,12 @@ the shared [PAD cursor](#pad-cursor) binds above, not a dedicated pan/tilt/zoom 
   active. See [the internal-MFD design record](../docs/internal-mfd.md) for supported layouts and
   current limitations.
 
+## Units
+
+- **Toggle Units** — switch every readout (cockpit HUD, NOXMFD pages) between Metric and Imperial —
+  the same setting as the pause menu's Gameplay options, so it stays in sync with that menu and
+  survives a restart.
+
 ## Other settings
 
 Two toggles sit above the bind table (neither is a bind itself):
