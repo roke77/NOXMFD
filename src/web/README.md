@@ -53,6 +53,8 @@ src/web/
                                            # bootstrap fetch on load, then the shell's relayed 'sqd-state'/
                                            # 'td-state-push' SSE pushes (docs/sse-push-refactor.md), plus the
                                            # shell's own 'tgt-targets' mirror for the leader's live rows
+            td-redraw-gate.js  .test.js   # pure "did the id set or the metric preference change"
+                                           # decision behind that mirror's redraw gate (issue #84)
     wpn/  tgt/  tgp/  avn/  afm/  rwr/  rdr/  hsd/  hud/  bdf/  mis/  obj/  akf/  mapcfg/  tgpcfg/
                                                # reactive MFD pages, one folder each (bdf.js doubles as PAL, ?pal;
                                                # akf = kill feed/session stats docs/akf-page.md; mapcfg/tgpcfg =

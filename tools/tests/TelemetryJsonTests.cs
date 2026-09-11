@@ -51,6 +51,24 @@ namespace NOXMFD.Tests
             Assert.Empty(Obj(Obj(root["colors"])["types"]));
         }
 
+        // Top-level, not nested in "rdr"/"hsd" (issue #84) — OBJ/WPT/TGT/TD need the player's
+        // Metric/Imperial preference without depending on RDR being present at all; RdrBlock's own
+        // "present":false shortcut omits its nested "metric" copy entirely when there's no radar,
+        // which this top-level field never does.
+        [Fact]
+        public void Metric_flag_is_exposed_top_level_independent_of_rdr_presence()
+        {
+            var metric = default(TelemetrySnapshot);
+            metric.RdrMetric = true;
+            var metricRoot = Root(metric);
+            Assert.True((bool)metricRoot["metric"]!);
+            Assert.False((bool)Obj(metricRoot["rdr"])["present"]!);   // no radar, yet "metric" above still reads true
+
+            var imperial = default(TelemetrySnapshot);
+            imperial.RdrMetric = false;
+            Assert.False((bool)Root(imperial)["metric"]!);
+        }
+
         [Fact]
         public void Tgp_manual_state_round_trips_as_top_level_flag()
         {

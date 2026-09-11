@@ -142,10 +142,10 @@ function applyOverlay(resolution, data) {
 // target), no per-target lock boxes, and no own-aircraft SPD (duplicates the flight HUD — same
 // call TgpNativeOverlay made). HDG's slot carries elevation instead, matching the in-cockpit
 // overlay's own repurposing (a locked target only ever needed bearing; manual pointing has both).
-// CLO (closure rate) arrives pre-formatted (data.clo, via UnitConverter.SpeedReading server-side)
-// rather than a raw m/s number — closure is new to this page, so unlike RNG/ALT/etc. above (which
-// keep the page's existing raw-units simplification, see fmtDash's own comment) there was no
-// reason to introduce a fresh native/web unit mismatch for it.
+// RNG/ALT/REL/CLO all arrive pre-formatted server-side (UnitConverter.DistanceReading/
+// AltitudeReading/SpeedReading), same as applyOverlay's locked-target case above — this page never
+// converts a raw meters/mps number itself, so nothing here can drift from the in-cockpit overlay's
+// own units.
 function applyManualOverlay(data) {
   ovType.textContent = data.pointTrack ? 'POINT TRACK' : 'MANUAL';
   ovType.className   = 'tgp-ov-title';

@@ -10,6 +10,7 @@
 // button.
 import { createPadCursor } from '/assets/services/pad-cursor.js';
 import { fmtRng } from '/assets/services/range-format.js';
+import { idsKey, tgtTargetsRedraw } from '/assets/pages/td/td-redraw-gate.js';
 
 if (window.parent !== window) {
   const back = document.querySelector('.td-back');
@@ -106,23 +107,25 @@ function render() {
 // ── Leader view ──────────────────────────────────────────────────────────────────────
 // TD does NOT mirror the live telemetry feed the way TGT does: the table is static between actual
 // designation activity, so a click's mousedown-then-mouseup gesture is never disturbed by a
-// same-moment repaint. It refreshes only in three cases, all deliberate, all triggered by something
+// same-moment repaint. It refreshes only in four cases, all deliberate, all triggered by something
 // the user (or the user's own game actions) actually did:
 //   1. A real select/deselect in-game — i.e. the SET of locked target ids changed, checked below
 //      via idsKey(). Range/grid drifting on an already-locked target does NOT trigger this.
-//   2. The REFRESH button — pulls in whatever the shell's last 'tgt-targets' message was, on
+//   2. The player's Metric/Imperial preference changed (issue #84) — checked below via
+//      lastAppliedMetric, since fmtRng needs a fresh draw to pick up the new unit even though
+//      neither the id set nor the raw range value moved.
+//   3. The REFRESH button — pulls in whatever the shell's last 'tgt-targets' message was, on
 //      demand, so grid/range can be brought current without needing to lock/unlock anything.
-//   3. Squad roster changes (renderSquadButtons, memoized by signature) and a pushed 'sqd-state'/
+//   4. Squad roster changes (renderSquadButtons, memoized by signature) and a pushed 'sqd-state'/
 //      'td-state-push' (selection/assignment state — applySelectionState below), neither of which
 //      touches the target rows at all.
 // squadButtons stays memoized by roster signature. leaderRowEls persists row elements by id so an
 // existing row is only ever updated in place, never destroyed/recreated/repositioned even when
-// case 1 or 2 above does run.
+// case 1, 2, or 3 above does run.
 let lastSquadSig = null;
 const leaderRowEls = new Map();   // target id -> row element, persists across updates
 let lastAppliedIdsKey = null;     // idsKey() of whichever snapshot leaderRowEls currently reflects
-
-function idsKey(list) { return list.map(function (t) { return t.id; }).sort(function (a, b) { return a - b; }).join(','); }
+let lastAppliedMetric = null;     // liveTargetsMetric as of the last leader/member redraw
 
 // Assign — tap vs. long-press (issue #47 follow-up), same LONG_MS/pointerdown-timer shape tgt.js's
 // own tap/long-press cells use, no keybind or PAD-cursor-hold plumbing needed: a tap clears the
@@ -172,8 +175,8 @@ function renderSquadButtons(state) {
   });
 }
 
-// Identity/text only — never touches .selected or tags. Called only from the three places listed
-// above (initial seed, a real select/deselect, or the REFRESH button) — never on a timer.
+// Identity/text only — never touches .selected or tags. Called only from the places listed above
+// (initial seed, a real select/deselect, a metric flip, or the REFRESH button) — never on a timer.
 function applyLiveTargets() {
   if (!squad || squad.state.role !== 'leader') return;
   lastAppliedIdsKey = idsKey(liveTargets);
@@ -318,18 +321,24 @@ refreshSquad(); refreshTd();
 
 // ── Shell -> page: the live target-row mirror (same message TGT itself listens for) ────
 // Always keep `liveTargets` current (cheap — just a variable, no DOM) so the REFRESH button always
-// has an up-to-date snapshot ready. Only actually touch the DOM (applyLiveTargets) when the SET of
-// ids changed — a real select/deselect — never for a pure value-only update (range/grid drifting
-// on a target that was already locked). See applyLiveTargets' own header for the full reasoning.
+// has an up-to-date snapshot ready. Only actually touch the DOM when the SET of ids changed (a real
+// select/deselect) or the player's Metric/Imperial preference flipped — never for a pure
+// value-only update (range/grid drifting on a target that was already locked). See
+// applyLiveTargets' own header for the full reasoning. The member view has no id-set gate of its
+// own (renderMember rebuilds wholesale every 'td-state-push' already), so a metric flip is the one
+// case here that needs to explicitly nudge it too.
 window.addEventListener('message', function (e) {
   const m = e.data;
   if (!m || m.mfd !== true) return;
   if (m.type === 'tgt-targets') {
     liveTargets = Array.isArray(m.items) ? m.items : [];
     liveTargetsMetric = !!m.metric;
-    if (idsKey(liveTargets) !== lastAppliedIdsKey) {
-      applyLiveTargets();
+    const gate = tgtTargetsRedraw(liveTargets, lastAppliedIdsKey, liveTargetsMetric, lastAppliedMetric);
+    if (gate.leaderShouldRedraw) applyLiveTargets();
+    if (gate.memberShouldRedraw && squad && squad.state.role === 'member' && td) {
+      renderMember(td.state);
     }
+    lastAppliedMetric = liveTargetsMetric;
   } else if (m.type === 'sqd-state') {
     // SSE-pushed (docs/sse-push-refactor.md) — same shell relay tgt.js's own TD column already
     // rides. Squad/role changes land as soon as the plugin's state changes, not on a timer.
