@@ -330,7 +330,7 @@ without hand-matching colors.
 ## Versioning
 
 ```csharp
-public const int ApiVersion = 2;
+public const int ApiVersion = 3;
 ```
 
 `NOXMFD.Api.ApiVersion` is there if you want to branch on it at runtime, but the real enforcement

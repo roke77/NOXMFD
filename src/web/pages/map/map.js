@@ -122,12 +122,10 @@ let   factionColors = { 0: '#9aa0a6', 1: '#39ff14', 2: '#ff4040' };  // updated 
 // override to that one faction (0 neutral/1 friendly/2 enemy), matching factionColors' own keys.
 let   typeColors = {};
 const iconImages = {};         // unitName -> { img, ready }   (raw sprite, fetched once)
-const iconTints  = {};         // "unitName|#hex" -> { cv, iw, ih }  (pre-tinted + pre-glowed)
-let colorConfigSignature = null;
-
-function clearIconTints() {
-  for (const key of Object.keys(iconTints)) delete iconTints[key];
-}
+// "unitName|#hex" -> { cv, iw, ih }  (pre-tinted + pre-glowed). The hex is part of the key, so a
+// color change (a live faction/type override) already misses the cache and re-bakes on its own —
+// no separate invalidation needed; a stale-colored entry can never be returned.
+const iconTints  = {};
 
 // Map threat overlay — replicates the game's DynamicMap radar pings (DynamicMap.ShowRadarPing):
 // a spoke from each emitter toward the player, tier-coloured (white search / yellow track /
@@ -788,9 +786,6 @@ function renderFrame(d) {
   lastData = d;
   ensureIconImage(d.name);
   if (d.colors) {
-    const nextColorSignature = MapColorPolicy.signature(d.colors);
-    if (colorConfigSignature !== null && nextColorSignature !== colorConfigSignature) clearIconTints();
-    colorConfigSignature = nextColorSignature;
     factionColors = { 0: d.colors.n, 1: d.colors.f, 2: d.colors.e };
     typeColors = d.colors.types || {};
   }

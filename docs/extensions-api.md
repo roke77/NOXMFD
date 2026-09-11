@@ -37,7 +37,7 @@ Threading requirements differ by callback:
 - The command handler always runs on the Unity main thread after its request has been validated and
   queued.
 
-`Api.ApiVersion` is currently `1`. Breaking public-API changes require incrementing it. Runtime
+`Api.ApiVersion` is currently `3`. Breaking public-API changes require incrementing it. Runtime
 compatibility is informational; BepInEx's `MinimumVersion` is the load-time enforcement mechanism.
 
 ## 1. Page and asset serving
@@ -164,7 +164,9 @@ neutral / `1` friendly / `2` enemy, restricted to) its faction — `unitType` is
 contact's `t` telemetry field and the `/icon?type=` lookup already use, so no separate
 classification step is needed. Colors must use `#RRGGBB` or `#RRGGBBAA`; invalid colors, blank
 unit types, and faction filters outside `0`–`2` are logged and rejected without replacing the live
-override. Both channels ship to the browser inside the existing telemetry
+override — this validation is `ApiVersion` 3+ (see below); an extension pinning `MinimumVersion`
+below that could previously pass any non-empty string, which the browser applied to a canvas
+`fillStyle`/`shadowColor` unvalidated. Both channels ship to the browser inside the existing telemetry
 frame's `colors` object (`{"f","e","n","types"}`), additive to its prior shape.
 
 ## Known limitations

@@ -70,10 +70,13 @@ namespace NOXMFD.Tests
             Assert.False(IconColorRegistry.TypeOverridesSnapshot().ContainsKey("__test_empty_hex__"));
         }
 
+        // TypeOverridesSnapshot() returns the live published dictionary, not a defensive copy — this
+        // is safe only because a write always swaps in a whole new instance rather than mutating the
+        // one just handed out, so a snapshot a caller is still holding never changes under it.
         [Fact]
-        public void Snapshot_is_a_defensive_copy_not_a_live_view_of_later_changes()
+        public void Snapshot_handed_to_a_caller_is_not_retroactively_mutated()
         {
-            const string type = "__test_defensive_copy__";
+            const string type = "__test_snapshot_immutable__";
             IconColorRegistry.SetTypeOverride(type, "#123456", null);
             var snapshot = IconColorRegistry.TypeOverridesSnapshot();
 

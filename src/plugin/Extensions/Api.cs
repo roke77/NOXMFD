@@ -5,7 +5,11 @@ namespace NOXMFD
     public static class Api
     {
         // Bump on breaking changes; extensions pin a minimum via BepInDependency MinimumVersion.
-        public const int ApiVersion = 2;
+        // 3 (this bump): SetFactionColorOverride/SetUnitTypeColorOverride now reject any hex that
+        // isn't exactly #RRGGBB/#RRGGBBAA — previously any non-empty string reached the browser's
+        // canvas fillStyle/shadowColor unvalidated (a bare color name or #RGB shorthand rendered
+        // fine there), so an extension relying on that laxity now silently loses its override.
+        public const int ApiVersion = 3;
 
         // Called on an HTTP worker: relPath "" is the page's own HTML (/ext/<id>); otherwise it is
         // an asset under that path. Return null for 404. Content-Type is inferred from its path suffix.
@@ -38,24 +42,21 @@ namespace NOXMFD
         // Live override for MAP's three base faction tints (docs/vanilla-icons-plus-extension.md),
         // superseding TelemetryReader's once-per-session GameAssets read. Any hex left null falls
         // back to that read. Call again whenever the source colors change — there is no polling,
-        // the next telemetry frame picks up the new value.
+        // the next telemetry frame picks up the new value. An invalid color is rejected without
+        // replacing the current override and logs a warning (IconColorRegistry.cs) — the bool
+        // IconColorRegistry itself returns isn't surfaced here to keep this call fire-and-forget,
+        // same as every other Api.cs method.
         public static void SetFactionColorOverride(string? friendlyHex, string? enemyHex, string? neutralHex)
-        {
-            if (!IconColorRegistry.SetFactionOverride(friendlyHex, enemyHex, neutralHex))
-                Plugin.Log?.LogWarning("[NOXMFD] extension faction-color override rejected: colors must be #RRGGBB or #RRGGBBAA.");
-        }
+            => IconColorRegistry.SetFactionOverride(friendlyHex, enemyHex, neutralHex);
 
         public static void ClearFactionColorOverride() => IconColorRegistry.ClearFactionOverride();
 
         // Per-unit-type MAP icon color, keyed by the same type name a contact's "t" field and the
         // icon lookup (/icon?type=) already use — no separate classification needed on NOXMFD's
         // side. factionFilter restricts the override to one faction (0 neutral/1 friendly/2
-        // enemy); null applies regardless of faction.
+        // enemy); null applies regardless of faction. Rejection behaves as described above.
         public static void SetUnitTypeColorOverride(string unitType, string hex, int? factionFilter = null)
-        {
-            if (!IconColorRegistry.SetTypeOverride(unitType, hex, factionFilter))
-                Plugin.Log?.LogWarning("[NOXMFD] extension unit-color override rejected: unitType is required, color must be #RRGGBB or #RRGGBBAA, and factionFilter must be 0-2 or null.");
-        }
+            => IconColorRegistry.SetTypeOverride(unitType, hex, factionFilter);
 
         public static void ClearUnitTypeColorOverride(string unitType) => IconColorRegistry.ClearTypeOverride(unitType);
     }
