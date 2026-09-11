@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using NOXMFD;
 
 namespace NOXMFD.Tests
@@ -147,6 +148,27 @@ namespace NOXMFD.Tests
             Assert.Equal("#111111", current.Friendly);
             Assert.Equal("#222222", current.Enemy);
             Assert.Equal("#333333", current.Neutral);
+        }
+
+        // WarnRejected's per-key dedup (mirrors ExtensionRegistry.WarnInvalidPayload) — an extension
+        // retrying the same bad call every frame must log once, not once per call.
+        [Fact]
+        public void Rejected_type_override_logs_only_once_per_unit_type()
+        {
+            const string type = "__test_warn_dedup__";
+            var previous = IconColorRegistry.LogWarning;
+            var messages = new List<string>();
+            IconColorRegistry.LogWarning = messages.Add;
+            try
+            {
+                Assert.False(IconColorRegistry.SetTypeOverride(type, "not-a-color", null));
+                Assert.False(IconColorRegistry.SetTypeOverride(type, "still-not-a-color", null));
+                Assert.Single(messages);
+            }
+            finally
+            {
+                IconColorRegistry.LogWarning = previous;
+            }
         }
     }
 }

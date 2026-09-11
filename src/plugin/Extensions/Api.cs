@@ -5,10 +5,8 @@ namespace NOXMFD
     public static class Api
     {
         // Bump on breaking changes; extensions pin a minimum via BepInDependency MinimumVersion.
-        // 3 (this bump): SetFactionColorOverride/SetUnitTypeColorOverride now reject any hex that
-        // isn't exactly #RRGGBB/#RRGGBBAA — previously any non-empty string reached the browser's
-        // canvas fillStyle/shadowColor unvalidated (a bare color name or #RGB shorthand rendered
-        // fine there), so an extension relying on that laxity now silently loses its override.
+        // SetFactionColorOverride/SetUnitTypeColorOverride reject any hex that isn't exactly
+        // #RRGGBB/#RRGGBBAA (IconColorRegistry.IsValidHex) — the reason this field carries this value.
         public const int ApiVersion = 3;
 
         // Called on an HTTP worker: relPath "" is the page's own HTML (/ext/<id>); otherwise it is
