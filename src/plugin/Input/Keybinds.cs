@@ -1071,8 +1071,18 @@ namespace NOXMFD
                 ? PlayerSettings.UnitSystem.Imperial
                 : PlayerSettings.UnitSystem.Metric;
             PlayerSettings.unitSystem = next;
-            PlayerPrefs.SetInt("UnitSystem", (int)next);
-            PlayerPrefs.Save();
+            // The live toggle above already took effect regardless of what happens below — only the
+            // "survives a Gameplay-menu open/close or a restart" guarantee rides on this write, so a
+            // failure here (e.g. a full or read-only PlayerPrefs store) is logged, not fatal.
+            try
+            {
+                PlayerPrefs.SetInt("UnitSystem", (int)next);
+                PlayerPrefs.Save();
+            }
+            catch (Exception ex)
+            {
+                Plugin.Log?.LogWarning($"[NOXMFD] Toggle Units: PlayerPrefs write failed, live toggle still applied but won't persist: {ex}");
+            }
         }
 
         // Sets combat mode and, on a live aircraft, lets WeaponSelectors auto-switch away from a
