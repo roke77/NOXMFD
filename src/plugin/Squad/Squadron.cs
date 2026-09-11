@@ -188,9 +188,8 @@ namespace NOXMFD
         }
 
         // Convenience for the leader's broadcasts (roster, disband, shared data) — same send, looped.
-        // True only if EVERY peer's send succeeded — a caller that needs to know "did this actually
-        // reach anyone" (SendData, SendDataTo's own single-peer sibling) has an honest answer instead
-        // of the unconditional success this used to report regardless of Steam's own result.
+        // True only if every peer's send succeeded, preserving Steam's actual result for callers
+        // that need to distinguish a complete broadcast from a partial failure.
         internal static bool SendToAll(IEnumerable<ulong> peers, string type, string payload)
         {
             bool allOk = true;

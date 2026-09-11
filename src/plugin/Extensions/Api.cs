@@ -40,7 +40,10 @@ namespace NOXMFD
         // back to that read. Call again whenever the source colors change — there is no polling,
         // the next telemetry frame picks up the new value.
         public static void SetFactionColorOverride(string? friendlyHex, string? enemyHex, string? neutralHex)
-            => IconColorRegistry.SetFactionOverride(friendlyHex, enemyHex, neutralHex);
+        {
+            if (!IconColorRegistry.SetFactionOverride(friendlyHex, enemyHex, neutralHex))
+                Plugin.Log?.LogWarning("[NOXMFD] extension faction-color override rejected: colors must be #RRGGBB or #RRGGBBAA.");
+        }
 
         public static void ClearFactionColorOverride() => IconColorRegistry.ClearFactionOverride();
 
@@ -49,7 +52,10 @@ namespace NOXMFD
         // side. factionFilter restricts the override to one faction (0 neutral/1 friendly/2
         // enemy); null applies regardless of faction.
         public static void SetUnitTypeColorOverride(string unitType, string hex, int? factionFilter = null)
-            => IconColorRegistry.SetTypeOverride(unitType, hex, factionFilter);
+        {
+            if (!IconColorRegistry.SetTypeOverride(unitType, hex, factionFilter))
+                Plugin.Log?.LogWarning("[NOXMFD] extension unit-color override rejected: unitType is required, color must be #RRGGBB or #RRGGBBAA, and factionFilter must be 0-2 or null.");
+        }
 
         public static void ClearUnitTypeColorOverride(string unitType) => IconColorRegistry.ClearTypeOverride(unitType);
     }

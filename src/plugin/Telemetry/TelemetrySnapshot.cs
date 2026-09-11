@@ -131,7 +131,7 @@ namespace NOXMFD
         // Per-unit-type color overrides from a registered extension, keyed by the same type name
         // each contact's "t" field and icon lookup (/icon?type=) already use. Empty outside that
         // use case.
-        public Dictionary<string, IconColorRegistry.TypeOverride> TypeColorOverrides;
+        public IReadOnlyDictionary<string, IconColorRegistry.TypeOverride> TypeColorOverrides;
 
         // True while the targeting-pod feed is producing frames (a target is locked, or the
         // game's 3-second post-loss hold is still running). Drives the MFD's NO TARGET fallback.

@@ -93,7 +93,7 @@ namespace NOXMFD
         // Scales (width, height) down to fit within maxDimension's longer side, preserving aspect
         // ratio; a source already at or under the cap (or maxDimension <= 0, "no cap") passes
         // through unchanged. Shared by TgpFeed's per-frame downscale target and SpriteCapture's
-        // one-shot asset resize — same job, previously two independently-written copies.
+        // one-shot asset resize so both paths preserve the same sizing invariant.
         internal static (int Width, int Height) FitWithinMaxDimension(int width, int height, int maxDimension)
         {
             int w = Math.Max(1, width);

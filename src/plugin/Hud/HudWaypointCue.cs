@@ -39,8 +39,8 @@ namespace NOXMFD
         {
             // The HUD is rebuilt per aircraft spawn (HUDAppManager Destroys itself on
             // aircraft.onDisableUnit), taking our children with it. Unity fake-null on the tape we
-            // cached is the signal to re-resolve and rebuild — same detection HudDeclutter uses for
-            // its hidden graphics, just applied to the things we added instead of the ones we hid.
+            // cached is the signal to re-resolve and rebuild — the same Unity lifecycle boundary
+            // HudDeclutter uses for its cached graphics.
             if (_compass == null || _bug == null || _readout == null)
             {
                 if (!Build()) return;

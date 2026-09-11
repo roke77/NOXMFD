@@ -135,7 +135,7 @@ namespace NOXMFD
         // Per-unit-type icon color overrides (docs/vanilla-icons-plus-extension.md), keyed by the
         // same type name a contact's "t" field and icon lookup use. factionFilter is included only
         // when set — its absence means "any faction" on the client side.
-        private static string TypeColorOverridesJson(Dictionary<string, IconColorRegistry.TypeOverride>? overrides)
+        private static string TypeColorOverridesJson(IReadOnlyDictionary<string, IconColorRegistry.TypeOverride>? overrides)
         {
             if (overrides == null || overrides.Count == 0) return "{}";
             var sb = new StringBuilder("{");

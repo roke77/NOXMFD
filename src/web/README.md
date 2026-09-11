@@ -40,6 +40,7 @@ src/web/
   pages/
     map/    map.html  map.css  map.js     # the live map view (imports services/telemetry-source.js)
             map-transform.js              # its pure world⇄pixel maths (pan/zoom/letterbox)
+            map-color-policy.js           # stable extension-color signature for tint-cache invalidation
     wpt/    wpt.html  wpt.css  wpt.js     # route/steer-point editor, thin client over the plugin's
             waypoints-store.js            # RouteStore (docs/steer-points.md) — one bootstrap
                                            # fetch, then the shell's relayed SSE push (docs/sse-push-refactor.md)

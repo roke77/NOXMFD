@@ -123,10 +123,8 @@ namespace NOXMFD
                 int sinceFrame = FrameEveryMs;   // send a frame immediately on connect
                 while (!ct.IsCancellationRequested)
                 {
-                    // Tracks whether this tick actually wrote anything, so the unconditional Flush()
-                    // at the bottom of the loop (previously called every CursorTickMs regardless) only
-                    // does real work when there was real work — this loop runs at ~60 Hz per connected
-                    // display, and most ticks between the 10 Hz frame beat write nothing at all.
+                    // Tracks whether this tick wrote anything so Flush() stays off the ~60 Hz idle
+                    // path between 10 Hz telemetry frames.
                     bool wrote = false;
 
                     if (sinceFrame >= FrameEveryMs)

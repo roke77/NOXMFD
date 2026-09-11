@@ -162,7 +162,9 @@ at any time; there is no polling, the next telemetry frame carries the new value
 `SetUnitTypeColorOverride` colors one unit type regardless of (or, with `factionFilter` set to `0`
 neutral / `1` friendly / `2` enemy, restricted to) its faction — `unitType` is the same key a
 contact's `t` telemetry field and the `/icon?type=` lookup already use, so no separate
-classification step is needed. Both channels ship to the browser inside the existing telemetry
+classification step is needed. Colors must use `#RRGGBB` or `#RRGGBBAA`; invalid colors, blank
+unit types, and faction filters outside `0`–`2` are logged and rejected without replacing the live
+override. Both channels ship to the browser inside the existing telemetry
 frame's `colors` object (`{"f","e","n","types"}`), additive to its prior shape.
 
 ## Known limitations

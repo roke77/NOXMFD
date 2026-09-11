@@ -11,8 +11,8 @@ namespace NOXMFD
         // The most recent ComputeAll batch (TelemetryReader's ~4 Hz contact scan) — ComputeTti below
         // checks this first. HudTtiCue polls at its own, independent ~4 Hz cadence for just the
         // focused target, which TargetFocus's own invariant guarantees is always one of the ids that
-        // batch just covered — so this turns what used to be a second full UnitRegistry.allUnits
-        // scan a few milliseconds later into a dictionary lookup. Falls back to a direct scan
+        // batch just covered, so the HUD path normally performs a dictionary lookup instead of a
+        // second UnitRegistry.allUnits scan. Falls back to a direct scan
         // (ComputeSingle) on a miss, so correctness never depends on the cache being warm.
         private static Dictionary<uint, float> _lastBatch = new Dictionary<uint, float>();
         private static uint _lastBatchPlayerId;

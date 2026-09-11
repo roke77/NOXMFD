@@ -281,14 +281,17 @@ public static void ClearUnitTypeColorOverride(string unitType);
 
 `SetFactionColorOverride` replaces NOXMFD's own once-per-session read of the game's HUD faction
 colors; any hex you pass as `null` falls back to that read instead. Call it again whenever your
-source colors change — there is no polling, the next telemetry frame picks up the new value.
+source colors change — there is no polling, the next telemetry frame picks up the new value. Colors
+must use `#RRGGBB` or `#RRGGBBAA`; an invalid value rejects the call without replacing the current
+override and writes a warning to the NOXMFD log.
 
 `SetUnitTypeColorOverride` colors one specific unit type, keyed by the exact `unitName` string
 the game itself uses — the same key NOXMFD's telemetry already reports as a contact's `t` field
 and already uses to look up that type's icon sprite, so you don't need to teach NOXMFD anything
 about unit classification. `factionFilter` restricts the override to one faction (`0` neutral,
 `1` friendly, `2` enemy); leave it `null` to apply regardless of faction — this is how you'd
-reproduce a mod's "enemy-only AA unit tint" pattern:
+reproduce a mod's "enemy-only AA unit tint" pattern. A blank unit type, invalid color, or filter
+outside `0`–`2` is likewise rejected without replacing the current value:
 
 ```csharp
 NOXMFD.Api.SetUnitTypeColorOverride("AFV-6 AA", "#ff5eff", factionFilter: 2);

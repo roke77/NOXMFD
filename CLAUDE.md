@@ -114,7 +114,8 @@ guesses — most exist because a past session violated them.
   live Unity/game objects or subclasses `MonoBehaviour` and needs the game running to
   exercise; failures there are loud (crash/exception) rather than silent. The exception
   is `tools/tests/` (xUnit, `docs/csharp-unit-testing.md`), a standalone project
-  covering the plugin's pure-logic files (`JsonLite.cs`, `RouteStore.cs` so far) by
+  covering the plugin's Unity-free logic seams (stores, serializers, input/math policies,
+  extension validation, SOI selection, and related helpers) by
   compiling them directly rather than referencing `NOXMFD.csproj` — that would drag in
   the `$(GameDir)`-relative Unity/game references and require a real Nuclear Option
   install just to build tests. Extending it to another file means giving that file the
