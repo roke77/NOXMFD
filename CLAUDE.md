@@ -32,6 +32,15 @@ guesses — most exist because a past session violated them.
 - **No pull requests.** Don't open one, don't offer one, and after a push don't
   mention/paste the "Create a pull request" link GitHub prints — just report the push
   landed.
+- **Never create a new GitHub issue unless explicitly asked.** When new work comes up
+  mid-implementation — even a distinct-feeling sub-feature — update the *existing*
+  active ticket's description (`gh issue edit`) instead of opening a new one. One
+  documented incident: mid-implementation on issue #81's branch, the user asked for a
+  related feature intending it to land on the same branch/ticket; Claude instead
+  created issue #83 unprompted. Mechanically enforced globally by
+  `~/.claude/hooks/block-gh-issue-create.py` (blocks `gh issue create` and the
+  equivalent `gh api` POST) — this bullet documents the rule the hook exists for; `gh
+  issue edit`/`view`/`comment`/`list` are unaffected.
 
 ## Scope discipline
 
