@@ -54,6 +54,20 @@ Each of these pages formatted a distance/altitude/speed value itself instead of 
   `src/web/services/range-format.js` (`fmtRng(r, metric)`), imported by both pages instead of
   duplicated.
 
+## TD's redraw gate needed its own metric check
+
+Carrying `metric` on the wire wasn't enough for TD: unlike TGT, TD deliberately does NOT redraw on
+every `'tgt-targets'` message — its leader table only repaints on a real select/deselect (an id-set
+change, `idsKey()`), and its member list only repaints on a `'td-state-push'`/`'sqd-state'` push,
+neither of which the toggle sends. `liveTargetsMetric` was updated on every message, but nothing
+told either view a redraw was actually due, so an open TD page kept stale values until an unrelated
+event happened to repaint it. `td-redraw-gate.js` (a pure sibling module, `src/web/README.md`'s
+established pattern — split out because `td.js` itself can't be `import()`ed directly in a plain
+Node test, its `/assets/...` specifiers only resolve through the real asset server) now decides,
+given the last-applied id key/metric and the new message: the leader redraws on an id-set OR metric
+change; the member view's redraw is metric-only, since `renderMember` already rebuilds wholesale on
+every state push regardless of ids.
+
 ## Deliberately left as page-local, not shared further
 
 `obj.js`'s `fmtRange` and `wpt.js`'s `fmtDist` are not folded into `range-format.js` alongside

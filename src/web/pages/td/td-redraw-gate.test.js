@@ -18,8 +18,8 @@ const assert = require('assert');
     assert.strictEqual(g.memberShouldRedraw, false, 'no change should not redraw the member list');
   }
 
-  // Same ids, metric flipped: both views must redraw exactly once — the bug this gate fixes (an
-  // open TD page previously kept stale km/nm values until a lock changed or REFRESH was pressed).
+  // Same ids, metric flipped: both views must redraw exactly once — a units toggle needs a fresh
+  // draw on its own, independent of any lock changing.
   {
     const g = tgtTargetsRedraw(targets, '1,3', false, true);
     assert.strictEqual(g.leaderShouldRedraw, true, 'a metric flip alone must still trigger the leader redraw');
