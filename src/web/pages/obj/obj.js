@@ -5,7 +5,7 @@ const listEl = document.getElementById('obj-list');
 
 const STATUS_LABEL = ['Not Started', 'Running', 'Complete'];
 
-let state = { present: false, items: [] };
+let state = { present: false, metric: false, items: [] };
 let builtKey = '';   // last-rendered item signature; skips DOM rebuild on percent/position-only updates
 const collapsed = new Set();   // objective names currently collapsed; default is expanded
 
@@ -73,8 +73,13 @@ function buildRows() {
   });
 }
 
+// Matches the km/nm split HSD/FCR's own rangeLabel already uses (docs/rdr-fcr-hsd.md) — the
+// player's Metric/Imperial preference (state.metric, from the plugin's PlayerSettings.unitSystem).
 function fmtRange(km) {
-  return (typeof km === 'number' ? km : 0).toFixed(km >= 10 ? 0 : 1) + 'km';
+  km = typeof km === 'number' ? km : 0;
+  if (state.metric) return km.toFixed(km >= 10 ? 0 : 1) + 'km';
+  const nm = km * 0.539957;
+  return nm.toFixed(nm >= 10 ? 0 : 1) + 'nm';
 }
 
 function paint() {
@@ -105,7 +110,7 @@ function paint() {
 window.addEventListener('message', function (e) {
   const m = e.data;
   if (!m || m.mfd !== true || m.type !== 'obj') return;
-  state = { present: !!m.present, items: Array.isArray(m.items) ? m.items : [] };
+  state = { present: !!m.present, metric: !!m.metric, items: Array.isArray(m.items) ? m.items : [] };
   paint();
 });
 

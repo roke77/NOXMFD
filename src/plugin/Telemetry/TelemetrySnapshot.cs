@@ -149,7 +149,10 @@ namespace NOXMFD
         // TgpFeed each capture tick, mirroring TargetScreenUI.UpdateTargetInfo's own field set.
         //
         public float  TgpMag;          // targetCam.GetMag()
-        public float  TgpRangeM;       // targetCam.GetDist(), meters — client formats to the player's units
+        // targetCam.GetDist(), pre-formatted via UnitConverter.DistanceReading (nm/yd or km/m,
+        // matching the player's unit setting) — same "ready string, not a raw number" shape as
+        // TgpClosureReading below, so the client doesn't duplicate that conversion logic.
+        public string TgpRangeReading;
         public string TgpGrid;         // targetCam.GetGrid()
         public bool   TgpIR;           // targetCam.UsingIR()
         public float  TgpBearingDeg;   // active cam mount's local Y euler
@@ -180,10 +183,12 @@ namespace NOXMFD
         public bool   TgpHasDetail;    // false ⇒ client shows "-" for hdg/alt/relAlt/spd/relSpd,
                                         // matching TargetScreenUI's own >1-target / stale-position fallback
         public float  TgpHeadingDeg;
-        public float  TgpAltitudeM;
-        public float  TgpRelAltitudeM;
-        public float  TgpSpeedMps;
-        public float  TgpRelSpeedMps;
+        // Pre-formatted via UnitConverter.AltitudeReading/SpeedReading — same reasoning as
+        // TgpRangeReading/TgpClosureReading above.
+        public string TgpAltReading;
+        public string TgpRelAltReading;
+        public string TgpSpeedReading;
+        public string TgpRelSpeedReading;
 
         // Screen-projected lock box, one per locked target (TargetScreenUI's own targetBoxes
         // list). X/Y are the feed camera's WorldToViewportPoint output — see TgpBoxInfo's own doc
@@ -242,7 +247,9 @@ namespace NOXMFD
 
         // The player's Imperial/Metric display preference (PlayerSettings.unitSystem), mirroring
         // the game's own UnitConverter — RDR's range/altitude readouts follow it (nm/ft vs km/m)
-        // the same way the native HUD does.
+        // the same way the native HUD does. Despite the RDR-coined name, this isn't RDR-specific:
+        // HsdBlock reuses it too, and TelemetryJson.AppendFrameHeader also exposes it top-level
+        // (issue #84) for pages like OBJ that need it without an RDR/HSD dependency.
         public bool RdrMetric;
 
         // Time.timeSinceLevelLoad — the exact clock the game's own internal MFD radar sweep

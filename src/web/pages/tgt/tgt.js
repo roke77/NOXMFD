@@ -4,6 +4,7 @@
 // never lie even if a tap is dropped. See tgt.html for the message contract + docs/tgt-page.md.
 import { createPadCursor } from '/assets/services/pad-cursor.js';
 import { createPresetBar } from '/assets/shell/shared/preset-bar.js';
+import { fmtRng } from '/assets/services/range-format.js';
 
 const panel = document.getElementById('tgt-panel');
 const rows = {
@@ -23,6 +24,7 @@ const presetLoadBtn = document.getElementById('tgt-preset-load');
 let state = { present: false, laser: false, hud: false, faction: [], category: [], vehicle: [], preset: { index: 1, name: '' } };
 let targets = [];        // selected-target list (from 'tgt-targets'): [{ id, n, g, r, f, dl }]
 let targetsKey = '';     // id-set signature; rebuild rows only when it changes
+let targetsMetric = false;   // player's Metric/Imperial preference, carried on 'tgt-targets' too
 
 // TD column (issue #47 follow-up) — leader-only, so this page needs to know squad role, which
 // nothing else here tracks. Rides the shell's relayed 'sqd-state'/'td-state-push' pushes
@@ -154,10 +156,6 @@ const presetBar = createPresetBar({
 function renderPreset() { presetBar.render(); }
 
 // ── Selected-target list ──────────────────────────────────────────────────────────────
-// Range as "8,4 km" (European decimal comma); non-numbers pass through.
-function fmtRng(r) {
-  return (typeof r === 'number' && isFinite(r)) ? r.toFixed(1).replace('.', ',') + ' km' : '—';
-}
 
 // "M:SS" — mirrors HudTtiMath.FormatTti (src/plugin/Hud/HudTtiMath.cs) so the web readout matches
 // the native HUD cue's own format exactly.
@@ -202,7 +200,7 @@ function renderTargets() {
     // in-flight guided weapons tracking it (telemetry-source.js only sets t.tti in that case).
     el.querySelector('.tl-tti').textContent = typeof t.tti === 'number' ? 'TTI ' + fmtTti(t.tti) : '';
     el.querySelector('.tl-grid').textContent = t.g != null ? String(t.g) : '—';
-    el.querySelector('.tl-dist').textContent = fmtRng(t.r);
+    el.querySelector('.tl-dist').textContent = fmtRng(t.r, targetsMetric);
     // TD column (issue #47 follow-up) — blank when this target isn't currently assigned to anyone;
     // the column itself is hidden entirely for a non-leader (see .has-td-col in tgt.css), so an
     // empty cell here never shows for someone with no leader-side assignments to display anyway.
@@ -364,6 +362,7 @@ window.addEventListener('message', function (e) {
   } else if (m.type === 'tgt-targets') {
     targets = Array.isArray(m.items) ? m.items : [];
     focusedTargetId = m.focusedTargetId || 0;
+    targetsMetric = !!m.metric;
     renderTargets();
   } else if (m.action === 'cursor-focus') {
     // A fresh SOI grant always starts crosshair-active, regardless of whatever mode a previous

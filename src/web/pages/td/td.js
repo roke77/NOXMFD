@@ -9,6 +9,7 @@
 // own header comment for why the table is static except on a real select/deselect or the REFRESH
 // button.
 import { createPadCursor } from '/assets/services/pad-cursor.js';
+import { fmtRng } from '/assets/services/range-format.js';
 
 if (window.parent !== window) {
   const back = document.querySelector('.td-back');
@@ -38,6 +39,7 @@ const selectAllBtn    = document.getElementById('td-select-all');
 let squad = null;      // last-known GET /squad {ready, state}
 let td = null;          // last-known GET /td-state {ready, state}
 let liveTargets = [];   // last-known live target rows from the shell's 'tgt-targets' message
+let liveTargetsMetric = false;   // player's Metric/Imperial preference, carried on the same message
 
 // Optimistic overlay for the leader's selected/assignments, cleared as soon as a fresh td-state
 // lands (the SSE-pushed 'td-state-push' below, or a REFRESH/nudge fetch). Without this, a click
@@ -50,11 +52,6 @@ function effectiveAssignments(tdState) { return assignmentsOverride || (tdState.
 
 function send(cmd, args) { sendCommand(cmd, args).catch(function () {}); }
 
-// Range as "8,4 km" (European decimal comma) — matches tgt.js's own fmtRng.
-function fmtRng(r) {
-  return (typeof r === 'number' && isFinite(r)) ? r.toFixed(1).replace('.', ',') + ' km' : '—';
-}
-
 function factionClass(f) { return f === 1 ? 'f-friendly' : f === 0 ? 'f-neutral' : 'f-enemy'; }
 
 // Shared by applyLiveTargets/renderMember: both tables are the same NAME/GRID/RNG row shape, differing
@@ -66,7 +63,7 @@ function makeRow(t, onClick) {
   row.dataset.id = t.id;
   const name = document.createElement('span'); name.className = 'td-name'; name.textContent = t.n || '—';
   const grid = document.createElement('span'); grid.className = 'td-grid'; grid.textContent = t.g != null ? String(t.g) : '—';
-  const dist = document.createElement('span'); dist.className = 'td-dist'; dist.textContent = fmtRng(t.r);
+  const dist = document.createElement('span'); dist.className = 'td-dist'; dist.textContent = fmtRng(t.r, liveTargetsMetric);
   row.appendChild(name); row.appendChild(grid); row.appendChild(dist);
   row.addEventListener('click', onClick);
   return row;
@@ -198,7 +195,7 @@ function applyLiveTargets() {
     } else {
       row.querySelector('.td-name').textContent = t.n || '—';
       row.querySelector('.td-grid').textContent = t.g != null ? String(t.g) : '—';
-      row.querySelector('.td-dist').textContent = fmtRng(t.r);
+      row.querySelector('.td-dist').textContent = fmtRng(t.r, liveTargetsMetric);
       row.classList.remove('f-friendly', 'f-neutral', 'f-enemy');
       row.classList.add(factionClass(t.f));
       return;   // EXISTING row: text updated above, but never reposition it — see below.
@@ -329,6 +326,7 @@ window.addEventListener('message', function (e) {
   if (!m || m.mfd !== true) return;
   if (m.type === 'tgt-targets') {
     liveTargets = Array.isArray(m.items) ? m.items : [];
+    liveTargetsMetric = !!m.metric;
     if (idsKey(liveTargets) !== lastAppliedIdsKey) {
       applyLiveTargets();
     }

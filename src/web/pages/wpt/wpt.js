@@ -33,7 +33,7 @@ const importSteerPointsBtn = document.getElementById('wpt-import-steerpoints');
 const exportSteerPointsBtn = document.getElementById('wpt-export-steerpoints');
 let ioMode = 'route';
 
-let mapinfo = { x: null, z: null, hdg: null, ox: null, oy: null };
+let mapinfo = { x: null, z: null, hdg: null, ox: null, oy: null, metric: false };
 
 function render() {
   const c = WaypointsStore.load();
@@ -412,6 +412,14 @@ ioClose.onclick = closeIOPanel;
 // An unnamed waypoint has no wp.name — fall back to its position number rather than showing nothing.
 function waypointLabel(wp, index) { return wp.name || ('WAYPOINT ' + (index + 1)); }
 
+// Matches the km/nm split HSD/FCR/OBJ's own range formatters already use — the player's
+// Metric/Imperial preference (mapinfo.metric, from the plugin's PlayerSettings.unitSystem).
+function fmtDist(distM) {
+  const km = distM / 1000;
+  if (mapinfo.metric) return km.toFixed(1) + ' km';
+  return (km * 0.539957).toFixed(1) + ' nm';
+}
+
 function renderReadout() {
   const c = WaypointsStore.load();
   const route = WptRoute.findRoute(c.routes, c.activeRouteId);
@@ -426,7 +434,7 @@ function renderReadout() {
   const prefix = target.kind === 'steerpoint' ? 'STEER: ' : 'NEXT: ';
   if (mapinfo.x == null) { readoutEl.textContent = prefix + label; hideNeedle(); return; }
   const { distM, brgDeg } = WptRoute.distanceBearing(mapinfo.x, mapinfo.z, target.point.x, target.point.z);
-  readoutEl.textContent = prefix + label + '  BRG ' + Math.round(brgDeg) + '°  DIST ' + (distM / 1000).toFixed(1) + ' km';
+  readoutEl.textContent = prefix + label + '  BRG ' + Math.round(brgDeg) + '°  DIST ' + fmtDist(distM);
   updateCompass(brgDeg);
 }
 

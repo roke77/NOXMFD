@@ -77,7 +77,7 @@ assert.ok(!elements['tgp-panel'].classList.contains('show-overlay'), 'no data pa
 // capture reads, including its own crosshair) — drawing it again here double-shows everything.
 const nativeManualData = {
   cnt: 0, manual: true, pointTrack: false, hasDetail: true,
-  mag: 4.5, range: 2400, alt: 68, relAlt: -934, clo: '-267km/h', el: -8, brg: 135, grid: 'Kf53', ir: false,
+  mag: 4.5, range: '2.4km', alt: '68m', relAlt: '-934m', clo: '-267km/h', el: -8, brg: 135, grid: 'Kf53', ir: false,
 };
 listeners.message({ data: { mfd: true, type: 'tgp', active: true, quality: 'native', manual: true, data: nativeManualData } });
 assert.ok(!elements['tgp-panel'].classList.contains('show-overlay'), 'manual data must NOT show the client overlay in native quality (already baked into the video)');
@@ -89,7 +89,7 @@ assert.ok(!elements['tgp-panel'].classList.contains('tgp-point-track'), 'no clie
 // in-cockpit overlay's own SetActive(false).
 listeners.message({ data: { mfd: true, type: 'tgp', active: true, resolution: 'high', quality: 'native', manual: true, data: {
   cnt: 0, manual: true, pointTrack: false, hasDetail: true,
-  mag: 4.5, range: 2400, alt: 68, relAlt: -934, clo: '-267km/h', el: -8, brg: 135, grid: 'Kf53', ir: false,
+  mag: 4.5, range: '2.4km', alt: '68m', relAlt: '-934m', clo: '-267km/h', el: -8, brg: 135, grid: 'Kf53', ir: false,
 } } });
 assert.ok(elements['tgp-panel'].classList.contains('show-overlay'), 'manual data should show the overlay at HIGH resolution');
 assert.ok(!elements['tgp-panel'].classList.contains('tgp-point-track'), 'pointTrack:false should not set tgp-point-track');
@@ -98,9 +98,10 @@ assert.strictEqual(elements['tgp-ov-pilot'].textContent, '', 'manual mode has no
 assert.ok(elements['tgp-ov-spd'].classList.contains('tgp-ov-hidden'), 'manual mode hides own-aircraft SPD');
 assert.strictEqual(elements['tgp-ov-rng'].textContent, 'RNG 2.4km', 'manual range formatting');
 assert.strictEqual(elements['tgp-ov-hdg'].textContent, 'EL -8°', 'manual mode shows elevation in the HDG slot');
-// clo arrives pre-formatted (server-side UnitConverter.SpeedReading) — the client renders it
-// verbatim rather than re-deriving units from a raw m/s number, so it can't drift from the
-// in-cockpit overlay's own units (km/h or kt, whichever the player has set).
+// range/alt/relAlt/clo all arrive pre-formatted (server-side UnitConverter.DistanceReading/
+// AltitudeReading/SpeedReading) — the client renders them verbatim rather than re-deriving units
+// from raw meters/mps, so they can't drift from the in-cockpit overlay's own units (km/nm or m/ft,
+// km/h or kt — whichever the player has set).
 assert.strictEqual(elements['tgp-ov-relspd'].textContent, 'CLO -267km/h', 'manual mode shows closure rate, not target closing speed');
 assert.strictEqual(elements['tgp-ov-grid'].textContent, 'GRID: Kf53', 'manual grid');
 assert.strictEqual(elements['tgp-ov-mag'].textContent, 'Mag x4.5', 'manual magnification');
@@ -110,7 +111,7 @@ assert.strictEqual(elements['tgp-ov-mag'].textContent, 'Mag x4.5', 'manual magni
 // tests below only ever check field formatting, not show-overlay itself).
 listeners.message({ data: { mfd: true, type: 'tgp', active: true, resolution: 'mid', manual: true, data: {
   cnt: 0, manual: true, pointTrack: false, hasDetail: false,
-  mag: 1.0, range: 0, alt: 0, relAlt: 0, clo: '-', el: 0, brg: 0, grid: '', ir: false,
+  mag: 1.0, range: '-', alt: '-', relAlt: '-', clo: '-', el: 0, brg: 0, grid: '', ir: false,
 } } });
 assert.ok(elements['tgp-panel'].classList.contains('show-overlay'), 'manual data should show the overlay at MID resolution too');
 
@@ -125,7 +126,7 @@ assert.ok(elements['tgp-panel'].classList.contains('tgp-point-track'), 'pointTra
 // No raycast hit — dashes, not stale numbers from the previous update.
 listeners.message({ data: { mfd: true, type: 'tgp', active: true, quality: 'hq', manual: true, data: {
   cnt: 0, manual: true, pointTrack: false, hasDetail: false,
-  mag: 0.5, range: 0, alt: 0, relAlt: 0, clo: '-', el: 12, brg: -30, grid: '', ir: false,
+  mag: 0.5, range: '-', alt: '-', relAlt: '-', clo: '-', el: 12, brg: -30, grid: '', ir: false,
 } } });
 assert.strictEqual(elements['tgp-ov-rng'].textContent, 'RNG -', 'no-hit range shows a dash');
 assert.strictEqual(elements['tgp-ov-grid'].textContent, 'GRID: -', 'no-hit grid shows a dash');

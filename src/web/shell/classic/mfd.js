@@ -887,7 +887,7 @@ function forwardServerPlayersToPanes() { if (serverPlayersData) forwardToPanes('
 // No pagination — the page scrolls — so forward the whole list, to the frame and any TGT pane.
 function tgtTargetsMsg() {
   return { mfd: true, type: 'tgt-targets', items: targetsData.targets || [],
-           focusedTargetId: targetsData.focusedTargetId || 0 };
+           focusedTargetId: targetsData.focusedTargetId || 0, metric: targetsData.metric || false };
 }
 function forwardTgtTargetsToFrame() { forwardToFrame(tgtTargetsMsg()); }
 function forwardTgtTargetsToPanes() { forwardToPanes('tgt', tgtTargetsMsg()); }
@@ -1548,7 +1548,7 @@ const extData = {};
 
 // Latest selected-target list mirrored from the map iframe. The TGT page renders it under its
 // filters (forwardTgtTargetsToFrame) — the whole list, unpaginated, since that page scrolls.
-let targetsData = { targets: [], focusedTargetId: 0 };
+let targetsData = { targets: [], focusedTargetId: 0, metric: false };
 
 // Latest avionics snapshot mirrored from the map iframe. name = aircraft display name (also
 // the key for /airframe + /airframe-layout); parts = the live HP list from the snapshot;
@@ -2049,7 +2049,7 @@ window.addEventListener('message', function(e) {
   } else if (m.type === 'targets') {
     // Mirror the selected-target list; the TGT page renders it under its filters, and TD (issue
     // #47, docs/target-designator.md) mirrors the identical list on its leader view.
-    targetsData = { targets: Array.isArray(m.items) ? m.items : [], focusedTargetId: m.focusedTargetId || 0 };
+    targetsData = { targets: Array.isArray(m.items) ? m.items : [], focusedTargetId: m.focusedTargetId || 0, metric: !!m.metric };
     if ((currentPage === 'tgt' || currentPage === 'td') && !splitMode) forwardTgtTargetsToFrame();
     if (splitMode) { forwardTgtTargetsToPanes(); forwardToPanes('td', tgtTargetsMsg()); }
   } else if (m.type === 'sqd-state') {

@@ -61,6 +61,11 @@ namespace NOXMFD
             // The Next/Previous-focused locked target (issue #62) — a top-level id like mapReach,
             // since it's one value TGT/FCR/HSD all read, not scoped into any one of their own blocks.
             sb.Append("\"focusedTargetId\":").Append(s.FocusedTargetId).Append(',');
+            // PlayerSettings.unitSystem (issue #84) — top-level for the same reason as
+            // focusedTargetId above: OBJ (and any future page) needs it without depending on RDR or
+            // HSD being present. RdrBlock/HsdBlock keep their own nested "metric" copies of this
+            // same s.RdrMetric value unchanged, to avoid touching their already-working wire shape.
+            sb.Append("\"metric\":").Append(JsonBool(s.RdrMetric)).Append(',');
             // weaponManager.GetTargetList()'s own order (TargetFocus.cs) — lets TGT sort its own
             // selected-target list to match, so it visibly walks in the same order Next/Previous
             // steps focus through, rather than the list's own (unrelated) contact-scan order.
@@ -343,14 +348,15 @@ namespace NOXMFD
         {
             if (s.TgpTargetCount <= 0 && !s.TgpManualActive) return "{\"cnt\":0}";
             string head = string.Format(CultureInfo.InvariantCulture,
-                "{{\"cnt\":{0},\"mag\":{1:0.0},\"range\":{2:0.0},\"grid\":\"{3}\",\"ir\":{4}," +
+                "{{\"cnt\":{0},\"mag\":{1:0.0},\"range\":\"{2}\",\"grid\":\"{3}\",\"ir\":{4}," +
                 "\"brg\":{5:0.0},\"type\":\"{6}\",\"pilot\":\"{7}\",\"status\":\"{8}\",\"hasDetail\":{9}," +
-                "\"hdg\":{10:0.0},\"alt\":{11:0.0},\"relAlt\":{12:0.0},\"spd\":{13:0.0},\"relSpd\":{14:0.0}," +
+                "\"hdg\":{10:0.0},\"alt\":\"{11}\",\"relAlt\":\"{12}\",\"spd\":\"{13}\",\"relSpd\":\"{14}\"," +
                 "\"manual\":{15},\"pointTrack\":{16},\"el\":{17:0.0},\"clo\":\"{18}\",\"stv\":{19}",
-                s.TgpTargetCount, s.TgpMag, s.TgpRangeM, JsonLite.EscapeJson(s.TgpGrid ?? ""), JsonBool(s.TgpIR),
+                s.TgpTargetCount, s.TgpMag, JsonLite.EscapeJson(s.TgpRangeReading ?? "-"), JsonLite.EscapeJson(s.TgpGrid ?? ""), JsonBool(s.TgpIR),
                 s.TgpBearingDeg, JsonLite.EscapeJson(s.TgpType ?? ""), JsonLite.EscapeJson(s.TgpPilot ?? ""),
                 JsonLite.EscapeJson(s.TgpStatus ?? "normal"), JsonBool(s.TgpHasDetail),
-                s.TgpHeadingDeg, s.TgpAltitudeM, s.TgpRelAltitudeM, s.TgpSpeedMps, s.TgpRelSpeedMps,
+                s.TgpHeadingDeg, JsonLite.EscapeJson(s.TgpAltReading ?? "-"), JsonLite.EscapeJson(s.TgpRelAltReading ?? "-"),
+                JsonLite.EscapeJson(s.TgpSpeedReading ?? "-"), JsonLite.EscapeJson(s.TgpRelSpeedReading ?? "-"),
                 JsonBool(s.TgpManualActive), JsonBool(s.TgpManualPointTrack), s.TgpElevationDeg,
                 JsonLite.EscapeJson(s.TgpClosureReading ?? "-"), JsonBool(s.TgpStv));
             return head + ",\"boxes\":" + TgpBoxArray(s.TgpBoxes) + "}";

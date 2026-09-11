@@ -79,13 +79,16 @@ namespace NOXMFD.Tests
             s.TgpManualActive = true;
             s.TgpManualPointTrack = true;
             s.TgpMag = 4.5f;
-            s.TgpRangeM = 2400f;
+            // Pre-formatted server-side (UnitConverter.DistanceReading/AltitudeReading/SpeedReading,
+            // issue #84) — same reasoning as TgpClosureReading below, set directly here rather than
+            // through TelemetryReader/UnitConverter since this test builds the snapshot by hand.
+            s.TgpRangeReading = "2.4km";
             s.TgpGrid = "Kf53";
             s.TgpElevationDeg = -8f;
             s.TgpBearingDeg = 135f;
-            s.TgpAltitudeM = 68f;
-            s.TgpRelAltitudeM = -934f;
-            s.TgpRelSpeedMps = -33f;
+            s.TgpAltReading = "68m";
+            s.TgpRelAltReading = "-934m";
+            s.TgpRelSpeedReading = "-33m/s";
             s.TgpClosureReading = "-119km/h";
 
             var tgp = Obj(Root(s)["tgp"]);
@@ -95,7 +98,7 @@ namespace NOXMFD.Tests
             Assert.True((bool)tgp["pointTrack"]!);
             Assert.Equal(-8.0, tgp["el"]);
             Assert.Equal(4.5, tgp["mag"]);
-            Assert.Equal(2400.0, tgp["range"]);
+            Assert.Equal("2.4km", tgp["range"]);
             Assert.Equal("Kf53", tgp["grid"]);
             // Pre-formatted server-side (UnitConverter.SpeedReading) rather than a raw m/s number —
             // closure is new to the web page, so it matches the in-cockpit overlay's units exactly

@@ -293,6 +293,7 @@ export class TelemetrySource {
       hdg: typeof d.hdg === 'number' ? d.hdg : null,
       ox:  this._meta ? this._meta.ox : null,
       oy:  this._meta ? this._meta.oy : null,
+      metric: !!d.metric,
     });
 
     // Selected-target list. The mod flags each targeted unit on its contact (same `tg` that draws
@@ -328,7 +329,7 @@ export class TelemetrySource {
         if (typeof v === 'number' && v >= 0) t.tti = v;
       }
     }
-    this._postUp({ type: 'targets', items: targets, focusedTargetId: d.focusedTargetId || 0 });
+    this._postUp({ type: 'targets', items: targets, focusedTargetId: d.focusedTargetId || 0, metric: !!d.metric });
 
     // Radar-warning emitters → nose-up plot (az = bearing relative to heading, dist = 1 - power).
     let rwr = [];
@@ -483,7 +484,9 @@ export class TelemetrySource {
     // OBJ active-objectives list (docs/md-pages.md). present:false when the player faction's HQ
     // isn't resolved yet. Each objective's position sub-rows arrive as raw world x/z from the
     // plugin; grid label and live range are derived here the same way targets/rwr/mw already are,
-    // so range stays live at the base frame's own rate rather than the plugin's 1 Hz refresh.
+    // so range stays live at the base frame's own rate rather than the plugin's 1 Hz refresh. r
+    // stays in km regardless of d.metric — obj.js converts to nm itself, same split as HSD/FCR's
+    // own state.metric-driven formatting.
     const objBlock = d.obj || { present: false };
     const objItems = [];
     if (objBlock.present && Array.isArray(objBlock.items)) {
@@ -498,7 +501,7 @@ export class TelemetrySource {
         objItems.push({ n: o.n, s: o.s, p: o.p, pos: positions });
       }
     }
-    this._postUp({ type: 'obj', present: !!objBlock.present, items: objItems });
+    this._postUp({ type: 'obj', present: !!objBlock.present, metric: !!d.metric, items: objItems });
 
     // AKF advanced kill feed (docs/akf-page.md). Always present while a mission runs (no
     // present:false gate like MIS/OBJ) — an empty session just reads as all-zero. all is
@@ -520,8 +523,8 @@ export class TelemetrySource {
     this._postUp({ type: 'loadout', items: [], selWeapon: null, softGun: null, softRel: null, masterArmsOn: true, combatMode: 'all' });
     this._postUp({ type: 'cm', flares: -1, flaresMax: -1, ewKJ: -1, ewKJMax: -1, cmCat: 0 });
     this._postUp({ type: 'tgp', active: false, resolution: 'native', quality: 'native', data: null, manual: false, stv: false });
-    this._postUp({ type: 'mapinfo', mission: null, grid: null, x: null, z: null, hdg: null, ox: null, oy: null });
-    this._postUp({ type: 'targets', items: [] });
+    this._postUp({ type: 'mapinfo', mission: null, grid: null, x: null, z: null, hdg: null, ox: null, oy: null, metric: false });
+    this._postUp({ type: 'targets', items: [], metric: false });
     this._postUp({ type: 'rwr', items: [] });
     this._postUp({ type: 'mw', items: [] });
     this._postUp({ type: 'hsd', metric: false, items: [], threats: [] });
@@ -530,7 +533,7 @@ export class TelemetrySource {
     this._postUp({ type: 'bdf', present: false });
     this._postUp({ type: 'pal', present: false });
     this._postUp({ type: 'mis', present: false });
-    this._postUp({ type: 'obj', present: false });
+    this._postUp({ type: 'obj', present: false, metric: false });
     this._postUp(Object.assign({ type: 'akf' }, AKF_EMPTY));
     this._postUp({ type: 'follow', on: false });
   }

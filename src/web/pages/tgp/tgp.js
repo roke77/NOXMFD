@@ -76,9 +76,9 @@ const ovBoxes   = document.getElementById('tgp-ov-boxes');
 
 const TGP_STATUS_TAG = { jammed: 'JAM', lased: 'LASE', outdated: 'OLD' };
 
-// Raw meters/mps — not yet converted to the player's UnitConverter preference (km/nm, ft/m,
-// kt/mps); a known simplification, not a silent bug. Revisit if this needs to match the
-// in-cockpit readout's units exactly.
+// Null-safe rounding for fields with no unit conversion of their own (bearing/heading/elevation
+// degrees) — range/altitude/speed arrive already formatted in the player's Metric/Imperial
+// preference (UnitConverter.*Reading, server-side), so this isn't used for those.
 function fmtDash(value, suffix) { return value == null ? '-' : Math.round(value) + suffix; }
 
 function applyOverlay(resolution, data) {
@@ -109,14 +109,14 @@ function applyOverlay(resolution, data) {
   ovPilot.textContent = data.pilot || '';
   ovSpd.classList.remove('tgp-ov-hidden');
 
-  ovRng.textContent = 'RNG ' + (data.range / 1000).toFixed(1) + 'km';
+  ovRng.textContent = 'RNG ' + data.range;
 
   if (data.hasDetail) {
-    ovAlt.textContent    = 'ALT ' + fmtDash(data.alt, 'm');
-    ovSpd.textContent    = 'SPD ' + fmtDash(data.spd, 'm/s');
+    ovAlt.textContent    = 'ALT ' + data.alt;
+    ovSpd.textContent    = 'SPD ' + data.spd;
     ovHdg.textContent    = 'HDG ' + fmtDash(data.hdg, '°');
-    ovRelAlt.textContent = 'REL ' + fmtDash(data.relAlt, 'm');
-    ovRelSpd.textContent = 'REL ' + fmtDash(data.relSpd, 'm/s');
+    ovRelAlt.textContent = 'REL ' + data.relAlt;
+    ovRelSpd.textContent = 'REL ' + data.relSpd;
   } else {
     ovAlt.textContent = 'ALT -'; ovSpd.textContent = 'SPD -'; ovHdg.textContent = 'HDG -';
     ovRelAlt.textContent = 'REL -'; ovRelSpd.textContent = 'REL -';
@@ -152,9 +152,9 @@ function applyManualOverlay(data) {
   ovPilot.textContent = '';
   ovSpd.classList.add('tgp-ov-hidden');
 
-  ovRng.textContent = data.hasDetail ? 'RNG ' + (data.range / 1000).toFixed(1) + 'km' : 'RNG -';
-  ovAlt.textContent    = data.hasDetail ? 'ALT ' + fmtDash(data.alt, 'm')    : 'ALT -';
-  ovRelAlt.textContent = data.hasDetail ? 'REL ' + fmtDash(data.relAlt, 'm') : 'REL -';
+  ovRng.textContent    = data.hasDetail ? 'RNG ' + data.range   : 'RNG -';
+  ovAlt.textContent    = data.hasDetail ? 'ALT ' + data.alt     : 'ALT -';
+  ovRelAlt.textContent = data.hasDetail ? 'REL ' + data.relAlt  : 'REL -';
   ovRelSpd.textContent = 'CLO ' + (data.clo || '-');
   ovHdg.textContent    = 'EL ' + Math.round(data.el) + '°';
 
