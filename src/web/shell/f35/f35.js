@@ -369,6 +369,16 @@
     let followOn    = false;
     let gridOn      = false;   // corrected as soon as the map reports its real (persisted) state
 
+    // The press-and-hold nav buttons below (combat-mode/wpt-prev reset, TGP zoom repeat) wire their
+    // timer straight to that specific <button>'s own pointerup/cancel/leave — but renderNav() can
+    // wipe the grid (grid.textContent = '') out from under an in-progress hold (a page/loadout
+    // change while the pilot's finger is still down), and a plain DOM removal doesn't reliably fire
+    // those events on the removed element. Without this, the orphaned timer — the TGP zoom one
+    // reschedules ITSELF every tick — just keeps firing forever, invisibly, for the rest of the
+    // session. Whichever hold is currently live registers its own stop function here so renderNav()
+    // can always kill it first, regardless of why it's re-rendering.
+    let pendingNavHoldClear = null;
+
     // This portal's footprint on the glass: one slot, or two with a memory of which side it ate.
     // f35-glass reads these to decide what the grips offer.
     const cell = { span: 1 };
@@ -728,6 +738,9 @@
     }
 
     function renderNav() {
+      // See pendingNavHoldClear's own comment — always kill any hold/repeat timer still pending
+      // from the grid this is about to wipe, whatever caused this render.
+      if (pendingNavHoldClear) { pendingNavHoldClear(); pendingNavHoldClear = null; }
       const mode = NAV_LAYOUT[currentPage] || 'edge';
       grid.className = 'nav-grid ' + mode;
       grid.dataset.page = currentPage;   // lets f35.css special-case a page's labels (see TGT)
@@ -757,9 +770,13 @@
           // a real pointerdown/pointerup pair exists here (unlike soiAct-driven presses elsewhere),
           // so a client-only timer is enough; no server plumbing needed for this on-screen button.
           let holdTimer = null, holdFired = false;
-          const clearHold = function () { if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; } };
+          const clearHold = function () {
+            if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; }
+            if (pendingNavHoldClear === clearHold) pendingNavHoldClear = null;
+          };
           b.addEventListener('pointerdown', function () {
             holdFired = false;
+            pendingNavHoldClear = clearHold;
             holdTimer = setTimeout(function () {
               holdFired = true;
               sendCommand('combat-mode.set', { group: 'all' }).catch(function () {});
@@ -775,9 +792,13 @@
           // pair on the physical PC keybind (map-waypoint-prev). waypoint-reset (map.js) is a
           // route-only reset that no-ops with no active route.
           let holdTimer = null, holdFired = false;
-          const clearHold = function () { if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; } };
+          const clearHold = function () {
+            if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; }
+            if (pendingNavHoldClear === clearHold) pendingNavHoldClear = null;
+          };
           b.addEventListener('pointerdown', function () {
             holdFired = false;
+            pendingNavHoldClear = clearHold;
             holdTimer = setTimeout(function () {
               holdFired = true;
               mapSend('waypoint-reset');
@@ -798,14 +819,18 @@
           const dir = TGP_ZOOM_ACTIONS[item.action];
           let repeatTimer = null;
           const stepZoom = function () { sendCommand('tgp.zoom.step', { index: dir }).catch(function () {}); };
+          const stop = function () {
+            clearTimeout(repeatTimer); repeatTimer = null;
+            if (pendingNavHoldClear === stop) pendingNavHoldClear = null;
+          };
           b.addEventListener('pointerdown', function () {
+            pendingNavHoldClear = stop;
             stepZoom();
             repeatTimer = setTimeout(function repeat() {
               stepZoom();
               repeatTimer = setTimeout(repeat, TGP_ZOOM_STEP_REPEAT_MS);
             }, TGP_ZOOM_STEP_INITIAL_DELAY_MS);
           });
-          const stop = function () { clearTimeout(repeatTimer); repeatTimer = null; };
           b.addEventListener('pointerup', stop);
           b.addEventListener('pointercancel', stop);
           b.addEventListener('pointerleave', stop);
