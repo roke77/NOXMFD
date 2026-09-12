@@ -207,6 +207,12 @@ function mapFullRight(hasRoutes, hasActiveRoute, hasSteerPoints) {
 // LAYOUT is a menu with nothing of its own behind it; every other page is transparent (its content
 // is the map, or the #page-frame beneath).
 const OPAQUE_PAGES = { main: true, lyt: true };
+// Frame pages that own a live streaming/network resource of their own (issue #85) — the only ones
+// that actually need #page-frame unloaded rather than just hidden when you leave them for a page
+// it doesn't host (see showPage/applySplitMode). Every other frame page (WPT, TGT, AVN, ...) has
+// no such resource, so leaving it loaded-but-hidden is both safe and cheaper — reusing it on
+// return, same as showFramePage()'s own `src !== url` guard already relies on.
+const STREAMING_FRAME_PAGES = { tgp: true };
 let currentPage = 'map';
 
 // ── Split-screen state ──────────────────────────────────────────────────────────────
@@ -354,10 +360,12 @@ function applySplitMode() {
   // picking it from a pane collapses the split instead (mfdButton's pane branch).
   overlayEl.classList.remove('vmain');
   if (splitMode) {
-    // Entering split leaves the full view behind, including whatever frame page (TGP, say) it was
-    // showing — drop it here for the same reason exiting split drops the panes below (issue #85):
-    // hidden isn't unloaded, and a live resource in there would otherwise keep running invisibly.
-    if (pageFrame.getAttribute('src')) pageFrame.removeAttribute('src');
+    // Entering split leaves the full view behind. If it was showing a page that owns a live
+    // resource of its own (TGP's MJPEG feed — issue #85), drop it here for the same reason exiting
+    // split drops the panes below: hidden isn't unloaded, and that resource would otherwise keep
+    // running invisibly. Scoped to STREAMING_FRAME_PAGES, same reasoning as showPage's own check —
+    // every other frame page is safe and cheaper to leave loaded for when split exits again.
+    if (STREAMING_FRAME_PAGES[currentPage] && pageFrame.getAttribute('src')) pageFrame.removeAttribute('src');
     paneFollowOn = [false, false];   // fresh panes; follow restarts off, re-reported on load
     paneGridOn = [false, false];     // fresh panes; grid guessed off (its default), re-reported on load
     paneIframes[0].src = paneUrl(panePages[0]);
@@ -1661,6 +1669,7 @@ function placeOverlayLabel(bankName, keyIndex, label, action, mark, pending) {
 // Render a page: set the overlay background, (re)assign key actions, and position
 // each item label next to its physical key.
 function showPage(name) {
+  const previousPage = currentPage;
   currentPage = name;
   overlayEl.classList.toggle('opaque', !!OPAQUE_PAGES[name]);
   // Stand the MAIN label up for pages with their own content in the top-left (TGT's RESET FILTER,
@@ -1670,13 +1679,17 @@ function showPage(name) {
   infoBox.classList.toggle('show', name === 'main');
   const frameUrl = frameUrlFor(name);
   screenEl.classList.toggle('page-on', !!frameUrl);   // WPN/TGT/TGP/AVN render in #page-frame
-  // Moving to a page #page-frame doesn't host (MAIN, MAP, ...): drop whatever frame page was
-  // loaded rather than just hiding it (issue #85) — 'page-on' above only toggles CSS, and nothing
-  // else ever navigates pageFrame away from a page like TGP once you leave it. A live resource
-  // there (TGP's MJPEG stream, e.g.) otherwise keeps running invisibly forever; unloading fires
-  // that page's own pagehide cleanup. showFramePage() re-sets this itself when moving to a
-  // DIFFERENT frame page, so this only needs to cover the frame -> non-frame transition.
-  if (!frameUrl && pageFrame.getAttribute('src')) pageFrame.removeAttribute('src');
+  // Moving to a page #page-frame doesn't host (MAIN, MAP, ...) while leaving a page that owns a
+  // live streaming resource of its own (issue #85): drop it rather than just hiding it via
+  // 'page-on' above, or that resource (TGP's MJPEG feed) keeps running invisibly forever —
+  // unloading fires that page's own pagehide cleanup. Scoped to STREAMING_FRAME_PAGES rather than
+  // every frame page: showFramePage()'s own `src !== url` guard exists specifically so returning
+  // to an ordinary page like WPT/TGT/AVN reuses its already-loaded instance instead of a full
+  // reload, and unconditionally dropping pageFrame here would defeat that for every page, not
+  // just the one that actually needs it.
+  if (!frameUrl && STREAMING_FRAME_PAGES[previousPage] && pageFrame.getAttribute('src')) {
+    pageFrame.removeAttribute('src');
+  }
   clearKeyActions();
   // Only wipe dynamic line-select labels (+ WPN's purely-decorative MASTER/MODE and MAP's ZOOM
   // labels, docs/radar-master-arms.md); static children (info-box) stay put.
