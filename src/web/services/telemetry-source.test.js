@@ -230,5 +230,32 @@ const assert = require('assert');
     }
   }
 
+  // disconnect() (issue #85): a live EventSource keeps its whole owning document reachable past
+  // navigation, so every caller that opens one must be able to close it again on pagehide — and
+  // safely, whether or not connect() ever actually ran.
+  {
+    const src7 = new TelemetrySource({});
+    assert.doesNotThrow(() => src7.disconnect(), 'disconnect() before connect() should be a no-op, not throw');
+
+    let closed = 0;
+    src7._es = { close: () => { closed++; } };
+    let clearedId = null;
+    const realClearInterval = global.clearInterval;
+    global.clearInterval = (id) => { clearedId = id; };
+    src7._watchdog = 'fake-watchdog-id';
+    try {
+      src7.disconnect();
+      assert.strictEqual(closed, 1, 'disconnect() should close the EventSource');
+      assert.strictEqual(src7._es, null, 'disconnect() should drop the EventSource reference');
+      assert.strictEqual(clearedId, 'fake-watchdog-id', 'disconnect() should clear the watchdog interval');
+      assert.strictEqual(src7._watchdog, null, 'disconnect() should drop the watchdog reference');
+
+      assert.doesNotThrow(() => src7.disconnect(), 'a second disconnect() should be safe (idempotent)');
+      assert.strictEqual(closed, 1, 'a second disconnect() should not re-close an already-closed EventSource');
+    } finally {
+      global.clearInterval = realClearInterval;
+    }
+  }
+
   console.log('telemetry-source.test.js: OK');
 })();
