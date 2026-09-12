@@ -387,6 +387,20 @@ generically), and silently did nothing in the classic shell's full view. **Fixed
 `layout-pages.js` `CLASSIC_FULL` entry is missing either line — run it (or the whole suite,
 `find src -iname '*.test.js' | xargs -n1 node`) after adding a page, before manual browser testing.
 
+**If the new page opens a live resource of its own** (an `EventSource`, an MJPEG/multipart
+`<img>` stream, a `WebSocket` — anything that stays open past the initial load), add it to
+`STREAMING_FRAME_PAGES` in `mfd.js` and close that resource on the page's own `pagehide`. Leaving
+`#page-frame` merely **hidden** (`page-on` toggled off) instead of **unloaded** does not sever it —
+a live connection keeps the whole document reachable from the browser's own roots regardless of
+navigation, so it keeps running invisibly, forever, for every page the pilot ever visits. This is
+exactly what TGP's MJPEG feed did before issue #85: nothing ever cleared `#page-frame`'s `src` on
+leaving it for MAIN/MAP, so every visit left one more live camera stream running in the
+background. `STREAMING_FRAME_PAGES` is deliberately an allowlist, not the default for every frame
+page — most (WPT, TGT, AVN, …) own no live resource, and `showFramePage()`'s own `src !== url`
+guard exists specifically so returning to one of those reuses its already-loaded instance instead
+of paying for a fresh reload; unloading unconditionally on every excursion to MAIN/MAP would defeat
+that for pages that never needed it.
+
 ### The shell⇄page postMessage protocol (envelope: `{ mfd:true, type, … }`)
 Shell → page (data **down**): `'<page>'` (the sliced rows + selection), `'<page>-layout'`
 (geometry; include `layout:'full'|'compact'` + the slots/bands the page needs), `'cm'`,

@@ -181,6 +181,11 @@ selected FCR range follows the same pattern under `noxmfd.rdr.view`; HSD keeps i
   fails by name if one layout gains a page the other lacks.
 - A page is the **single source of truth** across all of these — one file, with an optional
   `body.full` profile toggled by a `layout:'full'` field in its layout message.
+- **A frame page that opens a live resource of its own** (an `EventSource`, TGP's MJPEG stream,
+  anything outliving the initial load) must close it on `pagehide` and be listed in the classic
+  shell's `STREAMING_FRAME_PAGES` — otherwise leaving `#page-frame` only hides it, not unloads it,
+  and that resource keeps running invisibly forever (see docs/src-architecture.md's shell-hooks
+  section).
 
 ## The contracts (shell ⇄ page, envelope `{ mfd:true, type, … }`)
 
