@@ -82,11 +82,13 @@ export class TelemetrySource {
     this._cursorSelHeld = false;   // Cursor Select's live held state (docs/page-cursor.md)
     this._badFrames = 0;           // malformed frames dropped so far (see _onMessage)
     this._lastBadLogAt = 0;        // rate-limits the drop log — a bad frame usually repeats at 10 Hz
+    this._es = null;               // this instance's own EventSource — see disconnect()
+    this._watchdog = null;
   }
 
   connect() {
     this._cid = instanceId();
-    const es = new EventSource('/stream?cid=' + encodeURIComponent(this._cid));
+    const es = this._es = new EventSource('/stream?cid=' + encodeURIComponent(this._cid));
     // The server answers with the id it actually filed us under. Normally that's the one just
     // sent; when storage is unavailable nothing was sent and the server named us itself. Either
     // way this is the id SOI focus is broadcast by, so it's the one to compare against — and it's
@@ -128,9 +130,20 @@ export class TelemetrySource {
     es.onmessage = (e) => this._onMessage(e);
     es.onerror = () => {};   // EventSource auto-reconnects; the watchdog decides when to flag DISCONNECTED
     // Watchdog — tolerate transient SSE blips, only flag disconnect after a real gap.
-    setInterval(() => {
+    this._watchdog = setInterval(() => {
       if (performance.now() - this._lastMsgAt > 2500) this._setStatus('disconnected', '● DISCONNECTED — retrying…');
     }, 700);
+  }
+
+  // A live EventSource keeps its whole owning document reachable from the browser's own roots —
+  // not just JS reachability — since more 'message'/'error' events could still arrive on it. An
+  // iframe navigating away does NOT reliably sever that on its own (issue #85): every MAP visit
+  // that never calls this leaves its entire document (canvas, icon/tint caches, everything) alive
+  // forever, still receiving and processing real 10 Hz telemetry nobody can see. Callers must call
+  // this before their page is torn down (map.js does, on 'pagehide').
+  disconnect() {
+    if (this._es) { this._es.close(); this._es = null; }
+    if (this._watchdog) { clearInterval(this._watchdog); this._watchdog = null; }
   }
 
   // Mirror the connection status to the shell (so MAIN can show it without its own /stream) and

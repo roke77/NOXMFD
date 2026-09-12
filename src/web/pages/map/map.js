@@ -1229,6 +1229,11 @@ syncSizeWhenReady();
 setFollow(followPlayer);    // report the restored follow up to the shell (paints the FOLLOW chip)
 setGrid(gridOn);            // report the restored grid state up to the shell (paints the GRID label)
 source.connect();   // open /stream now that the renderer + interaction handlers are wired
+// Every MAP visit — the hidden tap and any portal/pane showing MAP alike — opens its own
+// EventSource (see TelemetrySource.connect's own doc comment). A live one keeps this whole
+// document alive even after the shell navigates this iframe away, so it must be closed explicitly
+// (issue #85) rather than left for navigation to clean up implicitly.
+window.addEventListener('pagehide', function () { source.disconnect(); });
 
 // Keep the canvas sized to its panel. A ResizeObserver — not just window 'resize' — is essential:
 // in split mode the shell sets this map iframe to display:none, so #map-panel collapses to 0×0
