@@ -354,6 +354,10 @@ function applySplitMode() {
   // picking it from a pane collapses the split instead (mfdButton's pane branch).
   overlayEl.classList.remove('vmain');
   if (splitMode) {
+    // Entering split leaves the full view behind, including whatever frame page (TGP, say) it was
+    // showing — drop it here for the same reason exiting split drops the panes below (issue #85):
+    // hidden isn't unloaded, and a live resource in there would otherwise keep running invisibly.
+    if (pageFrame.getAttribute('src')) pageFrame.removeAttribute('src');
     paneFollowOn = [false, false];   // fresh panes; follow restarts off, re-reported on load
     paneGridOn = [false, false];     // fresh panes; grid guessed off (its default), re-reported on load
     paneIframes[0].src = paneUrl(panePages[0]);
@@ -1664,7 +1668,15 @@ function showPage(name) {
   // different way — see isVmainPage below. See .overlay.vmain in mfd.css and isVmainPage below.
   overlayEl.classList.toggle('vmain', isVmainPage(name));
   infoBox.classList.toggle('show', name === 'main');
-  screenEl.classList.toggle('page-on', !!frameUrlFor(name));   // WPN/TGT/TGP/AVN render in #page-frame
+  const frameUrl = frameUrlFor(name);
+  screenEl.classList.toggle('page-on', !!frameUrl);   // WPN/TGT/TGP/AVN render in #page-frame
+  // Moving to a page #page-frame doesn't host (MAIN, MAP, ...): drop whatever frame page was
+  // loaded rather than just hiding it (issue #85) — 'page-on' above only toggles CSS, and nothing
+  // else ever navigates pageFrame away from a page like TGP once you leave it. A live resource
+  // there (TGP's MJPEG stream, e.g.) otherwise keeps running invisibly forever; unloading fires
+  // that page's own pagehide cleanup. showFramePage() re-sets this itself when moving to a
+  // DIFFERENT frame page, so this only needs to cover the frame -> non-frame transition.
+  if (!frameUrl && pageFrame.getAttribute('src')) pageFrame.removeAttribute('src');
   clearKeyActions();
   // Only wipe dynamic line-select labels (+ WPN's purely-decorative MASTER/MODE and MAP's ZOOM
   // labels, docs/radar-master-arms.md); static children (info-box) stay put.
