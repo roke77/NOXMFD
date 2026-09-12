@@ -917,7 +917,10 @@
           placeWpnDecorator('tgp-zoom-in', 'tgp-zoom-out', 'ZOOM');
         }
       },
-      destroy: function () { el.remove(); },
+      // Same reasoning as renderNav()'s own pendingNavHoldClear check — a merge can remove this
+      // portal (and the button under a still-active hold) without pointerup/cancel/leave ever
+      // firing on it, same as a re-render can.
+      destroy: function () { if (pendingNavHoldClear) { pendingNavHoldClear(); pendingNavHoldClear = null; } el.remove(); },
     };
     return api;
   }
