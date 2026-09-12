@@ -365,7 +365,7 @@ function applySplitMode() {
     // split drops the panes below: hidden isn't unloaded, and that resource would otherwise keep
     // running invisibly. Scoped to STREAMING_FRAME_PAGES, same reasoning as showPage's own check —
     // every other frame page is safe and cheaper to leave loaded for when split exits again.
-    if (STREAMING_FRAME_PAGES[currentPage] && pageFrame.getAttribute('src')) pageFrame.removeAttribute('src');
+    unloadIfStreaming(currentPage);
     paneFollowOn = [false, false];   // fresh panes; follow restarts off, re-reported on load
     paneGridOn = [false, false];     // fresh panes; grid guessed off (its default), re-reported on load
     paneIframes[0].src = paneUrl(panePages[0]);
@@ -1033,6 +1033,13 @@ function wireWpnPaneWeaponKeys(weapons, paneIdx, paneTag) {
 // + the right-half image area + the CM band) from the bezel separators, and slice the loadout
 // to the full-view page (WPN_MAX_DISPLAY, wpnPage).
 function frameWin() { return pageFrame && pageFrame.contentWindow; }
+// Drops #page-frame's src when leaving a page that owns a live resource of its own (issue #85) —
+// shared by showPage (frame -> non-frame) and applySplitMode (full view -> split), the only two
+// places #page-frame's content stops being shown without showFramePage() already navigating it
+// itself. See STREAMING_FRAME_PAGES's own comment for why this is scoped rather than unconditional.
+function unloadIfStreaming(page) {
+  if (STREAMING_FRAME_PAGES[page] && pageFrame.getAttribute('src')) pageFrame.removeAttribute('src');
+}
 // Point #page-frame at a frame-hosted page, switching its src when moving between frame pages
 // (WPN ↔ TGT) and lazy-loading on first entry. No-op if it already shows that page.
 //
@@ -1687,9 +1694,7 @@ function showPage(name) {
   // to an ordinary page like WPT/TGT/AVN reuses its already-loaded instance instead of a full
   // reload, and unconditionally dropping pageFrame here would defeat that for every page, not
   // just the one that actually needs it.
-  if (!frameUrl && STREAMING_FRAME_PAGES[previousPage] && pageFrame.getAttribute('src')) {
-    pageFrame.removeAttribute('src');
-  }
+  if (!frameUrl) unloadIfStreaming(previousPage);
   clearKeyActions();
   // Only wipe dynamic line-select labels (+ WPN's purely-decorative MASTER/MODE and MAP's ZOOM
   // labels, docs/radar-master-arms.md); static children (info-box) stay put.

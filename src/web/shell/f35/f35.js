@@ -378,6 +378,16 @@
     // session. Whichever hold is currently live registers its own stop function here so renderNav()
     // can always kill it first, regardless of why it's re-rendering.
     let pendingNavHoldClear = null;
+    // Wraps a hold's own stop logic with the pendingNavHoldClear registration/self-unregistration
+    // bookkeeping every hold site below needs identically — only their actual timer-clearing
+    // differs. Register the RETURNED function on pointerdown, not stopFn directly.
+    function trackHold(stopFn) {
+      const stop = function () {
+        stopFn();
+        if (pendingNavHoldClear === stop) pendingNavHoldClear = null;
+      };
+      return stop;
+    }
 
     // This portal's footprint on the glass: one slot, or two with a memory of which side it ate.
     // f35-glass reads these to decide what the grips offer.
@@ -770,10 +780,7 @@
           // a real pointerdown/pointerup pair exists here (unlike soiAct-driven presses elsewhere),
           // so a client-only timer is enough; no server plumbing needed for this on-screen button.
           let holdTimer = null, holdFired = false;
-          const clearHold = function () {
-            if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; }
-            if (pendingNavHoldClear === clearHold) pendingNavHoldClear = null;
-          };
+          const clearHold = trackHold(function () { if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; } });
           b.addEventListener('pointerdown', function () {
             holdFired = false;
             pendingNavHoldClear = clearHold;
@@ -792,10 +799,7 @@
           // pair on the physical PC keybind (map-waypoint-prev). waypoint-reset (map.js) is a
           // route-only reset that no-ops with no active route.
           let holdTimer = null, holdFired = false;
-          const clearHold = function () {
-            if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; }
-            if (pendingNavHoldClear === clearHold) pendingNavHoldClear = null;
-          };
+          const clearHold = trackHold(function () { if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; } });
           b.addEventListener('pointerdown', function () {
             holdFired = false;
             pendingNavHoldClear = clearHold;
@@ -819,10 +823,7 @@
           const dir = TGP_ZOOM_ACTIONS[item.action];
           let repeatTimer = null;
           const stepZoom = function () { sendCommand('tgp.zoom.step', { index: dir }).catch(function () {}); };
-          const stop = function () {
-            clearTimeout(repeatTimer); repeatTimer = null;
-            if (pendingNavHoldClear === stop) pendingNavHoldClear = null;
-          };
+          const stop = trackHold(function () { clearTimeout(repeatTimer); repeatTimer = null; });
           b.addEventListener('pointerdown', function () {
             pendingNavHoldClear = stop;
             stepZoom();
