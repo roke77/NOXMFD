@@ -14,17 +14,30 @@ const tgpOverlay = document.getElementById('tgp-overlay');
 // until the whole page is reloaded — reopen the connection ourselves instead.
 let tgpRetryCount = 0;
 let tgpRetryTimer = null;
+let tgpTornDown = false;   // set by pagehide below — stop reconnecting once this page is on its way out
 function scheduleTgpRetry() {
   if (tgpRetryTimer) return;
   tgpRetryTimer = setTimeout(function () {
     tgpRetryTimer = null;
+    if (tgpTornDown) return;
     tgpImg.src = '/tgp.mjpg?r=' + (++tgpRetryCount);
   }, 1200);
 }
 tgpImg.src = '/tgp.mjpg';
 tgpImg.addEventListener('error', function() {
+  if (tgpTornDown) return;
   tgpPanel.classList.remove('has-feed');
   scheduleTgpRetry();
+});
+
+// A live MJPEG stream is the same class of problem TelemetrySource.disconnect() fixes for MAP
+// (issue #85): the connection keeps this whole document reachable past navigation, since more
+// multipart frames could still arrive on it. removeAttribute (not src='') aborts the in-flight
+// request immediately without issuing one more fetch of its own.
+window.addEventListener('pagehide', function () {
+  tgpTornDown = true;
+  if (tgpRetryTimer) { clearTimeout(tgpRetryTimer); tgpRetryTimer = null; }
+  tgpImg.removeAttribute('src');
 });
 
 // Keeps the overlay's box pinned to the <img>'s real letterboxed content rect, not the panel's
