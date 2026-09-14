@@ -868,7 +868,8 @@
       wpnNavKey = '';   // entering any page redraws the grid; don't let a stale key suppress it
       // A page with no content of its own (MAIN) blanks the frame rather than hiding it: the
       // iframe's background is the glass colour, so what shows through is the label grid on black.
-      frame.src = F35_PAGES[name] || (ExtNav.isExtensionPage(name) ? '/ext/' + name : 'about:blank');
+      LayoutPages.navigateFrame(frame, F35_PAGES[name] || (ExtNav.isExtensionPage(name) ? '/ext/' + name : 'about:blank'));
+      forwardToPage();
       renderNav();   // forwardToPage reruns on the frame's load
     }
 

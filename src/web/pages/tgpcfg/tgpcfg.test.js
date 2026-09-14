@@ -40,7 +40,7 @@ const qualityButtons = ['low', 'mid', 'high'].map((value) => {
   return button;
 });
 
-global.window = {};
+global.window = { addEventListener() {} };
 window.parent = window;
 global.document = {
   getElementById(id) { return elements[id]; },

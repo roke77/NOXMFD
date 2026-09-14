@@ -2,6 +2,7 @@
 // 'input'; rates.set only fires on 'change' — a ConfigEntry.Value write does a synchronous .cfg
 // save, too costly to run on every drag tick.
 
+(function () {
 if (window.parent !== window) {
   var back = document.querySelector('.tcfg-back');
   if (back) back.remove();
@@ -112,7 +113,8 @@ document.getElementById('tcfg-reset').onclick = function () {
   sendCommand('rates.set', { group: 'tgpSuppressNative', wname: 'off', on: false }).catch(function () {});
 };
 
-fetch('/rates-config')
+function refreshTgpConfig() {
+return fetch('/rates-config')
   .then(function (r) { return r.json(); })
   .then(function (cfg) {
     setSlider(cfg.tgpHz);
@@ -123,5 +125,9 @@ fetch('/rates-config')
     panelEl.classList.remove('unavailable');
   })
   .catch(function () { panelEl.classList.add('unavailable'); });
+}
+window.addEventListener('tgp-config-refresh', refreshTgpConfig);
+refreshTgpConfig();
 
 renderSuppressToggle();
+})();

@@ -236,6 +236,9 @@ probe/poke state, `computer` for clicks and screenshots, `read_console_messages`
 
 TGP releases its MJPEG source, retry timer, observer, and active joystick input on
 pagehide. Browser-history restoration reconnects without resuming held input.
+TGP and its CFG view share one document per display surface. `#cfg` suspends the
+feed and shows lazily imported settings; returning reuses TGP DOM and handlers.
+The settings controller refreshes values on entry without reinstalling listeners.
 See `docs/tgp-lifecycle-investigation.md` for live-stream memory validation.
 
 ## Experimental MAP lifecycle

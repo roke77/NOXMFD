@@ -57,7 +57,7 @@ assert.ok(paneNavigate.includes('const url = paneUrl(page)'),
   'paneNavigate must resolve the destination before changing pane state');
 assert.ok(guardIndex >= 0 && guardIndex < mutationIndex,
   'paneNavigate must reject unknown pages before changing pane state');
-assert.ok(paneNavigate.includes('paneIframes[paneIdx].src = url'),
+assert.ok(paneNavigate.includes('LayoutPages.navigateFrame(paneIframes[paneIdx], url)'),
   'paneNavigate must use the destination validated by its unknown-page guard');
 
 console.log('mfd-split-routing.test.js: OK');

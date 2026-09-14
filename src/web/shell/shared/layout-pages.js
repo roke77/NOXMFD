@@ -37,7 +37,7 @@
     wpt: '/wpt',
     sqd: '/sqd',
     mapcfg: '/mapcfg',
-    tgpcfg: '/tgpcfg',
+    tgpcfg: '/tgp#cfg',
     td: '/td',   // Target Designator (issue #47) — reached from TGT's own nav row, not MAIN
     // EXT hub (docs/extensions-api.md) — the EXT dispatch's landing page regardless of how many
     // extensions are installed. Its own content distinguishes "none installed" from "pick one
@@ -71,7 +71,7 @@
     wpt: '/wpt?bare',
     sqd: '/sqd?bare',
     mapcfg: '/mapcfg?bare',
-    tgpcfg: '/tgpcfg?bare',
+    tgpcfg: '/tgp?bare#cfg',
     td: '/td?bare',
     ext: '/ext?bare',
   };
@@ -104,12 +104,24 @@
     wpt: '/wpt',
     sqd: '/sqd',
     mapcfg: '/mapcfg',
-    tgpcfg: '/tgpcfg',
+    tgpcfg: '/tgp#cfg',
     td: '/td',
     ext: '/ext',
   };
 
-  const api = { CLASSIC_FULL, CLASSIC_SPLIT, F35 };
+  function navigateFrame(frame, url) {
+    const destination = new URL(url, root.location.href);
+    try {
+      const current = new URL(frame.contentWindow.location.href);
+      if (current.origin === destination.origin && current.pathname === '/tgp' &&
+          destination.pathname === '/tgp' && current.search === destination.search) {
+        if (current.hash !== destination.hash) frame.contentWindow.location.hash = destination.hash;
+        return;
+      }
+    } catch (_) { /* Extension frames can be cross-origin; normal navigation replaces them. */ }
+    if (frame.getAttribute('src') !== url) frame.src = url;
+  }
+  const api = { CLASSIC_FULL, CLASSIC_SPLIT, F35, navigateFrame };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.LayoutPages = api;
 })(typeof self !== 'undefined' ? self : this);

@@ -14,7 +14,7 @@ const tgpOverlay = document.getElementById('tgp-overlay');
 // until the whole page is reloaded — reopen the connection ourselves instead.
 let tgpRetryCount = 0;
 let tgpRetryTimer = null;
-let tgpTornDown = false;   // set by pagehide below — stop reconnecting once this page is on its way out
+let tgpTornDown = window.location.hash === '#cfg';
 function scheduleTgpRetry() {
   if (tgpTornDown || tgpRetryTimer) return;
   tgpRetryTimer = setTimeout(function () {
@@ -23,7 +23,7 @@ function scheduleTgpRetry() {
     tgpImg.src = '/tgp.mjpg?r=' + (++tgpRetryCount);
   }, 1200);
 }
-tgpImg.src = '/tgp.mjpg';
+if (!tgpTornDown) tgpImg.src = '/tgp.mjpg';
 tgpImg.addEventListener('error', function() {
   if (tgpTornDown) return;
   tgpPanel.classList.remove('has-feed');
@@ -31,7 +31,7 @@ tgpImg.addEventListener('error', function() {
 });
 
 // Explicitly stop page-owned work before iframe navigation; src='' can issue another request.
-window.addEventListener('pagehide', function () {
+function suspendTgp() {
   if (tgpTornDown) return;
   tgpTornDown = true;
   if (tgpRetryTimer) { clearTimeout(tgpRetryTimer); tgpRetryTimer = null; }
@@ -39,13 +39,21 @@ window.addEventListener('pagehide', function () {
   stopJoystickDrag();
   tgpImg.removeAttribute('src');
   ovBoxes.replaceChildren();
-});
-window.addEventListener('pageshow', function (e) {
-  // A restored document needs its stream and observer, but must not resume held input.
-  if (!e.persisted || !tgpTornDown) return;
+}
+window.addEventListener('pagehide', suspendTgp);
+function resumeTgp() {
+  if (!tgpTornDown) return;
   tgpTornDown = false;
   overlayObserver.observe(tgpPanel);
   tgpImg.src = '/tgp.mjpg';
+}
+window.addEventListener('hashchange', function () {
+  if (window.location.hash === '#cfg') suspendTgp();
+  else resumeTgp();
+});
+window.addEventListener('pageshow', function (e) {
+  // A restored document needs its stream and observer, but must not resume held input.
+  if (e.persisted && window.location.hash !== '#cfg') resumeTgp();
 });
 
 // Keeps the overlay's box pinned to the <img>'s real letterboxed content rect, not the panel's
@@ -72,7 +80,7 @@ function syncOverlayRect() {
 }
 tgpImg.addEventListener('load', syncOverlayRect);
 const overlayObserver = new ResizeObserver(syncOverlayRect);
-overlayObserver.observe(tgpPanel);
+if (!tgpTornDown) overlayObserver.observe(tgpPanel);
 
 // HQ-mode stat overlay (docs/tgp-high-quality-mode.md) — drawn from the shell's 'tgp' message.
 // Native mode already has this baked into the video for free, because Native captures the game's

@@ -50,6 +50,7 @@ global.document = {
   createElement() { return new Element('created'); },
 };
 global.window = {
+  location: { hash: '' },
   addEventListener(type, cb) { listeners[type] = cb; },
 };
 let observing = false;

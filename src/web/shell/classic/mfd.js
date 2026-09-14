@@ -212,7 +212,7 @@ const OPAQUE_PAGES = { main: true, lyt: true };
 // it doesn't host (see showPage/applySplitMode). Every other frame page (WPT, TGT, AVN, ...) has
 // no such resource, so leaving it loaded-but-hidden is both safe and cheaper — reusing it on
 // return, same as showFramePage()'s own `src !== url` guard already relies on.
-const STREAMING_FRAME_PAGES = { tgp: true };
+const STREAMING_FRAME_PAGES = { tgp: true, tgpcfg: true };
 let currentPage = 'map';
 
 // ── Split-screen state ──────────────────────────────────────────────────────────────
@@ -679,7 +679,7 @@ function paneNavigate(paneIdx, page) {
   if (page === 'avn')  paneAvnPage[paneIdx]  = 0;   // fresh pane always opens on the first 4 groups
   if (page === 'tgp')  paneTgpPage[paneIdx]  = 0;   // fresh pane always opens on TGP's first page
   paneFollowOn[paneIdx] = false;   // iframe reloads; follow restarts off (re-reported on load)
-  paneIframes[paneIdx].src = url;
+  LayoutPages.navigateFrame(paneIframes[paneIdx], url);
   renderSplitLabels();
   refreshFollowIndicator();        // entering/leaving MAP changes whether the chip shows
   reportSoiPage();                 // this pane's content changed — tell the server if it's now
@@ -1051,7 +1051,7 @@ function unloadIfStreaming(page) {
 // if either is missed.
 function showFramePage(name) {
   const url = frameUrlFor(name);
-  if (url && pageFrame.getAttribute('src') !== url) pageFrame.src = url;
+  if (url) LayoutPages.navigateFrame(pageFrame, url);
 }
 
 function forwardWpnToFrame() {

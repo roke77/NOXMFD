@@ -25,7 +25,7 @@ assert.ok(routed.size > 10, `found too few routes (${routed.size}) in TelemetryH
 for (const [layout, table] of [['classic-full', CLASSIC_FULL], ['classic-split', CLASSIC_SPLIT], ['f35', F35]]) {
   for (const [page, url] of Object.entries(table)) {
     if (url === null) continue;   // f35.main — no page to route
-    const base = url.split('?')[0];   // '/wpt?bare' → '/wpt': the server routes on path, not query
+    const base = url.split(/[?#]/)[0];   // Queries and fragments are not server paths.
     assert.ok(routed.has(base),
       `${layout}.${page} points at '${url}', but TelemetryHttpRouter.cs has no 'path == "${base}"' route — ` +
       `it would fall through to the catch-all and reload the whole shell instead of this page`);
