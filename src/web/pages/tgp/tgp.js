@@ -16,7 +16,7 @@ let tgpRetryCount = 0;
 let tgpRetryTimer = null;
 let tgpTornDown = false;   // set by pagehide below — stop reconnecting once this page is on its way out
 function scheduleTgpRetry() {
-  if (tgpRetryTimer) return;
+  if (tgpTornDown || tgpRetryTimer) return;
   tgpRetryTimer = setTimeout(function () {
     tgpRetryTimer = null;
     if (tgpTornDown) return;
@@ -30,14 +30,22 @@ tgpImg.addEventListener('error', function() {
   scheduleTgpRetry();
 });
 
-// A live MJPEG stream is the same class of problem TelemetrySource.disconnect() fixes for MAP
-// (issue #85): the connection keeps this whole document reachable past navigation, since more
-// multipart frames could still arrive on it. removeAttribute (not src='') aborts the in-flight
-// request immediately without issuing one more fetch of its own.
+// Explicitly stop page-owned work before iframe navigation; src='' can issue another request.
 window.addEventListener('pagehide', function () {
+  if (tgpTornDown) return;
   tgpTornDown = true;
   if (tgpRetryTimer) { clearTimeout(tgpRetryTimer); tgpRetryTimer = null; }
+  overlayObserver.disconnect();
+  stopJoystickDrag();
   tgpImg.removeAttribute('src');
+  ovBoxes.replaceChildren();
+});
+window.addEventListener('pageshow', function (e) {
+  // A restored document needs its stream and observer, but must not resume held input.
+  if (!e.persisted || !tgpTornDown) return;
+  tgpTornDown = false;
+  overlayObserver.observe(tgpPanel);
+  tgpImg.src = '/tgp.mjpg';
 });
 
 // Keeps the overlay's box pinned to the <img>'s real letterboxed content rect, not the panel's
@@ -48,6 +56,7 @@ window.addEventListener('pagehide', function () {
 // ResizeObserver re-derives the rect whenever the panel itself changes shape (split-pane resize,
 // orientation change, browser resize).
 function syncOverlayRect() {
+  if (tgpTornDown) return;
   const nw = tgpImg.naturalWidth, nh = tgpImg.naturalHeight;
   if (!nw || !nh) return;
   const pw = tgpPanel.clientWidth, ph = tgpPanel.clientHeight;
@@ -62,7 +71,8 @@ function syncOverlayRect() {
   tgpOverlay.style.height = h + 'px';
 }
 tgpImg.addEventListener('load', syncOverlayRect);
-new ResizeObserver(syncOverlayRect).observe(tgpPanel);
+const overlayObserver = new ResizeObserver(syncOverlayRect);
+overlayObserver.observe(tgpPanel);
 
 // HQ-mode stat overlay (docs/tgp-high-quality-mode.md) — drawn from the shell's 'tgp' message.
 // Native mode already has this baked into the video for free, because Native captures the game's
@@ -197,6 +207,7 @@ function renderBoxes(boxes) {
 }
 
 window.addEventListener('message', function(e) {
+  if (tgpTornDown) return;
   const m = e.data;
   if (!m || m.mfd !== true) return;
   if (m.type === 'tgp') {
@@ -248,6 +259,7 @@ let joystickKeepalive = null;
 let joystickX = 0, joystickY = 0;   // last SENT [-1,1] (post-sensitivity), resent on the keepalive tick
 
 function sendJoystickState() {
+  if (tgpTornDown && (joystickX !== 0 || joystickY !== 0)) return;
   sendCommand('cursor.set', { x: joystickX, y: joystickY }).catch(function () {});
 }
 
@@ -274,6 +286,7 @@ function resetJoystick() {
 }
 
 tgpJoystick.addEventListener('pointerdown', function (e) {
+  if (tgpTornDown) return;
   if (joystickPointerId !== null) return;   // one drag at a time
   joystickPointerId = e.pointerId;
   tgpJoystick.setPointerCapture(e.pointerId);
@@ -287,14 +300,22 @@ tgpJoystick.addEventListener('pointermove', function (e) {
 });
 function endJoystickDrag(e) {
   if (e.pointerId !== joystickPointerId) return;
+  stopJoystickDrag();
+}
+function stopJoystickDrag() {
+  if (joystickPointerId === null) return;
+  const pointerId = joystickPointerId;
   joystickPointerId = null;
   clearInterval(joystickKeepalive);
   joystickKeepalive = null;
+  if (tgpJoystick.hasPointerCapture(pointerId)) tgpJoystick.releasePointerCapture(pointerId);
   tgpJoystick.classList.remove('dragging');
   resetJoystick();
 }
 tgpJoystick.addEventListener('pointerup', endJoystickDrag);
 tgpJoystick.addEventListener('pointercancel', endJoystickDrag);
+tgpJoystick.addEventListener('lostpointercapture', endJoystickDrag);
+window.addEventListener('blur', stopJoystickDrag);
 
 // ── Auto-hide when physical PAD Cursor input is active ───────────────────────────────────────
 // The joystick and the physical PAD Cursor keys/axes both ultimately drive the same
@@ -333,4 +354,4 @@ function onShellCursorUpdate(x, y) {
 
 // Tapping the picture itself (not the joystick, which is already interactive on its own) is the
 // explicit "give it back to me" gesture the auto-hide above promises.
-tgpImg.addEventListener('pointerdown', function () { setJoystickHidden(false); });
+tgpImg.addEventListener('pointerdown', function () { if (!tgpTornDown) setJoystickHidden(false); });

@@ -31,6 +31,8 @@ class Element {
   // Fixed rect for the joystick tests below: center (140,140), radius 40.
   getBoundingClientRect() { return { left: 100, top: 100, width: 80, height: 80 }; }
   setPointerCapture() {}
+  hasPointerCapture() { return false; }
+  removeAttribute(name) { delete this[name]; }
 }
 
 const ids = [
@@ -50,9 +52,11 @@ global.document = {
 global.window = {
   addEventListener(type, cb) { listeners[type] = cb; },
 };
+let observing = false;
 global.ResizeObserver = class {
   constructor(cb) { this.cb = cb; }
-  observe() { this.cb(); }
+  observe() { observing = true; this.cb(); }
+  disconnect() { observing = false; }
 };
 
 // Fakes for the on-screen joystick's outbound command + keepalive timer, so the drag math below
@@ -216,4 +220,23 @@ listeners.message({ data: { mfd: true, action: 'cursor', x: 0.3, y: 0 } });
 assert.ok(elements['tgp-panel'].classList.contains('tgp-joystick-hidden'),
   'physical input after releasing our own drag hides the joystick again');
 
+pad.listeners.pointerdown({ pointerId: 4, clientX: 160, clientY: 140 });
+elements['tgp-img'].listeners.error();
+listeners.pagehide();
+assert.strictEqual(observing, false);
+assert.strictEqual(activeIntervalFn, null);
+assert.strictEqual(elements['tgp-img'].src, undefined);
+assert.deepStrictEqual(commandLog.at(-1).args, { x: 0, y: 0 });
+const stoppedCommands = commandLog.length;
+listeners.pagehide();
+pad.listeners.pointerdown({ pointerId: 5, clientX: 160, clientY: 140 });
+listeners.message({ data: { mfd: true, type: 'tgp', active: true } });
+assert.strictEqual(commandLog.length, stoppedCommands, 'teardown is idempotent and blocks new input');
+listeners.pageshow({ persisted: true });
+assert.strictEqual(observing, true);
+assert.strictEqual(elements['tgp-img'].src, '/tgp.mjpg');
+assert.strictEqual(activeIntervalFn, null, 'restoration never resumes held input');
+pad.listeners.pointerdown({ pointerId: 6, clientX: 160, clientY: 140 });
+listeners.blur();
+assert.strictEqual(activeIntervalFn, null, 'focus loss releases input');
 console.log('tgp.test.js: OK');

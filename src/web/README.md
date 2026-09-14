@@ -232,6 +232,12 @@ nothing else moves them without a game. Drive it with the Browser pane tools (`j
 probe/poke state, `computer` for clicks and screenshots, `read_console_messages` /
 `read_network_requests` for errors). Then confirm in-game on the next DLL build.
 
+## TGP lifecycle
+
+TGP releases its MJPEG source, retry timer, observer, and active joystick input on
+pagehide. Browser-history restoration reconnects without resuming held input.
+See `docs/tgp-lifecycle-investigation.md` for live-stream memory validation.
+
 ## Experimental MAP lifecycle
 
 On this branch, F-35 uses `services/telemetry-tap.html` through `/map-view?telemetry=1` for its
