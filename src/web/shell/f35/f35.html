@@ -20,12 +20,8 @@
 <body>
 
 <div class="pcd">
-  <!-- Telemetry tap. The MAP page owns the only EventSource('/stream') and posts the derived
-       per-page slices up to whatever shell hosts it, so EVERY layout has to embed it — even one
-       like this that never shows a map. Laid out full-size (opacity:0, not display:none) so the
-       iframe keeps ticking normally; the bezel shell keeps it running behind pages for the same
-       reason. -->
-  <iframe id="map-tap" src="/map-view?bare" title="telemetry"></iframe>
+  <!-- Transport has no visual resources and stays alive independently of portal navigation. -->
+  <iframe id="map-tap" src="/map-view?telemetry=1" title="telemetry"></iframe>
 
   <!-- Master strip: a fixed full-width bar across the top of the glass, the home for what belongs
        to the aircraft rather than to any one portal (docs/layouts.md). Left to right: the wordmark,

@@ -168,11 +168,12 @@ def _preview_asset_path(ref):
     return fp
 
 
-def _map_page():
+def _map_page(telemetry_only=False):
     """The MAP page (src/web/pages/map/map.html) with the mock (+ any capture) injected before
     </head>, so its EventSource('/stream') and /map,/icon,/weapon fetches resolve in the browser.
     Built fresh per request so edits to map.html / the mock show up on reload."""
-    html = (WEB / "pages" / "map" / "map.html").read_text(encoding="utf-8")
+    page = WEB / "services" / "telemetry-tap.html" if telemetry_only else WEB / "pages" / "map" / "map.html"
+    html = page.read_text(encoding="utf-8")
     mock = MOCK.read_text(encoding="utf-8").strip()
     injection = _capture_injection() + mock + "\n" + _wpt_seed_script()
     return html.replace("</head>", injection + "</head>", 1).encode("utf-8")
@@ -974,7 +975,7 @@ class H(http.server.SimpleHTTPRequestHandler):
             return self._send(_server_players(), 'application/json; charset=utf-8')
         if path == '/map-view':
             try:
-                return self._send(_map_page(), 'text/html; charset=utf-8')
+                return self._send(_map_page('telemetry=1' in self.path), 'text/html; charset=utf-8')
             except OSError as e:
                 return self.send_error(404, str(e))
         if path == '/wpt':

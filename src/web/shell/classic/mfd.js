@@ -347,6 +347,7 @@ function setSplit(variant) {
 }
 
 function applySplitMode() {
+  syncMapActivity();
   // Crossing the full<->split boundary changes what PIN/SWAP target (the single stack vs. the
   // top-right pane), so the two contexts never share a pin — start each side clean. Same-axis
   // and v<->vw reconfigs return early in setSplit and never reach here, so they keep their pin.
@@ -1675,9 +1676,16 @@ function placeOverlayLabel(bankName, keyIndex, label, action, mark, pending) {
 
 // Render a page: set the overlay background, (re)assign key actions, and position
 // each item label next to its physical key.
+function syncMapActivity() {
+  if (mapFrame.contentWindow)
+    mapFrame.contentWindow.postMessage({ mfd: true, action: 'map-active', on: !splitMode && currentPage === 'map' }, '*');
+}
+mapFrame.addEventListener('load', syncMapActivity);
+
 function showPage(name) {
   const previousPage = currentPage;
   currentPage = name;
+  syncMapActivity();
   overlayEl.classList.toggle('opaque', !!OPAQUE_PAGES[name]);
   // Stand the MAIN label up for pages with their own content in the top-left (TGT's RESET FILTER,
   // BDF's WARHEADS readout), so a horizontal label doesn't cover it. HUD clears the same corner a

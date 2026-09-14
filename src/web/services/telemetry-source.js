@@ -87,6 +87,7 @@ export class TelemetrySource {
   }
 
   connect() {
+    if (this._es) return;
     this._cid = instanceId();
     const es = this._es = new EventSource('/stream?cid=' + encodeURIComponent(this._cid));
     // The server answers with the id it actually filed us under. Normally that's the one just

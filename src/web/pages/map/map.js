@@ -5,6 +5,19 @@
 import { TelemetrySource, gridLabel } from '/assets/services/telemetry-source.js';
 import { createPadCursor } from '/assets/services/pad-cursor.js';
 
+let viewActive = true;
+let disposed = false;
+let resizeObserver = null;
+const animationFrames = new Set();
+function scheduleFrame(callback) {
+  if (!viewActive || disposed) return;
+  const id = requestAnimationFrame(() => {
+    animationFrames.delete(id);
+    if (viewActive && !disposed) callback();
+  });
+  animationFrames.add(id);
+}
+
 // ── State (declared first so callbacks never hit a temporal dead zone) ──────────
 let   lastData  = null;        // last rendered frame (the source hands it to renderFrame)
 let   mapMeta   = null;        // { w, h, ox, oy, rw, rh } — the view's copy, for worldToBase /
@@ -56,6 +69,7 @@ const WPT_REACHED_COLOR = '#a0a0a0';    // waypoints/segments already flown past
 const STEER_POINT_COLOR = '#39ff14';    // a non-active steer point — theme's --no-green, distinct from
                                          // WPT_LINE_COLOR's route-line teal since steer points aren't routes
 function refreshWaypointRoute() {
+  if (disposed) return;
   const data = WaypointsStore.load();
   waypointRoute = WaypointsStore.getActiveRoute();
   steerPoints = data.steerPoints || [];
@@ -178,9 +192,10 @@ function onCursorEdge(ex, ey, dt) {
 
 // ── Canvas geometry ──────────────────────────────────────────────────────────────
 function resizeOverlay() {
+  if (!viewActive || disposed) return;
   const panel = document.getElementById('map-panel');
-  overlay.width  = panel.clientWidth;
-  overlay.height = panel.clientHeight;
+  if (overlay.width !== panel.clientWidth) overlay.width = panel.clientWidth;
+  if (overlay.height !== panel.clientHeight) overlay.height = panel.clientHeight;
   clampPan();       // pan limits depend on canvas size; keep the view valid after a resize
   cursor.resize();  // same — the cursor's clamp rect shrank/grew too
   drawOverlay();
@@ -226,6 +241,7 @@ function clampPan() {
 // 404 the first time we ask — retry with backoff until it's ready (or give up after a while
 // for types that genuinely have no icon, leaving the square fallback).
 function ensureIconImage(type) {
+  if (!viewActive || disposed) return;
   if (!type) return;
   let e = iconImages[type];
   if (!e) e = iconImages[type] = { img: null, ready: false, pending: false, none: false, tries: 0, lastTry: 0 };
@@ -235,7 +251,9 @@ function ensureIconImage(type) {
 
   e.pending = true; e.tries++; e.lastTry = now;
   const img = new Image();
+  e.img = img;
   img.onload  = function() {
+    if (disposed) return;
     // 1×1 = the server's "no icon" sentinel (buildings etc.): stop asking, keep the square fallback.
     if (img.naturalWidth <= 1 && img.naturalHeight <= 1) { e.none = true; e.pending = false; return; }
     e.img = img; e.ready = true; e.pending = false; drawOverlay();
@@ -598,6 +616,7 @@ function drawSteerPoints() {
 
 // ── Drawing ──────────────────────────────────────────────────────────────────────
 function drawOverlay() {
+  if (!viewActive || disposed || !overlay.width || !overlay.height) return;
   oc.clearRect(0, 0, overlay.width, overlay.height);
   hitTargets.length = 0;
   navHitTargets.length = 0;
@@ -720,15 +739,15 @@ function drawOverlay() {
 
 // Drives the click-flash fade between telemetry frames (which only arrive ~10 Hz).
 let clickFlash = null;
-function pumpFlash() { if (!clickFlash) return; requestDraw(); requestAnimationFrame(pumpFlash); }
-function flashSelect(id) { clickFlash = { id: id, until: performance.now() + 450 }; requestAnimationFrame(pumpFlash); }
+function pumpFlash() { if (!clickFlash) return; requestDraw(); scheduleFrame(pumpFlash); }
+function flashSelect(id) { if (!viewActive || disposed) return; clickFlash = { id: id, until: performance.now() + 450 }; scheduleFrame(pumpFlash); }
 
 // Missiles flash faster than the data rate, so while any are inbound we redraw on a ~20 fps
 // timer (the sine reads performance.now(), so it stays smooth); it self-stops once the feed
 // clears or the mission ends. Timer-driven (like RwrPage) rather than a perpetual rAF loop.
 let threatTimer = null;
 function ensureThreatAnimation() {
-  const active = lastData && Array.isArray(lastData.mw) && lastData.mw.length;
+  const active = viewActive && !disposed && lastData && Array.isArray(lastData.mw) && lastData.mw.length;
   if (active && !threatTimer) {
     threatTimer = setInterval(function() {
       if (lastData && Array.isArray(lastData.mw) && lastData.mw.length) requestDraw();
@@ -751,16 +770,18 @@ let mapRetryTimer = null, mapRetries = 0;
 const MAP_MAX_RETRIES = 30;   // ~24 s at 800 ms — covers a slow capture, then gives up
 function setNoSignal(on) { document.getElementById('map-missing').style.display = on ? 'block' : 'none'; }
 mapImg.onerror = function() {
+  if (!viewActive || disposed) return;
   mapImg.classList.add('missing');
   if (!mapMeta) setNoSignal(true);   // no confirmed mission yet — a real "nothing to show" state
   if (mapMeta && !mapRetryTimer && mapRetries < MAP_MAX_RETRIES) {
     mapRetryTimer = setTimeout(function() {
       mapRetryTimer = null;
-      if (mapMeta) { mapRetries++; mapImg.src = '/map?t=' + Date.now(); }   // mission still active → try again
+      if (mapMeta && viewActive && !disposed) { mapRetries++; mapImg.src = '/map?t=' + Date.now(); }
     }, 800);
   }
 };
 mapImg.onload = function() {
+  if (disposed) return;
   if (mapRetryTimer) { clearTimeout(mapRetryTimer); mapRetryTimer = null; }
   mapRetries = 0;
   mapImg.classList.remove('missing');
@@ -772,9 +793,9 @@ mapImg.onload = function() {
 let mapWasValid = false;
 let drawPending = false;
 function requestDraw() {
-  if (drawPending) return;
+  if (drawPending || !viewActive || disposed) return;
   drawPending = true;
-  requestAnimationFrame(function() {
+  scheduleFrame(function() {
     drawPending = false;
     drawOverlay();
   });
@@ -783,7 +804,9 @@ function requestDraw() {
 // A real telemetry frame arrived — render the map + HUD. The provider slices were already derived
 // and posted up to the shell by the source; this is purely the local render.
 function renderFrame(d) {
+  if (disposed) return;
   lastData = d;
+  if (!viewActive) return;
   ensureIconImage(d.name);
   if (d.colors) {
     factionColors = { 0: d.colors.n, 1: d.colors.f, 2: d.colors.e };
@@ -826,6 +849,7 @@ function renderFrame(d) {
 // A no-mission ping. didEnd is true on the mission→no-mission transition, so wipe the view once;
 // every ping shows NO SIGNAL (idempotent).
 function handleNoMission(didEnd) {
+  if (disposed) return;
   if (didEnd) clearViewState();
   setNoSignal(true);
 }
@@ -938,8 +962,8 @@ function armLongPress(pointerId, clientX, clientY) {
   }, WPT_LONG_MS);
 }
 let wptFlash = null;   // brief confirmation ring at a just-placed/removed waypoint (screen px)
-function pumpWptFlash() { if (!wptFlash) return; requestDraw(); requestAnimationFrame(pumpWptFlash); }
-function flashWaypoint(cx, cy) { wptFlash = { cx: cx, cy: cy, until: performance.now() + 450 }; requestAnimationFrame(pumpWptFlash); }
+function pumpWptFlash() { if (!wptFlash) return; requestDraw(); scheduleFrame(pumpWptFlash); }
+function flashWaypoint(cx, cy) { if (!viewActive || disposed) return; wptFlash = { cx: cx, cy: cy, until: performance.now() + 450 }; scheduleFrame(pumpWptFlash); }
 
 // Nearest placed waypoint/steer point within reach of (px,py), or null — same "nearest in reach"
 // shape as selectAt below, against navHitTargets (drawWaypoints/drawSteerPoints) instead of
@@ -1184,6 +1208,11 @@ function zoomStep(factor) {
 window.addEventListener('message', function(e) {
   const m = e.data;
   if (!m || m.mfd !== true) return;
+  if (m.action === 'map-active' && e.source === window.parent) {
+    setViewActive(!!m.on);
+    return;
+  }
+  if (disposed) return;
   switch (m.action) {
     case 'toggle-follow': if (mapMeta) setFollow(!followPlayer); break;
     case 'toggle-grid':   setGrid(!gridOn); break;
@@ -1215,25 +1244,60 @@ window.addEventListener('message', function(e) {
 });
 
 // ── Init ──────────────────────────────────────────────────────────────────────────
-// Size the canvas to its panel. This module is deferred (type="module"), so init can run while
-// the shell's power-on boot still has the recess mid-layout (panel width 0). Retry on the next
-// frame until the panel has a real width, so the first sizing isn't stuck on a transient 0 — the
-// ResizeObserver below handles every later change.
-function syncSizeWhenReady() {
-  resizeOverlay();
-  if (document.getElementById('map-panel').clientWidth === 0) requestAnimationFrame(syncSizeWhenReady);
-}
+// ResizeObserver handles a zero-sized panel becoming visible without a polling animation.
+function syncSizeWhenReady() { resizeOverlay(); }
 loadPersistedView();       // adopt the persisted FLW + ZOOM + GRID (or the defaults) before the first paint
 refreshWaypointRoute();    // load the active route (issue #38) before the first paint
 syncSizeWhenReady();
 setFollow(followPlayer);    // report the restored follow up to the shell (paints the FOLLOW chip)
 setGrid(gridOn);            // report the restored grid state up to the shell (paints the GRID label)
 source.connect();   // open /stream now that the renderer + interaction handlers are wired
-// Every MAP visit — the hidden tap and any portal/pane showing MAP alike — opens its own
-// EventSource (see TelemetrySource.connect's own doc comment). A live one keeps this whole
-// document alive even after the shell navigates this iframe away, so it must be closed explicitly
-// (issue #85) rather than left for navigation to clean up implicitly.
-window.addEventListener('pagehide', function () { source.disconnect(); });
+// Classic full view retains its telemetry connection while rendering is suspended.
+// Replaced documents release both transport and rendering resources.
+function setViewActive(on) {
+  if (disposed || viewActive === on) return;
+  viewActive = on;
+  if (!on) {
+    animationFrames.forEach(cancelAnimationFrame);
+    animationFrames.clear();
+    drawPending = false;
+    clickFlash = null; wptFlash = null;
+    clearLongPress(); pointers.clear(); cursor.reset();
+    if (mapRetryTimer) { clearTimeout(mapRetryTimer); mapRetryTimer = null; }
+    ensureThreatAnimation();
+  } else {
+    resizeOverlay();
+    if (lastData) renderFrame(lastData);
+    if (mapMeta && mapImg.classList.contains('missing')) mapImg.onerror();
+  }
+}
+
+function disposeMap() {
+  if (disposed) return;
+  setViewActive(false);
+  disposed = true;
+  source.disconnect();
+  if (resizeObserver) resizeObserver.disconnect();
+  window.removeEventListener('resize', resizeOverlay);
+  mapImg.onload = mapImg.onerror = null;
+  mapImg.removeAttribute('src');
+  overlay.width = overlay.height = 0;
+  for (const key of Object.keys(iconImages)) {
+    const img = iconImages[key].img;
+    if (img) { img.onload = img.onerror = null; img.removeAttribute('src'); }
+    delete iconImages[key];
+  }
+  for (const key of Object.keys(iconTints)) {
+    iconTints[key].cv.width = iconTints[key].cv.height = 0;
+    delete iconTints[key];
+  }
+  lastData = mapMeta = waypointRoute = null;
+  steerPoints = []; hitTargets = []; navHitTargets = [];
+  pendingSel.clear();
+}
+window.addEventListener('pagehide', disposeMap);
+// A restored document needs fresh image callbacks and transport after full disposal.
+window.addEventListener('pageshow', (e) => { if (e.persisted) window.location.reload(); });
 
 // Keep the canvas sized to its panel. A ResizeObserver — not just window 'resize' — is essential:
 // in split mode the shell sets this map iframe to display:none, so #map-panel collapses to 0×0
@@ -1242,7 +1306,8 @@ window.addEventListener('pagehide', function () { source.disconnect(); });
 // map renders black until a manual reload. Observing the panel catches that 0→N transition and
 // re-sizes + redraws. (resizeOverlay is idempotent; the observer subsumes the window listener.)
 if (window.ResizeObserver) {
-  new ResizeObserver(resizeOverlay).observe(document.getElementById('map-panel'));
+  resizeObserver = new ResizeObserver(resizeOverlay);
+  resizeObserver.observe(document.getElementById('map-panel'));
 } else {
   window.addEventListener('resize', resizeOverlay);
 }

@@ -231,3 +231,12 @@ map-tap and both shells), and serves `/config` + captured assets. The mock also 
 nothing else moves them without a game. Drive it with the Browser pane tools (`javascript_tool` to
 probe/poke state, `computer` for clicks and screenshots, `read_console_messages` /
 `read_network_requests` for errors). Then confirm in-game on the next DLL build.
+
+## Experimental MAP lifecycle
+
+On this branch, F-35 uses `services/telemetry-tap.html` through `/map-view?telemetry=1` for its
+permanent transport. This document has no renderer. Classic retains its MAP transport and sends
+`map-active` to suspend rendering outside full-view MAP. MAP disposes render resources on page exit;
+visible MAP panes still own their own connections. See `docs/map-lifecycle-experiment.md` for
+the experiment boundary and validation. The architecture description above describes the baseline
+except where this section supersedes it.

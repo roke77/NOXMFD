@@ -68,7 +68,8 @@ namespace NOXMFD
             else if (path.StartsWith("/assets/", StringComparison.Ordinal))
                 TelemetryAssets.ServeAsset(ctx, path);
             else if (path == "/map-view")
-                TelemetryAssets.ServeAssetRel(ctx, "pages/map/map.html");
+                TelemetryAssets.ServeAssetRel(ctx, ctx.Request.QueryString["telemetry"] == "1"
+                    ? "services/telemetry-tap.html" : "pages/map/map.html");
             else if (path == "/main")
                 TelemetryAssets.ServeAssetRel(ctx, "pages/main/main.html");
             else if (path == "/avn")
