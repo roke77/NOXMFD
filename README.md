@@ -176,7 +176,7 @@ Other Nuclear Option mods whose approaches informed NO XMFD's own concepts and f
 
 Other Nuclear Option mods from the same author:
 
-- **[NOCCC](https://github.com/roke77/NOCCC)**
+- **[NOCCC](https://github.com/roke77/NOCCC)** — hides the flight HUD and the cockpit interior.
 - **[NOSDA](https://github.com/roke77/NOSDA)** — plays a sound and shows a banner when a player is shot down or crashes.
 
 ## License
