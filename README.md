@@ -22,6 +22,7 @@ any web browser, on the same PC or on another device on the same network.
 - [Extensions](#extensions)
 - [Security & privacy](#security--privacy)
 - [Credits](#credits)
+- [Other mods](#other-mods)
 - [License](#license)
 
 ## Requirements
@@ -147,6 +148,11 @@ conflict.
 NO XMFD supports third-party extensions that add their own MFD pages — see [man/ext.md](man/ext.md)
 for how they show up in-app, and [EXTENSIONS.md](EXTENSIONS.md) for the full guide to building one.
 
+Known extensions:
+
+- **[Remote Control Missile Camera](https://github.com/roke77/NOXMFD-Extension-Remote-Control-Missile-Camera)** — a Remote Control Missile Camera page for NOXMFD.
+- **[Vanilla Icons Plus](https://github.com/roke77/NOXMFD-Extension-Vanilla-Icons-Plus)** — mirrors NO-VanillaIconsPLUS's unit colors onto NOXMFD's MAP page.
+
 ## Security & privacy
 
 NO XMFD is open source and collects nothing. Most of it runs entirely on your machine and local
@@ -165,6 +171,13 @@ Other Nuclear Option mods whose approaches informed NO XMFD's own concepts and f
 
 - **[NOBlackBox](https://github.com/KopterBuzz/NOBlackBox)**
 - **[MFDCustomizer](https://github.com/9138noms/MFDCustomizer)**
+
+## Other mods
+
+Other Nuclear Option mods from the same author:
+
+- **[NOCCC](https://github.com/roke77/NOCCC)**
+- **[NOSDA](https://github.com/roke77/NOSDA)** — plays a sound and shows a banner when a player is shot down or crashes.
 
 ## License
 
