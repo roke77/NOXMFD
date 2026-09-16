@@ -1,6 +1,7 @@
 # MAP — CFG
 
-[MAP](map.md)'s own settings page, reached from MAP's CFG key. Two live-adjustable sliders.
+[MAP](map.md)'s own settings page, reached from MAP's CFG key. Two live-adjustable sliders and a
+toggle.
 
 ## TLM
 
@@ -15,6 +16,12 @@ The [MAP](map.md)/[RDR](rdr.md)/HSD contact and pitbull-missile refresh rate, sp
 full contact lists cost more per tick than own-ship state does. Defaults to 4 Hz. Same
 cost/smoothness tradeoff as TLM, and changes apply immediately and persist the same way.
 
+## SHOW PLAYER NAMES
+
+When ON, shows a pilot name label above every player-controlled aircraft on [MAP](map.md) —
+friendly and enemy alike, wherever it's already visible as a contact. AI-flown aircraft never get
+a label. Off by default; persists across restarts like the sliders above.
+
 ## RESET TO DEFAULT
 
-Restores TLM to 10 Hz and CONTACTS to 4 Hz.
+Restores TLM to 10 Hz, CONTACTS to 4 Hz, and SHOW PLAYER NAMES to off.

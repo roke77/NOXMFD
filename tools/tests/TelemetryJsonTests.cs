@@ -69,6 +69,20 @@ namespace NOXMFD.Tests
             Assert.False((bool)Root(imperial)["metric"]!);
         }
 
+        // Top-level for the same reason as "metric" above — MAP CFG's "SHOW PLAYER NAMES" toggle is
+        // a purely client-side render decision that has to reach MAP live from any pane/browser.
+        [Fact]
+        public void ShowPlayerNames_flag_is_exposed_top_level()
+        {
+            var on = default(TelemetrySnapshot);
+            on.MapShowPlayerNames = true;
+            Assert.True((bool)Root(on)["showPlayerNames"]!);
+
+            var off = default(TelemetrySnapshot);
+            off.MapShowPlayerNames = false;
+            Assert.False((bool)Root(off)["showPlayerNames"]!);
+        }
+
         [Fact]
         public void Tgp_manual_state_round_trips_as_top_level_flag()
         {
@@ -163,6 +177,7 @@ namespace NOXMFD.Tests
                     Id = 42, Type = "F-14 \"Tomcat\"", X = 100.3f, Z = -50.5f, Heading = 90f,
                     Faction = 2, Orient = true, Scale = 1.5f, Targeted = true,
                     Jammed = true, JammedBy = 7, Datalink = true, Stale = true, SquadMember = true,
+                    PilotName = "Bandit \"Ace\" 1-1",
                 },
             };
             var contact = Obj(Arr(Root(s)["contacts"])[0]);
@@ -179,6 +194,16 @@ namespace NOXMFD.Tests
             Assert.Equal(1.0, contact["dl"]);
             Assert.Equal(1.0, contact["st"]);
             Assert.Equal(1.0, contact["sq"]);
+            Assert.Equal("Bandit \"Ace\" 1-1", contact["pn"]);
+        }
+
+        [Fact]
+        public void Unit_contact_pilot_name_defaults_empty_for_an_unpiloted_unit()
+        {
+            var s = default(TelemetrySnapshot);
+            s.Units = new[] { new UnitInfo { Id = 1, Type = "F-16C" } };
+            var contact = Obj(Arr(Root(s)["contacts"])[0]);
+            Assert.Equal("", contact["pn"]);
         }
 
         [Fact]

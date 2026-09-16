@@ -30,7 +30,7 @@ namespace NOXMFD
                                 // wpt.* : route/waypoint/steer-point display name
                                 // preset.save / preset.rename : preset name
                                 // rates.set TGP resolution/quality groups: their stable wire names
-                                // rates.set (group "tgpSuppressNative") : "on" | anything else
+                                // rates.set (group "tgpSuppressNative" / "mapShowPlayerNames") : "on" | anything else
                                 // soi.page : the page name the reported pane is showing
         public string? group;  // tgt.set / tgt.only : "faction" | "category" | "vehicle"
                                 // combat-mode.set : "all" | "aa" | "ag"
@@ -118,6 +118,7 @@ namespace NOXMFD
                     else if (e.group == "tgpResolution" || e.group == "tgpQuality") RatesConfig.SetTgpResolution(e.wname ?? "native");
                     else if (e.group == "tgpJpegQuality") RatesConfig.SetTgpJpegQuality(e.wname ?? "mid");
                     else if (e.group == "tgpSuppressNative") RatesConfig.SetTgpSuppressNative(e.wname == "on" || e.on);
+                    else if (e.group == "mapShowPlayerNames") RatesConfig.SetMapShowPlayerNames(e.wname == "on" || e.on);
                     else RatesConfig.SetFastHz(e.hz);
                 } },
                 { "master-arms.set", e => ImmersionState.MasterArmsOn = e.on },

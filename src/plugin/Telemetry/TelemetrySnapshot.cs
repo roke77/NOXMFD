@@ -252,6 +252,12 @@ namespace NOXMFD
         // (issue #84) for pages like OBJ that need it without an RDR/HSD dependency.
         public bool RdrMetric;
 
+        // MAP CFG's "SHOW PLAYER NAMES" toggle (RatesConfig.MapShowPlayerNames) — top-level for the
+        // same reason as RdrMetric: a purely client-side render decision that has to reach MAP live,
+        // including a change made from a different pane/browser, so it rides the frame like metric
+        // does rather than requiring MAP to poll /rates-config itself.
+        public bool MapShowPlayerNames;
+
         // Time.timeSinceLevelLoad — the exact clock the game's own internal MFD radar sweep
         // (TacScreen.ScanRadar: scanLine rotation = sin(t * 0.5 * PI) * 26deg, a 4s period) is
         // driven by. RDR's sweep caret phase-locks to it on its first "radar just turned on" tick,
@@ -547,5 +553,12 @@ namespace NOXMFD
         // own plane (which isn't in this array at all — MAP draws it via a separate own-ship path).
         // MAP renders it in the squad's teal instead of its plain faction color.
         public bool   SquadMember;
+
+        // The controlling pilot's display name, for any faction — Aircraft.pilots[0].player.Get-
+        // DisplayName, the same call TgpOverlay already uses for a locked target's pilot readout, so
+        // it's already known to work on enemy aircraft too (no faction gate on this data). Empty for
+        // an AI-flown aircraft (no pilot) or a non-aircraft unit, which is what lets MAP tell a
+        // player-controlled aircraft apart from AI without a separate flag.
+        public string PilotName;
     }
 }

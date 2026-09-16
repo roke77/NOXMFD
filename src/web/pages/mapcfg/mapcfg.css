@@ -129,6 +129,33 @@ html::-webkit-scrollbar-thumb { background: var(--no-gray); border-radius: 3px; 
   color: var(--no-amber);
 }
 
+#mcfg-show-player-names {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.mcfg-setting-text { flex: 1; }
+.mcfg-toggle {
+  flex: none;
+  margin-top: 0;
+  min-width: 72px;
+  padding: 8px 12px;
+  border: 1px solid var(--no-green-dim);
+  background: none;
+  color: var(--no-green-dim);
+  font-family: var(--no-font);
+  font-size: 11px;
+  letter-spacing: 1px;
+  cursor: pointer;
+}
+.mcfg-toggle:hover { border-color: var(--no-green); color: var(--no-green); }
+.mcfg-toggle.on {
+  border-color: var(--no-green);
+  color: var(--no-panel-bg);
+  background: var(--no-green);
+}
+.mcfg-toggle.on:hover { color: var(--no-panel-bg); }
+
 #mcfg-empty { display: none; }
 .mcfg-panel.unavailable .mcfg-setting { display: none; }
 .mcfg-panel.unavailable #mcfg-empty { display: block; }

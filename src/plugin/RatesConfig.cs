@@ -27,6 +27,7 @@ namespace NOXMFD
         private static ConfigEntry<string>? _tgpQuality;
         private static ConfigEntry<string>? _tgpJpegQuality;
         private static ConfigEntry<bool>?   _tgpSuppressNative;
+        private static ConfigEntry<bool>?   _mapShowPlayerNames;
 
         public static float FastHz    => _fastHz?.Value    ?? 10f;
         public static float ContactHz => _contactHz?.Value ?? 4f;
@@ -38,6 +39,7 @@ namespace NOXMFD
         public static string TgpLegacyQualityName =>
             TgpFeedSettings.LegacyQualityName(TgpFeedSettings.ParseResolution(TgpResolutionName));
         public static bool TgpSuppressNative => _tgpSuppressNative?.Value ?? false;
+        public static bool MapShowPlayerNames => _mapShowPlayerNames?.Value ?? false;
 
         public static void SetFastHz(float hz)
         {
@@ -81,6 +83,11 @@ namespace NOXMFD
             Plugin.Log?.LogInfo($"[NOXMFD] TGP cockpit feed hide = {on}.");
         }
 
+        public static void SetMapShowPlayerNames(bool on)
+        {
+            if (_mapShowPlayerNames != null) _mapShowPlayerNames.Value = on;
+        }
+
         // Applies the persisted (or default) Hz to the reader/feed immediately on bind.
         public static void Bind(ConfigFile config)
         {
@@ -97,6 +104,8 @@ namespace NOXMFD
                 new ConfigDescription("TGP JPEG quality: low, mid, or high.", null, Hidden));
             _tgpSuppressNative = config.Bind(section, "TgpSuppressNative", false,
                 new ConfigDescription("When the TGP feed is active, hide the native in-cockpit TGP overlay so the normal cockpit display remains visible.", null, Hidden));
+            _mapShowPlayerNames = config.Bind(section, "MapShowPlayerNames", false,
+                new ConfigDescription("Show a pilot name label above player-controlled aircraft on MAP.", null, Hidden));
 
             SetFastHz(_fastHz.Value);
             SetContactHz(_contactHz.Value);
@@ -104,6 +113,7 @@ namespace NOXMFD
             SetTgpResolution(_tgpQuality.Value);
             SetTgpJpegQuality(_tgpJpegQuality.Value);
             SetTgpSuppressNative(_tgpSuppressNative.Value);
+            SetMapShowPlayerNames(_mapShowPlayerNames.Value);
         }
     }
 }

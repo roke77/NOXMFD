@@ -670,6 +670,17 @@ function drawOverlay() {
       if (u.st) oc.globalAlpha = 1;
       if (u.tg) { drawTargetBox(p.cx, p.cy, r + 4); pendingSel.delete(u.id); }   // telemetry confirms selection
       if (u.jm) drawJamGlyph(p.cx, p.cy, r);
+      // Pilot name label, gated by MAP CFG's "SHOW PLAYER NAMES" toggle, and only for a unit that
+      // actually has a pilot — u.pn is already empty for an AI-flown aircraft (TelemetryReader.
+      // BuildUnits), so no separate friend/foe or player/AI check is needed here.
+      if (lastData.showPlayerNames && u.pn) {
+        oc.font = '13px "Courier New", monospace';
+        oc.textAlign = 'center';
+        oc.textBaseline = 'bottom';
+        oc.fillStyle = hex;
+        oc.fillText(u.pn, p.cx, p.cy - r - 4);
+        oc.textAlign = 'left';
+      }
       hitTargets.push({ cx: p.cx, cy: p.cy, r: r + HIT_PAD, label: u.t, color: hex, id: u.id, tg: !!u.tg });
     }
   }

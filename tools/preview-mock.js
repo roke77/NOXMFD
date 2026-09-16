@@ -194,10 +194,14 @@
     // another contact (a line to the SAM, id 205); id 204 shows jm with an unresolved jb (888 —
     // no such contact), exercising the icon-only fallback with no line.
     playerId: 999, pjm: true, pjb: 205,   // player jammed by the SAM too
+    // MAP CFG's "SHOW PLAYER NAMES" toggle (docs comment on UnitInfo.PilotName): id 202 (friendly)
+    // and id 203 (enemy) carry a `pn` so the preview exercises the label on both factions; the rest
+    // are left AI-flown (no pn) to also exercise the no-label case.
+    showPlayerNames: true,
     contacts: [
       { id: 201, t: 'Airbase', f: 1, x: -8000,  z: 12000,  h: 0,   o: false, s: 1 },
-      { id: 202, t: 'F18',     f: 1, x: 3000,   z: 4000,   h: 60,  o: true,  s: 1 },
-      { id: 203, t: 'Su57',    f: 2, x: 16000,  z: -9000,  h: 220, o: true,  s: 1, jm: true, jb: 205 },
+      { id: 202, t: 'F18',     f: 1, x: 3000,   z: 4000,   h: 60,  o: true,  s: 1, pn: 'Roke' },
+      { id: 203, t: 'Su57',    f: 2, x: 16000,  z: -9000,  h: 220, o: true,  s: 1, jm: true, jb: 205, pn: 'Ivanov' },
       { id: 204, t: 'Su57',    f: 2, x: 19000,  z: -6000,  h: 205, o: true,  s: 1, jm: true, jb: 888 },
       { id: 205, t: 'SAM',     f: 2, x: -2000,  z: -15000, h: 0,   o: false, s: 1 },
       { id: 206, t: 'Vessel',  f: 0, x: -14000, z: -4000,  h: 0,   o: false, s: 1 },

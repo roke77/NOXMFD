@@ -219,10 +219,11 @@ namespace NOXMFD
             try
             {
                 string json = string.Format(CultureInfo.InvariantCulture,
-                    "{{\"fastHz\":{0},\"contactHz\":{1},\"tgpHz\":{2},\"tgpResolution\":\"{3}\",\"tgpJpegQuality\":\"{4}\",\"tgpQuality\":\"{5}\",\"tgpSuppressNative\":{6}}}",
+                    "{{\"fastHz\":{0},\"contactHz\":{1},\"tgpHz\":{2},\"tgpResolution\":\"{3}\",\"tgpJpegQuality\":\"{4}\",\"tgpQuality\":\"{5}\",\"tgpSuppressNative\":{6},\"mapShowPlayerNames\":{7}}}",
                     RatesConfig.FastHz, RatesConfig.ContactHz, RatesConfig.TgpHz, RatesConfig.TgpResolutionName,
                     RatesConfig.TgpJpegQualityName, RatesConfig.TgpLegacyQualityName,
-                    RatesConfig.TgpSuppressNative ? "true" : "false");
+                    RatesConfig.TgpSuppressNative ? "true" : "false",
+                    RatesConfig.MapShowPlayerNames ? "true" : "false");
                 TelemetryServer.WriteJson(ctx, json, "/rates-config");
             }
             catch (Exception ex) { TelemetryServer.LogHttpFailure(ctx, "/rates-config", ex); }

@@ -3,7 +3,9 @@
 Full-screen tactical map showing friendly/hostile units and your own position. Click a unit to
 target it. Your own plane always renders green; while you're in a [squad](sqd.md), every other
 squad member's plane renders in the squad's teal instead of its plain friendly/hostile color, so
-you can spot them at a glance.
+you can spot them at a glance. [MAP CFG](mapcfg.md)'s SHOW PLAYER NAMES toggle adds a pilot name
+label above any player-controlled aircraft — friendly or enemy — wherever it's visible as a
+contact; off by default.
 
 ![MAP page](images/MAP.png)
 
@@ -11,7 +13,7 @@ you can spot them at a glance.
 
 - **FLW** — toggle follow: recenter the map on your own position as you fly, instead of staying
   wherever you last panned it.
-- **CFG** — open [MAP's own settings page](mapcfg.md) (the telemetry refresh rate).
+- **CFG** — open [MAP's own settings page](mapcfg.md) (telemetry refresh rate, pilot name labels).
 - **GRID** — toggle a coordinate grid overlay on the map. Off by default.
 - **Z+ / Z−** — zoom in / out.
 - **WPT** — open the [route and steer-point editor](wpt.md).

@@ -395,7 +395,8 @@ def _rates_config():
         "tgpResolution": "native",
         "tgpJpegQuality": "mid",
         "tgpQuality": "native",
-        "tgpSuppressNative": False
+        "tgpSuppressNative": False,
+        "mapShowPlayerNames": False
     }).encode("utf-8")
 
 
@@ -410,7 +411,8 @@ def _rates_config_merged():
         "tgpResolution": "native",
         "tgpJpegQuality": "mid",
         "tgpQuality": "native",
-        "tgpSuppressNative": False
+        "tgpSuppressNative": False,
+        "mapShowPlayerNames": False
     }
     merged.update(val)
     return json.dumps(merged).encode("utf-8")

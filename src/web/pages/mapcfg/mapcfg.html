@@ -5,18 +5,20 @@
 <title>NO XMFD — MAP CFG</title>
 <!--
   MAP's own CFG page, served at /mapcfg. Reached from MAP's own nav row (nav-model.js's NAV.map),
-  not MD/CFG's MAIN-rooted sibling groups — same reasoning as WPT. Two sliders:
+  not MD/CFG's MAIN-rooted sibling groups — same reasoning as WPT. Two sliders plus a toggle:
     TLM      — the main 10 Hz telemetry tick (own-ship, weapons, RWR/MW, TGT, BDF/PAL, and MAP
                itself — everything else on TelemetrySnapshot rides this one tick,
                TelemetryReader.cs's FastInterval).
     CONTACTS — the 4 Hz MAP/RDR/HSD contact + pitbull refresh, split off TLM (docs/performance.md
                item #4) since full contact lists don't need to rebuild as often as own-ship state.
                TelemetryReader.cs's ContactInterval.
+    SHOW PLAYER NAMES — a pilot name label above player-controlled aircraft on MAP itself
+               (RatesConfig.MapShowPlayerNames); off by default.
   TGP's own feed-rate/quality settings live on their own CFG page instead (/tgpcfg) — each page
   only carries the setting relevant to it.
-  Fetch-driven like /keybinds: reads /rates-config once on load to set the slider position, then
-  POSTs rates.set (send-command.js -> CommandDispatcher) on every slider move, same
-  optimistic-update pattern keybinds.js uses for its toggles.
+  Fetch-driven like /keybinds: reads /rates-config once on load to set the slider position and
+  toggle state, then POSTs rates.set (send-command.js -> CommandDispatcher) on every slider move
+  or toggle click, same optimistic-update pattern keybinds.js uses for its toggles.
 -->
 <link rel="stylesheet" href="/assets/shared/font.css">
 <link rel="stylesheet" href="/assets/shared/theme.css">
@@ -28,7 +30,7 @@
   <!-- Way back to the display when opened standalone; hidden when embedded in a shell (classic
        #page-frame or an F-35 portal) — same check keybinds.js uses (window.parent !== window). -->
   <a class="mcfg-back" href="/map-view">&lt; MAP</a>
-  <div class="mcfg-title">MAP — REFRESH RATE</div>
+  <div class="mcfg-title">MAP — CONFIGURATION</div>
   <div class="mcfg-warning">Higher rates cost more CPU / bandwidth; lower rates save it at the cost
     of smoothness and latency. Changes apply immediately and persist across restarts.</div>
   <button class="mcfg-reset" id="mcfg-reset">RESET TO DEFAULT</button>
@@ -62,6 +64,16 @@
       </div>
       <span class="mcfg-val" id="mcfg-contact-val">4 Hz</span>
     </div>
+  </div>
+
+  <div class="mcfg-setting" id="mcfg-show-player-names">
+    <div class="mcfg-setting-text">
+      <div class="mcfg-name">SHOW PLAYER NAMES</div>
+      <div class="mcfg-desc">When ON, show a pilot name label above every player-controlled aircraft
+        on MAP — friendly and enemy alike, wherever it's already visible as a contact. AI-flown
+        aircraft never get a label. OFF by default.</div>
+    </div>
+    <button class="mcfg-toggle" id="mcfg-show-player-names-btn">OFF</button>
   </div>
 
   <!-- shown while /rates-config is unreachable (plugin not running) -->

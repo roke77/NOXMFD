@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using NuclearOption.Networking;
 using NuclearOption.SavedMission;
 using UnityEngine;
 
@@ -938,6 +939,7 @@ namespace NOXMFD
                 HsdRangeIdx    = HsdViewState.RangeIdx,
                 Pitbull        = _cachedPitbull,
                 RdrMetric      = rdrMetric,
+                MapShowPlayerNames = RatesConfig.MapShowPlayerNames,
                 RdrLevelTime   = rdrLevelTime,
                 TgtPresent     = tgtOk,
                 TgtLaser       = tgtOk && tgtSel != null && tgtSel.toggleLaser      != null && tgtSel.toggleLaser.status,
@@ -1607,6 +1609,12 @@ namespace NOXMFD
                 // See docs/tgt-stale-lock.md.
                 bool stale = datalink && !playerHQ.IsTargetPositionAccurate(u, 20f);
 
+                // Same Aircraft.pilots[0].player read TgpOverlay uses for a locked target's pilot
+                // readout — works for either faction, and naturally empty for an AI-flown aircraft.
+                string pilotName = string.Empty;
+                if (u is Aircraft ac && ac.pilots.Length > 0 && ac.pilots[0].player != null)
+                    pilotName = ac.pilots[0].player.GetDisplayName(PlayerNameContext.Other) ?? string.Empty;
+
                 _unitBuf.Add(new UnitInfo
                 {
                     Id       = u.persistentID.Id,
@@ -1622,7 +1630,8 @@ namespace NOXMFD
                     JammedBy = jammedBy,
                     Datalink = datalink,
                     Stale    = stale,
-                    SquadMember = PlayerRoster.IsSquadAircraft(u.persistentID.Id)
+                    SquadMember = PlayerRoster.IsSquadAircraft(u.persistentID.Id),
+                    PilotName = pilotName
                 });
             }
             return _unitBuf.ToArray();

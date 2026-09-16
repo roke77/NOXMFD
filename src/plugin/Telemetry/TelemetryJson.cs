@@ -66,6 +66,9 @@ namespace NOXMFD
             // HSD being present. RdrBlock/HsdBlock keep their own nested "metric" copies of this
             // same s.RdrMetric value unchanged, to avoid touching their already-working wire shape.
             sb.Append("\"metric\":").Append(JsonBool(s.RdrMetric)).Append(',');
+            // MAP CFG's "SHOW PLAYER NAMES" toggle (TelemetrySnapshot.MapShowPlayerNames) — top-level
+            // for the same reason as metric above.
+            sb.Append("\"showPlayerNames\":").Append(JsonBool(s.MapShowPlayerNames)).Append(',');
             // weaponManager.GetTargetList()'s own order (TargetFocus.cs) — lets TGT sort its own
             // selected-target list to match, so it visibly walks in the same order Next/Previous
             // steps focus through, rather than the list's own (unrelated) contact-scan order.
@@ -526,7 +529,7 @@ namespace NOXMFD
                 UnitInfo u = units[i];
                 if (i > 0) sb.Append(',');
                 sb.AppendFormat(CultureInfo.InvariantCulture,
-                    "{{\"id\":{8},\"t\":\"{0}\",\"x\":{1:0.0},\"z\":{2:0.0},\"h\":{3:0.0},\"f\":{4},\"o\":{5},\"s\":{6:0.000},\"tg\":{7},\"jm\":{9},\"jb\":{10},\"dl\":{11},\"st\":{12},\"sq\":{13}}}",
+                    "{{\"id\":{8},\"t\":\"{0}\",\"x\":{1:0.0},\"z\":{2:0.0},\"h\":{3:0.0},\"f\":{4},\"o\":{5},\"s\":{6:0.000},\"tg\":{7},\"jm\":{9},\"jb\":{10},\"dl\":{11},\"st\":{12},\"sq\":{13},\"pn\":\"{14}\"}}",
                     JsonLite.EscapeJson(u.Type ?? string.Empty),
                     u.X, u.Z, u.Heading, u.Faction,
                     u.Orient ? "true" : "false", u.Scale,
@@ -536,7 +539,8 @@ namespace NOXMFD
                     u.JammedBy,
                     u.Datalink ? 1 : 0,
                     u.Stale ? 1 : 0,
-                    u.SquadMember ? 1 : 0);
+                    u.SquadMember ? 1 : 0,
+                    JsonLite.EscapeJson(u.PilotName ?? string.Empty));
             }
             return sb.Append(']').ToString();
         }
