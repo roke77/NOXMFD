@@ -14,8 +14,9 @@ MAP rendering lifetime. It does not establish the cause of reported cumulative b
 - `pagehide` additionally closes transport, disconnects the resize observer, removes image sources
   and callbacks, zeroes canvas backing stores, and clears render caches. A BFCache restoration
   reloads the disposed document. Resizing assigns canvas dimensions only when they change.
-- Visible MAP panes still own independent telemetry sources. Moving those to one shell-owned
-  connection is a separate experiment because it changes MAP data forwarding and input ownership.
+- Visible MAP panes used to own independent telemetry sources; see
+  `docs/mfd-shared-telemetry-connection.md` — they now render from the shell's relayed frames
+  instead of opening their own connection.
 
 ## Verification
 

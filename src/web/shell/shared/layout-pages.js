@@ -52,7 +52,10 @@
   // paneNavigate rejects that sentinel before it changes the current pane.
   const CLASSIC_SPLIT = {
     main: '/main?bare',
-    map:  '/map-view?bare',
+    // relay=1: this pane never opens its own /stream — it renders from the shell-relayed
+    // 'map-frame' messages the always-on mapFrame's connection already produces
+    // (docs/mfd-shared-telemetry-connection.md).
+    map:  '/map-view?bare&relay=1',
     avn:  '/avn?bare',
     afm:  '/afm?bare',
     tgp:  '/tgp?bare',
@@ -82,8 +85,8 @@
     main: null,
     // No ?nochrome: the master strip doesn't carry the mission name/grid (that room goes to the
     // THRL/FUEL gauges instead), so a MAP portal draws its own mission bar + GRID chip, same as
-    // the bezel's MAP.
-    map:  '/map-view?bare',
+    // the bezel's MAP. relay=1: never opens its own /stream — see CLASSIC_SPLIT.map above.
+    map:  '/map-view?bare&relay=1',
     // ?f35: AVN reads this to hide its status-icon grid (avn.js) — the F-35 master strip already
     // shows those flags, so the portal keeps just the gauges.
     avn:  '/avn?f35',

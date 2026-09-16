@@ -2,7 +2,10 @@
 // source of truth for telemetry in the whole MFD:
 //   • derives the slices (status/loadout/cm/tgp/targets/rwr/mw/rdr/hsd/avn/follow, and mapinfo) and posts
 //     them UP to the shell, which re-forwards them to the other pages. All but the last are
-//     per-page; mapinfo is for shell chrome that shows no map — see _emit; and
+//     per-page; mapinfo is for shell chrome that shows no map — see _emit;
+//   • also posts the raw frame itself up as 'map-frame', so a secondary MAP pane/portal (one that
+//     isn't the connection owner — see map.js's RELAY_MODE) can render from it instead of opening
+//     its own EventSource; and
 //   • hands the raw parsed frame to the local map view via callbacks so it can render.
 // It knows nothing about canvas, DOM, zoom/pan, or gestures — that lives in map.js (the view),
 // which instantiates this and consumes it. Co-located with the view in the same iframe: the view
@@ -263,6 +266,7 @@ export class TelemetrySource {
       const didEnd = this._inMission;
       if (didEnd) { this._inMission = false; this._meta = null; this._emitEmpties(); }
       if (this._onNoMission) this._onNoMission(didEnd);
+      this._postUp({ type: 'map-frame', ping: true, didEnd });
       return;
     }
 
@@ -277,6 +281,10 @@ export class TelemetrySource {
   // module's map meta for target grid labels) — no view/render state is read.
   _emit(d) {
     if (window.parent === window) return;   // standalone /map-view: nobody to mirror to
+
+    // The raw frame, for a secondary MAP pane/portal to render from directly (map.js's RELAY_MODE)
+    // instead of opening its own EventSource — see the header comment above.
+    this._postUp({ type: 'map-frame', ping: false, data: d });
 
     // -1 = the aircraft has no such countermeasure system.
     this._postUp({

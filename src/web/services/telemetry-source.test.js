@@ -257,5 +257,40 @@ const assert = require('assert');
     }
   }
 
+  // map-frame (docs/mfd-shared-telemetry-connection.md): the raw frame/ping mirrored up so a
+  // secondary MAP pane/portal can render without ever opening its own connection. didEnd on the
+  // ping branch is what tells that pane whether this ping is the mission-just-ended transition or
+  // just another idle ping — the same signal handleNoMission already uses locally in owner mode.
+  {
+    const messages = [];
+    const realWindow = global.window;
+    global.window = { parent: {} };
+    const src8 = new TelemetrySource({});
+    src8._postUp = (m) => messages.push(m);
+
+    try {
+      const frame = { world: { x: 0, y: 0, z: 0 } };
+      src8._emit(frame);
+      const frameMsg = messages.find((m) => m.type === 'map-frame');
+      assert.strictEqual(frameMsg.ping, false, 'a real frame should post ping:false');
+      assert.deepStrictEqual(frameMsg.data, frame, 'should carry the raw frame verbatim');
+
+      messages.length = 0;
+      src8._onMessage({ data: JSON.stringify({ ping: true, soiSeq: 0 }) });
+      assert.strictEqual(messages.find((m) => m.type === 'map-frame').didEnd, false,
+        'the very first ping has no prior mission to have ended');
+
+      // A real frame puts this source "in mission"; the ping right after it is the transition
+      // didEnd:true marks.
+      src8._onMessage({ data: JSON.stringify({ x: 1 }) });
+      messages.length = 0;
+      src8._onMessage({ data: JSON.stringify({ ping: true, soiSeq: 1 }) });
+      assert.strictEqual(messages.find((m) => m.type === 'map-frame').didEnd, true,
+        'a ping right after a real frame should mark the mission-end transition');
+    } finally {
+      global.window = realWindow;
+    }
+  }
+
   console.log('telemetry-source.test.js: OK');
 })();

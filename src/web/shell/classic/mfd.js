@@ -2138,6 +2138,12 @@ window.addEventListener('message', function(e) {
     r.set(m);
     if (currentPage === r.page && !splitMode) r.toFrame();
     if (splitMode) r.toPanes();
+  } else if (m.type === 'map-frame') {
+    // Relayed straight to any split pane showing MAP (docs/mfd-shared-telemetry-connection.md) —
+    // such a pane never opens its own /stream, to avoid exhausting the browser's per-origin
+    // connection limit. Full view never needs this: mapFrame IS the connection owner, so it
+    // already has its own data locally.
+    if (splitMode) forwardToPanes('map', m);
   } else if (m.type === 'wpt-routes-request') {
     // A freshly-loaded MAP/WPT iframe catching up (docs/hud-waypoint-indicator.md perf fix) —
     // only this shell polls /wpt-options now, so a new iframe starts with an empty cache until

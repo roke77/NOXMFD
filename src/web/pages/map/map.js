@@ -860,6 +860,16 @@ function handleNoMission(didEnd) {
 // called from init.
 const source = new TelemetrySource({ onFrame: renderFrame, onNoMission: handleNoMission });
 
+// A shell mounts its own permanent connection owner (mapFrame in classic, the telemetry tap in
+// F-35 — docs/mfd-shared-telemetry-connection.md) and can have several MAP panes/portals besides.
+// Every one of those used to open its own /stream, and each is a connection the browser holds
+// open for the page's whole lifetime — a handful of them can exhaust the ~6-per-origin limit
+// HTTP/1.1 browsers enforce, stranding the map image and icon fetches in an unresolvable queue.
+// RELAY_MODE panes/portals never connect; they render from the
+// 'map-frame' messages the owner's TelemetrySource already posts up (see telemetry-source.js),
+// relayed on by the shell the same way every other per-page slice already is.
+const RELAY_MODE = new URLSearchParams(location.search).has('relay');
+
 // Wipe the view when a mission/map exits, so stale data never lingers on screen. The matching
 // "everything is empty" broadcast to the shell is the source's job (_emitEmpties); NO SIGNAL is
 // set by handleNoMission, which calls this.
@@ -1213,6 +1223,15 @@ window.addEventListener('message', function(e) {
     return;
   }
   if (disposed) return;
+  // RELAY_MODE's whole input: the shell forwards the owning document's raw frames here instead of
+  // this pane ever connecting itself. Same shapes TelemetrySource's own onFrame/onNoMission
+  // callbacks already drive locally in owner mode — renderFrame/handleNoMission don't know or care
+  // which path fed them.
+  if (m.type === 'map-frame') {
+    if (m.ping) handleNoMission(!!m.didEnd);
+    else renderFrame(m.data);
+    return;
+  }
   switch (m.action) {
     case 'toggle-follow': if (mapMeta) setFollow(!followPlayer); break;
     case 'toggle-grid':   setGrid(!gridOn); break;
@@ -1251,7 +1270,7 @@ refreshWaypointRoute();    // load the active route (issue #38) before the first
 syncSizeWhenReady();
 setFollow(followPlayer);    // report the restored follow up to the shell (paints the FOLLOW chip)
 setGrid(gridOn);            // report the restored grid state up to the shell (paints the GRID label)
-source.connect();   // open /stream now that the renderer + interaction handlers are wired
+if (!RELAY_MODE) source.connect();   // open /stream now that the renderer + interaction handlers are wired
 // Classic full view retains its telemetry connection while rendering is suspended.
 // Replaced documents release both transport and rendering resources.
 function setViewActive(on) {

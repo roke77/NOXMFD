@@ -82,8 +82,10 @@
     hsd: ['hsd', 'mapinfo', 'rdr', 'wpt-routes'],  // 360-degree datalink picture + FCR cone
                                                     // (docs/rdr-fcr-hsd.md) + active route overlay
     wpt: ['mapinfo', 'wpt-routes', 'sqd-state'],   // navigation readout + shared navigation library + share-button gate
-    map: ['wpt-routes'],              // navigation library (docs/hud-waypoint-indicator.md perf fix) —
-                                       // MAP mounts its own map.js/telemetry, so this is its only feed
+    // map-frame: the raw frame, so a MAP portal renders from the tap's connection instead of
+    // opening its own (docs/mfd-shared-telemetry-connection.md). wpt-routes: navigation library
+    // (docs/hud-waypoint-indicator.md perf fix).
+    map: ['map-frame', 'wpt-routes'],
     // SQD (docs/squadron-transport.md, docs/sse-push-refactor.md) — squad roster/role state and the
     // match-roster invite list now ride these relayed pushes instead of their own /squad and
     // /server-players polls.

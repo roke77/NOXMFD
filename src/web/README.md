@@ -118,7 +118,9 @@ reactive sink.
    │              │  soi-cid·soi·soi-act·cursor·cursor-held·cursor-select·map-act, plus the
    │              │  change-gated SSE relays sqd-state·td-state-push·wpt-options-push·
    │              │  keybinds-config-push·hud-options-push·server-players-push (docs/sse-push-
-   │              │  refactor.md)
+   │              │  refactor.md), plus map-frame — the raw frame, so a MAP pane/portal that
+   │              │  ISN'T this one can render from it instead of opening its own connection
+   │              │  (docs/mfd-shared-telemetry-connection.md).
    └──────┬───────┘
           │  postMessage  ▲ UP   ({ mfd:true, type, … })
           ▼
@@ -241,11 +243,13 @@ feed and shows lazily imported settings; returning reuses TGP DOM and handlers.
 The settings controller refreshes values on entry without reinstalling listeners.
 See `docs/tgp-lifecycle-investigation.md` for live-stream memory validation.
 
-## Experimental MAP lifecycle
+## MAP lifecycle
 
-On this branch, F-35 uses `services/telemetry-tap.html` through `/map-view?telemetry=1` for its
-permanent transport. This document has no renderer. Classic retains its MAP transport and sends
-`map-active` to suspend rendering outside full-view MAP. MAP disposes render resources on page exit;
-visible MAP panes still own their own connections. See `docs/map-lifecycle-experiment.md` for
-the experiment boundary and validation. The architecture description above describes the baseline
-except where this section supersedes it.
+F-35 uses `services/telemetry-tap.html` through `/map-view?telemetry=1` for its permanent
+transport. This document has no renderer. Classic retains its MAP transport and sends
+`map-active` to suspend rendering outside full-view MAP. MAP disposes render resources on page
+exit. Neither one is the connection each *visible MAP pane/portal* used to open for itself —
+those now render from the owning document's relayed frames instead
+(`docs/mfd-shared-telemetry-connection.md`). See `docs/map-lifecycle-experiment.md` for the
+render-lifecycle validation. The architecture description above describes the baseline except
+where this section supersedes it.
