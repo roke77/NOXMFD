@@ -178,6 +178,7 @@ namespace NOXMFD.Tests
                     Faction = 2, Orient = true, Scale = 1.5f, Targeted = true,
                     Jammed = true, JammedBy = 7, Datalink = true, Stale = true, SquadMember = true,
                     PilotName = "Bandit \"Ace\" 1-1",
+                    HasDetail = true, SpeedReading = "420 kt", AltReading = "12,500 ft",
                 },
             };
             var contact = Obj(Arr(Root(s)["contacts"])[0]);
@@ -195,6 +196,9 @@ namespace NOXMFD.Tests
             Assert.Equal(1.0, contact["st"]);
             Assert.Equal(1.0, contact["sq"]);
             Assert.Equal("Bandit \"Ace\" 1-1", contact["pn"]);
+            Assert.Equal(1.0, contact["hd"]);
+            Assert.Equal("420 kt", contact["sp"]);
+            Assert.Equal("12,500 ft", contact["al"]);
         }
 
         [Fact]
@@ -204,6 +208,21 @@ namespace NOXMFD.Tests
             s.Units = new[] { new UnitInfo { Id = 1, Type = "F-16C" } };
             var contact = Obj(Arr(Root(s)["contacts"])[0]);
             Assert.Equal("", contact["pn"]);
+        }
+
+        // A non-aircraft/missile contact, or an aircraft/missile whose position isn't currently
+        // trustworthy (TelemetryReader.BuildUnits' HasDetail gate) — either way the hover detail
+        // fields default closed rather than leaking a speed/altitude reading the position staleness
+        // doesn't back up.
+        [Fact]
+        public void Unit_contact_has_detail_defaults_false_with_empty_speed_and_altitude_readings()
+        {
+            var s = default(TelemetrySnapshot);
+            s.Units = new[] { new UnitInfo { Id = 1, Type = "SAM" } };
+            var contact = Obj(Arr(Root(s)["contacts"])[0]);
+            Assert.Equal(0.0, contact["hd"]);
+            Assert.Equal("", contact["sp"]);
+            Assert.Equal("", contact["al"]);
         }
 
         [Fact]

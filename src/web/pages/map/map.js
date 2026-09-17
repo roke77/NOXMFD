@@ -30,7 +30,7 @@ let   mapMeta   = null;        // { w, h, ox, oy, rw, rh } — the view's copy, 
 const ICON_BASE_IN  = 20, ICON_BASE_OUT  = 15;   // player + unit base size (px), scaled by iconScale
 const FALLBACK_IN   = 10, FALLBACK_OUT   = 7;    // icon-less square size (px)
 const HIT_PAD = 4;             // extra px around an icon that still counts as a hover hit
-let   hitTargets = [];         // [{cx, cy, r, label}] rebuilt every drawOverlay() for hover
+let   hitTargets = [];         // [{cx, cy, r, label, detail}] rebuilt every drawOverlay() for hover
 // Placed waypoints/steer points a long-press can land on to delete instead of add (issue #38's
 // "press-and-hold again to remove" extension) — separate from hitTargets above since nav points
 // aren't hover-labeled or tap-selected, only long-press-hit. Rebuilt every drawOverlay() alongside
@@ -681,7 +681,18 @@ function drawOverlay() {
         oc.fillText(u.pn, p.cx, p.cy - r - 4);
         oc.textAlign = 'left';
       }
-      hitTargets.push({ cx: p.cx, cy: p.cy, r: r + HIT_PAD, label: u.t, color: hex, id: u.id, tg: !!u.tg });
+      // Hover detail lines: the same HDG/SPD/ALT a locked target already shows in TGP, gated by the
+      // same u.hd ("HasDetail" — aircraft/missile, not stale) TgpOverlay uses. Unlike TGP's fixed
+      // panel, a hover tooltip has no dedicated slot to fill, so a contact with no detail (whether
+      // non-aircraft or simply stale) just gets no extra lines, rather than a "-" placeholder for
+      // fields it was never going to show real numbers for. sp/al arrive pre-formatted (UnitConverter.
+      // SpeedReading/AltitudeReading — unit-system-aware); heading is plain degrees, so it's fine to
+      // round client-side. One field per line (rather than one packed line) so each stays readable
+      // at the tooltip's small font size.
+      const detail = u.hd
+        ? 'HDG ' + Math.round(((u.h % 360) + 360) % 360) + '°\nSPD ' + u.sp + '\nALT ' + u.al
+        : null;
+      hitTargets.push({ cx: p.cx, cy: p.cy, r: r + HIT_PAD, label: u.t, color: hex, id: u.id, tg: !!u.tg, detail });
     }
   }
 
@@ -1131,7 +1142,8 @@ overlay.addEventListener('dblclick', function(e) {
 
 // ── Hover-to-label ───────────────────────────────────────────────────────────────
 // Icons are canvas pixels, so we hit-test the cursor against the per-frame hitTargets
-// (positions are post-zoom/pan, so this stays correct at any view). Cursor-anchored.
+// (positions are post-zoom/pan, so this stays correct at any view). Cursor-anchored. A contact with
+// detail (hitTargets[].detail, from u.hd) adds stacked HDG/SPD/ALT lines under the type label.
 const mapPanel = document.getElementById('map-panel');
 mapPanel.addEventListener('mousemove', function(e) {
   // Touch has no hover: a tap emits a synthetic mousemove but never a mouseleave, so the label
@@ -1148,7 +1160,7 @@ mapPanel.addEventListener('mousemove', function(e) {
     if (dx * dx + dy * dy <= t.r * t.r) { hit = t; break; }
   }
   if (hit) {
-    unitLabel.textContent   = hit.label;
+    unitLabel.textContent   = hit.detail ? hit.label + '\n' + hit.detail : hit.label;
     unitLabel.style.color   = hit.color;   // match the hovered unit's icon color
     unitLabel.style.left    = mx + 'px';
     unitLabel.style.top     = my + 'px';

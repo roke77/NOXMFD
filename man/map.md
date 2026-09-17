@@ -29,6 +29,12 @@ creates a standalone steer point. Long-pressing directly on an existing waypoint
 removes it instead — useful for undoing a placement without opening [WPT](wpt.md). Both kinds of
 navigation point are otherwise managed there.
 
+Hovering the mouse over a contact shows its type in a small floating label. For an aircraft or
+missile whose position is currently trustworthy — the same condition [TGP](tgp.md) uses to show a
+locked target's kinematics — the label adds stacked heading, speed, and altitude lines, live,
+without needing to lock it first. A datalink-stale contact, or any non-aircraft contact, just shows
+the type with no extra lines.
+
 ## Status row
 
 A row in the bottom-right corner, each item shown only while it applies:

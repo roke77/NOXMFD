@@ -1615,6 +1615,16 @@ namespace NOXMFD
                 if (u is Aircraft ac && ac.pilots.Length > 0 && ac.pilots[0].player != null)
                     pilotName = ac.pilots[0].player.GetDisplayName(PlayerNameContext.Other) ?? string.Empty;
 
+                // Same HasDetail gate TgpOverlay.Populate uses for a locked target's kinematics —
+                // aircraft/missile only, and only once !stale (mirrors HQ.IsTargetPositionAccurate).
+                // gp.y is already the fog-of-war-appropriate altitude (same TryGetKnownPosition result
+                // gp.x/gp.z come from above), but u.speed is a live physics read with no "last known"
+                // equivalent — gating it behind HasDetail keeps a stale contact from leaking a speed
+                // reading its position staleness says we shouldn't trust yet.
+                bool hasDetail = (u is Aircraft || u is Missile) && !stale;
+                string speedReading = hasDetail ? UnitConverter.SpeedReading(u.speed) : string.Empty;
+                string altReading   = hasDetail ? UnitConverter.AltitudeReading(gp.y) : string.Empty;
+
                 _unitBuf.Add(new UnitInfo
                 {
                     Id       = u.persistentID.Id,
@@ -1631,7 +1641,10 @@ namespace NOXMFD
                     Datalink = datalink,
                     Stale    = stale,
                     SquadMember = PlayerRoster.IsSquadAircraft(u.persistentID.Id),
-                    PilotName = pilotName
+                    PilotName = pilotName,
+                    HasDetail = hasDetail,
+                    SpeedReading = speedReading,
+                    AltReading = altReading
                 });
             }
             return _unitBuf.ToArray();

@@ -197,12 +197,18 @@
     // MAP CFG's "SHOW PLAYER NAMES" toggle (docs comment on UnitInfo.PilotName): id 202 (friendly)
     // and id 203 (enemy) carry a `pn` so the preview exercises the label on both factions; the rest
     // are left AI-flown (no pn) to also exercise the no-label case.
+    // MAP's hover detail line (docs comment on UnitInfo.HasDetail): id 202/203 carry hd+sp+al so the
+    // preview exercises HDG/SPD/ALT on a hover for both factions; id 204 is `st` (stale) with no hd,
+    // so its hover exercises the omitted-line case, same as a non-aircraft contact — map.js shows no
+    // detail line at all rather than a TGP-style dash placeholder. 201/205/206 are non-aircraft
+    // (Airbase/SAM/Vessel), exercising the same omitted-line case for a different reason (never
+    // eligible in the first place, not merely stale).
     showPlayerNames: true,
     contacts: [
       { id: 201, t: 'Airbase', f: 1, x: -8000,  z: 12000,  h: 0,   o: false, s: 1 },
-      { id: 202, t: 'F18',     f: 1, x: 3000,   z: 4000,   h: 60,  o: true,  s: 1, pn: 'Roke' },
-      { id: 203, t: 'Su57',    f: 2, x: 16000,  z: -9000,  h: 220, o: true,  s: 1, jm: true, jb: 205, pn: 'Ivanov' },
-      { id: 204, t: 'Su57',    f: 2, x: 19000,  z: -6000,  h: 205, o: true,  s: 1, jm: true, jb: 888 },
+      { id: 202, t: 'F18',     f: 1, x: 3000,   z: 4000,   h: 60,  o: true,  s: 1, pn: 'Roke', hd: true, sp: '420 kt', al: '12,500 ft' },
+      { id: 203, t: 'Su57',    f: 2, x: 16000,  z: -9000,  h: 220, o: true,  s: 1, jm: true, jb: 205, pn: 'Ivanov', hd: true, sp: '390 kt', al: '9,800 ft' },
+      { id: 204, t: 'Su57',    f: 2, x: 19000,  z: -6000,  h: 205, o: true,  s: 1, jm: true, jb: 888, st: true },
       { id: 205, t: 'SAM',     f: 2, x: -2000,  z: -15000, h: 0,   o: false, s: 1 },
       { id: 206, t: 'Vessel',  f: 0, x: -14000, z: -4000,  h: 0,   o: false, s: 1 },
     ],

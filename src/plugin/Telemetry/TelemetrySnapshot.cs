@@ -560,5 +560,20 @@ namespace NOXMFD
         // an AI-flown aircraft (no pilot) or a non-aircraft unit, which is what lets MAP tell a
         // player-controlled aircraft apart from AI without a separate flag.
         public string PilotName;
+
+        // Same "HasDetail" gate TgpOverlay already uses for a locked target's kinematics readout:
+        // an Aircraft or Missile whose position is currently trustworthy (mirrors Stale — see there).
+        // Drives whether MAP's hover tooltip shows a HDG/SpeedReading/AltReading block at all — false
+        // omits it entirely rather than showing a dash placeholder, so a datalink-stale contact never
+        // leaks a live speed/altitude it hasn't earned.
+        public bool   HasDetail;
+
+        // Pre-formatted via UnitConverter.SpeedReading/AltitudeReading — same reasoning as
+        // TgpOverlay's own SpeedReading/AltReading fields (docs/tgp-manual-control.md's "CLO shipped
+        // in raw m/s" finding): speed/altitude are unit-system-dependent (km/h vs kt, m vs ft), so the
+        // server formats them once rather than teaching the client a second copy of that math. Empty
+        // when !HasDetail.
+        public string SpeedReading;
+        public string AltReading;
     }
 }

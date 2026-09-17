@@ -72,7 +72,7 @@ main { flex: 1; display: flex; overflow: hidden; }
   color: var(--no-green);
   font-size: 11px;
   padding: 2px 6px;
-  white-space: nowrap;
+  white-space: pre-line;   /* a hasDetail hover adds stacked HDG/SPD/ALT lines via '\n' */
   pointer-events: none;
   z-index: 50;
 }
