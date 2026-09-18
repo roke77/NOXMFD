@@ -712,6 +712,31 @@ namespace NOXMFD
             finally { try { ctx.Response.Close(); } catch { } }
         }
 
+        // Shared by every endpoint that serves a flat list of names as JSON (CapturedAssetEndpoint's
+        // /icon-types, DocEndpoint's /doc-list) — same status/headers/write shape as WriteBinary above,
+        // just for a string array instead of raw bytes.
+        internal static void WriteJsonStringArray(HttpListenerContext ctx, string[] items, string endpoint)
+        {
+            try
+            {
+                var sb = new StringBuilder("[");
+                for (int i = 0; i < items.Length; i++)
+                {
+                    if (i > 0) sb.Append(',');
+                    sb.Append('"').Append(EscapeJson(items[i])).Append('"');
+                }
+                sb.Append(']');
+                byte[] bytes = Encoding.UTF8.GetBytes(sb.ToString());
+                ctx.Response.StatusCode      = 200;
+                ctx.Response.ContentType     = "application/json; charset=utf-8";
+                ctx.Response.ContentLength64 = bytes.Length;
+                ctx.Response.Headers.Add("Cache-Control", "no-cache");
+                ctx.Response.OutputStream.Write(bytes, 0, bytes.Length);
+            }
+            catch (Exception ex) { LogHttpFailure(ctx, endpoint, ex); }
+            finally { try { ctx.Response.Close(); } catch { } }
+        }
+
         internal static void ServeSoiInstances(HttpListenerContext ctx) => SseHub.ServeInstances(ctx);
 
         // The in-game HUD OPTIONS state, as JSON, for the HUD page to render. Built on the main

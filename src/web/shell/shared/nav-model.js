@@ -159,6 +159,20 @@
     // TD (issue #47, docs/target-designator.md) — reached from TGT's own nav row (once td-nav.js
     // has appended it there), so its way back is TGT, same reasoning as mapcfg/tgpcfg/wpt above.
     td: [ { label: 'TGT', action: 'tgt' } ],
+    // DOC (kneeboard image viewer, issue #82) — reached from MAIN directly (mfd.js BEZEL_EXTRAS.main/
+    // f35.js MAIN_EXTRAS, next to MD), NOT folded into the AKF/MIS/OBJ/BDF/PAL switch: that switch's
+    // own SPLIT_SLOTS entries each already consume all 6 of a split pane's physical nav slots (3
+    // left + 3 right), so a 6th sibling would push every one of those five pages to 7 items and
+    // overflow that budget — forcing split-pane pagination onto five already-shipped pages just to
+    // fit DOC in. INDX/NEXT/PREV act on the page in place rather than naming a destination — same
+    // shape as RDR/HSD's own R+/R- above (layout-coverage.test.js's BEHAVIOURS lists them, not
+    // CLASSIC_FULL/CLASSIC_SPLIT/F35).
+    doc: [
+      { label: 'MAIN', action: 'main' },
+      { label: 'INDX', action: 'doc-indx' },
+      { label: 'NEXT', action: 'doc-next' },
+      { label: 'PREV', action: 'doc-prev' },
+    ],
   };
 
   const api = { NAV };

@@ -104,6 +104,16 @@ BDF_ICON_SVG = ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">'
                 '<polygon points="12,2 22,12 12,22 2,12" fill="none" stroke="#39ff14" '
                 'stroke-width="2"/></svg>')
 
+# Mock DOC kneeboard images (issue #82) — the real files live on disk (DocEndpoint.cs), so there's
+# nothing to capture in-game; this is just a fixed mock list + one placeholder graphic per name, so
+# the preview harness can exercise the index/image/NEXT/PREV flow without a real BepInEx install.
+DOC_MOCK_FILES = ['heartland-diagram.png', 'kadena-approach.png', 'checklist-startup.jpg']
+DOC_IMAGE_SVG_TEMPLATE = (
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300">'
+    '<rect width="400" height="300" fill="none" stroke="#39ff14" stroke-width="3"/>'
+    '<text x="200" y="155" fill="#39ff14" font-size="18" text-anchor="middle" '
+    'font-family="monospace">{name}</text></svg>')
+
 # Mock TGP feed frame (the real one is a captured still off /tgp.mjpg — see capture_assets.py).
 TGP_SVG = ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 240">'
            '<rect width="320" height="240" fill="none" stroke="#39ff14" stroke-width="3"/>'
@@ -1012,6 +1022,15 @@ class H(http.server.SimpleHTTPRequestHandler):
             # those — BDF_ICON_SVG still stands in for the header logo either way.
             typ = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query).get('type', [''])[0]
             return self._serve_captured('bdf-icon:' + typ, mime='image/png', fallback=BDF_ICON_SVG.encode('utf-8'))
+        if path == '/doc-list':
+            return self._send(json.dumps(DOC_MOCK_FILES).encode('utf-8'), 'application/json; charset=utf-8')
+        if path == '/doc-image':
+            name = urllib.parse.parse_qs(parsed.query).get('name', [''])[0]
+            if name not in DOC_MOCK_FILES:
+                return self.send_error(404, 'no such doc image')
+            safe = name.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+            svg = DOC_IMAGE_SVG_TEMPLATE.format(name=safe).encode('utf-8')
+            return self._send(svg, 'image/svg+xml')
         if path == '/tgp.mjpg':
             # A captured still frame, served as a plain JPEG — an <img> tag can't tell the
             # difference from a live multipart stream, it just won't update. No capture yet:

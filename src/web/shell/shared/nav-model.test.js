@@ -94,6 +94,17 @@ assert.deepStrictEqual(NAV.tgpcfg, [ { label: 'TGP', action: 'tgp' } ]);
 // TD (issue #47) — reached from TGT's own nav row, way back is TGT, same shape as mapcfg/tgpcfg.
 assert.deepStrictEqual(NAV.td, [ { label: 'TGT', action: 'tgt' } ]);
 
+// DOC (kneeboard image viewer, issue #82) — reached from MAIN directly, not folded into the
+// AKF/MIS/OBJ/BDF/PAL switch (see nav-model.js's own comment for why: that switch's SPLIT_SLOTS
+// entries already consume a split pane's full 6-slot budget). INDX/NEXT/PREV act on the page in
+// place, same shape as RDR/HSD's R+/R-.
+assert.deepStrictEqual(NAV.doc, [
+  { label: 'MAIN', action: 'main' },
+  { label: 'INDX', action: 'doc-indx' },
+  { label: 'NEXT', action: 'doc-next' },
+  { label: 'PREV', action: 'doc-prev' },
+]);
+
 // AKF/BDF/PAL/MIS/OBJ are folded together (reached from MAIN via MD — mfd.js BEZEL_EXTRAS.main,
 // action still 'bdf'): each gets MAIN plus a direct switch to the other four, with `mark` on
 // whichever is live. Order is AKF, MIS, OBJ, BDF, PAL (issue #34).

@@ -83,6 +83,9 @@
     // pane's pagination state, so renderSplitLabels' list branch owns them (NAV.wpn is empty to
     // match).
     wpn: [],
+    // DOC (kneeboard image viewer, issue #82) — MAIN, INDX, NEXT, PREV, same 4-item left-column
+    // shape as HUD/KEY above. Index-aligned with NAV.doc.
+    doc: [ { side: 'left', slot: 0 }, { side: 'left', slot: 1 }, { side: 'left', slot: 2 }, { side: 'right', slot: 0 } ],
   };
 
   // NAV.map's own item order for SPLIT pagination (mfd.js's mapSplitItems/mapNavPaneSlice) —

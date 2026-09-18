@@ -41,8 +41,10 @@ for (const [page, items] of Object.entries(NAV))
 // acting on the active route's progress instead of which route is active.
 // 'hsd-mode' (docs/rdr-fcr-hsd.md): HSD's own CEN<->DEP toggle, same shape as rng-in/rng-out —
 // acts on the page in place, doesn't navigate.
+// 'doc-indx'/'doc-next'/'doc-prev' (issue #82): DOC's index/next/prev image-cycling controls —
+// same shape as rng-in/rng-out/hsd-mode, act on the page in place rather than naming a page.
 const BEHAVIOURS = new Set(['flw', 'grid', 'zin', 'zout', 'rng-in', 'rng-out', 'hsd-mode', 'lyt',
-  'rt-next', 'rt-prev', 'wpt-next', 'wpt-prev']);
+  'rt-next', 'rt-prev', 'wpt-next', 'wpt-prev', 'doc-indx', 'doc-next', 'doc-prev']);
 
 const destinations = Object.keys(origin).filter(a => !BEHAVIOURS.has(a)).sort();
 assert.ok(destinations.length > 0, 'no destinations found — NAV or this filter is wrong');

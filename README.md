@@ -87,6 +87,7 @@ pilot, with HOTAS-friendly keybinds to match.
   - **[HUD](man/hud.md)** — in-cockpit HUD config.
   - **[KEY](man/keybinds.md)** — extended keybinds.
   - **[LYT](man/layouts.md)** — layout chooser.
+- **[DOC](man/doc.md)** — kneeboard image viewer.
 - **[EXT](man/ext.md)** — third-party extension pages.
 - **[MAIN](man/main.md)** — landing page.
 - **[MAP](man/map.md)** — tactical map.

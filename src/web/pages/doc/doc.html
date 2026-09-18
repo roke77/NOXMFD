@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>NO XMFD — DOC</title>
+<!--
+  DOC — kneeboard image viewer (issue #82), served at /doc. Reached from MAIN directly
+  (BEZEL_EXTRAS.main / f35.js's MAIN_EXTRAS, next to MD), not folded into the AKF/MIS/OBJ/BDF/PAL
+  switch — see nav-model.js's own comment on NAV.doc for why.
+
+  Two views, swapped in place (no navigation): an INDEX of image file names read from a folder on
+  disk (DocEndpoint.KneeboardDir — a dedicated subfolder, not the shared BepInEx/plugins/ root
+  CapturedAssetEndpoint.ServeMap falls back to for map.png), and an IMAGE view rendering whichever
+  file was picked. Clicking a file name in the index opens it; INDX (bezel) returns to the index.
+  NEXT/PREV (bezel) cycle to the next/previous file in the folder's live listing, wrapping at either
+  end — doc-cycle.js owns that stepping logic, pure and unit-tested (doc-cycle.test.js).
+
+  The listing is re-read from /doc-list on every NEXT/PREV, not cached: the folder is small (a
+  personal set of reference images — airport diagrams, checklists), so the read is cheap, and it
+  means a file a player adds or removes mid-session just starts/stops appearing rather than needing
+  stale-list handling.
+-->
+<link rel="stylesheet" href="/assets/shared/font.css">
+<link rel="stylesheet" href="/assets/shared/theme.css">
+<link rel="stylesheet" href="/assets/shared/page-chrome.css">
+<link rel="stylesheet" href="/assets/pages/doc/doc.css">
+</head>
+<body>
+
+<div class="doc-panel" id="doc-panel">
+  <!-- Way back to MAIN when opened standalone; hidden when embedded in a shell (classic #page-frame
+       or an F-35 portal) — same check keybinds.js/mapcfg.js use (window.parent !== window). -->
+  <a class="doc-back" href="/">&lt; MAIN</a>
+  <div class="doc-title">DOC</div>
+
+  <div id="doc-index">
+    <div class="doc-rows" id="doc-rows"></div>
+    <div class="mfd-empty" id="doc-empty" style="display:none;">
+      <span class="mfd-empty-title">DOC</span>&mdash; NO FILES &mdash;
+    </div>
+  </div>
+
+  <div id="doc-image" style="display:none;">
+    <div class="doc-image-name" id="doc-image-name"></div>
+    <img class="doc-image-img" id="doc-image-img" alt="">
+  </div>
+</div>
+
+<script src="/assets/pages/keybinds/keybinds-keymap.js"></script>
+<script src="/assets/services/remote-keybinds.js"></script>
+<script src="/assets/pages/doc/doc-cycle.js"></script>
+<script src="/assets/pages/doc/doc.js"></script>
+</body>
+</html>

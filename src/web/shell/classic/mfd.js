@@ -135,6 +135,9 @@ const BEZEL_EXTRAS = {
     { label: 'RDR', action: 'rdr' },   // → RDR radar page (docs/rdr-page.md)
     { label: 'AFM', action: 'afm' },   // → AFM airframe page (name + damage silhouette)
     { label: 'SQD', action: 'sqd' },   // → SQD squad page (docs/squadron-transport.md)
+    // DOC (kneeboard image viewer, issue #82) — its own MAIN destination next to MD rather than a
+    // sixth arm of the AKF/MIS/OBJ/BDF/PAL switch (nav-model.js's own comment has the full reason).
+    { label: 'DOC', action: 'doc' },
     // EXT is NOT here — it's a real, shared NAV.main entry (docs/extensions-api.md), not a
     // layout-owned stub; a second entry here would render a duplicate "EXT" label.
   ],
@@ -1847,6 +1850,9 @@ function showPage(name) {
     showFramePage('obj');
     forwardObjToFrame();
   }
+  // DOC renders in #page-frame too (issue #82) — self-driven like KEY/mapcfg/tgpcfg below: it
+  // fetches its own /doc-list and /doc-image, so the shell forwards it no telemetry.
+  if (name === 'doc') showFramePage('doc');
   // HUD bootstraps itself, then receives change-gated option snapshots from the shell.
   if (name === 'hud') { showFramePage('hud'); forwardHudOptionsToFrame(); }
   // KEY bootstraps itself, then receives the same configuration push shared shell services use.
@@ -2465,6 +2471,12 @@ function mfdButton(el) {
     } else if (act === 'hsd-mode') {
       // HSD's CEN<->DEP toggle, same per-pane targeting as the range rocker above.
       paneMapSend(paneIdx, 'hsd-mode');
+    } else if (act === 'doc-indx' || act === 'doc-next' || act === 'doc-prev') {
+      // DOC's INDX/NEXT/PREV (issue #82) act on the pane's own iframe, same per-pane targeting as
+      // the range rocker/MODE above — paneMapSend just posts to whichever iframe is in this pane,
+      // not MAP-specific despite the name. No renaming needed (unlike rng-in/rng-out): these
+      // actions are unique to DOC, so the action name is sent verbatim.
+      paneMapSend(paneIdx, act);
     } else if (act === 'weapon.select') {
       // A weapon row: selection is aircraft-global, not a destination page — same case as the
       // full-view/shared switch below. It carries a data-pane tag only so the SOI cursor (soiKeys())
@@ -2579,6 +2591,12 @@ function mfdButton(el) {
     case 'pal':  showPage('pal');  break;
     case 'mis':  showPage('mis');  break;
     case 'obj':  showPage('obj');  break;
+    case 'doc':  showPage('doc');  break;
+    // DOC's own INDX/NEXT/PREV (issue #82) act on the page in place — same frameWin() targeting
+    // as RDR's range rocker / HSD's MODE toggle above, since DOC is a #page-frame page too.
+    case 'doc-indx': { const w = frameWin(); if (w) w.postMessage({ mfd: true, action: 'doc-indx' }, '*'); } break;
+    case 'doc-next': { const w = frameWin(); if (w) w.postMessage({ mfd: true, action: 'doc-next' }, '*'); } break;
+    case 'doc-prev': { const w = frameWin(); if (w) w.postMessage({ mfd: true, action: 'doc-prev' }, '*'); } break;
     case 'flw':  mapSend('toggle-follow'); break;
     case 'zin':  mapSend('zoom-in');  break;
     case 'zout': mapSend('zoom-out'); break;

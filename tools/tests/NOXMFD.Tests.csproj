@@ -81,6 +81,10 @@
     <Compile Include="..\..\src\plugin\Hud\HudDirectionCueMath.cs" Link="Source\HudDirectionCueMath.cs" />
     <Compile Include="..\..\src\plugin\Hud\HudWaypointCueMath.cs" Link="Source\HudWaypointCueMath.cs" />
     <Compile Include="..\..\src\plugin\Hud\HudTtiMath.cs" Link="Source\HudTtiMath.cs" />
+    <!-- DocNameMatch.cs (DOC kneeboard viewer, issue #82) — the path-traversal-safe matching rule
+         behind /doc-image, pulled into its own pure file for the same reason as CommandContentType.cs/
+         SoiRing.cs above: DocEndpoint.cs itself touches BepInEx.Paths/Plugin.Log, out of scope here. -->
+    <Compile Include="..\..\src\plugin\Http\DocNameMatch.cs" Link="Source\DocNameMatch.cs" />
   </ItemGroup>
 
 </Project>

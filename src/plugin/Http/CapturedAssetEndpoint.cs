@@ -191,28 +191,7 @@ namespace NOXMFD
 
         // Every captured unit-type icon's key, as a JSON string array — IconTypes()'s own header
         // comment has the full reasoning (tools/capture_assets.py).
-        internal static void ServeIconTypes(HttpListenerContext ctx)
-        {
-            try
-            {
-                string[] types = IconTypes();
-                var sb = new StringBuilder("[");
-                for (int i = 0; i < types.Length; i++)
-                {
-                    if (i > 0) sb.Append(',');
-                    sb.Append('"').Append(TelemetryServer.EscapeJson(types[i])).Append('"');
-                }
-                sb.Append(']');
-                byte[] bytes = Encoding.UTF8.GetBytes(sb.ToString());
-                ctx.Response.StatusCode      = 200;
-                ctx.Response.ContentType     = "application/json; charset=utf-8";
-                ctx.Response.ContentLength64 = bytes.Length;
-                ctx.Response.Headers.Add("Cache-Control", "no-cache");
-                ctx.Response.OutputStream.Write(bytes, 0, bytes.Length);
-            }
-            catch (Exception ex) { TelemetryServer.LogHttpFailure(ctx, "/icon-types", ex); }
-            finally { try { ctx.Response.Close(); } catch { } }
-        }
+        internal static void ServeIconTypes(HttpListenerContext ctx) => TelemetryServer.WriteJsonStringArray(ctx, IconTypes(), "/icon-types");
 
         private static void ServePng(HttpListenerContext ctx, Dictionary<string, byte[]> dict, object dictLock, string queryKey)
         {

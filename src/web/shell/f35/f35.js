@@ -137,6 +137,7 @@
     { label: 'RDR', action: 'rdr' },   // → RDR hub, landing on FCR at /rdr (docs/rdr-fcr-hsd.md)
     { label: 'AFM', action: 'afm' },   // → AFM airframe page — mirrors BEZEL_EXTRAS.main
     { label: 'SQD', action: 'sqd' },   // → SQD squad page (docs/squadron-transport.md) — mirrors BEZEL_EXTRAS.main
+    { label: 'DOC', action: 'doc' },   // → DOC kneeboard image viewer (issue #82) — mirrors BEZEL_EXTRAS.main
     // EXT is NOT here — it's a real, shared NAV.main entry (docs/extensions-api.md), not this
     // layout's own placeholder; a second entry here would render a duplicate "EXT" item.
   ];
@@ -163,7 +164,10 @@
                          // HSD's CEN<->DEP toggle (docs/rdr-fcr-hsd.md) — self-mapped since it's
                          // not a MAP relay action, just reusing this generic "post straight to
                          // frameWin()" mechanism the same way rng-in/rng-out already do.
-                         'hsd-mode': 'hsd-mode' };
+                         'hsd-mode': 'hsd-mode',
+                         // DOC's INDX/NEXT/PREV (issue #82) — same self-mapped "post straight to
+                         // frameWin()" shape as hsd-mode above.
+                         'doc-indx': 'doc-indx', 'doc-next': 'doc-next', 'doc-prev': 'doc-prev' };
 
   // ARM/SAFE (docs/radar-master-arms.md) — WPN's own unconditional controls, same shape as
   // MAP_ACTIONS: an action name maps to what it sends, dispatched by command rather than page nav.

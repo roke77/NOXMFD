@@ -1,0 +1,28 @@
+/* DOC — kneeboard image viewer (issue #82). Panel shape is the shared page-chrome.css .doc-panel/
+   .doc-back/.doc-title lineage (WPT/SQD/KB's own pattern). */
+
+.doc-row {
+  cursor: pointer;
+  user-select: none;
+}
+.doc-row:hover { background: rgba(255, 255, 255, 0.06); }
+
+#doc-empty { position: absolute; }
+
+.doc-image-name {
+  font-size: 13px;
+  letter-spacing: 1px;
+  color: var(--no-green-dim);
+  text-align: center;
+  margin-bottom: 10px;
+  word-break: break-all;
+}
+
+/* Fit-to-width: scales to the panel, never enlarging a smaller source image; taller-than-page
+   diagrams extend the page instead of cropping (page-chrome.css's html/body already scroll). */
+.doc-image-img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-width: 100%;
+}

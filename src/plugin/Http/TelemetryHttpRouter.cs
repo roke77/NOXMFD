@@ -35,6 +35,10 @@ namespace NOXMFD
                 CapturedAssetEndpoint.ServeAirframeImage(ctx);
             else if (path == "/airframe-layout")
                 CapturedAssetEndpoint.ServeAirframeLayout(ctx);
+            else if (path == "/doc-list")
+                DocEndpoint.ServeList(ctx);
+            else if (path == "/doc-image")
+                DocEndpoint.ServeImage(ctx);
             else if (path == "/config")
                 ConfigEndpoint.ServeConfig(ctx);
             else if (path == "/hud-options")
@@ -100,6 +104,8 @@ namespace NOXMFD
                 TelemetryAssets.ServeAssetRel(ctx, "pages/mis/mis.html");
             else if (path == "/obj")
                 TelemetryAssets.ServeAssetRel(ctx, "pages/obj/obj.html");
+            else if (path == "/doc")
+                TelemetryAssets.ServeAssetRel(ctx, "pages/doc/doc.html");
             else if (path == "/wpt")
                 TelemetryAssets.ServeAssetRel(ctx, "pages/wpt/wpt.html");
             else if (path == "/sqd")

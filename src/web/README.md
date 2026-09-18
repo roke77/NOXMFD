@@ -56,10 +56,12 @@ src/web/
             td-redraw-gate.js  .test.js   # pure "did the id set or the metric preference change"
                                            # decision behind that mirror's redraw gate (issue #84)
     wpn/  tgt/  tgp/  avn/  afm/  rwr/  rdr/  hsd/  hud/  bdf/  mis/  obj/  akf/  mapcfg/  tgpcfg/
-                                               # reactive MFD pages, one folder each (bdf.js doubles as PAL, ?pal;
+    doc/                                       # reactive MFD pages, one folder each (bdf.js doubles as PAL, ?pal;
                                                # akf = kill feed/session stats docs/akf-page.md; mapcfg/tgpcfg =
                                                # each page's own refresh-rate/quality settings, reached from that
-                                               # page's own nav row, not CFG — see nav-model.js's NAV.mapcfg/tgpcfg)
+                                               # page's own nav row, not CFG — see nav-model.js's NAV.mapcfg/tgpcfg;
+                                               # doc = kneeboard image viewer, issue #82, reached from MAIN like
+                                               # RDR/AFM/SQD — see nav-model.js's NAV.doc)
                                                # some carry a pure sibling module — see below
     ext/                                       # EXT hub — lists extensions discovered at runtime via
                                                # /ext-manifest (shell/shared/ext-nav.js), no fixed page content of
@@ -89,7 +91,8 @@ per-browser KEY-page listener that maps configured keys into `/command` posts), 
 (navigation display derivation — bearing/distance math, effective route/steer target selection,
 and client-side pre-validation for pasted JSON; the actual navigation data and its mutation live
 server-side in `RouteStore`, not here — see
-`waypoints-store.js`), and `<x>-*-policy.js` where the
+`waypoints-store.js`), `doc-cycle.js` (DOC's NEXT/PREV wrap-around stepping, issue #82), and
+`<x>-*-policy.js` where the
 logic really is a classification rule (`avn-status-policy.js`, `avn-throttle-policy.js`,
 `afm-bg-policy.js`, `afm-failure-policy.js`). Everything else on a page is DOM-coupled rendering and
 is left to the harness and the eye, not to Node asserts.

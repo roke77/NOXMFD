@@ -45,6 +45,9 @@
     // /ext/<id> destination (not listed here — see ExtNav.isExtensionPage's fallback in
     // paneUrl/frameUrlFor/F35_PAGES' `has`).
     ext: '/ext',
+    // DOC (kneeboard image viewer, issue #82) — reached from MAIN directly (BEZEL_EXTRAS.main/
+    // MAIN_EXTRAS), not part of the AKF/MIS/OBJ/BDF/PAL switch — see nav-model.js's own comment.
+    doc: '/doc',
   };
 
   // Classic bezel, SPLIT panes — the same destinations served ?bare, plus MAIN and MAP, which do
@@ -77,6 +80,7 @@
     tgpcfg: '/tgp?bare#cfg',
     td: '/td?bare',
     ext: '/ext?bare',
+    doc: '/doc?bare',
   };
 
   // F-35 glass — the page each portal mounts. MAIN maps to no page and `null` is meaningful there
@@ -110,6 +114,7 @@
     tgpcfg: '/tgp#cfg',
     td: '/td',
     ext: '/ext',
+    doc: '/doc',
   };
 
   function navigateFrame(frame, url) {
