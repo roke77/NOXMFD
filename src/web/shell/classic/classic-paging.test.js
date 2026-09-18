@@ -174,4 +174,45 @@ assert.deepStrictEqual(P.listPaneLayout('h', 0, 'wpn').next, { bank: 'right', in
 assert.deepStrictEqual(P.listPaneLayout('h', 0, 'tgt').next, { bank: 'right', index: 2 },
   'h/tgt NEXT should sit at the end of the right column');
 
+// ── pagedListCells: PREV/NEXT anchoring + fill order ───────────────────────────────────
+// The shape MAIN/MAP/the MD-hub switch (mfd.js) all share: PREV always takes the first slot when
+// present, NEXT the last when present, and items fill every slot left over in original order.
+{
+  const items = n => Array.from({ length: n }, (_, i) => ({ label: 'I' + i, action: 'a' + i }));
+
+  // First page of a multi-page list: no PREV, NEXT fills the last slot, 5 items fill the rest.
+  const first = P.pagedListCells('h', 0, 'main', { items: items(5), hasPrev: false, hasNext: true }, 'prev', 'next');
+  assert.strictEqual(first.cells.length, 6, 'a pane has 6 cells');
+  assert.deepStrictEqual(first.cells.map(c => c && c.action), ['a0', 'a1', 'a2', 'a3', 'a4', 'next'],
+    'first page: 5 items then NEXT, no PREV');
+
+  // A middle page: PREV first, NEXT last, 4 items between.
+  const middle = P.pagedListCells('h', 0, 'main', { items: items(4), hasPrev: true, hasNext: true }, 'prev', 'next');
+  assert.deepStrictEqual(middle.cells.map(c => c && c.action), ['prev', 'a0', 'a1', 'a2', 'a3', 'next'],
+    'middle page: PREV, 4 items, NEXT');
+
+  // Last page: PREV first, no NEXT, remaining slots stay empty (fewer than 5 items left).
+  const last = P.pagedListCells('h', 0, 'main', { items: items(2), hasPrev: true, hasNext: false }, 'prev', 'next');
+  assert.deepStrictEqual(last.cells.map(c => c && c.action), ['prev', 'a0', 'a1', null, null, null],
+    'last page: PREV, 2 items, trailing slots empty, no NEXT');
+
+  // Single page (no PREV, no NEXT): items fill from the very first slot.
+  const only = P.pagedListCells('h', 0, 'main', { items: items(3), hasPrev: false, hasNext: false }, 'prev', 'next');
+  assert.deepStrictEqual(only.cells.map(c => c && c.action), ['a0', 'a1', 'a2', null, null, null],
+    'single page: items fill from slot 0, no PREV/NEXT');
+
+  // pending and mark pass through untouched; a caller that never set them just gets undefined.
+  const flagged = P.pagedListCells('h', 0, 'main',
+    { items: [{ label: 'EXT', action: 'ext', pending: true }, { label: 'AKF', action: 'akf', mark: true }],
+      hasPrev: false, hasNext: false }, 'prev', 'next');
+  assert.strictEqual(flagged.cells[0].pending, true, 'pending should pass through');
+  assert.strictEqual(flagged.cells[1].mark, true, 'mark should pass through');
+  assert.strictEqual(flagged.cells[1].pending, undefined, 'an unset flag should stay undefined, not leak from a sibling');
+
+  // positions always mirrors listPaneLayout's own 6 slots, regardless of the slice.
+  const L = P.listPaneLayout('h', 0, 'main');
+  assert.deepStrictEqual(first.positions, [L.main, L.items[0], L.items[1], L.items[2], L.items[3], L.next],
+    'positions should be [main, ...items, next] from listPaneLayout');
+}
+
 console.log('classic-paging.test.js: OK');

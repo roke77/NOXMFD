@@ -139,8 +139,34 @@
     };
   }
 
+  // Shared shape behind every paginated split-pane list (MAIN/MAP/the MD-hub switch — mfd.js's
+  // renderSplitLabels): a slice's items fill the pane's 6 physical slots from listPaneLayout(variant,
+  // paneIdx, page) — positions[0]/positions[5] are the pane's MAIN/NEXT-adjacent corners, with PREV
+  // always anchoring the first slot and NEXT the last, so items fill every slot in between (and the
+  // first/last too when there's no PREV/NEXT — mainPageSizes already sized the slice to make that
+  // come out even). Pulled out once three call sites needed the identical construction.
+  function pagedListCells(variant, paneIdx, page, slice, prevAction, nextAction) {
+    const L = listPaneLayout(variant, paneIdx, page);
+    const positions = [L.main, L.items[0], L.items[1], L.items[2], L.items[3], L.next];
+    const cells = new Array(positions.length).fill(null);
+    if (slice.hasPrev) cells[0] = { label: 'PREV', action: prevAction };
+    if (slice.hasNext) cells[cells.length - 1] = { label: 'NEXT', action: nextAction };
+    let it = 0;
+    for (let p = 0; p < cells.length; p++) {
+      if (cells[p] === null && it < slice.items.length) {
+        // pending (EXT, a stub — mfd.js's BEZEL_EXTRAS.main) and mark (e.g. NAV.akf flagging AKF
+        // as current) pass through for callers that use them; a caller that doesn't just never
+        // reads them.
+        const item = slice.items[it];
+        cells[p] = { label: item.label, action: item.action, pending: item.pending, mark: item.mark };
+        it++;
+      }
+    }
+    return { positions: positions, cells: cells };
+  }
+
   const api = { buildWpnSplitPages, wpnPaneSlice, avnPaneSlice, mainPageSizes, mainPaneSlice,
-                listPaneLayout, pageOfSelection,
+                listPaneLayout, pagedListCells, pageOfSelection,
                 WPN_SPLIT_MAX, WPN_MAX_DISPLAY, WPN_SPLIT_CONTROLS, AVN_PANE_PAGE_SIZE, MAIN_PANE_SLOTS };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.ClassicPaging = api;

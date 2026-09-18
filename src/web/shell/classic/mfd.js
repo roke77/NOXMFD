@@ -304,6 +304,12 @@ function mdPaneSlice(page, idx) {
   return slice;
 }
 
+// classic-paging.js's pagedListCells is variant-parameterized (pure, no shell state) — this just
+// supplies splitVariant, same wrapper shape as this file's own listPaneLayout/mapSplitItems.
+function pagedListCells(paneIdx, listPage, slice, prevAction, nextAction) {
+  return ClassicPaging.pagedListCells(splitVariant, paneIdx, listPage, slice, prevAction, nextAction);
+}
+
 // Latest connection status mirrored from the map iframe — kept so we can push the
 // current value to a freshly-loaded pane iframe (its onload may fire AFTER the
 // shell has already received and forwarded the last status broadcast).
@@ -491,21 +497,9 @@ function renderSplitLabels() {
       // — and the first key too when there's no PREV, the last when there's no NEXT. The page sizes
       // keep those free keys exactly filled, so the first page shows NEXT in the last slot with no
       // gaps, a middle page has PREV first and NEXT last, and the last page has PREV first and no NEXT.
-      const L = listPaneLayout(paneIdx, 'main');
-      const positions = [L.main, L.items[0], L.items[1], L.items[2], L.items[3], L.next];
-      const slice = mainPaneSlice(paneIdx);
-      const cells = new Array(positions.length).fill(null);
-      if (slice.hasPrev) cells[0] = { label: 'PREV', action: 'main-prev' };
-      if (slice.hasNext) cells[cells.length - 1] = { label: 'NEXT', action: 'main-next' };
-      let it = 0;
-      for (let p = 0; p < cells.length; p++) {
-        if (cells[p] === null && it < slice.items.length) {
-          // pending (EXT, a stub — BEZEL_EXTRAS.main) carries through so a split pane dims it the
-          // same way full view does, not just an unpaginated MAIN.
-          cells[p] = { label: slice.items[it].label, action: slice.items[it].action, pending: slice.items[it].pending };
-          it++;
-        }
-      }
+      const { positions, cells } = pagedListCells(paneIdx, 'main', mainPaneSlice(paneIdx), 'main-prev', 'main-next');
+      // pending (EXT, a stub — BEZEL_EXTRAS.main) carries through so a split pane dims it the same
+      // way full view does, not just an unpaginated MAIN.
       cells.forEach(function (cell, i) { if (cell) placeSplitKey(positions[i], cell.label, cell.action, paneTag, undefined, cell.pending); });
       continue;
     }
@@ -514,19 +508,7 @@ function renderSplitLabels() {
       // MAP's own list paging — NAV.map exceeds a split pane's 6-key budget, so it's paginated
       // exactly like MAIN above (mapNavPaneSlice/mainPageSizes) rather than declaring
       // SPLIT_SLOTS.map slots (map has none — see split-slots.js).
-      const L = listPaneLayout(paneIdx, 'map');
-      const positions = [L.main, L.items[0], L.items[1], L.items[2], L.items[3], L.next];
-      const slice = mapNavPaneSlice(paneIdx);
-      const cells = new Array(positions.length).fill(null);
-      if (slice.hasPrev) cells[0] = { label: 'PREV', action: 'map-nav-prev' };
-      if (slice.hasNext) cells[cells.length - 1] = { label: 'NEXT', action: 'map-nav-next' };
-      let it = 0;
-      for (let p = 0; p < cells.length; p++) {
-        if (cells[p] === null && it < slice.items.length) {
-          cells[p] = { label: slice.items[it].label, action: slice.items[it].action };
-          it++;
-        }
-      }
+      const { positions, cells } = pagedListCells(paneIdx, 'map', mapNavPaneSlice(paneIdx), 'map-nav-prev', 'map-nav-next');
       cells.forEach(function (cell, i) { if (cell) placeSplitKey(positions[i], cell.label, cell.action, paneTag); });
       // ZOOM/ROUTE decorators only render when both keys of their pair landed on the SAME page —
       // a rare pagination edge case (mainPageSizes has no pairing awareness), skipped rather than
@@ -610,26 +592,14 @@ function renderSplitLabels() {
 
     if (MD_GROUP_PAGES[page]) {
       // AKF/MIS/OBJ/BDF/PAL/DOC's own switch — NAV[page] paginated exactly like MAIN's own list
-      // (mainPaneSlice/mainPageSizes, via mdPaneSlice above) rather than declaring SPLIT_SLOTS for
-      // it (split-slots.js's own comment), since DOC (issue #82) pushed this group's list past a
-      // split pane's 6-key budget. `mark` carries through (e.g. NAV.akf flagging AKF as current).
-      const L = listPaneLayout(paneIdx, page);
-      const positions = [L.main, L.items[0], L.items[1], L.items[2], L.items[3], L.next];
-      const slice = mdPaneSlice(page, paneIdx);
-      const cells = new Array(positions.length).fill(null);
-      if (slice.hasPrev) cells[0] = { label: 'PREV', action: 'md-prev' };
-      if (slice.hasNext) cells[cells.length - 1] = { label: 'NEXT', action: 'md-next' };
-      let it = 0;
-      for (let p = 0; p < cells.length; p++) {
-        if (cells[p] === null && it < slice.items.length) {
-          cells[p] = { label: slice.items[it].label, action: slice.items[it].action, mark: slice.items[it].mark };
-          it++;
-        }
-      }
-      // isVmainPage: AKF/BDF/PAL/MIS/OBJ's own content sits top-left (their WARHEADS-style
-      // readout), same reasoning as the static-nav branch below — every item of one of those five
-      // pages' own render stands upright here, not just its MAIN back-item. DOC's content doesn't
-      // (page-chrome.css-style, like WPT/SQD — isVmainPage excludes it).
+      // (via mdPaneSlice above) rather than declaring SPLIT_SLOTS for it (split-slots.js's own
+      // comment), since DOC (issue #82) pushed this group's list past a split pane's 6-key budget.
+      // `mark` carries through (e.g. NAV.akf flagging AKF as current). isVmainPage: AKF/BDF/PAL/
+      // MIS/OBJ's own content sits top-left (their WARHEADS-style readout), same reasoning as the
+      // static-nav branch below — every item of one of those five pages' own render stands upright
+      // here, not just its MAIN back-item. DOC's content doesn't (page-chrome.css-style, like
+      // WPT/SQD — isVmainPage excludes it).
+      const { positions, cells } = pagedListCells(paneIdx, page, mdPaneSlice(page, paneIdx), 'md-prev', 'md-next');
       cells.forEach(function (cell, i) {
         if (!cell) return;
         const el = placeSplitKey(positions[i], cell.label, cell.action, paneTag, cell.mark);
