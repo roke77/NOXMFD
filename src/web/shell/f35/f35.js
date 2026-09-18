@@ -137,7 +137,8 @@
     { label: 'RDR', action: 'rdr' },   // → RDR hub, landing on FCR at /rdr (docs/rdr-fcr-hsd.md)
     { label: 'AFM', action: 'afm' },   // → AFM airframe page — mirrors BEZEL_EXTRAS.main
     { label: 'SQD', action: 'sqd' },   // → SQD squad page (docs/squadron-transport.md) — mirrors BEZEL_EXTRAS.main
-    { label: 'DOC', action: 'doc' },   // → DOC kneeboard image viewer (issue #82) — mirrors BEZEL_EXTRAS.main
+    // DOC is NOT here — it's the 6th member of the AKF/MIS/OBJ/BDF/PAL switch (docs/doc-page.md),
+    // reached via MD like the other five, not its own MAIN_EXTRAS entry.
     // EXT is NOT here — it's a real, shared NAV.main entry (docs/extensions-api.md), not this
     // layout's own placeholder; a second entry here would render a duplicate "EXT" item.
   ];

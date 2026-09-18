@@ -75,11 +75,14 @@
     // while in a squad, same "presence discovered at runtime" shape NAV.ext uses for extensions —
     // the static baseline below is just MAIN, same as every other single-MAIN page here.
     tgt: [ { label: 'MAIN', action: 'main' } ],
-    // AKF, BDF, PAL, MIS and OBJ fold under one MAIN destination rather than five separate items:
-    // each carries the other four as a direct switch, plus the way back, with `mark` on whichever
-    // one is current (docs/md-pages.md). mfd.js's generic sweep (full view) and
-    // renderSplitLabels' static-nav branch (split) both honor `mark`. AKF leads and is MD's
-    // default landing page.
+    // AKF, MIS, OBJ, BDF, PAL and DOC fold under one MAIN destination rather than six separate
+    // items: each carries the other five as a direct switch, plus the way back, with `mark` on
+    // whichever one is current (docs/md-pages.md, docs/doc-page.md). mfd.js's generic sweep (full
+    // view) and f35.js's generic itemsFor() both honor `mark` and fit this fine (7 items, well
+    // under either layout's 12-slot full-view/portal budget) — split panes are the one place a
+    // 7-item list doesn't fit a bezel pane's 6-slot budget, so mfd.js paginates this group's split
+    // rendering instead of declaring SPLIT_SLOTS for it (see that file's own comment). AKF leads
+    // and is MD's default landing page; DOC trails as the newest member (issue #82).
     akf: [
       { label: 'MAIN', action: 'main' },
       { label: 'AKF',  action: 'akf', mark: true },
@@ -87,6 +90,7 @@
       { label: 'OBJ',  action: 'obj' },
       { label: 'BDF',  action: 'bdf' },
       { label: 'PAL',  action: 'pal' },
+      { label: 'DOC',  action: 'doc' },
     ],
     mis: [
       { label: 'MAIN', action: 'main' },
@@ -95,6 +99,7 @@
       { label: 'OBJ',  action: 'obj' },
       { label: 'BDF',  action: 'bdf' },
       { label: 'PAL',  action: 'pal' },
+      { label: 'DOC',  action: 'doc' },
     ],
     obj: [
       { label: 'MAIN', action: 'main' },
@@ -103,6 +108,7 @@
       { label: 'OBJ',  action: 'obj', mark: true },
       { label: 'BDF',  action: 'bdf' },
       { label: 'PAL',  action: 'pal' },
+      { label: 'DOC',  action: 'doc' },
     ],
     bdf: [
       { label: 'MAIN', action: 'main' },
@@ -111,6 +117,7 @@
       { label: 'OBJ',  action: 'obj' },
       { label: 'BDF',  action: 'bdf', mark: true },
       { label: 'PAL',  action: 'pal' },
+      { label: 'DOC',  action: 'doc' },
     ],
     pal: [
       { label: 'MAIN', action: 'main' },
@@ -119,6 +126,7 @@
       { label: 'OBJ',  action: 'obj' },
       { label: 'BDF',  action: 'bdf' },
       { label: 'PAL',  action: 'pal', mark: true },
+      { label: 'DOC',  action: 'doc' },
     ],
     // CFG folds HUD, KEY and LYT under one MAIN entry, same pattern as BDF/PAL/MIS/OBJ above.
     // LYT's action is the CLASSIC/F-35 chooser (mfd.js BEZEL_EXTRAS.lyt / f35.js
@@ -159,16 +167,19 @@
     // TD (issue #47, docs/target-designator.md) — reached from TGT's own nav row (once td-nav.js
     // has appended it there), so its way back is TGT, same reasoning as mapcfg/tgpcfg/wpt above.
     td: [ { label: 'TGT', action: 'tgt' } ],
-    // DOC (kneeboard image viewer, issue #82) — reached from MAIN directly (mfd.js BEZEL_EXTRAS.main/
-    // f35.js MAIN_EXTRAS, next to MD), NOT folded into the AKF/MIS/OBJ/BDF/PAL switch: that switch's
-    // own SPLIT_SLOTS entries each already consume all 6 of a split pane's physical nav slots (3
-    // left + 3 right), so a 6th sibling would push every one of those five pages to 7 items and
-    // overflow that budget — forcing split-pane pagination onto five already-shipped pages just to
-    // fit DOC in. INDX/NEXT/PREV act on the page in place rather than naming a destination — same
-    // shape as RDR/HSD's own R+/R- above (layout-coverage.test.js's BEHAVIOURS lists them, not
-    // CLASSIC_FULL/CLASSIC_SPLIT/F35).
+    // DOC (kneeboard image viewer, issue #82) — the 6th member of the AKF/MIS/OBJ/BDF/PAL switch
+    // above (docs/doc-page.md), same MAIN/AKF/MIS/OBJ/BDF/PAL/DOC(mark) shape those five carry, plus
+    // its own INDX/NEXT/PREV image-cycling controls after the switch. Those three act on the page
+    // in place rather than naming a destination — same shape as RDR/HSD's own R+/R- above
+    // (layout-coverage.test.js's BEHAVIOURS lists them, not CLASSIC_FULL/CLASSIC_SPLIT/F35).
     doc: [
       { label: 'MAIN', action: 'main' },
+      { label: 'AKF',  action: 'akf' },
+      { label: 'MIS',  action: 'mis' },
+      { label: 'OBJ',  action: 'obj' },
+      { label: 'BDF',  action: 'bdf' },
+      { label: 'PAL',  action: 'pal' },
+      { label: 'DOC',  action: 'doc', mark: true },
       { label: 'INDX', action: 'doc-indx' },
       { label: 'NEXT', action: 'doc-next' },
       { label: 'PREV', action: 'doc-prev' },

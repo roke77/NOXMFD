@@ -135,9 +135,8 @@ const BEZEL_EXTRAS = {
     { label: 'RDR', action: 'rdr' },   // → RDR radar page (docs/rdr-page.md)
     { label: 'AFM', action: 'afm' },   // → AFM airframe page (name + damage silhouette)
     { label: 'SQD', action: 'sqd' },   // → SQD squad page (docs/squadron-transport.md)
-    // DOC (kneeboard image viewer, issue #82) — its own MAIN destination next to MD rather than a
-    // sixth arm of the AKF/MIS/OBJ/BDF/PAL switch (nav-model.js's own comment has the full reason).
-    { label: 'DOC', action: 'doc' },
+    // DOC is NOT here — it's the 6th member of the AKF/MIS/OBJ/BDF/PAL switch (nav-model.js's
+    // NAV.akf etc.), reached via MD like the other five, not its own MAIN entry.
     // EXT is NOT here — it's a real, shared NAV.main entry (docs/extensions-api.md), not a
     // layout-owned stub; a second entry here would render a duplicate "EXT" label.
   ],
@@ -287,6 +286,23 @@ let paneTgpPage = [0, 0];
 // is (mapNavPaneSlice), since NAV.map's 10 items exceed a split pane's 6-key budget. Reset to 0
 // when a pane (re)enters MAP (paneNavigate).
 let paneMapNavPage = [0, 0];
+
+// AKF/MIS/OBJ/BDF/PAL/DOC (the MD-hub switch, docs/doc-page.md) — one shared pagination index for
+// all six page names, same idea as MAIN's own paneMainPage: NAV[page] now runs to 7 (or 10, for
+// DOC's own extra INDX/NEXT/PREV) items, past a split pane's 6-key budget, so this group is paged
+// exactly like MAIN/MAP rather than declaring SPLIT_SLOTS for it (that file's own comment). Reset
+// to 0 whenever a pane (re)enters any one of these six pages (paneNavigate) — including switching
+// from one sibling to another, so AKF -> MIS always reopens on that page's own first screen.
+let paneMdPage = [0, 0];
+const MD_GROUP_PAGES = { akf: true, mis: true, obj: true, bdf: true, pal: true, doc: true };
+// This pane's slice of NAV[page] (any MD_GROUP_PAGES member), with the page clamped in range —
+// same shape as mainPaneSlice/mapNavPaneSlice above, just parameterized on which of the six pages
+// is showing instead of a single fixed list.
+function mdPaneSlice(page, idx) {
+  const slice = ClassicPaging.mainPaneSlice(NAV[page], paneMdPage[idx]);
+  paneMdPage[idx] = slice.pageIndex;
+  return slice;
+}
 
 // Latest connection status mirrored from the map iframe — kept so we can push the
 // current value to a freshly-loaded pane iframe (its onload may fire AFTER the
@@ -592,6 +608,36 @@ function renderSplitLabels() {
       continue;
     }
 
+    if (MD_GROUP_PAGES[page]) {
+      // AKF/MIS/OBJ/BDF/PAL/DOC's own switch — NAV[page] paginated exactly like MAIN's own list
+      // (mainPaneSlice/mainPageSizes, via mdPaneSlice above) rather than declaring SPLIT_SLOTS for
+      // it (split-slots.js's own comment), since DOC (issue #82) pushed this group's list past a
+      // split pane's 6-key budget. `mark` carries through (e.g. NAV.akf flagging AKF as current).
+      const L = listPaneLayout(paneIdx, page);
+      const positions = [L.main, L.items[0], L.items[1], L.items[2], L.items[3], L.next];
+      const slice = mdPaneSlice(page, paneIdx);
+      const cells = new Array(positions.length).fill(null);
+      if (slice.hasPrev) cells[0] = { label: 'PREV', action: 'md-prev' };
+      if (slice.hasNext) cells[cells.length - 1] = { label: 'NEXT', action: 'md-next' };
+      let it = 0;
+      for (let p = 0; p < cells.length; p++) {
+        if (cells[p] === null && it < slice.items.length) {
+          cells[p] = { label: slice.items[it].label, action: slice.items[it].action, mark: slice.items[it].mark };
+          it++;
+        }
+      }
+      // isVmainPage: AKF/BDF/PAL/MIS/OBJ's own content sits top-left (their WARHEADS-style
+      // readout), same reasoning as the static-nav branch below — every item of one of those five
+      // pages' own render stands upright here, not just its MAIN back-item. DOC's content doesn't
+      // (page-chrome.css-style, like WPT/SQD — isVmainPage excludes it).
+      cells.forEach(function (cell, i) {
+        if (!cell) return;
+        const el = placeSplitKey(positions[i], cell.label, cell.action, paneTag, cell.mark);
+        if (el && isVmainPage(page)) el.classList.add('vlabel');
+      });
+      continue;
+    }
+
     const slots = SPLIT_SLOTS[page];
     if (!slots) continue;                            // not a split-capable page (e.g. LYT)
 
@@ -634,9 +680,11 @@ function renderSplitLabels() {
         placeWpnPaneDecorator(L, slice.slots, 'combat-mode-aa', 'combat-mode-ag', 'MODE');
       }
     } else {
-      // Static nav (MAP/AVN/RWR/TGP/…): render the navigation model at this page's declared
-      // pane-local slots — SPLIT_SLOTS[page][i] places NAV[page][i]. `mark` lights an item active
-      // (NAV.bdf/NAV.pal's current-page flag).
+      // Static nav (RWR/TGT/…, AVN/AFM/etc. via the same SPLIT_SLOTS table): render the navigation
+      // model at this page's declared pane-local slots — SPLIT_SLOTS[page][i] places NAV[page][i].
+      // `mark` lights an item active (NAV.bdf/NAV.pal's current-page flag) — AKF/MIS/OBJ/BDF/PAL/DOC
+      // are no longer here; their own list now outgrows this fixed-slot shape, so they're paginated
+      // above instead (MD_GROUP_PAGES).
       (NAV[page] || []).forEach(function(item, i) {
         const s = slots[i];
         // SPLIT_SLOTS is index-aligned with NAV, so a NAV item added without a matching slot would
@@ -644,10 +692,7 @@ function renderSplitLabels() {
         if (!s) { console.warn('[mfd] NAV.' + page + '[' + i + '] "' + item.label + '" has no SPLIT_SLOTS entry — not placed'); return; }
         const el = placeSplitKey(paneKey(paneIdx, s.side, s.slot), item.label, item.action, paneTag, item.mark);
         // TGT keeps clickable content under its MAIN label; stand it upright in the pane too, the
-        // way full view does via .overlay.vmain. BDF/PAL/MIS/OBJ split their extra items across both
-        // the pane's left AND right columns (SPLIT_SLOTS.bdf/pal/mis/obj), and both pages reserve
-        // only a narrow vertical-label inset on each side, so every item of a vmain page stands
-        // upright here, not just its MAIN back-item.
+        // way full view does via .overlay.vmain.
         if (el && isVmainPage(page)) el.classList.add('vlabel');
       });
       // RANGE decorator between R+/R-. R+ is NAV[page][3]/SPLIT_SLOTS[page][3].
@@ -681,6 +726,7 @@ function paneNavigate(paneIdx, page) {
   if (page === 'map')  paneMapNavPage[paneIdx] = 0; // fresh pane always opens on MAP's first nav page
   if (page === 'avn')  paneAvnPage[paneIdx]  = 0;   // fresh pane always opens on the first 4 groups
   if (page === 'tgp')  paneTgpPage[paneIdx]  = 0;   // fresh pane always opens on TGP's first page
+  if (MD_GROUP_PAGES[page]) paneMdPage[paneIdx] = 0;   // fresh pane always opens on that page's own first screen
   paneFollowOn[paneIdx] = false;   // iframe reloads; follow restarts off (re-reported on load)
   LayoutPages.navigateFrame(paneIframes[paneIdx], url);
   renderSplitLabels();
@@ -2439,6 +2485,12 @@ function mfdButton(el) {
       // MAP's own list paging (NAV.map exceeds a split pane's 6-key budget) — same idea as MAIN's
       // own paging just above, bumping paneMapNavPage (mapNavPaneSlice).
       paneMapNavPage[paneIdx] += (act === 'map-nav-next' ? 1 : -1);
+      renderSplitLabels();
+    } else if (act === 'md-prev' || act === 'md-next') {
+      // AKF/MIS/OBJ/BDF/PAL/DOC's own switch paging (docs/doc-page.md) — same idea as MAIN's own
+      // paging above, bumping the shared paneMdPage (mdPaneSlice) regardless of which of the six
+      // page names is currently showing.
+      paneMdPage[paneIdx] += (act === 'md-next' ? 1 : -1);
       renderSplitLabels();
     } else if (act === 'tgp-nav-prev' || act === 'tgp-nav-next') {
       // TGP's own 3-page step (renderSplitLabels' 'tgp' branch) — bumps and clamps to [0,2], not a

@@ -14,10 +14,13 @@ const { mainPageSizes, mainPaneSlice, listPaneLayout } = require('./classic-pagi
 
 // 'main' and 'map' are documented exceptions (split-slots.js's header comment): both are paginated
 // in mfd.js (MAIN_SPLIT_ITEMS / mapNavPaneSlice) rather than a fixed slot table, since MAIN has
-// eleven destinations and MAP has ten (issue #38's R+/R- and W+/W-), both past six keys. 'lyt' isn't
-// in NAV at all (nav-model.test.js asserts that), so it never reaches this loop — picking it from a
-// pane collapses the split instead.
-const NO_SPLIT_TABLE = new Set(['main', 'map']);
+// eleven destinations and MAP has ten (issue #38's R+/R- and W+/W-), both past six keys.
+// 'akf'/'mis'/'obj'/'bdf'/'pal'/'doc' are the same exception (issue #82, docs/doc-page.md): DOC
+// joining that switch grew NAV.akf etc. to 7 items and NAV.doc to 10, so mfd.js paginates that
+// group too (mdPaneSlice) rather than declaring SPLIT_SLOTS for it. 'lyt' isn't in NAV at all
+// (nav-model.test.js asserts that), so it never reaches this loop — picking it from a pane
+// collapses the split instead.
+const NO_SPLIT_TABLE = new Set(['main', 'map', 'akf', 'mis', 'obj', 'bdf', 'pal', 'doc']);
 
 // 'tgt' is a documented exception too: td-nav.js appends a live TD entry to NAV.tgt at runtime
 // once a squad exists, so the static NAV.tgt here (nav-model.js) undercounts its real length —

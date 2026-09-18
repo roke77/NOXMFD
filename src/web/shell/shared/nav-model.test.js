@@ -94,20 +94,11 @@ assert.deepStrictEqual(NAV.tgpcfg, [ { label: 'TGP', action: 'tgp' } ]);
 // TD (issue #47) — reached from TGT's own nav row, way back is TGT, same shape as mapcfg/tgpcfg.
 assert.deepStrictEqual(NAV.td, [ { label: 'TGT', action: 'tgt' } ]);
 
-// DOC (kneeboard image viewer, issue #82) — reached from MAIN directly, not folded into the
-// AKF/MIS/OBJ/BDF/PAL switch (see nav-model.js's own comment for why: that switch's SPLIT_SLOTS
-// entries already consume a split pane's full 6-slot budget). INDX/NEXT/PREV act on the page in
-// place, same shape as RDR/HSD's R+/R-.
-assert.deepStrictEqual(NAV.doc, [
-  { label: 'MAIN', action: 'main' },
-  { label: 'INDX', action: 'doc-indx' },
-  { label: 'NEXT', action: 'doc-next' },
-  { label: 'PREV', action: 'doc-prev' },
-]);
-
-// AKF/BDF/PAL/MIS/OBJ are folded together (reached from MAIN via MD — mfd.js BEZEL_EXTRAS.main,
-// action still 'bdf'): each gets MAIN plus a direct switch to the other four, with `mark` on
-// whichever is live. Order is AKF, MIS, OBJ, BDF, PAL (issue #34).
+// AKF/MIS/OBJ/BDF/PAL/DOC are folded together (reached from MAIN via MD — mfd.js BEZEL_EXTRAS.main,
+// action still 'akf'): each gets MAIN plus a direct switch to the other five, with `mark` on
+// whichever is live. Order is AKF, MIS, OBJ, BDF, PAL (issue #34), then DOC trailing as the newest
+// member (issue #82) — a split pane pages through this 7-item list rather than declaring
+// SPLIT_SLOTS for it (split-slots.js's own comment on the NO_SPLIT_TABLE-style exclusion).
 assert.deepStrictEqual(NAV.akf, [
   { label: 'MAIN', action: 'main' },
   { label: 'AKF',  action: 'akf', mark: true },
@@ -115,6 +106,7 @@ assert.deepStrictEqual(NAV.akf, [
   { label: 'OBJ',  action: 'obj' },
   { label: 'BDF',  action: 'bdf' },
   { label: 'PAL',  action: 'pal' },
+  { label: 'DOC',  action: 'doc' },
 ]);
 assert.deepStrictEqual(NAV.mis, [
   { label: 'MAIN', action: 'main' },
@@ -123,6 +115,7 @@ assert.deepStrictEqual(NAV.mis, [
   { label: 'OBJ',  action: 'obj' },
   { label: 'BDF',  action: 'bdf' },
   { label: 'PAL',  action: 'pal' },
+  { label: 'DOC',  action: 'doc' },
 ]);
 assert.deepStrictEqual(NAV.obj, [
   { label: 'MAIN', action: 'main' },
@@ -131,6 +124,7 @@ assert.deepStrictEqual(NAV.obj, [
   { label: 'OBJ',  action: 'obj', mark: true },
   { label: 'BDF',  action: 'bdf' },
   { label: 'PAL',  action: 'pal' },
+  { label: 'DOC',  action: 'doc' },
 ]);
 assert.deepStrictEqual(NAV.bdf, [
   { label: 'MAIN', action: 'main' },
@@ -139,6 +133,7 @@ assert.deepStrictEqual(NAV.bdf, [
   { label: 'OBJ',  action: 'obj' },
   { label: 'BDF',  action: 'bdf', mark: true },
   { label: 'PAL',  action: 'pal' },
+  { label: 'DOC',  action: 'doc' },
 ]);
 assert.deepStrictEqual(NAV.pal, [
   { label: 'MAIN', action: 'main' },
@@ -147,6 +142,23 @@ assert.deepStrictEqual(NAV.pal, [
   { label: 'OBJ',  action: 'obj' },
   { label: 'BDF',  action: 'bdf' },
   { label: 'PAL',  action: 'pal', mark: true },
+  { label: 'DOC',  action: 'doc' },
+]);
+
+// DOC (kneeboard image viewer, issue #82) — the switch's 6th member, same MAIN/AKF/MIS/OBJ/BDF/PAL/
+// DOC(mark) shape as its siblings above, plus its own INDX/NEXT/PREV image-cycling controls, which
+// act on the page in place rather than naming a destination — same shape as RDR/HSD's own R+/R-.
+assert.deepStrictEqual(NAV.doc, [
+  { label: 'MAIN', action: 'main' },
+  { label: 'AKF',  action: 'akf' },
+  { label: 'MIS',  action: 'mis' },
+  { label: 'OBJ',  action: 'obj' },
+  { label: 'BDF',  action: 'bdf' },
+  { label: 'PAL',  action: 'pal' },
+  { label: 'DOC',  action: 'doc', mark: true },
+  { label: 'INDX', action: 'doc-indx' },
+  { label: 'NEXT', action: 'doc-next' },
+  { label: 'PREV', action: 'doc-prev' },
 ]);
 
 // WPN contributes no navigation of its own: its MAIN/PREV/NEXT are pagination, i.e. shell state

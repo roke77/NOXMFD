@@ -22,7 +22,10 @@
 (function (root) {
   const SPLIT_SLOTS = {
     // MAP has no entry here: NAV.map has more items than a split pane's 6-key budget, so it's
-    // paginated instead (mfd.js's mapNavPaneSlice, same treatment as MAIN).
+    // paginated instead (mfd.js's mapNavPaneSlice, same treatment as MAIN). AKF/MIS/OBJ/BDF/PAL/DOC
+    // have no entry either, for the same reason: DOC joining that switch (issue #82,
+    // docs/doc-page.md) grew NAV.akf etc. to 7 items (NAV.doc to 10), past the budget — mfd.js's
+    // mdPaneSlice paginates that group instead.
     //
     // AVN / AFM / TGP / RWR / TGT / HUD in a split pane each expose their single MAIN back-button
     // on the pane's top-left slot (L0 for top, physically L3 for bottom); it navigates only that
@@ -49,16 +52,9 @@
     // this list doesn't need to change if NAV.hsd's own item order does — only its length matters.
     rdr: [ { side: 'left', slot: 0 }, { side: 'left', slot: 1 }, { side: 'left', slot: 2 }, { side: 'right', slot: 0 }, { side: 'right', slot: 1 } ],
     hsd: [ { side: 'left', slot: 0 }, { side: 'left', slot: 1 }, { side: 'left', slot: 2 }, { side: 'right', slot: 0 }, { side: 'right', slot: 1 }, { side: 'right', slot: 2 } ],
-    // AKF/BDF/PAL/MIS/OBJ get 6: MAIN, then the other four as a direct switch (NAV.akf/NAV.bdf/
-    // NAV.pal/NAV.mis/NAV.obj), index-aligned with this list. Left holds MAIN+AKF+MIS; OBJ/BDF/PAL
-    // spill onto the right column.
-    akf: [ { side: 'left', slot: 0 }, { side: 'left', slot: 1 }, { side: 'left', slot: 2 }, { side: 'right', slot: 0 }, { side: 'right', slot: 1 }, { side: 'right', slot: 2 } ],
-    bdf: [ { side: 'left', slot: 0 }, { side: 'left', slot: 1 }, { side: 'left', slot: 2 }, { side: 'right', slot: 0 }, { side: 'right', slot: 1 }, { side: 'right', slot: 2 } ],
-    pal: [ { side: 'left', slot: 0 }, { side: 'left', slot: 1 }, { side: 'left', slot: 2 }, { side: 'right', slot: 0 }, { side: 'right', slot: 1 }, { side: 'right', slot: 2 } ],
-    mis: [ { side: 'left', slot: 0 }, { side: 'left', slot: 1 }, { side: 'left', slot: 2 }, { side: 'right', slot: 0 }, { side: 'right', slot: 1 }, { side: 'right', slot: 2 } ],
-    obj: [ { side: 'left', slot: 0 }, { side: 'left', slot: 1 }, { side: 'left', slot: 2 }, { side: 'right', slot: 0 }, { side: 'right', slot: 1 }, { side: 'right', slot: 2 } ],
-    // CFG group: MAIN/HUD/KEY/LYT switch directly between each other, same shape as BDF/PAL/MIS/
-    // OBJ above but only 4 items — all fit the left column. Index-aligned with NAV.hud/NAV.keys.
+    // CFG group: MAIN/HUD/KEY/LYT switch directly between each other, same 6-slot shape AKF/BDF/
+    // PAL/MIS/OBJ used before DOC joined them (see the header comment above) but only 4 items —
+    // all fit the left column. Index-aligned with NAV.hud/NAV.keys.
     hud:   [ { side: 'left', slot: 0 }, { side: 'left', slot: 1 }, { side: 'left', slot: 2 }, { side: 'right', slot: 0 } ],
     keys:  [ { side: 'left', slot: 0 }, { side: 'left', slot: 1 }, { side: 'left', slot: 2 }, { side: 'right', slot: 0 } ],
     // WPT gets a single MAIN-equivalent back-button, same shape as AVN/AFM/TGP/RWR/TGT — but back
@@ -83,9 +79,6 @@
     // pane's pagination state, so renderSplitLabels' list branch owns them (NAV.wpn is empty to
     // match).
     wpn: [],
-    // DOC (kneeboard image viewer, issue #82) — MAIN, INDX, NEXT, PREV, same 4-item left-column
-    // shape as HUD/KEY above. Index-aligned with NAV.doc.
-    doc: [ { side: 'left', slot: 0 }, { side: 'left', slot: 1 }, { side: 'left', slot: 2 }, { side: 'right', slot: 0 } ],
   };
 
   // NAV.map's own item order for SPLIT pagination (mfd.js's mapSplitItems/mapNavPaneSlice) —
