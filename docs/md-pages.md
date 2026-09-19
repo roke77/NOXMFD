@@ -32,8 +32,7 @@ predates this and doesn't have it), which toggles between two views:
 MD (Mission Data) is now a six-way switch: **AKF / MIS / OBJ / BDF / PAL /
 DOC**, all reachable from each other (`nav-model.js` `NAV.akf`/`NAV.mis`/
 `NAV.obj`/`NAV.bdf`/`NAV.pal`, each the same seven items with `mark` on
-whichever is live — `NAV.doc` carries the same seven plus its own
-INDX/NEXT/PREV). MAIN still reaches the family via `BEZEL_EXTRAS.main`'s
+whichever is live). MAIN still reaches the family via `BEZEL_EXTRAS.main`'s
 `MD` label, action `'akf'` — AKF is the group's default landing page
 (issue #34 follow-up; was `'bdf'`).
 
@@ -43,9 +42,14 @@ after AKF/MIS/OBJ/BDF/PAL already shipped with a *fixed* split-pane slot table (
 member pushes that list to 7 items, past a split pane's budget — rather than leave DOC out of the
 switch, `mfd.js`'s `renderSplitLabels` now paginates this whole group (`mdPaneSlice`/`paneMdPage`,
 `MD_GROUP_PAGES`) the same way it already paginates MAIN's and MAP's own oversized lists, and
-`SPLIT_SLOTS` no longer has entries for any of the six (`split-slots.test.js`'s `NO_SPLIT_TABLE`
-documents the exclusion). Full view and F-35's glass needed no equivalent change — both already
-place `NAV[page]` generically up to 12 items, and 7 (or DOC's own 10) comfortably fits.
+`SPLIT_SLOTS` no longer has entries for AKF/MIS/OBJ/BDF/PAL (`split-slots.test.js`'s
+`NO_SPLIT_TABLE` documents the exclusion). Full view and F-35's glass needed no equivalent change —
+both already place `NAV[page]` generically up to 12 items, and 7 comfortably fits.
+
+Once you're actually ON DOC (not just switching between its five siblings), its own nav is
+deliberately NOT this same switch mirrored back — see [docs/doc-page.md](doc-page.md)'s own
+"MD-hub integration" section for why (`NAV.doc` is a 2-item MAIN/MD baseline, with INDX/NEXT/PREV
+hand-placed only while an image is open).
 
 ## Data model
 

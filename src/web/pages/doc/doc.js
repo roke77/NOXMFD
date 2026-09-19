@@ -29,10 +29,22 @@ function renderRows(files) {
   emptyEl.style.display = files.length ? 'none' : 'block';
 }
 
+// Index-vs-image is page-internal UI state the shell has no other way to know (no game telemetry
+// carries it), so it's reported up on every change — the shell needs it to decide whether to show
+// INDX/PREV/NEXT on the bezel at all (mfd.js's docView/'doc-view' handling, docs/doc-page.md).
+// A no-op when opened standalone (window.parent is this same window; posting to self would just
+// loop back into the listener below for nothing).
+function reportView() {
+  if (window.parent !== window) {
+    window.parent.postMessage({ mfd: true, type: 'doc-view', view: currentName === null ? 'index' : 'image' }, '*');
+  }
+}
+
 function showIndexView() {
   currentName = null;
   imageEl.style.display = 'none';
   indexEl.style.display = '';
+  reportView();
   fetch('/doc-list')
     .then(function (r) { return r.json(); })
     .then(renderRows)
@@ -45,6 +57,7 @@ function showImage(name) {
   imageEl.style.display = '';
   imageName.textContent = name;
   imageImg.src = '/doc-image?name=' + encodeURIComponent(name);
+  reportView();
 }
 
 // NEXT/PREV re-read the live folder listing (issue #82's own decision — see doc.html's header

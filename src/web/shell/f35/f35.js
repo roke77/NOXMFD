@@ -375,6 +375,11 @@
     let wpnSelSeen  = null; // last selWeapon this portal followed; guards the page jump below
     let followOn    = false;
     let gridOn      = false;   // corrected as soon as the map reports its real (persisted) state
+    // DOC's own index-vs-image view state (issue #82 follow-up), per portal — page-internal UI
+    // state with no game-telemetry equivalent, reported up by doc.js's own 'doc-view' messages
+    // (routed to whichever portal's frame sent it, setDocView below), same reasoning as followOn/
+    // gridOn above being per-portal rather than glass-wide.
+    let docView     = 'index';
 
     // The press-and-hold nav buttons below (combat-mode/wpt-prev reset, TGP zoom repeat) wire their
     // timer straight to that specific <button>'s own pointerup/cancel/leave — but renderNav() can
@@ -580,10 +585,28 @@
     //          (mapNavItems — see its own comment).
     //   tgp  — MAIN + CFG via explicit cells (tgpNavItems), CFG pinned to the bottom row rather
     //          than landing right under MAIN via the generic index-into-6-rows overflow.
+    // DOC (issue #82 follow-up) — MAIN/MD (NAV.doc) via explicit cells, same shape as tgpNavItems,
+    // with INDX/PREV/NEXT appended only while this portal's own DOC instance has an image open
+    // (docView, set by setDocView above from doc.js's 'doc-view' messages) — mirrors the bezel's
+    // placeDocNavLabels exactly, one column (col 1) per the user-specified left-side placement.
+    function docNavItems() {
+      const items = [
+        Object.assign({}, NAV.doc[0], { cell: { row: 1, col: 1 } }),
+        Object.assign({}, NAV.doc[1], { cell: { row: 2, col: 1 } }),
+      ];
+      if (docView === 'image') {
+        items.push({ label: 'INDX', action: 'doc-indx', cell: { row: 3, col: 1 } });
+        items.push({ label: 'PREV', action: 'doc-prev', cell: { row: 4, col: 1 } });
+        items.push({ label: 'NEXT', action: 'doc-next', cell: { row: 5, col: 1 } });
+      }
+      return items;
+    }
+
     function itemsFor(page) {
       if (page === 'wpn') return wpnState().nav.concat(MASTER_ARMS_NAV, COMBAT_MODE_NAV);
       if (page === 'map') return mapNavItems();
       if (page === 'tgp') return tgpNavItems().concat(TGP_MAN_NAV, TGP_VIEW_NAV, TGP_IR_NAV, TGP_ZOOM_NAV, TGP_STP_NAV, TGP_TRK_NAV, TGP_RST_NAV);
+      if (page === 'doc') return docNavItems();
       const items = (NAV[page] || []).slice();
       if (page !== 'main') return items;
       return items.concat(MAIN_EXTRAS).sort(function (a, b) { return a.label.localeCompare(b.label); });
@@ -612,6 +635,15 @@
     function markGrid() {
       const b = grid.querySelector('.nav-item[data-action="grid"]');
       if (b) b.classList.toggle('on', gridOn);
+    }
+    // DOC's INDX/PREV/NEXT (issue #82 follow-up) only exist in the item set while an image is
+    // open, unlike FLW/GRID above (same item, different state) — a full renderNav() is needed to
+    // add or remove them, not just re-mark an existing label.
+    function setDocView(view) {
+      const v = view === 'image' ? 'image' : 'index';
+      if (v === docView) return;
+      docView = v;
+      if (currentPage === 'doc') renderNav();
     }
 
     // ARM/SAFE (docs/radar-master-arms.md) reflect masterArmsOn straight off the loadout slice —
@@ -873,6 +905,7 @@
       if (!has(name)) return;
       currentPage = name;
       wpnNavKey = '';   // entering any page redraws the grid; don't let a stale key suppress it
+      if (name === 'doc') docView = 'index';   // fresh portal always opens on DOC's own index
       // A page with no content of its own (MAIN) blanks the frame rather than hiding it: the
       // iframe's background is the glass colour, so what shows through is the label grid on black.
       LayoutPages.navigateFrame(frame, F35_PAGES[name] || (ExtNav.isExtensionPage(name) ? '/ext/' + name : 'about:blank'));
@@ -890,6 +923,7 @@
       isMapWin: isMapWin,
       setFollow: setFollow,
       setGrid: setGrid,
+      setDocView: setDocView,
       setGrips: setGrips,
       // For the SOI cursor: the page this portal shows (to tell a navigating SELECT from an
       // in-place one) and its enabled nav labels, in reading order, as the cursor's targets.
@@ -1159,6 +1193,14 @@
     // data to render. Same routes-by-source reasoning as 'follow'/'grid' above.
     if (m.type === 'td-designated') {
       livePortals().forEach(function (p) { if (p.page() === 'td' && p.frameWin() === e.source) p.showPage('tgt'); });
+      return;
+    }
+
+    // 'doc-view' (issue #82 follow-up) — DOC's own index-vs-image view state, page-internal UI
+    // state with no game-telemetry equivalent. Same routes-by-source reasoning as 'follow'/'grid'
+    // above: DOC can be open in more than one portal at once, each tracked independently.
+    if (m.type === 'doc-view') {
+      livePortals().forEach(function (p) { if (p.frameWin() === e.source) p.setDocView(m.view); });
       return;
     }
 

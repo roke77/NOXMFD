@@ -38,6 +38,10 @@
     // bottom-of-column placement (mfd.js's dedicated 'tgp' branch) at this pane's smaller 3-slot
     // scale.
     tgp: [ { side: 'left', slot: 0 }, { side: 'left', slot: 2 } ],
+    // DOC's static baseline (MAIN, MD) — its own dynamic INDX/PREV/NEXT extras (issue #82 follow-
+    // up) are hand-placed by mfd.js's dedicated 'doc' branch, same "declared here for coverage,
+    // rendered by hand" shape as TGP's own CFG slot above.
+    doc: [ { side: 'left', slot: 0 }, { side: 'left', slot: 1 } ],
     // EXT's static baseline is one item (MAIN), same shape as TGP/RWR — a runtime-added
     // extension's own NAV[<id>] is also always exactly one item (ext-nav.js), so mfd.js falls
     // back to this same slot for any of them rather than needing a per-extension entry here.

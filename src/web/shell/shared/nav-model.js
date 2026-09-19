@@ -167,22 +167,18 @@
     // TD (issue #47, docs/target-designator.md) — reached from TGT's own nav row (once td-nav.js
     // has appended it there), so its way back is TGT, same reasoning as mapcfg/tgpcfg/wpt above.
     td: [ { label: 'TGT', action: 'tgt' } ],
-    // DOC (kneeboard image viewer, issue #82) — the 6th member of the AKF/MIS/OBJ/BDF/PAL switch
-    // above (docs/doc-page.md), same MAIN/AKF/MIS/OBJ/BDF/PAL/DOC(mark) shape those five carry, plus
-    // its own INDX/NEXT/PREV image-cycling controls after the switch. Those three act on the page
-    // in place rather than naming a destination — same shape as RDR/HSD's own R+/R- above
+    // DOC (kneeboard image viewer, issue #82) — reached via the AKF/MIS/OBJ/BDF/PAL switch above
+    // (its own DOC entry there), but once open shows its OWN small nav rather than mirroring that
+    // whole switch back: MAIN and MD (MD = the same "back to the switch's landing page" action
+    // BEZEL_EXTRAS.main's own MD button uses) are static, always present; INDX/NEXT/PREV are NOT
+    // here — they only make sense once an image is open, so mfd.js hand-places them (like TGP's own
+    // MAN/CLR/IR/etc.) gated on doc.js's live view state ('doc-view' messages — docs/doc-page.md),
+    // rather than sitting here clickable-but-inert over the index. They act on the page in place
+    // rather than naming a destination — same shape as RDR/HSD's own R+/R- above
     // (layout-coverage.test.js's BEHAVIOURS lists them, not CLASSIC_FULL/CLASSIC_SPLIT/F35).
     doc: [
       { label: 'MAIN', action: 'main' },
-      { label: 'AKF',  action: 'akf' },
-      { label: 'MIS',  action: 'mis' },
-      { label: 'OBJ',  action: 'obj' },
-      { label: 'BDF',  action: 'bdf' },
-      { label: 'PAL',  action: 'pal' },
-      { label: 'DOC',  action: 'doc', mark: true },
-      { label: 'INDX', action: 'doc-indx' },
-      { label: 'NEXT', action: 'doc-next' },
-      { label: 'PREV', action: 'doc-prev' },
+      { label: 'MD',   action: 'akf' },
     ],
   };
 

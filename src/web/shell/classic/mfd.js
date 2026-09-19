@@ -287,14 +287,17 @@ let paneTgpPage = [0, 0];
 // when a pane (re)enters MAP (paneNavigate).
 let paneMapNavPage = [0, 0];
 
-// AKF/MIS/OBJ/BDF/PAL/DOC (the MD-hub switch, docs/doc-page.md) — one shared pagination index for
-// all six page names, same idea as MAIN's own paneMainPage: NAV[page] now runs to 7 (or 10, for
-// DOC's own extra INDX/NEXT/PREV) items, past a split pane's 6-key budget, so this group is paged
-// exactly like MAIN/MAP rather than declaring SPLIT_SLOTS for it (that file's own comment). Reset
-// to 0 whenever a pane (re)enters any one of these six pages (paneNavigate) — including switching
-// from one sibling to another, so AKF -> MIS always reopens on that page's own first screen.
+// AKF/MIS/OBJ/BDF/PAL (the MD-hub switch, docs/doc-page.md) — one shared pagination index for all
+// five page names, same idea as MAIN's own paneMainPage: NAV[page] runs to 6 items (the other four
+// siblings plus DOC), past a split pane's 6-key budget once MAIN is counted too, so this group is
+// paged exactly like MAIN/MAP rather than declaring SPLIT_SLOTS for it (that file's own comment).
+// DOC itself is NOT here (its own follow-up, docs/doc-page.md): it's reached via this switch but,
+// once open, shows its own small hand-placed nav (placeDocNavLabels/paneDocView below) rather than
+// mirroring the whole switch back — same "hand-placed, not paginated" shape as TGP. Reset to 0
+// whenever a pane (re)enters any one of these five pages (paneNavigate) — including switching from
+// one sibling to another, so AKF -> MIS always reopens on that page's own first screen.
 let paneMdPage = [0, 0];
-const MD_GROUP_PAGES = { akf: true, mis: true, obj: true, bdf: true, pal: true, doc: true };
+const MD_GROUP_PAGES = { akf: true, mis: true, obj: true, bdf: true, pal: true };
 // This pane's slice of NAV[page] (any MD_GROUP_PAGES member), with the page clamped in range —
 // same shape as mainPaneSlice/mapNavPaneSlice above, just parameterized on which of the six pages
 // is showing instead of a single fixed list.
@@ -590,15 +593,31 @@ function renderSplitLabels() {
       continue;
     }
 
+    if (page === 'doc') {
+      // DOC's own split-pane nav (issue #82 follow-up) — hand-placed like TGP's own branch below,
+      // not NAV/SPLIT_SLOTS-driven: MAIN/MD (NAV.doc, always) then INDX/PREV/NEXT only while this
+      // PANE's own DOC instance has an image open (paneDocView[paneIdx], reported up by doc.js's
+      // 'doc-view' messages — see the message listener). Left column for the base pair (mirrors
+      // full view's placeDocNavLabels); INDX spills onto right,0 with PREV/NEXT beside it, since a
+      // pane's left column only has 3 slots and the full 5-item set doesn't fit on one side here.
+      placeSplitKey(paneKey(paneIdx, 'left', 0), NAV.doc[0].label, NAV.doc[0].action, paneTag);
+      placeSplitKey(paneKey(paneIdx, 'left', 1), NAV.doc[1].label, NAV.doc[1].action, paneTag);
+      if (paneDocView[paneIdx] === 'image') {
+        placeSplitKey(paneKey(paneIdx, 'left', 2), 'INDX', 'doc-indx', paneTag);
+        placeSplitKey(paneKey(paneIdx, 'right', 0), 'PREV', 'doc-prev', paneTag);
+        placeSplitKey(paneKey(paneIdx, 'right', 1), 'NEXT', 'doc-next', paneTag);
+      }
+      continue;
+    }
+
     if (MD_GROUP_PAGES[page]) {
-      // AKF/MIS/OBJ/BDF/PAL/DOC's own switch — NAV[page] paginated exactly like MAIN's own list
+      // AKF/MIS/OBJ/BDF/PAL's own switch — NAV[page] paginated exactly like MAIN's own list
       // (via mdPaneSlice above) rather than declaring SPLIT_SLOTS for it (split-slots.js's own
-      // comment), since DOC (issue #82) pushed this group's list past a split pane's 6-key budget.
-      // `mark` carries through (e.g. NAV.akf flagging AKF as current). isVmainPage: AKF/BDF/PAL/
-      // MIS/OBJ's own content sits top-left (their WARHEADS-style readout), same reasoning as the
-      // static-nav branch below — every item of one of those five pages' own render stands upright
-      // here, not just its MAIN back-item. DOC's content doesn't (page-chrome.css-style, like
-      // WPT/SQD — isVmainPage excludes it).
+      // comment), since DOC (issue #82) joining this switch pushed its list past a split pane's
+      // 6-key budget. `mark` carries through (e.g. NAV.akf flagging AKF as current). isVmainPage:
+      // these five pages' own content sits top-left (their WARHEADS-style readout), same reasoning
+      // as the static-nav branch below — every item of one of those five pages' own render stands
+      // upright here, not just its MAIN back-item.
       const { positions, cells } = pagedListCells(paneIdx, page, mdPaneSlice(page, paneIdx), 'md-prev', 'md-next');
       cells.forEach(function (cell, i) {
         if (!cell) return;
@@ -697,6 +716,7 @@ function paneNavigate(paneIdx, page) {
   if (page === 'avn')  paneAvnPage[paneIdx]  = 0;   // fresh pane always opens on the first 4 groups
   if (page === 'tgp')  paneTgpPage[paneIdx]  = 0;   // fresh pane always opens on TGP's first page
   if (MD_GROUP_PAGES[page]) paneMdPage[paneIdx] = 0;   // fresh pane always opens on that page's own first screen
+  if (page === 'doc') paneDocView[paneIdx] = 'index';   // fresh pane always opens on DOC's own index
   paneFollowOn[paneIdx] = false;   // iframe reloads; follow restarts off (re-reported on load)
   LayoutPages.navigateFrame(paneIframes[paneIdx], url);
   renderSplitLabels();
@@ -1245,6 +1265,25 @@ function placeTgpNavLabels(force) {
   // thing populating #overlay while TGP full view is showing.
   overlayEl.querySelectorAll('.overlay-item').forEach(function(el) { el.classList.add('tgp-scrim'); });
 }
+
+// DOC's own full-view nav (issue #82 follow-up) — hand-placed like placeTgpNavLabels above, not the
+// generic NAV[name] sweep, since which extras show depends on live view state (docView) rather than
+// a fixed list: MAIN/MD (NAV.doc, always) then INDX/PREV/NEXT — only while an image is actually
+// open, so they're not left clickable-but-inert over an index with nothing to act on. All left-bank
+// (user-specified placement), which conveniently doubles as this page's own overflow-avoidance:
+// at most 5 items, always under fullViewSlot's 6-per-bank ceiling.
+function placeDocNavLabels(force) {
+  if (!force && docView === docNavLabelsKey) return;
+  docNavLabelsKey = docView;
+  overlayEl.querySelectorAll('.overlay-item, .wpn-decor').forEach(function(el) { el.remove(); });
+  placeOverlayLabel('left', 0, NAV.doc[0].label, NAV.doc[0].action);   // MAIN
+  placeOverlayLabel('left', 1, NAV.doc[1].label, NAV.doc[1].action);   // MD
+  if (docView === 'image') {
+    placeOverlayLabel('left', 2, 'INDX', 'doc-indx');
+    placeOverlayLabel('left', 3, 'PREV', 'doc-prev');
+    placeOverlayLabel('left', 4, 'NEXT', 'doc-next');
+  }
+}
 // Split-pane MASTER/MODE: unlike full view's fixed right2/right4, a split pane's ctrl pair can land
 // on any of its 4 item slots depending on pagination (buildWpnSplitPages) — found here by id rather
 // than a hardcoded position. buildWpnSplitPages pads so a pair never straddles a PAGE boundary, but
@@ -1572,6 +1611,16 @@ let tgpData = null;
 let tgpManual = false;   // docs/tgp-manual-control.md — TgpManualControl.ManualMode, mirrored for the TGP page's status indicator
 let tgpStv = false;      // docs/tgp-single-target-view.md — TgpSingleTargetView.Stv (issue #81), mirrored for the WTV/STV NAV highlight
 
+// DOC's own index-vs-image view state (issue #82 follow-up) — page-internal UI state with no game-
+// telemetry equivalent, so doc.js reports it up itself ('doc-view' messages) rather than the shell
+// deriving it from a relayed frame the way wpnData/tgpData above are. docView is the full-view
+// #page-frame's own state; paneDocView tracks each split pane independently, same "one state per
+// surface" shape as paneGridOn. Both default to 'index' — INDX/NEXT/PREV only ever exist to act on
+// an open image, so nothing is lost defaulting to the state that hides them.
+let docView = 'index';
+let paneDocView = ['index', 'index'];
+let docNavLabelsKey = null;
+
 // MAN/CLR/IR/WTV/STV highlight state (docs/tgp-manual-control.md's NAV additions,
 // docs/tgp-single-target-view.md's VIEW toggle) — the actual rule lives in tgp-marks.js (shared
 // with f35.js's own equivalent, so the two can't drift). tgpData is only ever {cnt:0} with no lock
@@ -1759,6 +1808,8 @@ function showPage(name) {
     }
   } else if (name === 'tgp') {
     placeTgpNavLabels(true);
+  } else if (name === 'doc') {
+    placeDocNavLabels(true);
   } else {
     // Bezel full-view rendering of the navigation model: item i → left-column key i. `mark` lights
     // an item active (e.g. NAV.bdf/NAV.pal flagging whichever of BDF/PAL is the current page).
@@ -1942,7 +1993,9 @@ window.addEventListener('message', function(e) {
   // navigation library, docs/hud-waypoint-indicator.md) comes from whichever iframe just loaded, not
   // necessarily mapFrame, same reasoning as 'follow'/'grid'. 'td-designated' (issue #47 follow-up)
   // comes from TD's own iframe (#page-frame or a pane), never mapFrame, for the same reason.
-  if (m.type !== 'follow' && m.type !== 'grid' && m.type !== 'wpt-routes-request' && m.type !== 'td-designated' && e.source !== mapFrame.contentWindow) return;
+  // 'doc-view' (issue #82 follow-up) comes from DOC's own iframe, same reasoning again — it's
+  // page-internal UI state (index vs image) with no game-telemetry equivalent to ride in on.
+  if (m.type !== 'follow' && m.type !== 'grid' && m.type !== 'wpt-routes-request' && m.type !== 'td-designated' && m.type !== 'doc-view' && e.source !== mapFrame.contentWindow) return;
   if (m.type === 'status') {
     lastStatusCls  = m.cls;
     lastStatusText = m.text;
@@ -2105,6 +2158,21 @@ window.addEventListener('message', function(e) {
     else if (splitMode) {
       if (panePages[0] === 'td' && e.source === paneIframes[0].contentWindow) paneNavigate(0, 'tgt');
       else if (panePages[1] === 'td' && e.source === paneIframes[1].contentWindow) paneNavigate(1, 'tgt');
+    }
+  } else if (m.type === 'doc-view') {
+    // DOC's own index-vs-image view state (issue #82 follow-up) — routed by source, same reasoning
+    // as follow/grid above: DOC can be the full-view page or either split pane, each tracked and
+    // re-rendered independently.
+    const view = m.view === 'image' ? 'image' : 'index';
+    if (e.source === pageFrame.contentWindow) {
+      docView = view;
+      if (currentPage === 'doc' && !splitMode) placeDocNavLabels(true);
+    } else if (e.source === paneIframes[0].contentWindow) {
+      paneDocView[0] = view;
+      if (panePages[0] === 'doc') renderSplitLabels();
+    } else if (e.source === paneIframes[1].contentWindow) {
+      paneDocView[1] = view;
+      if (panePages[1] === 'doc') renderSplitLabels();
     }
   } else if (m.type === 'targets') {
     // Mirror the selected-target list; the TGT page renders it under its filters, and TD (issue

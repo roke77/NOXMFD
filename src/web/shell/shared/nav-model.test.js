@@ -145,20 +145,13 @@ assert.deepStrictEqual(NAV.pal, [
   { label: 'DOC',  action: 'doc' },
 ]);
 
-// DOC (kneeboard image viewer, issue #82) — the switch's 6th member, same MAIN/AKF/MIS/OBJ/BDF/PAL/
-// DOC(mark) shape as its siblings above, plus its own INDX/NEXT/PREV image-cycling controls, which
-// act on the page in place rather than naming a destination — same shape as RDR/HSD's own R+/R-.
+// DOC (kneeboard image viewer, issue #82) — reached via the switch above, but its own nav is just
+// MAIN + MD (back to the switch's landing page), not the whole switch mirrored back. INDX/NEXT/PREV
+// are deliberately absent — mfd.js hand-places them only while an image is open (docView), same
+// shape as TGP's own dynamic extras, not a static NAV entry.
 assert.deepStrictEqual(NAV.doc, [
   { label: 'MAIN', action: 'main' },
-  { label: 'AKF',  action: 'akf' },
-  { label: 'MIS',  action: 'mis' },
-  { label: 'OBJ',  action: 'obj' },
-  { label: 'BDF',  action: 'bdf' },
-  { label: 'PAL',  action: 'pal' },
-  { label: 'DOC',  action: 'doc', mark: true },
-  { label: 'INDX', action: 'doc-indx' },
-  { label: 'NEXT', action: 'doc-next' },
-  { label: 'PREV', action: 'doc-prev' },
+  { label: 'MD',   action: 'akf' },
 ]);
 
 // WPN contributes no navigation of its own: its MAIN/PREV/NEXT are pagination, i.e. shell state
