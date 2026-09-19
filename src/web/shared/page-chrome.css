@@ -35,7 +35,7 @@ html::-webkit-scrollbar-thumb { background: var(--no-gray); border-radius: 3px; 
 }
 .wpt-back:hover, .sqd-back:hover, .kb-back:hover, .td-back:hover, .doc-back:hover { color: var(--no-green); }
 
-.wpt-title, .sqd-title, .kb-title, .td-title, .doc-title {
+.wpt-title, .sqd-title, .kb-title, .td-title {
   font-size: 24px;
   letter-spacing: 4px;
   color: var(--no-green);
