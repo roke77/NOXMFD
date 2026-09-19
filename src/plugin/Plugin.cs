@@ -55,6 +55,13 @@ namespace NOXMFD
             TryBind("HUD presets self-check", HudPresetStore.SelfCheck);        // docs/hud-presets.md — pure JSON round-trip, same reasoning as JsonLite above
             TryBind("TGT presets", TgtPresetStore.Load);                       // issue #78 — 5 numbered TGT-filter presets persisted to disk
             TryBind("TGT presets self-check", TgtPresetStore.SelfCheck);        // docs/tgt-presets.md — pure JSON round-trip, same reasoning as HudPresetStore above
+            // DOC's kneeboard folder (issue #82, docs/doc-page.md) — created eagerly here rather than
+            // lazily on the first /doc-list request, so it exists in Explorer for a player to drop
+            // images into the moment the plugin loads, not only after they've opened DOC once
+            // in-game. Not a TryBind: KneeboardDir() already guards its own Directory.CreateDirectory
+            // internally (logs and returns on failure, never throws), so this call can't take Awake
+            // down.
+            DocEndpoint.KneeboardDir();
 
             // Network: the port the tablet connects to, and whether to auto-open the Windows LAN
             // gates when the wildcard bind is denied (see docs/networking.md). Read once here —

@@ -48,9 +48,11 @@ entry.
 Unlike every other `CapturedAssetEndpoint` asset (map image, unit/weapon icons, airframe
 silhouettes), DOC's images are never embedded in the DLL or captured in-process — the player drops
 them onto disk themselves, since the whole point is a personal, player-curated set. `DocEndpoint.cs`
-owns a dedicated folder, `BepInEx/plugins/NOXMFD/kneeboard/` (created on first use), separate from
-the shared `BepInEx/plugins/` root `CapturedAssetEndpoint.ServeMap` falls back to for `map.png` —
-DOC's folder can hold many files without cluttering that shared root.
+owns a dedicated folder, `BepInEx/plugins/NOXMFD/kneeboard/`, separate from the shared
+`BepInEx/plugins/` root `CapturedAssetEndpoint.ServeMap` falls back to for `map.png` — DOC's folder
+can hold many files without cluttering that shared root. `Plugin.Awake` creates it eagerly at
+startup (`DocEndpoint.KneeboardDir()`), so it exists in Explorer for a player to drop images into
+the moment the plugin loads, not only once they've opened DOC in-game.
 
 - `GET /doc-list` — the live `.png`/`.jpg`/`.jpeg` listing, filesystem/OS order (no explicit
   sort), re-read from disk on every request rather than cached, so a file the player adds or
