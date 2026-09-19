@@ -1,7 +1,7 @@
 # DOC
 
 A kneeboard: cycle through your own reference images — airport diagrams, checklists, whatever you
-keep on hand — without alt-tabbing out of the game.
+keep on hand.
 
 ## Adding images
 
