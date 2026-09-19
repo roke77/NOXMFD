@@ -554,16 +554,23 @@
   /* Bank-specific label anchors; JS supplies the cross-axis coordinate. */
   .overlay-item.left  { left: 16px; transform: translateY(-50%); }
   .overlay-item.right { right: 16px; transform: translateY(-50%); }
-  /* TGT / BDF (and the rest of isVmainPage): render the left-bank label (MAIN) as stacked upright
-     letters so it hugs the left edge and doesn't overlap the page's top-left content (TGT's RESET
-     FILTER, BDF's WARHEADS readout). HUD stays horizontal — its own CSS pads around the label's
-     width instead (hud.css). */
-  .overlay.vmain .overlay-item.left {
+  /* TGT / BDF (and the rest of isVmainPage): render every label as stacked upright letters, so
+     MAIN hugs the left edge without overlapping the page's top-left content (TGT's RESET FILTER,
+     BDF's WARHEADS readout) — originally left-bank only, back when isVmainPage's own items never
+     ran past 6 and so never spilled onto the right bank. DOC joining the AKF/MIS/OBJ/BDF/PAL
+     switch (issue #82) as a 7th item changed that: it's the one item that lands on the right bank
+     (fullViewSlot), and it reads oddly left horizontal while its 6 siblings are vertical — hence
+     both banks here now, matching split mode's own per-item .vlabel treatment below (which already
+     covered both). HUD stays horizontal — its own CSS pads around the label's width instead
+     (hud.css). */
+  .overlay.vmain .overlay-item.left,
+  .overlay.vmain .overlay-item.right {
     writing-mode: vertical-rl;
     text-orientation: upright;
     letter-spacing: 0;
-    left: 4px;
   }
+  .overlay.vmain .overlay-item.left  { left: 4px; }
+  .overlay.vmain .overlay-item.right { right: 4px; }
   /* Split mode: a single pane showing TGT stands its own MAIN back-label upright the same way, so it
      clears that pane's RESET button. The label carries the class directly (not the overlay) because
      only one pane's label should turn — the other pane keeps its horizontal labels. It can sit on
