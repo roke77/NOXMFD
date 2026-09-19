@@ -122,11 +122,12 @@
 
     <div class="tgt-vehicles" id="row-vehicle"></div>
 
-    <!-- Selected-target list: NAME / [TD] / SRC / RNG / GRID / [SPD / ALT / HDG] per row. The whole
-         row is clickable and deselects that target — no checkbox, the row itself already reads as
-         "this is selected". .tgt-list-scroll scrolls both axes so a narrow panel (small-screen F-35)
-         overflows instead of squeezing columns unreadably thin; .tgt-list-head is sticky within it
-         so the header stays put vertically but still tracks the rows horizontally.
+    <!-- Selected-target list: NAME (header reads "TARGETS (N)", the live selected count) / [TD] /
+         SRC / RNG / GRID / [SPD / ALT / HDG] per row. The whole row is clickable and deselects that
+         target — no checkbox, the row itself already reads as "this is selected". .tgt-list-scroll
+         scrolls both axes so a narrow panel (small-screen F-35) overflows instead of squeezing
+         columns unreadably thin; .tgt-list-head is sticky within it so the header stays put
+         vertically but still tracks the rows horizontally.
          TD (issue #47 follow-up): a squad leader's own designations, one squad-slot number per
          member this target is assigned to (blank if none). Leader-only — hidden entirely (both this
          header cell and each row's .tl-td) via tgt.css's .has-td-col for anyone not currently
@@ -136,13 +137,12 @@
          DETAILED/COMPACT toggle below — tgt.css's .has-flight-col, same show/hide mechanics as
          .has-td-col above, driven by tgt.js's own client-local toggle rather than squad state. -->
     <div class="tgt-list" id="tgt-list">
-      <!-- Total selected count, above the scroller so it's visible without scrolling — a squadron
-           lead matching ordnance count to target count wants this at a glance, without leaving the
-           map to check the cockpit MFD. -->
-      <div class="tgt-count" id="tgt-count"></div>
       <div class="tgt-list-scroll">
         <div class="tgt-list-head">
-          <span>NAME</span><span class="tgt-td-head">TD</span><span>SRC</span><span>RNG</span><span>GRID</span><span class="tgt-flight-head">SPD</span><span class="tgt-flight-head">ALT</span><span class="tgt-flight-head">HDG</span>
+          <!-- NAME header replaced with "TARGETS (N)" — the total selected count in amber, right in
+               the column header, so a squadron lead can match ordnance count to target count at a
+               glance without leaving the map to check the cockpit MFD. -->
+          <span>TARGETS <span class="tgt-count-n" id="tgt-count-n"></span></span><span class="tgt-td-head">TD</span><span>SRC</span><span>RNG</span><span>GRID</span><span class="tgt-flight-head">SPD</span><span class="tgt-flight-head">ALT</span><span class="tgt-flight-head">HDG</span>
         </div>
         <div class="tgt-list-rows" id="tgt-list-rows"></div>
         <div class="tgt-list-empty" id="tgt-list-empty">&mdash; NO TARGETS SELECTED &mdash;</div>
