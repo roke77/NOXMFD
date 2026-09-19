@@ -18,6 +18,8 @@ DOC opens on an index of every image file in the folder. Click a file name to op
 folder shows **NO FILES** instead of a list. Its only nav keys here are **MAIN** and **MD** (back to
 the mission-data hub) — INDX/NEXT/PREV only appear once an image is actually open.
 
+![DOC index](images/DOC.png)
+
 ## Viewing an image
 
 - **INDX** — back to the index.
@@ -25,6 +27,9 @@ the mission-data hub) — INDX/NEXT/PREV only appear once an image is actually o
 
 The image scales to fit the page width; a taller diagram extends the page rather than cropping —
 scroll to see the rest of it.
+
+![DOC showing a quick reference card](images/DOC_1.png)
+![DOC showing a VFR minimums chart](images/DOC_2.png)
 
 The folder is re-read every time you open the index or press NEXT/PREV, so a file you add or remove
 while playing shows up (or disappears) immediately, with no need to reopen the page.
