@@ -133,9 +133,9 @@ html, body {
   border-top: 1px solid var(--no-green-dark);
   padding-top: clamp(3px, 0.8vh, 7px);
 }
-/* Total selected count, right of NAME in the sticky header — the number in --no-amber (matches the
-   theme's other "value that matters at a glance" accents, e.g. TTI), the "SELECTED" suffix inherits
-   .tgt-list-head's own dim color. */
+/* Total selected count — the NAME header cell reads "TARGETS (N)"; this is just the "(N)" part, in
+   --no-amber (matches the theme's other "value that matters at a glance" accents, e.g. TTI). Empty
+   (not "(0)") when nothing's selected — see tgt.js's renderTargets. */
 .tgt-count-n {
   color: var(--no-amber);
   font-variant-numeric: tabular-nums;
