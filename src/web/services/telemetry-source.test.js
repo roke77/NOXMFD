@@ -230,6 +230,42 @@ const assert = require('assert');
     }
   }
 
+  // TGT's DETAILED flight-data columns (issue #88): hd/sp/al/h pass through from a contact onto its
+  // target row unchanged, so a HasDetail-gated contact (aircraft/missile, not stale) carries real
+  // values and everything else — no hd field at all, same as a ground/sea/building contact — comes
+  // out hd:false with sp/al as empty strings and h as null (never a stray 0), which tgt.js's own
+  // renderer treats as "no data" and shows "—" for.
+  {
+    const messages = [];
+    const realWindow = global.window;
+    global.window = { parent: {} };
+    const src8 = new TelemetrySource({});
+    src8._postUp = (m) => messages.push(m);
+
+    try {
+      src8._emit({
+        world: { x: 0, y: 0, z: 0 },
+        contacts: [
+          { id: 1, t: 'F18', x: 10, z: 0, tg: true, hd: true, sp: '310 kt', al: '2,000 ft', h: 95 },
+          { id: 2, t: 'BMP-2', x: 20, z: 0, tg: true },
+        ],
+      });
+      const items = messages.find((m) => m.type === 'targets').items;
+      const withDetail = items.find((t) => t.id === 1);
+      assert.strictEqual(withDetail.hd, true, 'a HasDetail contact should carry hd through');
+      assert.strictEqual(withDetail.sp, '310 kt', 'sp should pass through unchanged');
+      assert.strictEqual(withDetail.al, '2,000 ft', 'al should pass through unchanged');
+      assert.strictEqual(withDetail.h, 95, 'h should pass through unchanged');
+      const noDetail = items.find((t) => t.id === 2);
+      assert.strictEqual(noDetail.hd, false, 'a contact with no hd field should come out hd:false, not undefined');
+      assert.strictEqual(noDetail.sp, '', 'sp should default to empty string, not undefined');
+      assert.strictEqual(noDetail.al, '', 'al should default to empty string, not undefined');
+      assert.strictEqual(noDetail.h, null, 'h should default to null, not 0 or undefined');
+    } finally {
+      global.window = realWindow;
+    }
+  }
+
   // disconnect() (issue #85): a live EventSource keeps its whole owning document reachable past
   // navigation, so every caller that opens one must be able to close it again on pagehide — and
   // safely, whether or not connect() ever actually ran.

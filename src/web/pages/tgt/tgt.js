@@ -20,11 +20,24 @@ const staleBtn = document.getElementById('stale-btn');
 const presetLabelEl = document.getElementById('tgt-preset-label');
 const presetSaveBtn = document.getElementById('tgt-preset-save');
 const presetLoadBtn = document.getElementById('tgt-preset-load');
+const densityToggleEl = document.getElementById('tgt-density-toggle');
 
 let state = { present: false, laser: false, hud: false, faction: [], category: [], vehicle: [], preset: { index: 1, name: '' } };
-let targets = [];        // selected-target list (from 'tgt-targets'): [{ id, n, g, r, f, dl }]
+let targets = [];        // selected-target list (from 'tgt-targets'): [{ id, n, g, r, f, dl, hd, sp, al, h }]
 let targetsKey = '';     // id-set signature; rebuild rows only when it changes
 let targetsMetric = false;   // player's Metric/Imperial preference, carried on 'tgt-targets' too
+
+// ── DETAILED/COMPACT flight-data toggle (issue #88) ────────────────────────────────────
+// Purely a client-local display preference, same as AKF's identical toggle — nothing here reaches
+// the shell, and it isn't persisted. Opposite default from AKF though: TGT starts COMPACT.
+let compact = true;
+densityToggleEl.classList.toggle('compact', compact);
+panel.classList.toggle('has-flight-col', !compact);
+densityToggleEl.addEventListener('click', function () {
+  compact = !compact;
+  densityToggleEl.classList.toggle('compact', compact);
+  panel.classList.toggle('has-flight-col', !compact);
+});
 
 // TD column (issue #47 follow-up) — leader-only, so this page needs to know squad role, which
 // nothing else here tracks. Rides the shell's relayed 'sqd-state'/'td-state-push' pushes
@@ -164,6 +177,11 @@ function fmtTti(seconds) {
   return Math.floor(total / 60) + ':' + String(total % 60).padStart(2, '0');
 }
 
+// Same rounding/normalization MAP's own hover tooltip uses for a contact's heading (map.js).
+function fmtHdg(deg) {
+  return Math.round(((deg % 360) + 360) % 360) + '°';
+}
+
 function renderTargets() {
   const list = targets;
   // Rebuild the rows only when the set of target ids changes; otherwise just refresh the text
@@ -188,7 +206,11 @@ function renderTargets() {
       const src  = document.createElement('span'); src.className = 'tl-src';
       const dist = document.createElement('span'); dist.className = 'tl-dist';
       const grid = document.createElement('span'); grid.className = 'tl-grid';
+      const spd  = document.createElement('span'); spd.className = 'tl-spd';
+      const alt  = document.createElement('span'); alt.className = 'tl-alt';
+      const hdg  = document.createElement('span'); hdg.className = 'tl-hdg';
       row.appendChild(name); row.appendChild(td); row.appendChild(src); row.appendChild(dist); row.appendChild(grid);
+      row.appendChild(spd); row.appendChild(alt); row.appendChild(hdg);
       listRows.appendChild(row);
     });
   }
@@ -206,6 +228,12 @@ function renderTargets() {
     // empty cell here never shows for someone with no leader-side assignments to display anyway.
     const assigned = tdAssignments[String(t.id)] || [];
     el.querySelector('.tl-td').textContent = assigned.length ? assigned.join(' ') : '';
+    // SPD/ALT/HDG (issue #88, only rendered while .has-flight-col is on): "—" when this target has
+    // no HasDetail — a stale lock, or a non-aircraft/missile category — same gate/placeholder MAP's
+    // hover tooltip already uses for the identical data.
+    el.querySelector('.tl-spd').textContent = t.hd && t.sp ? t.sp : '—';
+    el.querySelector('.tl-alt').textContent = t.hd && t.al ? t.al : '—';
+    el.querySelector('.tl-hdg').textContent = t.hd && typeof t.h === 'number' ? fmtHdg(t.h) : '—';
     el.classList.toggle('datalink', !!t.dl && !t.st);
     el.classList.toggle('stale', !!t.st);
     el.querySelector('.tl-src').textContent = t.st ? 'STALE' : t.dl ? 'DATALINK' : 'SENSOR';
@@ -276,7 +304,7 @@ staleBtn.addEventListener('click', function () { send('tgt.clear-stale'); });
 // Same crosshair/transport MAP uses (pad-cursor.js), driven here only while this TGT is the SOI's
 // focused surface. Clamped to the panel's own box (panel-local px, matching the crosshair's
 // positioned ancestor — see tgt.css's .tgt-panel { position: relative }).
-const CURSORABLE = '.tgt-cell, .tgt-veh, .tl-row, .tgt-action, .tgt-mode, .tgt-datalink-btn, .tgt-stale-btn, .tgt-preset-btn';
+const CURSORABLE = '.tgt-cell, .tgt-veh, .tl-row, .tgt-action, .tgt-mode, .tgt-datalink-btn, .tgt-stale-btn, .tgt-preset-btn, .tgt-density-toggle';
 const padCursorEl = document.getElementById('pad-cursor');
 const cursor = createPadCursor({
   el: padCursorEl,

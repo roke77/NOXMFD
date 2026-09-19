@@ -320,6 +320,9 @@ export class TelemetrySource {
 
     // Selected-target list. The mod flags each targeted unit on its contact (same `tg` that draws
     // the map's target box), so derive from contacts; a preview mock may override via d.targets.
+    // hd/sp/al/h (issue #88, TGT's DETAILED flight-data columns) are the same HasDetail/SpeedReading/
+    // AltReading/Heading fields MAP's own hover tooltip already reads off a contact — carried through
+    // as-is, no new derivation needed.
     let targets;
     if (Array.isArray(d.targets)) {
       targets = d.targets;
@@ -329,7 +332,7 @@ export class TelemetrySource {
         if (!u.tg) continue;
         const dx = u.x - d.world.x;
         const dz = u.z - d.world.z;
-        targets.push({ id: u.id, n: u.t, g: gridLabel(u.x, u.z, this._meta), r: Math.hypot(dx, dz) / 1000, f: u.f, dl: !!u.dl, st: !!u.st });
+        targets.push({ id: u.id, n: u.t, g: gridLabel(u.x, u.z, this._meta), r: Math.hypot(dx, dz) / 1000, f: u.f, dl: !!u.dl, st: !!u.st, hd: !!u.hd, sp: u.sp || '', al: u.al || '', h: typeof u.h === 'number' ? u.h : null });
       }
       // Sort to match weaponManager.GetTargetList()'s own order (TargetFocus.cs, lockedTargetIds) —
       // the contact scan above walks an unrelated order, so without this TGT's Next/Previous would

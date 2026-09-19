@@ -167,6 +167,29 @@ html, body {
      scroller overflowing, undoing the point of giving NAME a real floor above. */
   min-width: 266px;
 }
+/* SPD/ALT/HDG columns (issue #88) — same widths for all three, floor picked to fit "1,234 KT" /
+   "45,000 FT" / "359°" comfortably. Each combines with .has-td-col independently of the other (a
+   squad leader can also be in DETAILED mode), so all four track-count combinations are spelled out
+   below rather than trying to compose grid-template-columns from parts. */
+.tgt-flight-head, .tl-spd, .tl-alt, .tl-hdg { display: none; }
+.tgt-panel.has-flight-col .tgt-list-head,
+.tgt-panel.has-flight-col .tl-row {
+  grid-template-columns: minmax(90px, 1fr) clamp(52px, 8vw, 86px) clamp(60px, 9vw, 96px) clamp(46px, 7vw, 76px)
+                          clamp(56px, 8vw, 80px) clamp(60px, 9vw, 86px) clamp(48px, 7vw, 66px);
+  /* Base floor sum (266, see above) + the 3 new columns' floors + 3 more gap floors (56+60+48 + 3*6). */
+  min-width: 448px;
+}
+.tgt-panel.has-flight-col .tgt-flight-head,
+.tgt-panel.has-flight-col .tl-spd,
+.tgt-panel.has-flight-col .tl-alt,
+.tgt-panel.has-flight-col .tl-hdg { display: block; }
+.tgt-panel.has-td-col.has-flight-col .tgt-list-head,
+.tgt-panel.has-td-col.has-flight-col .tl-row {
+  grid-template-columns: minmax(90px, 1fr) clamp(30px, 5vw, 48px) clamp(52px, 8vw, 86px) clamp(60px, 9vw, 96px) clamp(46px, 7vw, 76px)
+                          clamp(56px, 8vw, 80px) clamp(60px, 9vw, 86px) clamp(48px, 7vw, 66px);
+  /* has-td-col's own floor sum (302) + the 3 new columns' floors + 3 more gap floors. */
+  min-width: 484px;
+}
 .tgt-list-head {
   position: sticky;
   top: 0;
@@ -192,6 +215,7 @@ html, body {
    truncates before this ever gets squeezed. Empty text (no tracking weapon) takes no visible space. */
 .tl-tti { flex: 0 0 auto; font-size: 0.8em; letter-spacing: 0.02em; white-space: nowrap; color: var(--no-amber); }
 .tl-grid, .tl-dist { color: var(--no-green-dim); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tl-spd, .tl-alt, .tl-hdg { color: var(--no-green-dim); font-variant-numeric: tabular-nums; white-space: nowrap; }
 
 /* TD column (issue #47 follow-up) — leader-only, hidden by default (both the header cell and every
    row's .tl-td) so a pilot who isn't currently leading a squad never sees a column of meaningless
@@ -295,6 +319,46 @@ html, body {
   font-size: clamp(8px, 1.3vmin, 11px);
   line-height: 1.25;
 }
+
+/* DETAILED/COMPACT flight-data toggle (issue #88) — bottom right of the footer row (margin-left:
+   auto pushes it there in the footer's flex row). Same real-sliding-switch component as AKF's own
+   density toggle (akf.css), just renamed to this page's prefix; ported wholesale rather than
+   shared since the two pages have no common toggle component to factor it into today. */
+.tgt-density-toggle {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-size: clamp(8px, 1.3vmin, 10px);
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+}
+.tgt-density-label { color: var(--no-green-dim); }
+.tgt-density-toggle:not(.compact) .tgt-density-label-left,
+.tgt-density-toggle.compact .tgt-density-label-right { color: var(--no-green); }
+.tgt-density-switch {
+  position: relative;
+  width: 28px; height: 14px;
+  border: 1px solid var(--no-green-dark);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.04);
+  flex: 0 0 auto;
+}
+.tgt-density-knob {
+  position: absolute;
+  top: 1px; left: 1px;
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  background: var(--no-green-dim);
+  transition: transform 0.12s ease, background 0.12s ease;
+}
+.tgt-density-toggle.compact .tgt-density-knob {
+  transform: translateX(14px);
+  background: var(--no-green);
+}
+.tgt-density-toggle:hover .tgt-density-knob,
+.tgt-density-toggle.pad-hover .tgt-density-knob { background: var(--no-green); }
 
 /* ── TGT filter presets (issue #78) ─────────────────────────────────────────────────────
    Same treatment as HUD's own preset bar (hud.css) — solid --no-green buttons, --no-label

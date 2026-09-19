@@ -222,16 +222,21 @@
     // per-row TTI readout without needing a live shot — telemetry-source.js only ever sets this
     // from lockedTargetTti, but the harness's own `d.targets` override path (see there) passes
     // these objects straight through, so setting it here directly is enough for a screenshot.
+    // hd/sp/al/h (issue #88, DETAILED flight-data columns): only the two aircraft carry them — real
+    // HasDetail is Aircraft/Missile-only, so every ground/sea/building/stale row below correctly has
+    // none and renders "—" in SPD/ALT/HDG once DETAILED is toggled on. id 109 is a grounded aircraft
+    // (0 kt, low alt) — HasDetail doesn't care whether it's airborne, only its unit class + staleness,
+    // so this exercises that distinction from the ground-vehicle rows around it.
     targets: [
       { id: 101, n: 'HLT Flatbed',   g: 'Kg53', r: 8.4,  f: 2, tti: 7.6 },
       { id: 102, n: 'BMP-2',         g: 'Kh54', r: 9.1,  f: 2, dl: true },
-      { id: 103, n: 'F-18',          g: 'Kh55', r: 9.6,  f: 1 },
+      { id: 103, n: 'F-18',          g: 'Kh55', r: 9.6,  f: 1, hd: true, sp: '310 kt', al: '2,000 ft', h: 95 },
       { id: 104, n: 'ZSU-23-4',      g: 'Lh55', r: 10.3, f: 2 },
       { id: 105, n: 'Vessel',        g: 'Lh56', r: 11.0, f: 0 },
       { id: 106, n: 'SA-15 Tor',     g: 'Lj57', r: 12.4, f: 2, dl: true, st: true },
       { id: 107, n: 'Airbase',       g: 'Lj58', r: 12.9, f: 1 },
       { id: 108, n: 'Truck',         g: 'Mj58', r: 13.5, f: 0, tti: 62 },
-      { id: 109, n: 'Su-25 (gnd)',   g: 'Mj59', r: 14.2, f: 2 },
+      { id: 109, n: 'Su-25 (gnd)',   g: 'Mj59', r: 14.2, f: 2, hd: true, sp: '0 kt', al: '450 ft', h: 180 },
       { id: 110, n: 'Pantsir-S1',    g: 'Mk59', r: 15.0, f: 2, tti: 125 },
       { id: 111, n: 'KamAZ Fuel',    g: 'Mk60', r: 16.1, f: 2 },
       { id: 112, n: 'Radar Mast',    g: 'Nk60', r: 17.3, f: 2 },
