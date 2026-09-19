@@ -185,7 +185,7 @@ function fmtHdg(deg) {
 
 function renderTargets() {
   const list = targets;
-  countNEl.textContent = '(' + list.length + ')';
+  countNEl.textContent = list.length ? '(' + list.length + ')' : '';
   // Rebuild the rows only when the set of target ids changes; otherwise just refresh the text
   // (name/grid/range drift as targets move) so we don't thrash the DOM at 10 Hz.
   const key = list.map(function (t) { return t.id; }).join(',');
