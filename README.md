@@ -95,7 +95,7 @@ pilot, with HOTAS-friendly keybinds to match.
 - **MD** — mission data hub.
   - **[AKF](man/akf.md)** — kill feed.
   - **[BDF / PAL](man/bdf.md)** — faction forces.
-  - **[DOC](man/doc.md)** — kneeboard image viewer.
+  - **[DOC](man/doc.md)** — kneeboard documents viewer.
   - **[MIS](man/mis.md)** — mission info.
   - **[OBJ](man/obj.md)** — objectives.
 - **RDR** — radar hub.

@@ -1,4 +1,4 @@
-# DOC — kneeboard image viewer
+# DOC — kneeboard documents viewer
 
 ## Status
 

@@ -167,7 +167,7 @@
     // TD (issue #47, docs/target-designator.md) — reached from TGT's own nav row (once td-nav.js
     // has appended it there), so its way back is TGT, same reasoning as mapcfg/tgpcfg/wpt above.
     td: [ { label: 'TGT', action: 'tgt' } ],
-    // DOC (kneeboard image viewer, issue #82) — reached via the AKF/MIS/OBJ/BDF/PAL switch above
+    // DOC (kneeboard documents viewer, issue #82) — reached via the AKF/MIS/OBJ/BDF/PAL switch above
     // (its own DOC entry there), but once open shows its OWN small nav rather than mirroring that
     // whole switch back: MAIN and MD (MD = the same "back to the switch's landing page" action
     // BEZEL_EXTRAS.main's own MD button uses) are static, always present; INDX/NEXT/PREV are NOT

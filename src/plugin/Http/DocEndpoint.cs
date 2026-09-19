@@ -4,7 +4,7 @@ using System.Net;
 
 namespace NOXMFD
 {
-    // DOC (kneeboard image viewer, issue #82) HTTP surface. Unlike every other CapturedAssetEndpoint
+    // DOC (kneeboard documents viewer, issue #82) HTTP surface. Unlike every other CapturedAssetEndpoint
     // asset, these images are never embedded or captured in-process — they're dropped onto disk by
     // the player, into a folder dedicated to this feature (not the shared BepInEx/plugins/ root
     // CapturedAssetEndpoint.ServeMap falls back to for map.png), so a collision with another mod's

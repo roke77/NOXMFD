@@ -1,4 +1,4 @@
-/* DOC — kneeboard image viewer (issue #82). Panel shape is the shared page-chrome.css .doc-panel/
+/* DOC — kneeboard documents viewer (issue #82). Panel shape is the shared page-chrome.css .doc-panel/
    .doc-back lineage (WPT/SQD/KB's own pattern) — no page title, unlike those three, so both views
    clear the floated back-link themselves instead of relying on a title block to do it for them. */
 

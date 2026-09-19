@@ -36,7 +36,7 @@ whichever is live). MAIN still reaches the family via `BEZEL_EXTRAS.main`'s
 `MD` label, action `'akf'` — AKF is the group's default landing page
 (issue #34 follow-up; was `'bdf'`).
 
-DOC (kneeboard image viewer, issue #82, [docs/doc-page.md](doc-page.md)) joined as the sixth member
+DOC (kneeboard documents viewer, issue #82, [docs/doc-page.md](doc-page.md)) joined as the sixth member
 after AKF/MIS/OBJ/BDF/PAL already shipped with a *fixed* split-pane slot table (`split-slots.js`'s
 `SPLIT_SLOTS.akf` etc., each declaring exactly the 6 slots a pane physically has). A 6th switch
 member pushes that list to 7 items, past a split pane's budget — rather than leave DOC out of the

@@ -60,8 +60,8 @@ src/web/
                                                # akf = kill feed/session stats docs/akf-page.md; mapcfg/tgpcfg =
                                                # each page's own refresh-rate/quality settings, reached from that
                                                # page's own nav row, not CFG — see nav-model.js's NAV.mapcfg/tgpcfg;
-                                               # doc = kneeboard image viewer, issue #82, reached from MAIN like
-                                               # RDR/AFM/SQD — see nav-model.js's NAV.doc)
+                                               # doc = kneeboard documents viewer, issue #82, reached via the
+                                               # AKF/MIS/OBJ/BDF/PAL switch — see nav-model.js's NAV.doc)
                                                # some carry a pure sibling module — see below
     ext/                                       # EXT hub — lists extensions discovered at runtime via
                                                # /ext-manifest (shell/shared/ext-nav.js), no fixed page content of

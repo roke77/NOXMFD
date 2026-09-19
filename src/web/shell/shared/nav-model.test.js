@@ -145,7 +145,7 @@ assert.deepStrictEqual(NAV.pal, [
   { label: 'DOC',  action: 'doc' },
 ]);
 
-// DOC (kneeboard image viewer, issue #82) — reached via the switch above, but its own nav is just
+// DOC (kneeboard documents viewer, issue #82) — reached via the switch above, but its own nav is just
 // MAIN + MD (back to the switch's landing page), not the whole switch mirrored back. INDX/NEXT/PREV
 // are deliberately absent — mfd.js hand-places them only while an image is open (docView), same
 // shape as TGP's own dynamic extras, not a static NAV entry.

@@ -45,8 +45,8 @@
     // /ext/<id> destination (not listed here — see ExtNav.isExtensionPage's fallback in
     // paneUrl/frameUrlFor/F35_PAGES' `has`).
     ext: '/ext',
-    // DOC (kneeboard image viewer, issue #82) — reached from MAIN directly (BEZEL_EXTRAS.main/
-    // MAIN_EXTRAS), not part of the AKF/MIS/OBJ/BDF/PAL switch — see nav-model.js's own comment.
+    // DOC (kneeboard documents viewer, issue #82) — reached via the AKF/MIS/OBJ/BDF/PAL switch,
+    // not from MAIN directly — see nav-model.js's own comment on NAV.doc.
     doc: '/doc',
   };
 

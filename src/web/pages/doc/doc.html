@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <title>NO XMFD — DOC</title>
 <!--
-  DOC — kneeboard image viewer (issue #82), served at /doc. Reached from MAIN directly
-  (BEZEL_EXTRAS.main / f35.js's MAIN_EXTRAS, next to MD), not folded into the AKF/MIS/OBJ/BDF/PAL
-  switch — see nav-model.js's own comment on NAV.doc for why.
+  DOC — kneeboard documents viewer (issue #82), served at /doc. Reached via the AKF/MIS/OBJ/BDF/PAL
+  switch (its own DOC entry there), but shows its own small MAIN/MD(+INDX/PREV/NEXT) nav rather than
+  mirroring that switch back — see nav-model.js's own comment on NAV.doc for why.
 
   Two views, swapped in place (no navigation): an INDEX of image file names read from a folder on
   disk (DocEndpoint.KneeboardDir — a dedicated subfolder, not the shared BepInEx/plugins/ root
