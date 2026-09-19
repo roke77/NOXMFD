@@ -87,7 +87,6 @@ pilot, with HOTAS-friendly keybinds to match.
   - **[HUD](man/hud.md)** — in-cockpit HUD config.
   - **[KEY](man/keybinds.md)** — extended keybinds.
   - **[LYT](man/layouts.md)** — layout chooser.
-- **[DOC](man/doc.md)** — kneeboard image viewer.
 - **[EXT](man/ext.md)** — third-party extension pages.
 - **[MAIN](man/main.md)** — landing page.
 - **[MAP](man/map.md)** — tactical map.
@@ -96,6 +95,7 @@ pilot, with HOTAS-friendly keybinds to match.
 - **MD** — mission data hub.
   - **[AKF](man/akf.md)** — kill feed.
   - **[BDF / PAL](man/bdf.md)** — faction forces.
+  - **[DOC](man/doc.md)** — kneeboard image viewer.
   - **[MIS](man/mis.md)** — mission info.
   - **[OBJ](man/obj.md)** — objectives.
 - **RDR** — radar hub.
