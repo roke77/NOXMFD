@@ -133,6 +133,15 @@ html, body {
   border-top: 1px solid var(--no-green-dark);
   padding-top: clamp(3px, 0.8vh, 7px);
 }
+/* Total selected count — sits above .tgt-list-scroll (not inside it), so it stays visible without
+   scrolling. Same dim label treatment as .tgt-hint. */
+.tgt-count {
+  flex: 0 0 auto;
+  color: var(--no-green-dim);
+  font-size: clamp(9px, 1.4vmin, 13px);
+  letter-spacing: 0.06em;
+  padding: 0 clamp(4px, 1vw, 10px) clamp(2px, 0.6vh, 5px);
+}
 /* .tgt-list-scroll owns the scrolling (both axes) so a narrow panel overflows horizontally instead
    of squeezing the columns unreadably thin — .tgt-list-head/.tl-row below give the NAME column a
    real floor (not 0) so the row has a genuine minimum width to overflow at. .tgt-list-head is

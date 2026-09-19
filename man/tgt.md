@@ -16,6 +16,9 @@ buttons:
 
 ## Target list
 
+A running total ("N TARGETS SELECTED") sits above the list, visible without scrolling — handy for
+matching ordnance count to target count without leaving the map to check the cockpit MFD.
+
 Every target you currently have selected, one row per target:
 
 - **NAME** — the unit's name, with a **TTI** (time-to-impact) reading beside it whenever one of

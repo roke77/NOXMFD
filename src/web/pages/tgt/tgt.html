@@ -136,6 +136,10 @@
          DETAILED/COMPACT toggle below — tgt.css's .has-flight-col, same show/hide mechanics as
          .has-td-col above, driven by tgt.js's own client-local toggle rather than squad state. -->
     <div class="tgt-list" id="tgt-list">
+      <!-- Total selected count, above the scroller so it's visible without scrolling — a squadron
+           lead matching ordnance count to target count wants this at a glance, without leaving the
+           map to check the cockpit MFD. -->
+      <div class="tgt-count" id="tgt-count"></div>
       <div class="tgt-list-scroll">
         <div class="tgt-list-head">
           <span>NAME</span><span class="tgt-td-head">TD</span><span>SRC</span><span>RNG</span><span>GRID</span><span class="tgt-flight-head">SPD</span><span class="tgt-flight-head">ALT</span><span class="tgt-flight-head">HDG</span>

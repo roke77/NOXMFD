@@ -14,6 +14,7 @@ const rows = {
 };
 const modeEls = { laser: document.getElementById('mode-laser'), hud: document.getElementById('mode-hud') };
 const listRows = document.getElementById('tgt-list-rows');
+const countEl = document.getElementById('tgt-count');
 const listScroll = document.querySelector('.tgt-list-scroll');
 const datalinkBtn = document.getElementById('datalink-btn');
 const staleBtn = document.getElementById('stale-btn');
@@ -184,6 +185,7 @@ function fmtHdg(deg) {
 
 function renderTargets() {
   const list = targets;
+  countEl.textContent = list.length + (list.length === 1 ? ' TARGET SELECTED' : ' TARGETS SELECTED');
   // Rebuild the rows only when the set of target ids changes; otherwise just refresh the text
   // (name/grid/range drift as targets move) so we don't thrash the DOM at 10 Hz.
   const key = list.map(function (t) { return t.id; }).join(',');
