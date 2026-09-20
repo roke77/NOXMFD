@@ -583,5 +583,16 @@ namespace NOXMFD
         // heuristic. Not a guarantee of "is an Aircraft component" — it mirrors BuildHsd's own
         // threshold (> 0.5f), which is the game's own continuous score, not a bool.
         public bool IsAircraft;
+
+        // Peer-reported fuel (docs/atc-extension-support.md item 1) — FuelBroadcast.cs's own value
+        // for this unit's controlling pilot, not a server-authoritative game read (the game has
+        // none for a non-local aircraft; see that doc for why). Bool-gated rather than a sentinel
+        // float, the same shape HasDetail/SpeedReading use above and for the same reason: a plain
+        // float defaults to 0.0 under default(UnitInfo)/default(TelemetrySnapshot) (both used
+        // throughout tools/tests), which would misread as "empty tank" instead of "no data."
+        // false — the correct default — whenever the unit has no pilot, or that pilot's own NOXMFD
+        // hasn't broadcast within FuelBroadcast's TTL.
+        public bool  HasPeerFuel;
+        public float PeerFuelRatio;   // meaningful only when HasPeerFuel; 0..1.
     }
 }

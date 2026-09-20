@@ -28,6 +28,10 @@ namespace NOXMFD
             // Presence.cs rides the same shared inbox with its own cursor (see its own header
             // comment) — drained here too so "who's running NOXMFD" stays current at the main menu.
             Presence.Drain();
+            // FuelBroadcast.cs (docs/atc-extension-support.md item 1) — same shared inbox, own
+            // cursor, same reason to drain at the main menu too (squad/fuel state shouldn't reset
+            // just because nobody's flying yet).
+            FuelBroadcast.Drain();
 
             bool missionRunning = MissionManager.IsRunning;
             // A mission can be running with no local aircraft yet (spawn/loadout screen), so this

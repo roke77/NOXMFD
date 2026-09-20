@@ -1612,8 +1612,18 @@ namespace NOXMFD
                 // Same Aircraft.pilots[0].player read TgpOverlay uses for a locked target's pilot
                 // readout — works for either faction, and naturally empty for an AI-flown aircraft.
                 string pilotName = string.Empty;
+                bool hasPeerFuel = false;
+                float peerFuelRatio = 0f;
                 if (u is Aircraft ac && ac.pilots.Length > 0 && ac.pilots[0].player != null)
+                {
                     pilotName = ac.pilots[0].player.GetDisplayName(PlayerNameContext.Other) ?? string.Empty;
+                    // Peer-reported fuel (docs/atc-extension-support.md item 1) — this pilot's own
+                    // NOXMFD instance broadcasting its own accurate reading; null when we haven't
+                    // heard from them within FuelBroadcast's TTL (not running the mod, out of range
+                    // of the faction-wide broadcast's freshness window, or simply hasn't sent one yet).
+                    float? reported = FuelBroadcast.FuelFor(ac.pilots[0].player.SteamID);
+                    if (reported.HasValue) { hasPeerFuel = true; peerFuelRatio = reported.Value; }
+                }
 
                 // Same HasDetail gate TgpOverlay.Populate uses for a locked target's kinematics —
                 // aircraft/missile only, and only once !stale (mirrors HQ.IsTargetPositionAccurate).
@@ -1648,7 +1658,9 @@ namespace NOXMFD
                     // Same check BuildHsd already applies for its own aerial-only contact list
                     // (above) — see UnitInfo.IsAircraft's own comment for why this isn't a new
                     // classification, just exposing an existing one.
-                    IsAircraft = def.typeIdentity.air > 0.5f
+                    IsAircraft = def.typeIdentity.air > 0.5f,
+                    HasPeerFuel = hasPeerFuel,
+                    PeerFuelRatio = peerFuelRatio
                 });
             }
             return _unitBuf.ToArray();

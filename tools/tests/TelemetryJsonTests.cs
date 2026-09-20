@@ -180,6 +180,7 @@ namespace NOXMFD.Tests
                     PilotName = "Bandit \"Ace\" 1-1",
                     HasDetail = true, SpeedReading = "420 kt", AltReading = "12,500 ft",
                     IsAircraft = true,
+                    HasPeerFuel = true, PeerFuelRatio = 0.625f,
                 },
             };
             var contact = Obj(Arr(Root(s)["contacts"])[0]);
@@ -201,6 +202,7 @@ namespace NOXMFD.Tests
             Assert.Equal("420 kt", contact["sp"]);
             Assert.Equal("12,500 ft", contact["al"]);
             Assert.Equal(1.0, contact["ac"]);
+            Assert.Equal(0.625, (double)contact["pf"]!, 3);
         }
 
         // BuildHsd already trusts UnitDefinition.typeIdentity.air for its own aerial-only contact
@@ -213,6 +215,18 @@ namespace NOXMFD.Tests
             s.Units = new[] { new UnitInfo { Id = 1, Type = "T-72" } };
             var contact = Obj(Arr(Root(s)["contacts"])[0]);
             Assert.Equal(0.0, contact["ac"]);
+        }
+
+        // HasPeerFuel false (the correct default under default(UnitInfo), including in every test
+        // above that doesn't set it) must serialize as the -1 sentinel, not 0.0 — 0.0 is a real,
+        // alarming value ("empty tank"), not "no data" (docs/atc-extension-support.md item 1).
+        [Fact]
+        public void Unit_contact_peer_fuel_defaults_to_the_no_data_sentinel_not_zero()
+        {
+            var s = default(TelemetrySnapshot);
+            s.Units = new[] { new UnitInfo { Id = 1, Type = "F-16C" } };
+            var contact = Obj(Arr(Root(s)["contacts"])[0]);
+            Assert.Equal(-1.0, contact["pf"]);
         }
 
         [Fact]
