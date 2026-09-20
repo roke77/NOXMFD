@@ -133,6 +133,11 @@ namespace NOXMFD
         // use case.
         public IReadOnlyDictionary<string, IconColorRegistry.TypeOverride> TypeColorOverrides;
 
+        // Per-unit-INSTANCE color overrides (docs/atc-extension-support.md item 2), keyed by the
+        // same id a contact's "id" field / UnitInfo.Id already use. Drawn as a ring around the icon
+        // (map.js's drawStatusRing), additive to the faction/type color above, not a replacement.
+        public IReadOnlyDictionary<uint, IconColorRegistry.TypeOverride> IdColorOverrides;
+
         // True while the targeting-pod feed is producing frames (a target is locked, or the
         // game's 3-second post-loss hold is still running). Drives the MFD's NO TARGET fallback.
         public bool   TgpActive;

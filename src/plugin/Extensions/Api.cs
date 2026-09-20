@@ -5,9 +5,11 @@ namespace NOXMFD
     public static class Api
     {
         // Bump on breaking changes; extensions pin a minimum via BepInDependency MinimumVersion.
-        // SetFactionColorOverride/SetUnitTypeColorOverride reject any hex that isn't exactly
-        // #RRGGBB/#RRGGBBAA (IconColorRegistry.IsValidHex) — the reason this field carries this value.
-        public const int ApiVersion = 3;
+        // SetFactionColorOverride/SetUnitTypeColorOverride/SetUnitColorOverride reject any hex that
+        // isn't exactly #RRGGBB/#RRGGBBAA (IconColorRegistry.IsValidHex) — the reason this field
+        // carries this value. 4 adds SetUnitColorOverride/ClearUnitColorOverride
+        // (docs/atc-extension-support.md item 2).
+        public const int ApiVersion = 4;
 
         // Called on an HTTP worker: relPath "" is the page's own HTML (/ext/<id>); otherwise it is
         // an asset under that path. Return null for 404. Content-Type is inferred from its path suffix.
@@ -57,5 +59,16 @@ namespace NOXMFD
             => IconColorRegistry.SetTypeOverride(unitType, hex, factionFilter);
 
         public static void ClearUnitTypeColorOverride(string unitType) => IconColorRegistry.ClearTypeOverride(unitType);
+
+        // Per-unit-INSTANCE MAP icon ring (docs/atc-extension-support.md item 2) — additive to the
+        // faction/type color above, not a replacement: MAP draws this as a ring around the icon, so
+        // the unit's own faction/type identification stays visible underneath (the ATC extension's
+        // own status-on-MAP requirement, issue #89 section 5, is why this exists). id is the same
+        // one a contact's "id" field / UnitInfo.Id already carry. Rejection behaves the same as the
+        // two overrides above: an invalid id/hex is rejected without replacing the current value and
+        // logs a warning (IconColorRegistry.cs).
+        public static void SetUnitColorOverride(uint id, string hex) => IconColorRegistry.SetIdOverride(id, hex);
+
+        public static void ClearUnitColorOverride(uint id) => IconColorRegistry.ClearIdOverride(id);
     }
 }

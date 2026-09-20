@@ -277,6 +277,30 @@ namespace NOXMFD.Tests
         }
 
         [Fact]
+        public void Colors_ids_carries_per_instance_overrides_keyed_by_numeric_id()
+        {
+            // docs/atc-extension-support.md item 2 — Api.SetUnitColorOverride, no faction filter.
+            var s = default(TelemetrySnapshot);
+            s.IdColorOverrides = new System.Collections.Generic.Dictionary<uint, IconColorRegistry.TypeOverride>
+            {
+                [42u] = new IconColorRegistry.TypeOverride("#ffaa00", null),
+            };
+
+            var ids = Obj(Obj(Root(s)["colors"])["ids"]);
+            var ov = Obj(ids["42"]);
+            Assert.Equal("#ffaa00", ov["hex"]);
+            Assert.False(ov.ContainsKey("f"));
+        }
+
+        [Fact]
+        public void Colors_ids_is_an_empty_object_when_no_override_is_set()
+        {
+            var s = default(TelemetrySnapshot);
+            var ids = Obj(Obj(Root(s)["colors"])["ids"]);
+            Assert.Empty(ids);
+        }
+
+        [Fact]
         public void Unit_contact_squad_member_flag_defaults_false()
         {
             var s = default(TelemetrySnapshot);

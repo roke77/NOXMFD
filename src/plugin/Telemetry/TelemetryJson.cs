@@ -105,7 +105,8 @@ namespace NOXMFD
               .Append(",\"colors\":{\"f\":\"").Append(JsonLite.EscapeJson(s.ColFriendly ?? "#39ff14"))
               .Append("\",\"e\":\"").Append(JsonLite.EscapeJson(s.ColHostile ?? "#ff4040"))
               .Append("\",\"n\":\"").Append(JsonLite.EscapeJson(s.ColNeutral ?? "#9aa0a6"))
-              .Append("\",\"types\":").Append(TypeColorOverridesJson(s.TypeColorOverrides)).Append('}')
+              .Append("\",\"types\":").Append(TypeColorOverridesJson(s.TypeColorOverrides))
+              .Append(",\"ids\":").Append(IdColorOverridesJson(s.IdColorOverrides)).Append('}')
               .Append(",\"contacts\":").Append(UnitsArray(s.Units))
               .Append(",\"playerId\":").Append(s.PlayerId)
               .Append(",\"pjm\":").Append(JsonBool(s.PlayerJammed))
@@ -157,6 +158,25 @@ namespace NOXMFD
                 if (kv.Value.FactionFilter.HasValue)
                     sb.Append(",\"f\":").Append(kv.Value.FactionFilter.Value);
                 sb.Append('}');
+            }
+            return sb.Append('}').ToString();
+        }
+
+        // Per-unit-instance icon color overrides (docs/atc-extension-support.md item 2), keyed by
+        // the numeric id as a JSON string key (JSON object keys are always strings) — same shape
+        // TypeColorOverridesJson above uses, minus the faction filter (always unset for an id
+        // override; map.js never reads it).
+        private static string IdColorOverridesJson(IReadOnlyDictionary<uint, IconColorRegistry.TypeOverride>? overrides)
+        {
+            if (overrides == null || overrides.Count == 0) return "{}";
+            var sb = new StringBuilder("{");
+            bool first = true;
+            foreach (var kv in overrides)
+            {
+                if (!first) sb.Append(',');
+                first = false;
+                sb.Append('"').Append(kv.Key).Append("\":{\"hex\":\"")
+                  .Append(JsonLite.EscapeJson(kv.Value.Hex)).Append("\"}");
             }
             return sb.Append('}').ToString();
         }

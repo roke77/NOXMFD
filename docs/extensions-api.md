@@ -37,7 +37,7 @@ Threading requirements differ by callback:
 - The command handler always runs on the Unity main thread after its request has been validated and
   queued.
 
-`Api.ApiVersion` is currently `3`. Breaking public-API changes require incrementing it. Runtime
+`Api.ApiVersion` is currently `4`. Breaking public-API changes require incrementing it. Runtime
 compatibility is informational; BepInEx's `MinimumVersion` is the load-time enforcement mechanism.
 
 ## 1. Page and asset serving
@@ -154,6 +154,8 @@ Api.SetFactionColorOverride(string? friendlyHex, string? enemyHex, string? neutr
 Api.ClearFactionColorOverride();
 Api.SetUnitTypeColorOverride(string unitType, string hex, int? factionFilter = null);
 Api.ClearUnitTypeColorOverride(string unitType);
+Api.SetUnitColorOverride(uint id, string hex);
+Api.ClearUnitColorOverride(uint id);
 ```
 
 `SetFactionColorOverride` supersedes NOXMFD's own once-per-session read of the game's HUD faction
@@ -166,8 +168,17 @@ classification step is needed. Colors must use `#RRGGBB` or `#RRGGBBAA`; invalid
 unit types, and faction filters outside `0`–`2` are logged and rejected without replacing the live
 override — this validation is `ApiVersion` 3+ (see below); an extension pinning `MinimumVersion`
 below that could previously pass any non-empty string, which the browser applied to a canvas
-`fillStyle`/`shadowColor` unvalidated. Both channels ship to the browser inside the existing telemetry
-frame's `colors` object (`{"f","e","n","types"}`), additive to its prior shape.
+`fillStyle`/`shadowColor` unvalidated.
+
+`SetUnitColorOverride` (`ApiVersion` 4+, docs/atc-extension-support.md item 2) colors one specific
+unit **instance**, keyed by the same id a contact's `id` telemetry field already carries — unlike
+the two overrides above, MAP does not fold this into the icon's own fill color: it draws a ring
+around the icon instead (`map.js`'s `drawStatusRing`), so the unit's normal faction/type
+identification stays visible underneath. There is no faction-filter parameter; an id already names
+one specific unit. Same hex validation and rejection behavior as the other two.
+
+All three channels ship to the browser inside the existing telemetry frame's `colors` object
+(`{"f","e","n","types","ids"}`), each addition additive to the prior shape.
 
 ## Known limitations
 

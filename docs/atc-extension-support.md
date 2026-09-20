@@ -2,12 +2,14 @@
 
 ## Status
 
-Items 1 and 4 are built. Item 4: `UnitInfo.IsAircraft`, wire key `"ac"`. Item 1 (fuel) was
+Items 1, 2, and 4 are built. Item 4: `UnitInfo.IsAircraft`, wire key `"ac"`. Item 1 (fuel) was
 investigated, turned out infeasible in its original shape, and shipped as a faction-wide
 player-to-player broadcast instead of a telemetry field (`FuelBroadcast.cs`, wire key `"pf"`) —
 see item 1 below for why, including a mid-investigation correction (an initial squad-only design
 was revised again once `Presence.cs`'s own faction-wide broadcast turned out to already prove the
-simpler shape works). Items 2–3 are still plan only. The [ATC extension](https://github.com/roke77/NOXMFD-Extension-ATC) (its own
+simpler shape works). Item 2 (per-instance icon color/ring override): `Api.SetUnitColorOverride`/
+`ClearUnitColorOverride`, `ApiVersion` bumped to `4`, wire key `"ids"` under `colors`, drawn by
+`map.js`'s new `drawStatusRing`. Item 3 is still plan only. The [ATC extension](https://github.com/roke77/NOXMFD-Extension-ATC) (its own
 repo, own release cycle, [issue #89](https://github.com/roke77/NOXMFD/issues/89)) has its Phase 1
 built against NOXMFD as it stands today — a traffic table, range presets, and ATC Status
 assignment, all buildable without touching NOXMFD's own source. This document covers only the four
@@ -88,13 +90,23 @@ This is genuinely extension-agnostic — any NOXMFD page could read `pf` once it
 just the ATC extension's own page. The extension just reads it off the main telemetry frame the
 same way it already reads `PilotName`/`Faction`.
 
-### 2. Per-instance icon color/ring override
+### 2. Per-instance icon color/ring override — built
 
-`Api.cs`'s only coloring surface is per unit **type** (`SetFactionColorOverride`/
+`Api.cs`'s only coloring surface was per unit **type** (`SetFactionColorOverride`/
 `SetUnitTypeColorOverride`, backed by `IconColorRegistry.cs`'s `_typeOverrides`, keyed by
-`unitType` string ± an optional faction filter). There's no per-unit-**id** override anywhere, and
-the ATC extension needs one to ring a specific aircraft with its assigned status color without
-recoloring every aircraft of that type.
+`unitType` string ± an optional faction filter). There was no per-unit-**id** override, and the ATC
+extension needs one to ring a specific aircraft with its assigned status color without recoloring
+every aircraft of that type.
+
+**Shipped as designed below**, with one simplification: `ringOnly` (originally sketched as a flag)
+turned out unnecessary — `map.js` always draws the id override as a ring (`drawStatusRing`), never
+folds it into the icon's own fill color the way the type/faction overrides do, so there was nothing
+for a flag to toggle. `Api.SetUnitColorOverride(uint id, string hex)` /
+`Api.ClearUnitColorOverride(uint id)`, `IconColorRegistry._idOverrides`, wire key `"ids"` under
+`colors` (`TelemetryJson.IdColorOverridesJson`), `ApiVersion` bumped `3` → `4`. Tests:
+`IconColorRegistryTests.cs` (round-trip, invalid id/hex rejection, snapshot immutability) and
+`TelemetryJsonTests.cs` (wire shape, empty-by-default). Documented in both `EXTENSIONS.md` and
+`docs/extensions-api.md`'s section 6.
 
 Extend `IconColorRegistry` with a second copy-on-write dictionary alongside `_typeOverrides`,
 keyed by unit id (`uint`, matching `UnitInfo.Id`) instead of type string:
@@ -210,10 +222,9 @@ Left for whoever implements each item, not answered here:
 - **Item 1** — built. Shipped as a faction-wide player-to-player broadcast
   (`FuelBroadcast.cs`, 15s interval, own file alongside `Presence.cs`/`PlayerRoster.cs`) rather than
   the squad-only design first drafted — see item 1 above for why the simpler shape works.
-- **Item 2**: exact wire shape for id overrides in the `colors` block (an object keyed by numeric
-  id as a string, same convention `TypeOverride`'s dictionary already uses server-side, is the
-  obvious default — but worth confirming against how the existing `types` sub-object encodes its
-  own keys before adding a second, inconsistent shape).
+- **Item 2** — built. Wire shape ended up exactly the obvious default: `"ids"` is an object keyed
+  by the numeric id as a JSON string, `{"hex":"#..."}` per entry — same shape `"types"` already
+  used, minus the unused faction filter.
 - **Item 3**: the reconciliation rule between a local MAP click and an externally-set selection
   arriving the same tick — needs a real design pass, not just a field.
 - **Item 4** — resolved: shipped with BuildHsd's exact same `> 0.5f` threshold, no new tuning. If

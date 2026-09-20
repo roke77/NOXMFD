@@ -277,6 +277,8 @@ public static void SetFactionColorOverride(string? friendlyHex, string? enemyHex
 public static void ClearFactionColorOverride();
 public static void SetUnitTypeColorOverride(string unitType, string hex, int? factionFilter = null);
 public static void ClearUnitTypeColorOverride(string unitType);
+public static void SetUnitColorOverride(uint id, string hex);
+public static void ClearUnitColorOverride(uint id);
 ```
 
 `SetFactionColorOverride` replaces NOXMFD's own once-per-session read of the game's HUD faction
@@ -295,6 +297,18 @@ outside `0`–`2` is likewise rejected without replacing the current value:
 
 ```csharp
 NOXMFD.Api.SetUnitTypeColorOverride("AFV-6 AA", "#ff5eff", factionFilter: 2);
+```
+
+`SetUnitColorOverride` colors one specific unit **instance** instead of a whole type, keyed by the
+same id a contact's `id` telemetry field already carries. Unlike the two overrides above, MAP
+doesn't recolor the icon itself — it draws a ring around it, so your color layers on top of
+whatever faction/type color the unit would already show rather than replacing it (the use case
+this exists for: a status marker that shouldn't hide who/what the unit actually is). Same
+validation and rejection behavior as `SetUnitTypeColorOverride`, minus the faction filter — an id
+already names one specific unit, so there's nothing left to scope:
+
+```csharp
+NOXMFD.Api.SetUnitColorOverride(contactId, "#ffaa00");
 ```
 
 ## Appearing in the EXT nav — automatic
@@ -330,7 +344,7 @@ without hand-matching colors.
 ## Versioning
 
 ```csharp
-public const int ApiVersion = 3;
+public const int ApiVersion = 4;
 ```
 
 `NOXMFD.Api.ApiVersion` is there if you want to branch on it at runtime, but the real enforcement

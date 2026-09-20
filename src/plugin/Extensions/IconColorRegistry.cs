@@ -112,6 +112,51 @@ namespace NOXMFD
 
         internal static IReadOnlyDictionary<string, TypeOverride> TypeOverridesSnapshot() => _typeOverrides;
 
+        // Per-unit-INSTANCE overrides (docs/atc-extension-support.md item 2), keyed by the same id
+        // UnitInfo.Id/a contact's "id" field already use. Additive to the faction/type color, not a
+        // replacement — MAP draws this as a ring around the icon (map.js's drawStatusRing), so the
+        // unit's normal identification stays visible underneath; FactionFilter is unused here
+        // (always null) but TypeOverride's shape is reused as-is rather than defining a near-
+        // identical second struct just to drop one field.
+        private static readonly object _idLock = new object();
+        private static volatile Dictionary<uint, TypeOverride> _idOverrides =
+            new Dictionary<uint, TypeOverride>();
+
+        internal static bool SetIdOverride(uint id, string hex)
+        {
+            if (id == 0 || !IsValidHex(hex))
+            {
+                WarnRejected("id:" + id,
+                    $"extension unit-color override for id {id} rejected (hex={hex ?? "null"}): " +
+                    "id must be non-zero and hex must be #RRGGBB/#RRGGBBAA; keeping the current override.");
+                return false;
+            }
+
+            lock (_idLock)
+            {
+                var current = _idOverrides;
+                if (current.TryGetValue(id, out TypeOverride existing) && existing.Hex == hex) return true;
+                var next = new Dictionary<uint, TypeOverride>(current) { [id] = new TypeOverride(hex, null) };
+                _idOverrides = next;
+            }
+            return true;
+        }
+
+        internal static void ClearIdOverride(uint id)
+        {
+            if (id == 0) return;
+            lock (_idLock)
+            {
+                var current = _idOverrides;
+                if (!current.ContainsKey(id)) return;
+                var next = new Dictionary<uint, TypeOverride>(current);
+                next.Remove(id);
+                _idOverrides = next;
+            }
+        }
+
+        internal static IReadOnlyDictionary<uint, TypeOverride> IdOverridesSnapshot() => _idOverrides;
+
         private static bool IsValidOptionalHex(string? value) => value == null || IsValidHex(value);
 
         // Canvas colors use the explicit extension contract: RGB or RGBA hex, never arbitrary CSS.

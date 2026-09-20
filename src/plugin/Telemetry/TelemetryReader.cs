@@ -901,6 +901,7 @@ namespace NOXMFD
                 ColHostile     = factionOverride.Enemy    ?? _colHostile,
                 ColNeutral     = factionOverride.Neutral  ?? _colNeutral,
                 TypeColorOverrides = IconColorRegistry.TypeOverridesSnapshot(),
+                IdColorOverrides = IconColorRegistry.IdOverridesSnapshot(),
                 TgpActive      = _tgp.Active,
                 TgpResolution   = RatesConfig.TgpResolutionName,
                 TgpQuality      = RatesConfig.TgpLegacyQualityName,

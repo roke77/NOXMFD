@@ -135,6 +135,11 @@ let   factionColors = { 0: '#9aa0a6', 1: '#39ff14', 2: '#ff4040' };  // updated 
 // keyed by the same type name contacts carry as "t". { hex, f? } — f, when present, restricts the
 // override to that one faction (0 neutral/1 friendly/2 enemy), matching factionColors' own keys.
 let   typeColors = {};
+// Per-unit-INSTANCE overrides (docs/atc-extension-support.md item 2), keyed by a contact's "id".
+// Additive, not a recolor: drawn as a ring around the icon (drawStatusRing below) rather than fed
+// into `hex` the way typeColors is — the ticket this exists for (ATC's status-on-MAP requirement)
+// wants the unit's normal faction/type identification to stay visible underneath.
+let   idColors = {};
 const iconImages = {};         // unitName -> { img, ready }   (raw sprite, fetched once)
 // "unitName|#hex" -> { cv, iw, ih }  (pre-tinted + pre-glowed). The hex is part of the key, so a
 // color change (a live faction/type override) already misses the cache and re-bakes on its own —
@@ -322,6 +327,22 @@ function drawIcon(type, hex, cx, cy, hdg, orient, basePx, scale) {
   }
   oc.restore();
   return r;
+}
+
+// Per-unit-instance color ring (docs/atc-extension-support.md item 2) — a plain outline around the
+// icon, not a recolor, so whatever drew it (an ATC status, say) never hides the unit's own
+// faction/type identification underneath. Distinct look from drawTargetBox's corner brackets
+// (that's a lock indicator, this is a generic third-party marker) so the two never read as the
+// same kind of thing on a contact that happens to carry both.
+function drawStatusRing(cx, cy, r, hex) {
+  oc.save();
+  oc.beginPath();
+  oc.arc(cx, cy, r + 5, 0, Math.PI * 2);
+  oc.strokeStyle = hex;
+  oc.lineWidth = 2.5;
+  oc.globalAlpha = 0.9;
+  oc.stroke();
+  oc.restore();
 }
 
 // Draws a square target box (corner brackets) around an icon to mark one of the player's
@@ -668,6 +689,8 @@ function drawOverlay() {
       if (u.st) oc.globalAlpha = STALE_ALPHA;
       const r = drawIcon(u.t, hex, p.cx, p.cy, u.h, u.o, iconBase(), u.s);
       if (u.st) oc.globalAlpha = 1;
+      const idOv = idColors[u.id];
+      if (idOv) drawStatusRing(p.cx, p.cy, r, idOv.hex);
       if (u.tg) { drawTargetBox(p.cx, p.cy, r + 4); pendingSel.delete(u.id); }   // telemetry confirms selection
       if (u.jm) drawJamGlyph(p.cx, p.cy, r);
       // Pilot name label, gated by MAP CFG's "SHOW PLAYER NAMES" toggle, and only for a unit that
@@ -833,6 +856,7 @@ function renderFrame(d) {
   if (d.colors) {
     factionColors = { 0: d.colors.n, 1: d.colors.f, 2: d.colors.e };
     typeColors = d.colors.types || {};
+    idColors = d.colors.ids || {};
   }
 
   if (d.map && d.map.valid) {

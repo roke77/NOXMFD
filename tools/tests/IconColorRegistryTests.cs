@@ -170,5 +170,57 @@ namespace NOXMFD.Tests
                 IconColorRegistry.LogWarning = previous;
             }
         }
+
+        // ── Id overrides (docs/atc-extension-support.md item 2) ─────────────────────────────────
+        // Same store shape as the type overrides above (copy-on-write dictionary, IsValidHex gate,
+        // per-key warning dedup) — coverage here focuses on what's actually different: the key is
+        // a non-zero uint, not a string, and FactionFilter is always null (never set through
+        // SetIdOverride at all).
+
+        [Fact]
+        public void Id_override_round_trips_through_the_snapshot()
+        {
+            const uint id = 999001;
+            IconColorRegistry.SetIdOverride(id, "#ff5eff");
+
+            var ov = IconColorRegistry.IdOverridesSnapshot()[id];
+            Assert.Equal("#ff5eff", ov.Hex);
+            Assert.Null(ov.FactionFilter);
+
+            IconColorRegistry.ClearIdOverride(id);
+            Assert.False(IconColorRegistry.IdOverridesSnapshot().ContainsKey(id));
+        }
+
+        [Fact]
+        public void Id_override_ignores_a_zero_id_or_invalid_hex()
+        {
+            Assert.False(IconColorRegistry.SetIdOverride(0, "#ffffff"));
+            Assert.False(IconColorRegistry.SetIdOverride(999002, "not-a-color"));
+            Assert.False(IconColorRegistry.IdOverridesSnapshot().ContainsKey(0));
+            Assert.False(IconColorRegistry.IdOverridesSnapshot().ContainsKey(999002));
+        }
+
+        [Fact]
+        public void Invalid_id_override_hex_is_rejected_without_replacing_the_live_value()
+        {
+            const uint id = 999003;
+            Assert.True(IconColorRegistry.SetIdOverride(id, "#112233"));
+            Assert.False(IconColorRegistry.SetIdOverride(id, "#12345g"));
+            Assert.Equal("#112233", IconColorRegistry.IdOverridesSnapshot()[id].Hex);
+            IconColorRegistry.ClearIdOverride(id);
+        }
+
+        [Fact]
+        public void Id_override_snapshot_is_not_retroactively_mutated()
+        {
+            const uint id = 999004;
+            IconColorRegistry.SetIdOverride(id, "#123456");
+            var snapshot = IconColorRegistry.IdOverridesSnapshot();
+
+            IconColorRegistry.ClearIdOverride(id);
+
+            Assert.True(snapshot.ContainsKey(id));
+            Assert.False(IconColorRegistry.IdOverridesSnapshot().ContainsKey(id));
+        }
     }
 }
