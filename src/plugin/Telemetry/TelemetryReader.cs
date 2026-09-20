@@ -895,6 +895,7 @@ namespace NOXMFD
                 PlayerJammedBy = playerJammedBy,
                 PictureJammed  = _pictureJamActive,
                 FocusedTargetId = TargetFocus.Id,
+                SelectedUnitId = SharedSelection.Id,
                 LockedTargetIds = _cachedLockedIds,
                 LockedTargetTti = _cachedLockedTti,
                 ColFriendly    = factionOverride.Friendly ?? _colFriendly,

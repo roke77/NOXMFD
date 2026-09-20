@@ -2,9 +2,10 @@
 
 ## Status
 
-**Built and available as API version 2.** A separate BepInEx plugin can register an MFD page,
+**Built and available as API version 5.** A separate BepInEx plugin can register an MFD page,
 publish telemetry, receive commands on the Unity main thread, appear under the EXT navigation hub,
-provide an MJPEG feed, and override MAP's unit icon colors — all without changing NOXMFD source.
+provide an MJPEG feed, override MAP's unit icon colors (by faction, by type, or by one specific
+unit instance), and drive a shared MAP highlight — all without changing NOXMFD source.
 
 The concrete example is
 [NOXMFD-Extension-Remote-Control-Missile-Camera-POC](https://github.com/roke77/NOXMFD-Extension-Remote-Control-Missile-Camera-POC),
@@ -37,7 +38,7 @@ Threading requirements differ by callback:
 - The command handler always runs on the Unity main thread after its request has been validated and
   queued.
 
-`Api.ApiVersion` is currently `4`. Breaking public-API changes require incrementing it. Runtime
+`Api.ApiVersion` is currently `5`. Breaking public-API changes require incrementing it. Runtime
 compatibility is informational; BepInEx's `MinimumVersion` is the load-time enforcement mechanism.
 
 ## 1. Page and asset serving
@@ -180,6 +181,24 @@ one specific unit. Same hex validation and rejection behavior as the other two.
 All three channels ship to the browser inside the existing telemetry frame's `colors` object
 (`{"f","e","n","types","ids"}`), each addition additive to the prior shape.
 
+## 7. A shared MAP highlight
+
+```csharp
+Api.SetSelectedUnit(uint id);
+```
+
+`ApiVersion` 5+ (docs/atc-extension-support.md item 3). Sets `SharedSelection.Id`, carried in the
+frame as a new top-level `selectedUnitId` field (alongside the existing `focusedTargetId`,
+`TelemetryJson.cs`) — `map.js` reads it every frame and draws a dashed highlight ring around that
+contact when it's on screen, keeping it until changed or cleared with `id = 0`.
+
+Deliberately its own concept, not layered onto `TargetFocus`/`focusedTargetId`: those track a real
+weapon lock (`weaponManager.GetTargetList()`), and MAP's own click-to-select (`map.js`'s
+`selectAt`) issues an actual `target.select` command in-game. `SetSelectedUnit` never touches
+either — it only draws a highlight, so it can't have an in-game side effect. One direction only:
+an extension can tell MAP what to highlight, but there's no way (yet) for an extension to learn
+what a pilot clicked on MAP themselves — see "Known limitations."
+
 ## Known limitations
 
 - The generic browser side does not subscribe to names published through `Api.PublishEvent`.
@@ -191,6 +210,9 @@ All three channels ship to the browser inside the existing telemetry frame's `co
   stable URL-safe ids.
 - The API does not provide a generic browser command helper. An extension posts to its own endpoint
   directly because the built-in `send-command.js` targets NOXMFD's internal `/command` envelope.
+- `SetSelectedUnit` (surface 7) is one-way only. No API tells an extension what a pilot clicked on
+  MAP — that click is a `target.select` weapons command, not a generic selection broadcast, and
+  there's no extension-facing echo of it beyond the normal `tg`/`focusedTargetId` fields.
 
 ## Implementation map
 

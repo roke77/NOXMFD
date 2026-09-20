@@ -110,6 +110,11 @@ namespace NOXMFD
         // state from drifting when locks change outside a Next/Previous press.
         public uint FocusedTargetId;
 
+        // A unit an extension wants MAP to highlight/pan attention to (docs/atc-extension-support.md
+        // item 3, SharedSelection.cs) — 0 = none. Deliberately separate from FocusedTargetId above:
+        // this never represents a weapon lock and MAP never issues target.select because of it.
+        public uint SelectedUnitId;
+
         // weaponManager.GetTargetList()'s own order (persistentID.Id) — the exact order
         // TargetFocus's Cycle/Reconcile step through (TargetFocus.cs). TGT sorts its own
         // selected-target list to match, so Next/Previous visibly walks the table in the same

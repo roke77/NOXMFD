@@ -470,5 +470,28 @@ namespace NOXMFD.Tests
 
             Assert.Equal(0.0, root["focusedTargetId"]);
         }
+
+        [Fact]
+        public void SelectedUnitId_is_a_top_level_field_and_survives_the_round_trip()
+        {
+            // docs/atc-extension-support.md item 3 — same top-level shape as focusedTargetId above,
+            // deliberately its own separate field (not reusing FocusedTargetId).
+            var s = default(TelemetrySnapshot);
+            s.SelectedUnitId = 777u;
+
+            var root = Root(s);
+
+            Assert.Equal(777.0, root["selectedUnitId"]);
+        }
+
+        [Fact]
+        public void SelectedUnitId_defaults_to_zero_when_nothing_is_selected()
+        {
+            var s = default(TelemetrySnapshot);
+
+            var root = Root(s);
+
+            Assert.Equal(0.0, root["selectedUnitId"]);
+        }
     }
 }

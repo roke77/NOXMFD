@@ -761,6 +761,28 @@ function drawOverlay() {
     }
   }
 
+  // Extension-driven "locate on map" highlight (docs/atc-extension-support.md item 3) — a
+  // persistent dashed ring on whichever unit SharedSelection currently names, id-anchored like
+  // clickFlash above but never fades (an extension clears it explicitly, by sending id 0, rather
+  // than this timing out). Deliberately not drawn if the unit isn't in hitTargets this frame (off
+  // screen or no longer a live contact) rather than guessing a stale position. No auto-pan/center
+  // yet — ATC→MAP only, see the doc for why MAP's own click isn't wired to drive this.
+  if (lastData.selectedUnitId) {
+    for (let i = 0; i < hitTargets.length; i++) {
+      if (hitTargets[i].id !== lastData.selectedUnitId) continue;
+      const t = hitTargets[i];
+      oc.save();
+      oc.strokeStyle = '#ffaa00';
+      oc.lineWidth = 2;
+      oc.setLineDash([4, 4]);
+      oc.beginPath();
+      oc.arc(t.cx, t.cy, t.r + 8, 0, Math.PI * 2);
+      oc.stroke();
+      oc.restore();
+      break;
+    }
+  }
+
   // Waypoint placement feedback: a brief fading ring where the pilot just long-pressed. Screen-px
   // anchored (not id-anchored like clickFlash) since a fresh waypoint has no hitTargets entry.
   if (wptFlash) {

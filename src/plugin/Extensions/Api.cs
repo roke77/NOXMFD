@@ -8,8 +8,8 @@ namespace NOXMFD
         // SetFactionColorOverride/SetUnitTypeColorOverride/SetUnitColorOverride reject any hex that
         // isn't exactly #RRGGBB/#RRGGBBAA (IconColorRegistry.IsValidHex) — the reason this field
         // carries this value. 4 adds SetUnitColorOverride/ClearUnitColorOverride
-        // (docs/atc-extension-support.md item 2).
-        public const int ApiVersion = 4;
+        // (docs/atc-extension-support.md item 2). 5 adds SetSelectedUnit (item 3).
+        public const int ApiVersion = 5;
 
         // Called on an HTTP worker: relPath "" is the page's own HTML (/ext/<id>); otherwise it is
         // an asset under that path. Return null for 404. Content-Type is inferred from its path suffix.
@@ -70,5 +70,11 @@ namespace NOXMFD
         public static void SetUnitColorOverride(uint id, string hex) => IconColorRegistry.SetIdOverride(id, hex);
 
         public static void ClearUnitColorOverride(uint id) => IconColorRegistry.ClearIdOverride(id);
+
+        // A unit id MAP should highlight/pan attention to (docs/atc-extension-support.md item 3) —
+        // deliberately separate from weapon targeting: MAP's own click-to-select issues a real
+        // target.select command, which this never touches. 0 clears it. One-way today: MAP reads
+        // this every frame, nothing on MAP's own side writes it back yet.
+        public static void SetSelectedUnit(uint id) => SharedSelection.Set(id);
     }
 }

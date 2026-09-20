@@ -61,6 +61,10 @@ namespace NOXMFD
             // The Next/Previous-focused locked target (issue #62) — a top-level id like mapReach,
             // since it's one value TGT/FCR/HSD all read, not scoped into any one of their own blocks.
             sb.Append("\"focusedTargetId\":").Append(s.FocusedTargetId).Append(',');
+            // An extension-driven MAP highlight (docs/atc-extension-support.md item 3) — top-level
+            // for the same reason as focusedTargetId just above: read directly off the frame by
+            // whichever page cares (map.js), not scoped into any per-page block.
+            sb.Append("\"selectedUnitId\":").Append(s.SelectedUnitId).Append(',');
             // PlayerSettings.unitSystem (issue #84) — top-level for the same reason as
             // focusedTargetId above: OBJ (and any future page) needs it without depending on RDR or
             // HSD being present. RdrBlock/HsdBlock keep their own nested "metric" copies of this

@@ -17,13 +17,14 @@ seen NOXMFD's internals — everything you need is the public surface described 
 
 - [Prerequisites](#prerequisites)
 - [Quick start](#quick-start)
-- [The five surfaces](#the-five-surfaces)
+- [The seven surfaces](#the-seven-surfaces)
   - [1. Registering your extension](#1-registering-your-extension)
   - [2. Serving your page](#2-serving-your-page)
   - [3. Publishing telemetry](#3-publishing-telemetry)
   - [4. Receiving commands](#4-receiving-commands)
   - [5. A continuous video feed](#5-a-continuous-video-feed)
   - [6. Icon color overrides](#6-icon-color-overrides)
+  - [7. A shared MAP highlight](#7-a-shared-map-highlight)
 - [Appearing in the EXT nav — automatic](#appearing-in-the-ext-nav--automatic)
 - [Reusing NOXMFD's shared assets](#reusing-noxmfds-shared-assets)
 - [Versioning](#versioning)
@@ -86,10 +87,10 @@ Build, drop the DLL into `BepInEx/plugins/`, restart the game. Your page appears
 **EXT** nav, labeled "MY PAGE", reachable in both the classic bezel and F-35 layouts, in full
 view and split panes — you didn't write any of that wiring yourself.
 
-## The six surfaces
+## The seven surfaces
 
 Everything an extension can do goes through `NOXMFD.Api` (`using NOXMFD;`), a static class with
-six capabilities. You don't need all six — the quick-start example above only used the first.
+seven capabilities. You don't need all seven — the quick-start example above only used the first.
 
 ### 1. Registering your extension
 
@@ -311,6 +312,27 @@ already names one specific unit, so there's nothing left to scope:
 NOXMFD.Api.SetUnitColorOverride(contactId, "#ffaa00");
 ```
 
+### 7. A shared MAP highlight
+
+```csharp
+public static void SetSelectedUnit(uint id);
+```
+
+Tells MAP to draw a highlight (a dashed ring) around one specific unit and keeps it there until
+you change or clear it — useful for a "locate on map" action in your own page. `id` is the same
+one a contact's `id` telemetry field / `SetUnitColorOverride` already use; `0` clears it.
+
+This is deliberately **not** the same thing as clicking a unit on MAP yourself — that click issues
+a real weapon-target-select command in-game. `SetSelectedUnit` never does that; it only draws a
+highlight, so calling it can't have any in-game side effect. There's currently no way to go the
+other direction (learn what a pilot clicked on MAP from your own extension) — MAP's click stays a
+weapons action, not a generic "tell extensions what's selected" signal.
+
+```csharp
+NOXMFD.Api.SetSelectedUnit(contactId);   // highlight it
+NOXMFD.Api.SetSelectedUnit(0);           // clear the highlight
+```
+
 ## Appearing in the EXT nav — automatic
 
 Once `RegisterExtension` succeeds, your `id`/`label` show up in `GET /ext-manifest`, which
@@ -373,6 +395,10 @@ your code half-working against a shape that moved out from under it.
   automatic reset (NOXMFD's web shell has no static knowledge of which extension ids exist). If
   your page needs to detect "no mission," derive it from some other top-level field it already
   receives rather than assuming your own slice gets cleared for you.
+- **Learning what a pilot clicked on MAP.** `SetSelectedUnit` (surface 7) only goes one direction —
+  your extension can tell MAP what to highlight, but MAP's own click-to-select is a weapon-target
+  command with no extension-visible echo beyond the normal `tg`/`focusedTargetId` telemetry fields
+  every page already gets.
 
 ## Troubleshooting
 

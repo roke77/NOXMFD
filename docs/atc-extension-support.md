@@ -9,7 +9,12 @@ see item 1 below for why, including a mid-investigation correction (an initial s
 was revised again once `Presence.cs`'s own faction-wide broadcast turned out to already prove the
 simpler shape works). Item 2 (per-instance icon color/ring override): `Api.SetUnitColorOverride`/
 `ClearUnitColorOverride`, `ApiVersion` bumped to `4`, wire key `"ids"` under `colors`, drawn by
-`map.js`'s new `drawStatusRing`. Item 3 is still plan only. The [ATC extension](https://github.com/roke77/NOXMFD-Extension-ATC) (its own
+`map.js`'s new `drawStatusRing`. Item 3 (shared MAP highlight) is also built, but only one-way
+(extension → MAP) — the original design assumed MAP's click-to-select was local UI state safe to
+sync bidirectionally; it's actually a weapon-targeting command, so the reverse direction (MAP →
+extension) was deliberately left unbuilt rather than risk an unintended weapons action. See item 3
+below. All four items in this doc are now either built or deliberately scoped down with the reason
+recorded. The [ATC extension](https://github.com/roke77/NOXMFD-Extension-ATC) (its own
 repo, own release cycle, [issue #89](https://github.com/roke77/NOXMFD/issues/89)) has its Phase 1
 built against NOXMFD as it stands today — a traffic table, range presets, and ATC Status
 assignment, all buildable without touching NOXMFD's own source. This document covers only the four
@@ -144,36 +149,46 @@ in its existing faction/type color) rather than substituting into the same `hex`
 faction/type lookup already produces — substituting would violate the ticket's own "identification
 stays visible" requirement above.
 
-### 3. A shared, extension-writable selected-unit concept
+### 3. A shared MAP highlight — built, one-way (ATC → MAP only)
 
-MAP's click-to-select (`map.js:1200`, `selectAt`) is local-only client state — it's never sent to
-the server and never broadcast to any other page or extension. The one existing "focused unit"
-concept, `TargetFocus.cs`, is a different thing entirely: it tracks the player's current *weapon
-lock* focus (reconciled from `weaponManager.GetTargetList()`, `TargetFocus.Reconcile`/`Cycle`), is
-read-only from JS, and has no `Api` method to set it externally. Repurposing it would conflate "the
-target my weapons are tracking" with "the row an ATC controller clicked," which are unrelated
-concepts that happen to share the word "target."
+**The original framing of this item was wrong, and correcting it changed the design.** The first
+pass described MAP's click-to-select as "local-only client state" — it isn't. `map.js`'s `selectAt`
+(`map.js:1224-1238`) actually calls `sendCommand('target.select', { id: hit.id })`: a real
+in-game weapon-targeting action, the same mechanism TGT's target list and `TargetFocus`/
+`FocusedTargetId` represent. There is no existing "just highlight this unit, no game action"
+concept on MAP at all — every click is a targeting command.
 
-Add a new, independent static store — same shape as `TargetFocus.cs` (a `uint`, `0` = none,
-`Volatile`/lock-guarded), but writable from `Api.cs`, not just from `TelemetryReader`'s own contact
-scan:
+That matters because issue #89's actual ask (LOCATE ON MAP: "select/highlight," "center the map,"
+"an information label") is explicitly *not* a weapons action. Building the shared concept on top
+of `TargetFocus`/`tg` (the original sketch's own suggestion) would have meant an ATC controller
+clicking LOCATE ON MAP could issue an unintended weapon-target command against whatever aircraft
+they were just trying to look at — including a friendly one.
 
-```csharp
-public static void SetSelectedUnit(uint id) => SharedSelection.Set(id);
-public static uint GetSelectedUnit() => SharedSelection.Id;
-```
+**Built: a brand-new, independent concept, unrelated to weapon targeting, one direction only.**
 
-Carried in the telemetry frame (`TelemetrySnapshot`/`TelemetryJson`, alongside the existing
-`FocusedTargetId`) so every connected page/pane sees the same value every tick — this is what makes
-it *shared* rather than per-tab. `map.js` needs a new branch in its own click-select handling: a
-click still sets local state as it does today, but should also call `Api`-driven update (via
-whatever command path MAP already uses for a server round trip) so an extension's own next frame
-picks up the new selection, and conversely MAP needs to read the shared value each frame and treat
-it the same way it treats its own local selection when it changes from outside. This is the one
-item here that touches a first-party page's own behavior, not just new API surface — worth its own
-design pass on exactly how "local click" and "externally-set selection" reconcile without fighting
-each other (e.g. a click always wins locally and pushes up; an external change only applies when it
-doesn't contradict a click made more recently).
+- `src/plugin/Extensions/SharedSelection.cs` — same shape as `TargetFocus.cs` (a `uint`, `0` =
+  none, `Volatile`-backed), but writable from `Api.cs` rather than only from `TelemetryReader`'s
+  own contact scan.
+- `Api.SetSelectedUnit(uint id)` — sets it. Never calls `target.select`, never touches
+  `TargetFocus`. `id = 0` clears it.
+- Carried in the telemetry frame as a new top-level `selectedUnitId` field
+  (`TelemetrySnapshot.cs`/`TelemetryJson.cs`), alongside the existing `focusedTargetId` but
+  entirely separate from it.
+- `map.js` reads `d.selectedUnitId` every frame and draws a dashed amber ring
+  (`drawStatusRing`'s sibling, its own distinct look) around that contact when it's on screen —
+  visually and mechanically distinct from both the weapon-lock target box (`drawTargetBox`) and
+  item 2's status ring, so a unit that happens to carry all three never reads as one thing.
+
+**Deliberately scoped to one direction.** An extension can tell MAP what to highlight (covers
+LOCATE ON MAP); MAP's own click still only ever does the one thing it already did
+(`target.select`) and does not write back into `SharedSelection` — there's no non-weapons click
+path on MAP to repurpose for "tell extensions what I clicked," and inventing one (a modifier-click,
+a long-press, a MAP-side mode toggle) is a real MAP UX decision, not a quick follow-on to this
+field. No auto-pan/center either — the ticket's own wording hedges centering as "if appropriate,"
+and panning interacts with MAP's existing zoom/follow state in ways that deserved their own pass
+rather than folding into this change. The MAP → ATC sync half of issue #89's requirement 4 remains
+unbuilt; revisit once there's an actual answer for what a non-weapons MAP selection interaction
+should look like.
 
 ### 4. Aircraft classification flag on `UnitInfo` — built
 
@@ -225,8 +240,10 @@ Left for whoever implements each item, not answered here:
 - **Item 2** — built. Wire shape ended up exactly the obvious default: `"ids"` is an object keyed
   by the numeric id as a JSON string, `{"hex":"#..."}` per entry — same shape `"types"` already
   used, minus the unused faction filter.
-- **Item 3**: the reconciliation rule between a local MAP click and an externally-set selection
-  arriving the same tick — needs a real design pass, not just a field.
+- **Item 3** — built one-way; the "reconciliation" question this originally posed turned out to be
+  the wrong question. MAP's click isn't UI state to reconcile against, it's a weapons command —
+  see item 3 above. Still genuinely open: what a real, non-weapons MAP → extension selection
+  interaction should look like, if/when the reverse direction gets built.
 - **Item 4** — resolved: shipped with BuildHsd's exact same `> 0.5f` threshold, no new tuning. If
   the ATC extension's own aircraft-only filter later turns out wrong at the margins (something HSD
   never surfaced because it only ever showed aerial contacts anyway), revisit then rather than
