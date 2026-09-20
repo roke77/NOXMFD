@@ -2,8 +2,10 @@
 
 ## Status
 
-Item 4 (aircraft classification flag) is built — `UnitInfo.IsAircraft`, wire key `"ac"`. Items 1–3
-are still plan only. The [ATC extension](https://github.com/roke77/NOXMFD-Extension-ATC) (its own
+Item 4 (aircraft classification flag) is built — `UnitInfo.IsAircraft`, wire key `"ac"`. Item 1
+(fuel) was investigated and turned out infeasible as originally scoped — redesigned below as a
+squad-only player-to-player broadcast, not a telemetry field; not started. Items 2–3 are still plan
+only. The [ATC extension](https://github.com/roke77/NOXMFD-Extension-ATC) (its own
 repo, own release cycle, [issue #89](https://github.com/roke77/NOXMFD/issues/89)) has its Phase 1
 built against NOXMFD as it stands today — a traffic table, range presets, and ATC Status
 assignment, all buildable without touching NOXMFD's own source. This document covers only the four
@@ -12,35 +14,69 @@ bookkeeping, its UI) is that project's own plan (`docs/atc-mfd-plan.md` there), 
 
 ## Goal
 
-Issue #89 asks for two things NOXMFD's telemetry/extension API can't do yet: show a locked-down
-per-unit value (fuel) only to its own faction, and let an extension and MAP share a live
-selection/highlight — plus one thing that already exists internally but isn't exposed
-(aircraft-vs-everything-else classification). Each is its own independent addition; none depend on
-each other.
+Issue #89 asks for two things NOXMFD's telemetry/extension API can't do yet: show fuel for aircraft
+other than the local player's, and let an extension and MAP share a live selection/highlight — plus
+one thing that already exists internally but isn't exposed (aircraft-vs-everything-else
+classification). Each is its own independent addition; none depend on each other. Fuel turned out
+to need a different mechanism than telemetry entirely — see item 1.
 
 ## NOXMFD's responsibilities
 
-### 1. Per-unit fuel, friendly-only
+### 1. Per-unit fuel — squad-only, via squadron transport (not a `UnitInfo` field)
 
-`TelemetryReader.cs:874` reads fuel (`aircraft.GetFuelLevel()`) only inside the single-aircraft
-object initializer for the local player's own plane; `TelemetrySnapshot.Fuel` is one top-level
-`float`, and `UnitInfo` has no fuel field for any other unit at all.
+**Revised after investigation — this is not the small addition it first looked like.** The
+original plan ("call the fuel accessor for every `Aircraft`, gate the result friendly-only") turned
+out to rest on a false assumption about how fuel actually works over the network. Two findings from
+the decompiled source:
 
-Add a `Fuel` field to `UnitInfo` (`TelemetrySnapshot.cs:522-578`), populated in `BuildUnits`
-(wherever that loop currently builds each `UnitInfo` — same loop `HasDetail`/`SpeedReading` come
-from) by calling the aircraft's own fuel accessor for every `Aircraft` unit, not just the local
-player's. First confirm `GetFuelLevel()` (or whatever the real accessor turns out to be) is
-actually readable against a non-local `Aircraft` component — `TelemetryReader.cs:874` has only ever
-called it on the player's own aircraft, so this needs verifying against the decompiled game source
-before committing to the field, the same way any other new telemetry read here would.
+- `Aircraft.GetFuelLevel()` sums each `FuelTank.GetLevel()` (`fuelMass`), a plain non-networked
+  field. `FuelTank.Awake()`'s own `FuelTank_OnInitialize` sets `enabled = aircraft.LocalSim` — so
+  the tank's `FixedUpdate` (the only place `fuelMass` ever decreases) simply never runs for a
+  non-locally-simulated aircraft. `Unit.remoteSim` defaults to `!base.IsServer`
+  (`_scratch/full/Unit.cs:754`), so on an ordinary player's client, `LocalSim` is true only for
+  that player's *own* aircraft — every other unit's `fuelMass`, friendly or not, is frozen at
+  whatever it was on spawn and never reflects real consumption. `GetFuelLevel()` on a remote
+  aircraft is not "approximately right" — it is simply wrong.
+- `Aircraft.fuelLevel` **is** a genuine `[SyncVar]`, networked to everyone — but it turns out to be
+  a refuel *target*, not a live gauge: `SetFuelLevel`'s only use of it is `fuelTank.Refuel(fuelLevel)`,
+  and nothing writes it on a per-tick cadence. It answers "what ratio should this tank refill to,"
+  not "how much fuel is in it right now." A dead end for this purpose.
 
-**Deliberately not reusing `HasDetail`.** Speed/altitude/heading are things an active radar lock
-plausibly reveals — fuel quantity isn't, the same reasoning the ATC extension's own plan doc
-recorded (`docs/atc-mfd-plan.md` there, "Data-visibility model"). So `Fuel` needs its own gate,
-friendly-only regardless of lock/stale state: only serialize it (or serialize a real value instead
-of a sentinel) when `Faction == 1`. Enemy/neutral rows always get whatever "no data" sentinel the
-JSON encoding already uses elsewhere (`TelemetryJson.cs`'s `UnitsArray` — match its existing
-convention for an absent field rather than inventing a new one).
+**Conclusion: there is no existing networked value that carries another aircraft's true current
+fuel.** The only client that ever has an accurate fuel reading for a given aircraft is that
+aircraft's own pilot's own NOXMFD instance (`TelemetryReader.cs:874`, still correct — it's the
+local player's own plane, always `LocalSim`).
+
+**Revised design: fuel travels player-to-player over the existing squadron transport
+(`docs/squadron-transport.md`), not through the telemetry stream at all — the game itself has no
+fuel data to give a third party.** This also means fuel is scoped to *squad*, not "friendly" as the
+original ticket assumed (a real narrowing — a squad is a subset of the friendly faction, not all of
+it; issue #89 didn't anticipate this constraint, and neither did the ATC extension's own plan doc,
+which needs updating to match once this ships):
+
+- Each NOXMFD instance already knows its own local player's real fuel every tick. Add a small,
+  low-rate broadcast (piggybacking `Presence.cs`'s existing 5s beacon, or its own timer) of just
+  that value to the player's current squad, reusing `Squad.cs`'s existing transport rather than a
+  new one.
+- The star topology (`docs/squadron-transport.md`'s "Implementation": members only ever talk to the
+  leader) means a member's fuel reaching *other members* — not just the leader — needs the same
+  two-hop shape `sqd.roster` already uses: each member sends its own fuel to the leader, the leader
+  aggregates and re-broadcasts a `{steamId: fuel}` map to the whole squad, alongside (not instead
+  of) the existing roster broadcast.
+- New message types on `Squad.cs`'s existing envelope (mirroring `sqd.data`'s shape, not a new
+  transport): a member→leader `sqd.fuel` push, and a leader→all `sqd.fuel-status` broadcast.
+- A new small store, shaped like `PlayerRoster.AircraftFor` (SteamID-keyed, not persisted, cleared
+  the same way `RouteStore.OnSquadEnded()` clears its own squad-scoped state).
+- This is genuinely extension-agnostic — any NOXMFD page could read squad fuel once it exists, not
+  just the ATC extension's own page — so it belongs as a first-party concept (e.g. surfaced the way
+  `PlayerRoster.AircraftFor` already feeds SQD), with the ATC extension simply reading whatever
+  slice already carries it, the same way it already reads `PilotName`/`Faction` off the main
+  telemetry frame.
+
+This is materially more work than a `UnitInfo` field — closer in shape to the target-designation
+feature `docs/squadron-transport.md` already documents (new protocol messages, new state, a UI
+surface) than to a one-line telemetry addition. Treat it as its own scoped task, not a quick follow-on
+to items 2–4.
 
 ### 2. Per-instance icon color/ring override
 
@@ -161,8 +197,11 @@ whichever doc already describes `UnitInfo`'s wire shape for extension authors.
 
 Left for whoever implements each item, not answered here:
 
-- **Item 1**: the actual accessor for a non-local aircraft's fuel — confirm against decompiled
-  source before assuming `GetFuelLevel()` generalizes.
+- **Item 1** — resolved as infeasible in its original shape; redesigned as a squad-only
+  player-to-player broadcast over the existing squadron transport (see item 1 above). Still open:
+  exact broadcast rate (piggyback `Presence`'s 5s beacon, or its own slower timer — fuel doesn't
+  need to be fresh to the second), and whether the store lives in `Squad.cs` itself or a sibling
+  file the way `PlayerRoster.cs` sits alongside it.
 - **Item 2**: exact wire shape for id overrides in the `colors` block (an object keyed by numeric
   id as a string, same convention `TypeOverride`'s dictionary already uses server-side, is the
   obvious default — but worth confirming against how the existing `types` sub-object encodes its
