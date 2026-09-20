@@ -2,12 +2,13 @@
 
 ## Status
 
-Not started. The [ATC extension](https://github.com/roke77/NOXMFD-Extension-ATC) (its own repo,
-own release cycle, [issue #89](https://github.com/roke77/NOXMFD/issues/89)) has its Phase 1 built
-against NOXMFD as it stands today — a traffic table, range presets, and ATC Status assignment, all
-buildable without touching NOXMFD's own source. This document covers only the four things Phase 2
-needs NOXMFD itself to add; the extension's own design (its table, its status bookkeeping, its UI)
-is that project's own plan (`docs/atc-mfd-plan.md` there), not this one.
+Item 4 (aircraft classification flag) is built — `UnitInfo.IsAircraft`, wire key `"ac"`. Items 1–3
+are still plan only. The [ATC extension](https://github.com/roke77/NOXMFD-Extension-ATC) (its own
+repo, own release cycle, [issue #89](https://github.com/roke77/NOXMFD/issues/89)) has its Phase 1
+built against NOXMFD as it stands today — a traffic table, range presets, and ATC Status
+assignment, all buildable without touching NOXMFD's own source. This document covers only the four
+things Phase 2 needs NOXMFD itself to add; the extension's own design (its table, its status
+bookkeeping, its UI) is that project's own plan (`docs/atc-mfd-plan.md` there), not this one.
 
 ## Goal
 
@@ -116,7 +117,7 @@ design pass on exactly how "local click" and "externally-set selection" reconcil
 each other (e.g. a click always wins locally and pushes up; an external change only applies when it
 doesn't contradict a click made more recently).
 
-### 4. Aircraft classification flag on `UnitInfo`
+### 4. Aircraft classification flag on `UnitInfo` — built
 
 No per-contact tag distinguishes an aircraft from a ground vehicle, ship, or building in the
 `contacts` array today — the AIR/MSL/GND/BLD/SHP buttons on TGT reflect the game's own filter-panel
@@ -168,6 +169,7 @@ Left for whoever implements each item, not answered here:
   own keys before adding a second, inconsistent shape).
 - **Item 3**: the reconciliation rule between a local MAP click and an externally-set selection
   arriving the same tick — needs a real design pass, not just a field.
-- **Item 4**: whether `0.5f` (BuildHsd's own threshold) is the right cutoff for "is an aircraft" in
-  a general-purpose field, or whether the ATC use case wants a different threshold than HSD's own
-  aerial-contact use case happens to have picked.
+- **Item 4** — resolved: shipped with BuildHsd's exact same `> 0.5f` threshold, no new tuning. If
+  the ATC extension's own aircraft-only filter later turns out wrong at the margins (something HSD
+  never surfaced because it only ever showed aerial contacts anyway), revisit then rather than
+  guessing at a second threshold up front.
