@@ -1644,7 +1644,11 @@ namespace NOXMFD
                     PilotName = pilotName,
                     HasDetail = hasDetail,
                     SpeedReading = speedReading,
-                    AltReading = altReading
+                    AltReading = altReading,
+                    // Same check BuildHsd already applies for its own aerial-only contact list
+                    // (above) — see UnitInfo.IsAircraft's own comment for why this isn't a new
+                    // classification, just exposing an existing one.
+                    IsAircraft = def.typeIdentity.air > 0.5f
                 });
             }
             return _unitBuf.ToArray();

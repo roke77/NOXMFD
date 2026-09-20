@@ -179,6 +179,7 @@ namespace NOXMFD.Tests
                     Jammed = true, JammedBy = 7, Datalink = true, Stale = true, SquadMember = true,
                     PilotName = "Bandit \"Ace\" 1-1",
                     HasDetail = true, SpeedReading = "420 kt", AltReading = "12,500 ft",
+                    IsAircraft = true,
                 },
             };
             var contact = Obj(Arr(Root(s)["contacts"])[0]);
@@ -199,6 +200,19 @@ namespace NOXMFD.Tests
             Assert.Equal(1.0, contact["hd"]);
             Assert.Equal("420 kt", contact["sp"]);
             Assert.Equal("12,500 ft", contact["al"]);
+            Assert.Equal(1.0, contact["ac"]);
+        }
+
+        // BuildHsd already trusts UnitDefinition.typeIdentity.air for its own aerial-only contact
+        // list (docs/atc-extension-support.md) — a ground vehicle, ship, or building must default
+        // closed here the same way, not leak in as an aircraft.
+        [Fact]
+        public void Unit_contact_is_aircraft_flag_defaults_false()
+        {
+            var s = default(TelemetrySnapshot);
+            s.Units = new[] { new UnitInfo { Id = 1, Type = "T-72" } };
+            var contact = Obj(Arr(Root(s)["contacts"])[0]);
+            Assert.Equal(0.0, contact["ac"]);
         }
 
         [Fact]

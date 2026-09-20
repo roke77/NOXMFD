@@ -529,7 +529,7 @@ namespace NOXMFD
                 UnitInfo u = units[i];
                 if (i > 0) sb.Append(',');
                 sb.AppendFormat(CultureInfo.InvariantCulture,
-                    "{{\"id\":{8},\"t\":\"{0}\",\"x\":{1:0.0},\"z\":{2:0.0},\"h\":{3:0.0},\"f\":{4},\"o\":{5},\"s\":{6:0.000},\"tg\":{7},\"jm\":{9},\"jb\":{10},\"dl\":{11},\"st\":{12},\"sq\":{13},\"pn\":\"{14}\",\"hd\":{15},\"sp\":\"{16}\",\"al\":\"{17}\"}}",
+                    "{{\"id\":{8},\"t\":\"{0}\",\"x\":{1:0.0},\"z\":{2:0.0},\"h\":{3:0.0},\"f\":{4},\"o\":{5},\"s\":{6:0.000},\"tg\":{7},\"jm\":{9},\"jb\":{10},\"dl\":{11},\"st\":{12},\"sq\":{13},\"pn\":\"{14}\",\"hd\":{15},\"sp\":\"{16}\",\"al\":\"{17}\",\"ac\":{18}}}",
                     JsonLite.EscapeJson(u.Type ?? string.Empty),
                     u.X, u.Z, u.Heading, u.Faction,
                     u.Orient ? "true" : "false", u.Scale,
@@ -543,7 +543,8 @@ namespace NOXMFD
                     JsonLite.EscapeJson(u.PilotName ?? string.Empty),
                     u.HasDetail ? 1 : 0,
                     JsonLite.EscapeJson(u.SpeedReading ?? string.Empty),
-                    JsonLite.EscapeJson(u.AltReading ?? string.Empty));
+                    JsonLite.EscapeJson(u.AltReading ?? string.Empty),
+                    u.IsAircraft ? 1 : 0);
             }
             return sb.Append(']').ToString();
         }

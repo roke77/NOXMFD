@@ -575,5 +575,13 @@ namespace NOXMFD
         // when !HasDetail.
         public string SpeedReading;
         public string AltReading;
+
+        // The game's own aircraft-vs-everything-else classification (UnitDefinition.typeIdentity.air),
+        // already trusted internally by BuildHsd for HSD's aerial-only contact list
+        // (TelemetryReader.cs) — exposed here so any consumer of the main contacts array (an
+        // extension, docs/atc-extension-support.md) can filter to aircraft without its own
+        // heuristic. Not a guarantee of "is an Aircraft component" — it mirrors BuildHsd's own
+        // threshold (> 0.5f), which is the game's own continuous score, not a bool.
+        public bool IsAircraft;
     }
 }
