@@ -54,6 +54,11 @@ function zoomedIn()     { return view.zoom >= ICON_ZOOM_THRESHOLD; }
 function iconBase()     { return zoomedIn() ? ICON_BASE_IN : ICON_BASE_OUT; }
 function fallbackSize() { return zoomedIn() ? FALLBACK_IN  : FALLBACK_OUT; }
 let   followPlayer = false;    // when on (and zoomed in), keep the player icon centred
+// When on (and zoomed in), keep SharedSelection's unit centred instead of the player — an
+// extension's TRACK ON MAP toggle (docs/atc-extension-support.md item 3 follow-on), driven by
+// d.selectedUnitTrack each frame, never persisted (renderFrame below resets it on disconnect the
+// same way followPlayer resets on a mission end).
+let   trackingSelectedUnit = false;
 let   gridOn       = false;    // coordinate grid overlay (issue #41), default off
 
 // ── Waypoints/routes (issue #38) ──────────────────────────────────────────────────
@@ -643,10 +648,24 @@ function drawOverlay() {
   navHitTargets.length = 0;
   if (!lastData || !mapMeta) return;
 
-  // Follow mode: re-derive pan each frame so the player icon stays centred. clampPan then keeps
-  // the map edges honest, so near a border the player drifts off-centre instead of exposing blank
-  // background — same as the in-game map.
-  if (followPlayer && view.zoom > MIN_ZOOM && lastData.world) {
+  // Follow mode: re-derive pan each frame so the followed point stays centred. clampPan then keeps
+  // the map edges honest, so near a border the followed point drifts off-centre instead of exposing
+  // blank background — same as the in-game map. TRACK ON MAP (an extension's SetSelectedUnitTrack)
+  // takes priority over the player-follow below — the two are mutually exclusive by construction
+  // (engaging track already dropped followPlayer in renderFrame), this just picks which point to
+  // read. A selected unit that's briefly missing from lastData.contacts (datalink gap) simply isn't
+  // found this frame — the view holds still rather than snapping, and resumes once it reappears.
+  if (trackingSelectedUnit && lastData.selectedUnitId && view.zoom > MIN_ZOOM && lastData.contacts) {
+    const tracked = lastData.contacts.find(function(u) { return u.id === lastData.selectedUnitId; });
+    if (tracked) {
+      const b = worldToBase(tracked.x, tracked.z);
+      if (b) {
+        view.panX = -(b.x - overlay.width  / 2) * view.zoom;
+        view.panY = -(b.y - overlay.height / 2) * view.zoom;
+        clampPan();
+      }
+    }
+  } else if (followPlayer && view.zoom > MIN_ZOOM && lastData.world) {
     const b = worldToBase(lastData.world.x, lastData.world.z);
     if (b) {
       view.panX = -(b.x - overlay.width  / 2) * view.zoom;
@@ -872,6 +891,15 @@ function requestDraw() {
 // and posted up to the shell by the source; this is purely the local render.
 function renderFrame(d) {
   if (disposed) return;
+  // TRACK ON MAP edge-trigger: engaging drops FLW (same "drops the FLW state" the checkbox
+  // promises), same as pressing the FLW key would; disengaging just stops re-centring, it doesn't
+  // restore FLW.
+  if (d.selectedUnitTrack && !trackingSelectedUnit) {
+    trackingSelectedUnit = true;
+    if (followPlayer) setFollow(false);
+  } else if (!d.selectedUnitTrack && trackingSelectedUnit) {
+    trackingSelectedUnit = false;
+  }
   lastData = d;
   if (!viewActive) return;
   ensureIconImage(d.name);
@@ -949,6 +977,7 @@ function clearViewState() {
   mapWasValid = false;
   view.zoom = 1; view.panX = 0; view.panY = 0;   // next mission starts at full extent
   followPlayer = false;                           // follow resets for the next mission
+  trackingSelectedUnit = false;                   // ditto for TRACK ON MAP
   oc.clearRect(0, 0, overlay.width, overlay.height);
   document.getElementById('map-panel').classList.remove('has-map');
   mapImg.src = '/map?t=' + Date.now();   // 404 now → falls back to the placeholder

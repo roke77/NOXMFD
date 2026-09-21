@@ -493,5 +493,28 @@ namespace NOXMFD.Tests
 
             Assert.Equal(0.0, root["selectedUnitId"]);
         }
+
+        [Fact]
+        public void SelectedUnitTrack_is_a_top_level_field_and_survives_the_round_trip()
+        {
+            // docs/atc-extension-support.md item 3 follow-on — same placement as selectedUnitId
+            // just above, since map.js reads the two together.
+            var s = default(TelemetrySnapshot);
+            s.SelectedUnitTrack = true;
+
+            var root = Root(s);
+
+            Assert.True((bool)root["selectedUnitTrack"]!);
+        }
+
+        [Fact]
+        public void SelectedUnitTrack_defaults_to_false()
+        {
+            var s = default(TelemetrySnapshot);
+
+            var root = Root(s);
+
+            Assert.False((bool)root["selectedUnitTrack"]!);
+        }
     }
 }

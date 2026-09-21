@@ -8,8 +8,10 @@ namespace NOXMFD
         // SetFactionColorOverride/SetUnitTypeColorOverride/SetUnitColorOverride reject any hex that
         // isn't exactly #RRGGBB/#RRGGBBAA (IconColorRegistry.IsValidHex) — the reason this field
         // carries this value. 4 adds SetUnitColorOverride/ClearUnitColorOverride
-        // (docs/atc-extension-support.md item 2). 5 adds SetSelectedUnit (item 3).
-        public const int ApiVersion = 5;
+        // (docs/atc-extension-support.md item 2). 5 adds SetSelectedUnit (item 3). 6 adds
+        // SetSelectedUnitTrack, the item 3 follow-on that lets an extension put MAP into
+        // follow-this-unit mode instead of only highlighting it.
+        public const int ApiVersion = 6;
 
         // Called on an HTTP worker: relPath "" is the page's own HTML (/ext/<id>); otherwise it is
         // an asset under that path. Return null for 404. Content-Type is inferred from its path suffix.
@@ -76,5 +78,11 @@ namespace NOXMFD
         // target.select command, which this never touches. 0 clears it. One-way today: MAP reads
         // this every frame, nothing on MAP's own side writes it back yet.
         public static void SetSelectedUnit(uint id) => SharedSelection.Set(id);
+
+        // Puts MAP into follow-this-unit mode: while on, MAP re-centers each frame on whatever
+        // SetSelectedUnit last set (dropping its own FLW/follow-player mode the same way a pilot's
+        // FLW key would), the same way it already re-centers on the player. off leaves MAP's pan
+        // alone; it does not restore FLW. No effect until a non-zero id is also selected.
+        public static void SetSelectedUnitTrack(bool on) => SharedSelection.SetTrack(on);
     }
 }

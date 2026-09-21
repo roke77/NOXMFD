@@ -18,9 +18,18 @@ namespace NOXMFD
     internal static class SharedSelection
     {
         private static uint _id;
+        private static bool _track;
 
         internal static uint Id => Volatile.Read(ref _id);
 
         internal static void Set(uint id) => Volatile.Write(ref _id, id);
+
+        // Whether MAP should continuously re-center on Id instead of the player (the ATC
+        // extension's TRACK ON MAP checkbox) — a separate flag from Id itself so a controller can
+        // switch which unit LOCATE ON MAP points at without re-sending this. Defaults off; still
+        // read even when Id is 0, so map.js just finds no matching contact and skips re-centering.
+        internal static bool Track => Volatile.Read(ref _track);
+
+        internal static void SetTrack(bool on) => Volatile.Write(ref _track, on);
     }
 }

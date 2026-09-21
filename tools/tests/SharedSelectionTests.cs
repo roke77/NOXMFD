@@ -28,5 +28,21 @@ namespace NOXMFD.Tests
             SharedSelection.Set(0);
             Assert.Equal(0u, SharedSelection.Id);
         }
+
+        [Fact]
+        public void Track_defaults_to_off()
+        {
+            SharedSelection.SetTrack(false);
+            Assert.False(SharedSelection.Track);
+        }
+
+        [Fact]
+        public void SetTrack_round_trips()
+        {
+            SharedSelection.SetTrack(true);
+            Assert.True(SharedSelection.Track);
+            SharedSelection.SetTrack(false);
+            Assert.False(SharedSelection.Track);
+        }
     }
 }

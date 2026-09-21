@@ -184,11 +184,22 @@ LOCATE ON MAP); MAP's own click still only ever does the one thing it already di
 (`target.select`) and does not write back into `SharedSelection` — there's no non-weapons click
 path on MAP to repurpose for "tell extensions what I clicked," and inventing one (a modifier-click,
 a long-press, a MAP-side mode toggle) is a real MAP UX decision, not a quick follow-on to this
-field. No auto-pan/center either — the ticket's own wording hedges centering as "if appropriate,"
-and panning interacts with MAP's existing zoom/follow state in ways that deserved their own pass
-rather than folding into this change. The MAP → ATC sync half of issue #89's requirement 4 remains
-unbuilt; revisit once there's an actual answer for what a non-weapons MAP selection interaction
-should look like.
+field. The MAP → ATC sync half of issue #89's requirement 4 remains unbuilt; revisit once there's
+an actual answer for what a non-weapons MAP selection interaction should look like.
+
+**Follow-on, built: auto-pan and continuous follow.** The original pass above deliberately left
+centering out ("the ticket's own wording hedges centering as 'if appropriate'"). Both are now
+built, still one-way:
+
+- `map.js` already draws the highlight ring for `selectedUnitId` on every frame — the ATC
+  extension's row-select now also calls `SetSelectedUnit`, so a click centers MAP on it the same
+  moment it highlights it. No new NOXMFD surface needed for that half.
+- `SharedSelection.Track` / `Api.SetSelectedUnitTrack(bool)` / frame field `selectedUnitTrack` —
+  same shape as `Id`/`selectedUnitId`, but a bool: while `true`, `map.js` re-centers on
+  `selectedUnitId` every frame the way it already re-centers on the player under FLW, dropping
+  FLW the moment it engages (mirrored by `Api.cs`'s doc comment: "the same way a pilot's FLW key
+  would"). `false` just stops the re-centering — it does not restore FLW. Backs the ATC
+  extension's TRACK ON MAP checkbox.
 
 ### 4. Aircraft classification flag on `UnitInfo` — built
 

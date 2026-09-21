@@ -38,7 +38,7 @@ Threading requirements differ by callback:
 - The command handler always runs on the Unity main thread after its request has been validated and
   queued.
 
-`Api.ApiVersion` is currently `5`. Breaking public-API changes require incrementing it. Runtime
+`Api.ApiVersion` is currently `6`. Breaking public-API changes require incrementing it. Runtime
 compatibility is informational; BepInEx's `MinimumVersion` is the load-time enforcement mechanism.
 
 ## 1. Page and asset serving
@@ -198,6 +198,19 @@ weapon lock (`weaponManager.GetTargetList()`), and MAP's own click-to-select (`m
 either — it only draws a highlight, so it can't have an in-game side effect. One direction only:
 an extension can tell MAP what to highlight, but there's no way (yet) for an extension to learn
 what a pilot clicked on MAP themselves — see "Known limitations."
+
+```csharp
+Api.SetSelectedUnitTrack(bool on);
+```
+
+`ApiVersion` 6+ (the item 3 follow-on). Sets `SharedSelection.Track`, carried in the frame as
+`selectedUnitTrack` alongside `selectedUnitId` — while `true`, `map.js` re-centers each frame on
+the current `selectedUnitId` (dropping its own player-follow/FLW mode the same way pressing the
+FLW key would) instead of only drawing the highlight ring. `false` just stops the re-centering; it
+does not restore FLW. Meaningless while `selectedUnitId` is `0` — MAP simply finds no matching
+contact and leaves the view alone. Built for the ATC extension's TRACK ON MAP checkbox (a
+controller keeping MAP centered on whichever aircraft they're currently handling), but generic to
+any extension.
 
 ## Known limitations
 

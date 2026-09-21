@@ -17,7 +17,7 @@ seen NOXMFD's internals — everything you need is the public surface described 
 
 - [Prerequisites](#prerequisites)
 - [Quick start](#quick-start)
-- [The seven surfaces](#the-seven-surfaces)
+- [The eight surfaces](#the-eight-surfaces)
   - [1. Registering your extension](#1-registering-your-extension)
   - [2. Serving your page](#2-serving-your-page)
   - [3. Publishing telemetry](#3-publishing-telemetry)
@@ -25,6 +25,7 @@ seen NOXMFD's internals — everything you need is the public surface described 
   - [5. A continuous video feed](#5-a-continuous-video-feed)
   - [6. Icon color overrides](#6-icon-color-overrides)
   - [7. A shared MAP highlight](#7-a-shared-map-highlight)
+  - [8. Continuous follow on MAP](#8-continuous-follow-on-map)
 - [Appearing in the EXT nav — automatic](#appearing-in-the-ext-nav--automatic)
 - [Reusing NOXMFD's shared assets](#reusing-noxmfds-shared-assets)
 - [Versioning](#versioning)
@@ -87,7 +88,7 @@ Build, drop the DLL into `BepInEx/plugins/`, restart the game. Your page appears
 **EXT** nav, labeled "MY PAGE", reachable in both the classic bezel and F-35 layouts, in full
 view and split panes — you didn't write any of that wiring yourself.
 
-## The seven surfaces
+## The eight surfaces
 
 Everything an extension can do goes through `NOXMFD.Api` (`using NOXMFD;`), a static class with
 seven capabilities. You don't need all seven — the quick-start example above only used the first.
@@ -333,6 +334,24 @@ NOXMFD.Api.SetSelectedUnit(contactId);   // highlight it
 NOXMFD.Api.SetSelectedUnit(0);           // clear the highlight
 ```
 
+### 8. Continuous follow on MAP
+
+```csharp
+public static void SetSelectedUnitTrack(bool on);
+```
+
+Puts MAP into follow-this-unit mode: while `on`, MAP re-centers every frame on whatever
+`SetSelectedUnit` currently points at, the same way it already re-centers on the player under
+FLW — engaging it drops FLW automatically, the same as if the pilot had pressed the FLW key
+themselves. `false` just stops the re-centering; it does not turn FLW back on. Has no visible
+effect while nothing is selected (`SetSelectedUnit(0)`), since there's nothing to center on.
+
+```csharp
+NOXMFD.Api.SetSelectedUnit(contactId);
+NOXMFD.Api.SetSelectedUnitTrack(true);    // MAP now follows contactId
+NOXMFD.Api.SetSelectedUnitTrack(false);   // MAP stops following (stays where it was)
+```
+
 ## Appearing in the EXT nav — automatic
 
 Once `RegisterExtension` succeeds, your `id`/`label` show up in `GET /ext-manifest`, which
@@ -372,7 +391,7 @@ without hand-matching colors.
 ## Versioning
 
 ```csharp
-public const int ApiVersion = 4;
+public const int ApiVersion = 6;
 ```
 
 `NOXMFD.Api.ApiVersion` is there if you want to branch on it at runtime, but the real enforcement
@@ -401,9 +420,10 @@ your code half-working against a shape that moved out from under it.
   automatic reset (NOXMFD's web shell has no static knowledge of which extension ids exist). If
   your page needs to detect "no mission," derive it from some other top-level field it already
   receives rather than assuming your own slice gets cleared for you.
-- **Learning what a pilot clicked on MAP.** `SetSelectedUnit` (surface 7) only goes one direction —
-  your extension can tell MAP what to highlight, but MAP's own click-to-select is a weapon-target
-  command with no extension-visible echo beyond the normal `tg`/`focusedTargetId` telemetry fields
+- **Learning what a pilot clicked on MAP.** `SetSelectedUnit`/`SetSelectedUnitTrack` (surfaces 7–8)
+  only go one direction — your extension can tell MAP what to highlight or follow, but MAP's own
+  click-to-select is a weapon-target command with no extension-visible echo beyond the normal
+  `tg`/`focusedTargetId` telemetry fields
   every page already gets.
 
 ## Troubleshooting

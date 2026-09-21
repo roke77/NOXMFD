@@ -65,6 +65,9 @@ namespace NOXMFD
             // for the same reason as focusedTargetId just above: read directly off the frame by
             // whichever page cares (map.js), not scoped into any per-page block.
             sb.Append("\"selectedUnitId\":").Append(s.SelectedUnitId).Append(',');
+            // The item 3 follow-on (SharedSelection.Track) — same top-level placement as
+            // selectedUnitId just above, since map.js reads the two together.
+            sb.Append("\"selectedUnitTrack\":").Append(JsonBool(s.SelectedUnitTrack)).Append(',');
             // PlayerSettings.unitSystem (issue #84) — top-level for the same reason as
             // focusedTargetId above: OBJ (and any future page) needs it without depending on RDR or
             // HSD being present. RdrBlock/HsdBlock keep their own nested "metric" copies of this

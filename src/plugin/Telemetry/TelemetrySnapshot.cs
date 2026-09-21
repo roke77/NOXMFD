@@ -115,6 +115,11 @@ namespace NOXMFD
         // this never represents a weapon lock and MAP never issues target.select because of it.
         public uint SelectedUnitId;
 
+        // Whether MAP should continuously re-center on SelectedUnitId instead of the player
+        // (docs/atc-extension-support.md item 3 follow-on, SharedSelection.cs's Track). Meaningless
+        // while SelectedUnitId is 0 — map.js just finds no matching contact and skips re-centering.
+        public bool SelectedUnitTrack;
+
         // weaponManager.GetTargetList()'s own order (persistentID.Id) — the exact order
         // TargetFocus's Cycle/Reconcile step through (TargetFocus.cs). TGT sorts its own
         // selected-target list to match, so Next/Previous visibly walks the table in the same
