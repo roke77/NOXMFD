@@ -287,6 +287,15 @@ let paneTgpPage = [0, 0];
 // when a pane (re)enters MAP (paneNavigate).
 let paneMapNavPage = [0, 0];
 
+// Per-pane EXT pagination index — NAV.ext paged the same way MAIN/MAP's own lists are
+// (extPaneSlice). NAV.ext grows by one item per installed extension (ext-nav.js) on top of its
+// one-item static baseline, so a split pane's fixed 6-key budget is exceeded as soon as any
+// extension is installed — SPLIT_SLOTS.ext's single fixed slot only ever fit that static
+// baseline, silently dropping every installed extension from a split pane (every item past
+// index 0 had nowhere declared to go — renderSplitLabels' own "has no SPLIT_SLOTS entry" warning,
+// never surfaced because nothing was watching the console). Reset to 0 when a pane (re)enters EXT.
+let paneExtPage = [0, 0];
+
 // AKF/MIS/OBJ/BDF/PAL (the MD-hub switch, docs/doc-page.md) — one shared pagination index for all
 // five page names, same idea as MAIN's own paneMainPage: NAV[page] runs to 6 items (the other four
 // siblings plus DOC), past a split pane's 6-key budget once MAIN is counted too, so this group is
@@ -485,6 +494,13 @@ function mapNavPaneSlice(idx) {
   return slice;
 }
 
+// This pane's slice of NAV.ext, same shape as mainPaneSlice/mapNavPaneSlice above.
+function extPaneSlice(idx) {
+  const slice = ClassicPaging.mainPaneSlice(NAV.ext, paneExtPage[idx]);
+  paneExtPage[idx] = slice.pageIndex;
+  return slice;
+}
+
 function renderSplitLabels() {
   clearKeyActions();
   // .wpn-decor too: full view's MASTER/MODE and ZOOM decorators (docs/radar-master-arms.md) must
@@ -627,7 +643,19 @@ function renderSplitLabels() {
       continue;
     }
 
-    const slots = SPLIT_SLOTS[page];
+    if (page === 'ext') {
+      // The EXT hub's own list paging — NAV.ext paginated exactly like MAIN's own list (via
+      // extPaneSlice above), same reasoning as the MD-hub branch just above: SPLIT_SLOTS.ext's
+      // single fixed slot only ever fit NAV.ext's static one-item baseline (see extPaneSlice's
+      // own comment). This does NOT apply to an individual extension's own page (e.g. 'atc') —
+      // NAV[<id>] is always exactly one item (ext-nav.js), so those still fall through to the
+      // generic SPLIT_SLOTS branch below via its own extension fallback.
+      const { positions, cells } = pagedListCells(paneIdx, 'ext', extPaneSlice(paneIdx), 'ext-nav-prev', 'ext-nav-next');
+      cells.forEach(function (cell, i) { if (cell) placeSplitKey(positions[i], cell.label, cell.action, paneTag); });
+      continue;
+    }
+
+    const slots = SPLIT_SLOTS[page] || (ExtNav.isExtensionPage(page) ? SPLIT_SLOTS.ext : undefined);
     if (!slots) continue;                            // not a split-capable page (e.g. LYT)
 
     if (page === 'avn') {
@@ -713,6 +741,7 @@ function paneNavigate(paneIdx, page) {
   if (page === 'wpn') paneWpnPage[paneIdx] = Math.max(0, selWeaponPage());   // open on the selected weapon's page
   if (page === 'main') paneMainPage[paneIdx] = 0;   // fresh pane always opens on MAIN's first page
   if (page === 'map')  paneMapNavPage[paneIdx] = 0; // fresh pane always opens on MAP's first nav page
+  if (page === 'ext')  paneExtPage[paneIdx]    = 0; // fresh pane always opens on EXT's first nav page
   if (page === 'avn')  paneAvnPage[paneIdx]  = 0;   // fresh pane always opens on the first 4 groups
   if (page === 'tgp')  paneTgpPage[paneIdx]  = 0;   // fresh pane always opens on TGP's first page
   if (MD_GROUP_PAGES[page]) paneMdPage[paneIdx] = 0;   // fresh pane always opens on that page's own first screen
@@ -1718,7 +1747,8 @@ function clearKeyActions() {
 // (.overlay-item.paging) so a paging control reads as distinct from a destination label, in both
 // full view and split.
 const PAGING_ACTIONS = { 'wpn-prev': true, 'wpn-next': true, 'main-prev': true, 'main-next': true,
-                          'avn-prev': true, 'avn-next': true, 'map-nav-prev': true, 'map-nav-next': true };
+                          'avn-prev': true, 'avn-next': true, 'map-nav-prev': true, 'map-nav-next': true,
+                          'ext-nav-prev': true, 'ext-nav-next': true };
 
 // `mark` lights the label in the engaged amber — only LAYOUT's current item uses it; every other
 // label names a page rather than a state. `pending` dims a label that names a page not built yet
@@ -2530,6 +2560,12 @@ function mfdButton(el) {
       // MAP's own list paging (NAV.map exceeds a split pane's 6-key budget) — same idea as MAIN's
       // own paging just above, bumping paneMapNavPage (mapNavPaneSlice).
       paneMapNavPage[paneIdx] += (act === 'map-nav-next' ? 1 : -1);
+      renderSplitLabels();
+    } else if (act === 'ext-nav-prev' || act === 'ext-nav-next') {
+      // The EXT hub's own list paging (NAV.ext grows past a split pane's 6-key budget once any
+      // extension is installed) — same idea as MAP's own paging just above, bumping paneExtPage
+      // (extPaneSlice).
+      paneExtPage[paneIdx] += (act === 'ext-nav-next' ? 1 : -1);
       renderSplitLabels();
     } else if (act === 'md-prev' || act === 'md-next') {
       // AKF/MIS/OBJ/BDF/PAL/DOC's own switch paging (docs/doc-page.md) — same idea as MAIN's own

@@ -22,6 +22,7 @@ const dynamicBehaviors = [
   'avn-prev', 'avn-next',
   'main-prev', 'main-next',
   'map-nav-prev', 'map-nav-next',
+  'ext-nav-prev', 'ext-nav-next',
   'weapon.select',
   'master-arms-on', 'master-arms-off',
   'combat-mode-aa', 'combat-mode-ag',

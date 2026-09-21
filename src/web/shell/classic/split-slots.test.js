@@ -21,7 +21,15 @@ const { mainPageSizes, mainPaneSlice, listPaneLayout } = require('./classic-pagi
 // 2-item baseline (SPLIT_SLOTS.doc covers it), same "declared for coverage, rendered by hand" shape
 // as 'tgt'/DYNAMIC_GROWTH below. 'lyt' isn't in NAV at all (nav-model.test.js asserts that), so it
 // never reaches this loop — picking it from a pane collapses the split instead.
-const NO_SPLIT_TABLE = new Set(['main', 'map', 'akf', 'mis', 'obj', 'bdf', 'pal']);
+// 'ext' is the same shape as 'tgt' below, not 'akf'/etc. above: this static NAV.ext (nav-model.js)
+// is just its one-item baseline (MAIN) — the real growth happens at RUNTIME, one item per
+// installed extension (ext-nav.js's ExtNav.load), which this test never invokes. That's exactly
+// why the original bug (SPLIT_SLOTS.ext's single fixed slot silently dropping every installed
+// extension from a split pane) was invisible here: the static shape this test checks was, and
+// still is, correct — the mismatch only exists once ExtNav.load runs. mfd.js now paginates NAV.ext
+// the same way MAIN/MAP do (extPaneSlice) rather than relying on a fixed slot count at all, so it
+// belongs in this set, not DYNAMIC_GROWTH (which still assumes a fixed, if larger, capacity).
+const NO_SPLIT_TABLE = new Set(['main', 'map', 'akf', 'mis', 'obj', 'bdf', 'pal', 'ext']);
 
 // 'tgt' is a documented exception too: td-nav.js appends a live TD entry to NAV.tgt at runtime
 // once a squad exists, so the static NAV.tgt here (nav-model.js) undercounts its real length —

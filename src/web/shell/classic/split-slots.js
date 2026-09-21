@@ -42,9 +42,14 @@
     // up) are hand-placed by mfd.js's dedicated 'doc' branch, same "declared here for coverage,
     // rendered by hand" shape as TGP's own CFG slot above.
     doc: [ { side: 'left', slot: 0 }, { side: 'left', slot: 1 } ],
-    // EXT's static baseline is one item (MAIN), same shape as TGP/RWR — a runtime-added
-    // extension's own NAV[<id>] is also always exactly one item (ext-nav.js), so mfd.js falls
-    // back to this same slot for any of them rather than needing a per-extension entry here.
+    // This entry is for an INDIVIDUAL extension's own page (e.g. 'atc'), not the EXT hub itself —
+    // NAV[<id>] is always exactly one item (MAIN, ext-nav.js), same shape as TGP/RWR, so mfd.js
+    // falls back to this one slot for any registered extension id rather than needing a
+    // per-extension entry here (renderSplitLabels' own SPLIT_SLOTS[page] || ... fallback,
+    // guarded by ExtNav.isExtensionPage). The EXT hub page itself (NAV.ext, the list you PICK an
+    // extension from) is a different, open-ended list — it grows by one item per installed
+    // extension, so it's paginated like MAIN/MAP instead (mfd.js's own 'ext' branch in
+    // renderSplitLabels, extPaneSlice) and never reads this entry at all.
     ext: [ { side: 'left', slot: 0 } ],
     rwr: [ { side: 'left', slot: 0 } ],
     // RDR/HSD are one sibling group: MAIN, FCR, HSD, then the page-local range rocker. HSD gets a
