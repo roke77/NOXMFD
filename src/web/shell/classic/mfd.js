@@ -468,7 +468,13 @@ function placeSplitKey(m, label, action, paneTag, mark, pending) {
 // HUD is not in this list either: hud.css instead reserves left/right padding sized to a
 // horizontal label's own width, so the panel clears it without needing the narrow vertical
 // treatment.
-function isVmainPage(p) { return p === 'tgt' || p === 'akf' || p === 'bdf' || p === 'pal' || p === 'mis' || p === 'obj'; }
+// Every extension page gets this treatment too, unconditionally — NOXMFD has no way to ask a
+// third-party extension whether its own page has top-left content (RegisterExtension declares no
+// such flag, EXTENSIONS.md), and the one item every extension page's own NAV[<id>] ever carries is
+// this same lone MAIN label (ext-nav.js), so there's no per-extension list to hardcode here the
+// way TGT/AKF/etc. are — this either clears real content (ATC's own table header, the reason this
+// was added) or costs nothing on a page with none.
+function isVmainPage(p) { return p === 'tgt' || p === 'akf' || p === 'bdf' || p === 'pal' || p === 'mis' || p === 'obj' || ExtNav.isExtensionPage(p); }
 
 // The item count on each MAIN split page. Unlike WPN, MAIN reserves no fixed back-slot: PREV anchors
 // the first key only on pages past the first, NEXT the last key only on pages before the last, and
