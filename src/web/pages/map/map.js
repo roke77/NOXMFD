@@ -640,6 +640,16 @@ function drawSteerPoints() {
   oc.restore();
 }
 
+// Re-derives pan so the given world point sits at the canvas centre, then clamps to the map's
+// edges — the shared math behind both follow modes below (player-follow and TRACK ON MAP).
+function centerOn(wx, wz) {
+  const b = worldToBase(wx, wz);
+  if (!b) return;
+  view.panX = -(b.x - overlay.width  / 2) * view.zoom;
+  view.panY = -(b.y - overlay.height / 2) * view.zoom;
+  clampPan();
+}
+
 // ── Drawing ──────────────────────────────────────────────────────────────────────
 function drawOverlay() {
   if (!viewActive || disposed || !overlay.width || !overlay.height) return;
@@ -657,21 +667,9 @@ function drawOverlay() {
   // found this frame — the view holds still rather than snapping, and resumes once it reappears.
   if (trackingSelectedUnit && lastData.selectedUnitId && view.zoom > MIN_ZOOM && lastData.contacts) {
     const tracked = lastData.contacts.find(function(u) { return u.id === lastData.selectedUnitId; });
-    if (tracked) {
-      const b = worldToBase(tracked.x, tracked.z);
-      if (b) {
-        view.panX = -(b.x - overlay.width  / 2) * view.zoom;
-        view.panY = -(b.y - overlay.height / 2) * view.zoom;
-        clampPan();
-      }
-    }
+    if (tracked) centerOn(tracked.x, tracked.z);
   } else if (followPlayer && view.zoom > MIN_ZOOM && lastData.world) {
-    const b = worldToBase(lastData.world.x, lastData.world.z);
-    if (b) {
-      view.panX = -(b.x - overlay.width  / 2) * view.zoom;
-      view.panY = -(b.y - overlay.height / 2) * view.zoom;
-      clampPan();
-    }
+    centerOn(lastData.world.x, lastData.world.z);
   }
 
   // Blit the map sprite into the canvas under the same transform the icons use, so the map and

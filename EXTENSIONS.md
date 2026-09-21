@@ -91,7 +91,7 @@ view and split panes — you didn't write any of that wiring yourself.
 ## The eight surfaces
 
 Everything an extension can do goes through `NOXMFD.Api` (`using NOXMFD;`), a static class with
-seven capabilities. You don't need all seven — the quick-start example above only used the first.
+eight capabilities. You don't need all eight — the quick-start example above only used the first.
 
 ### 1. Registering your extension
 
@@ -423,8 +423,7 @@ your code half-working against a shape that moved out from under it.
 - **Learning what a pilot clicked on MAP.** `SetSelectedUnit`/`SetSelectedUnitTrack` (surfaces 7–8)
   only go one direction — your extension can tell MAP what to highlight or follow, but MAP's own
   click-to-select is a weapon-target command with no extension-visible echo beyond the normal
-  `tg`/`focusedTargetId` telemetry fields
-  every page already gets.
+  `tg`/`focusedTargetId` telemetry fields every page already gets.
 
 ## Troubleshooting
 
