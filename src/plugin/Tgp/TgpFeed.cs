@@ -136,9 +136,9 @@ namespace NOXMFD
 
             // No mission / no aircraft / no TGP component → drop any cached frame and bail.
             GameManager.GetLocalAircraft(out Aircraft ac);
-            if (ac == null) { ClearFeed(showTargetCam: false, restoreCockpit: !SuppressNativeDisplay, reason: "no local aircraft"); return; }
+            if (ac == null) { ClearFeedIdle("no local aircraft"); return; }
             TargetCam? tc = ac.targetCam;
-            if (tc == null) { ClearFeed(showTargetCam: false, restoreCockpit: !SuppressNativeDisplay, reason: "aircraft has no TargetCam component"); return; }
+            if (tc == null) { ClearFeedIdle("aircraft has no TargetCam component"); return; }
 
             // Cache private fields once. cam = scene camera; targetScreenRenderer = the in-cockpit
             // display material fallback for Native capture; onCamToggle is what TacScreen listens
@@ -147,11 +147,11 @@ namespace NOXMFD
             {
                 CacheTargetCamFields();
             }
-            if (_camField == null || _screenRendererField == null) { ClearFeed(showTargetCam: false, restoreCockpit: !SuppressNativeDisplay, reason: "TargetCam reflection fields unavailable"); return; }
+            if (_camField == null || _screenRendererField == null) { ClearFeedIdle("TargetCam reflection fields unavailable"); return; }
 
             if (!TryReadTargetCamFields(tc, out Camera? cam, out Renderer? screenRenderer))
             {
-                ClearFeed(showTargetCam: false, restoreCockpit: !SuppressNativeDisplay, reason: "TargetCam field read failed");
+                ClearFeedIdle("TargetCam field read failed");
                 return;
             }
 
@@ -177,10 +177,10 @@ namespace NOXMFD
             // pushing then so MJPEG clients see "no feed" and fall back to NO TARGET.
             if (!TryReadTargetCamFields(tc, out cam, out screenRenderer))
             {
-                ClearFeed(showTargetCam: false, restoreCockpit: !SuppressNativeDisplay, reason: "TargetCam field read failed (post SetTargetCam)");
+                ClearFeedIdle("TargetCam field read failed (post SetTargetCam)");
                 return;
             }
-            if (cam == null || !cam.enabled) { ClearFeed(showTargetCam: false, restoreCockpit: !SuppressNativeDisplay, reason: cam == null ? "TargetCam's camera is null" : "TargetCam's camera is disabled (no active lock/timeout expired)"); return; }
+            if (cam == null || !cam.enabled) { ClearFeedIdle(cam == null ? "TargetCam's camera is null" : "TargetCam's camera is disabled (no active lock/timeout expired)"); return; }
 
             TgpCaptureSettings settings = TgpFeedSettings.Resolve(Resolution, JpegQuality);
             Texture? src;
@@ -488,6 +488,11 @@ namespace NOXMFD
             _active = false;
             Overlay.Clear();
         }
+
+        // The common case: CaptureFrame() bailed before it ever had a camera to show, so there's
+        // nothing to keep the cockpit's own TargetCam display alive for either — the five call
+        // sites that share this exact pair of args (no camera acquired yet at all).
+        private void ClearFeedIdle(string reason) => ClearFeed(showTargetCam: false, restoreCockpit: !SuppressNativeDisplay, reason: reason);
 
         // Release the buffers we lazily allocate during capture, restore any native cockpit-screen
         // state this instance suppressed, and clear the published frame. Safe to call from the
