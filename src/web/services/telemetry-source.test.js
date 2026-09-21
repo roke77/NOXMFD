@@ -328,5 +328,36 @@ const assert = require('assert');
     }
   }
 
+  // RWR's incoming-missile block must carry the player's metric/imperial preference the same way
+  // HSD/FCR/OBJ's own range fields do (docs: rwr.html's message contract) — a regression here is
+  // exactly what shipped once already: rng computed correctly but metric silently dropped, so the
+  // page always rendered it as if it were km, regardless of the player's actual setting.
+  {
+    const messages = [];
+    const realWindow = global.window;
+    global.window = { parent: {} };
+    const src9 = new TelemetrySource({});
+    src9._postUp = (m) => messages.push(m);
+
+    try {
+      src9._emit({ metric: true, hdg: 0, world: { x: 0, y: 0, z: 0 }, mw: [{ x: 3000, z: 4000, st: 'R' }] });
+      let mw = messages.find((m) => m.type === 'mw');
+      assert.strictEqual(mw.metric, true, 'mw should carry metric:true through from the frame');
+      assert.strictEqual(mw.items[0].rng, 5, 'rng should be world distance in km (5km for a 3-4-5 triangle)');
+
+      messages.length = 0;
+      src9._emit({ metric: false, hdg: 0, world: { x: 0, y: 0, z: 0 }, mw: [{ x: 3000, z: 4000, st: 'R' }] });
+      mw = messages.find((m) => m.type === 'mw');
+      assert.strictEqual(mw.metric, false, 'mw should carry metric:false through from the frame too');
+
+      messages.length = 0;
+      src9._emit({ hdg: 0, world: { x: 0, y: 0, z: 0 }, mw: [] });
+      mw = messages.find((m) => m.type === 'mw');
+      assert.strictEqual(mw.metric, false, 'missing metric on the frame should default to false, not undefined');
+    } finally {
+      global.window = realWindow;
+    }
+  }
+
   console.log('telemetry-source.test.js: OK');
 })();
