@@ -348,6 +348,12 @@ empty state instead:
 
 ![EXT hub with no extensions installed](man/images/EXT.png)
 
+Your page also works in the classic bezel's split-pane mode automatically — no extra code needed.
+And since your page's own content commonly starts right at the top-left corner (a table header, a
+title), the same corner the classic bezel's MAIN nav label would otherwise sit over, MAIN stands
+upright there automatically too (the same treatment TGT/BDF/etc. use) — there's no way for your
+extension to opt out of this today, since NOXMFD has no way to ask it whether it wants to.
+
 ## Reusing NOXMFD's shared assets
 
 Your page is served from the same origin as everything else, so it can reference NOXMFD's own

@@ -61,4 +61,14 @@ assert.ok(guardIndex >= 0 && guardIndex < mutationIndex,
 assert.ok(paneNavigate.includes('LayoutPages.navigateFrame(paneIframes[paneIdx], url)'),
   'paneNavigate must use the destination validated by its unknown-page guard');
 
+// isVmainPage (player report, 2026-09): every extension page's own MAIN label must stand upright
+// the same way TGT/BDF/etc. do, since NOXMFD has no way to ask a specific extension whether its
+// page has top-left content worth clearing. A regression here silently un-does that for every
+// installed extension at once, not just one page.
+const vmainStart = source.indexOf('function isVmainPage(p)');
+const vmainEnd = source.indexOf('\n', vmainStart);
+assert.ok(vmainStart >= 0, 'could not isolate isVmainPage');
+assert.ok(source.slice(vmainStart, vmainEnd).includes('ExtNav.isExtensionPage(p)'),
+  'isVmainPage must apply to every extension page, not just the hardcoded core-page list');
+
 console.log('mfd-split-routing.test.js: OK');
