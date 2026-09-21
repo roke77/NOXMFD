@@ -126,6 +126,15 @@
         if (current.hash !== destination.hash) frame.contentWindow.location.hash = destination.hash;
         return;
       }
+      // Player report (2026-09): the TGP video feed sometimes appears to just stop, with nothing
+      // useful in the log. A hard reload here (as opposed to the hash-only reuse above) destroys
+      // the whole TGP document and its live MJPEG connection — worth knowing when that happens for
+      // a TGP/TGPCFG destination specifically, versus tgp.js's own pagehide/hashchange logging
+      // firing for a reason that didn't originate here (e.g. the browser reclaiming a backgrounded
+      // iframe on its own).
+      if (destination.pathname === '/tgp' || current.pathname === '/tgp') {
+        console.info('[NOXMFD TGP] navigateFrame: reloading ' + current.href + ' -> ' + destination.href + ' (no shared-document match).');
+      }
     } catch (_) { /* Extension frames can be cross-origin; normal navigation replaces them. */ }
     if (frame.getAttribute('src') !== url) frame.src = url;
   }

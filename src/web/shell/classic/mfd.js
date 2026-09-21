@@ -1078,7 +1078,14 @@ function frameWin() { return pageFrame && pageFrame.contentWindow; }
 // places #page-frame's content stops being shown without showFramePage() already navigating it
 // itself. See STREAMING_FRAME_PAGES's own comment for why this is scoped rather than unconditional.
 function unloadIfStreaming(page) {
-  if (STREAMING_FRAME_PAGES[page] && pageFrame.getAttribute('src')) pageFrame.removeAttribute('src');
+  if (STREAMING_FRAME_PAGES[page] && pageFrame.getAttribute('src')) {
+    // Player report (2026-09): the TGP feed sometimes appears to just stop, with nothing useful in
+    // the log — this is the one place the classic shell explicitly drops #page-frame's src for a
+    // streaming page, so it's worth knowing exactly when that fires and why (currentPage/splitMode
+    // at the moment of the call), separately from tgp.js's own pagehide log this triggers.
+    console.info('[NOXMFD TGP] unloadIfStreaming("' + page + '"): dropping #page-frame src (currentPage="' + currentPage + '", splitMode=' + splitMode + ').');
+    pageFrame.removeAttribute('src');
+  }
 }
 // Point #page-frame at a frame-hosted page, switching its src when moving between frame pages
 // (WPN ↔ TGT) and lazy-loading on first entry. No-op if it already shows that page.

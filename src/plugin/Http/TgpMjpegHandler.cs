@@ -62,13 +62,22 @@ namespace NOXMFD
             }
 
             long lastSeen = -1;
-            Interlocked.Increment(ref _subscribers);
+            int subscribersNow = Interlocked.Increment(ref _subscribers);
+            // Player report (2026-09): "video feed just stops" with nothing useful in the log —
+            // because a disconnect (client navigated away, network blip, browser tab reclaimed) was
+            // never logged at all, only silently decremented in the finally block below. Connect/
+            // disconnect are the two events that actually tell us whether the CLIENT dropped the
+            // connection (this log line) or the SERVER stopped sending frames while the client
+            // stayed connected (TgpFeed's own stall warning) — two different bugs that look
+            // identical from the player's side, so telling them apart needs both logged.
+            Plugin.Log?.LogInfo($"[NOXMFD] TGP MJPEG client connected (subscribers={subscribersNow}).");
             // Diagnostic: logs how long a client waited for the first REAL frame after the
             // placeholder below streamed. Confirmed live 2026-08-23 (3.25s and 4.3s cold starts) —
             // kept as an ongoing signal that TargetCam's own capture lag, not this server, is what
             // gates the real picture.
             var coldStartWatch = Stopwatch.StartNew();
             bool coldStartLogged = false;
+            string disconnectReason = "cancelled (client closed the connection or server shut down)";
             try
             {
                 byte[]? initialJpg = GetFrame(out _);
@@ -99,11 +108,13 @@ namespace NOXMFD
             catch (OperationCanceledException) when (ct.IsCancellationRequested) { }
             catch (Exception ex)
             {
+                disconnectReason = $"exception: {ex.GetType().Name}: {ex.Message}";
                 TelemetryServer.LogHttpFailure(ctx, "/tgp.mjpg", ex);
             }
             finally
             {
-                Interlocked.Decrement(ref _subscribers);
+                int subscribersAfter = Interlocked.Decrement(ref _subscribers);
+                Plugin.Log?.LogInfo($"[NOXMFD] TGP MJPEG client disconnected after {coldStartWatch.Elapsed.TotalSeconds:0.0}s (subscribers={subscribersAfter}) — {disconnectReason}.");
                 try { ctx.Response.Close(); } catch { }
             }
         }

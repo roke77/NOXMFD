@@ -963,7 +963,15 @@
       // Same reasoning as renderNav()'s own pendingNavHoldClear check — a merge can remove this
       // portal (and the button under a still-active hold) without pointerup/cancel/leave ever
       // firing on it, same as a re-render can.
-      destroy: function () { if (pendingNavHoldClear) { pendingNavHoldClear(); pendingNavHoldClear = null; } el.remove(); },
+      destroy: function () {
+        // Player report (2026-09): the TGP feed sometimes appears to just stop, with nothing
+        // useful in the log — a portal merge/removal destroys its iframe (and any live MJPEG
+        // connection) outright, so it's worth knowing when that happens to a TGP portal
+        // specifically, distinct from tgp.js's own pagehide log this triggers.
+        if (currentPage === 'tgp') console.info('[NOXMFD TGP] F-35 portal destroyed while showing TGP.');
+        if (pendingNavHoldClear) { pendingNavHoldClear(); pendingNavHoldClear = null; }
+        el.remove();
+      },
     };
     return api;
   }

@@ -75,6 +75,14 @@ namespace NOXMFD
         private bool           _toggleMissingLogged;
         private bool           _targetCamReadFailureLogged;
         private bool           _lastDiagWantsTgp;
+        // Player report (2026-09): the TGP video feed sometimes appears to just stop mid-session,
+        // with nothing useful in the log — because ClearFeed()'s early-return guards (no aircraft,
+        // no TargetCam, cam disabled, reflection failure, ...) fire silently by design; they're the
+        // ordinary "nothing locked" path and log every tick would be noise. This flag distinguishes
+        // that from the case worth knowing about: a subscriber is still connected and watching, we
+        // WERE actively pushing frames, and now we're not — logged once on the transition in and
+        // once on recovery, never repeated while the condition persists.
+        private volatile bool  _stallLogged;   // read/written from both the main thread (ClearFeed) and the encoder thread (EncoderLoop's recovery log), same as _active/_engaged above
         private bool           _lastDiagSuppressSetting;
         private bool           _lastDiagCockpitSuppressed;
         private int            _lastDiagTargetCount = -2;
@@ -128,9 +136,9 @@ namespace NOXMFD
 
             // No mission / no aircraft / no TGP component → drop any cached frame and bail.
             GameManager.GetLocalAircraft(out Aircraft ac);
-            if (ac == null) { ClearFeed(showTargetCam: false, restoreCockpit: !SuppressNativeDisplay); return; }
+            if (ac == null) { ClearFeed(showTargetCam: false, restoreCockpit: !SuppressNativeDisplay, reason: "no local aircraft"); return; }
             TargetCam? tc = ac.targetCam;
-            if (tc == null) { ClearFeed(showTargetCam: false, restoreCockpit: !SuppressNativeDisplay); return; }
+            if (tc == null) { ClearFeed(showTargetCam: false, restoreCockpit: !SuppressNativeDisplay, reason: "aircraft has no TargetCam component"); return; }
 
             // Cache private fields once. cam = scene camera; targetScreenRenderer = the in-cockpit
             // display material fallback for Native capture; onCamToggle is what TacScreen listens
@@ -139,11 +147,11 @@ namespace NOXMFD
             {
                 CacheTargetCamFields();
             }
-            if (_camField == null || _screenRendererField == null) { ClearFeed(showTargetCam: false, restoreCockpit: !SuppressNativeDisplay); return; }
+            if (_camField == null || _screenRendererField == null) { ClearFeed(showTargetCam: false, restoreCockpit: !SuppressNativeDisplay, reason: "TargetCam reflection fields unavailable"); return; }
 
             if (!TryReadTargetCamFields(tc, out Camera? cam, out Renderer? screenRenderer))
             {
-                ClearFeed(showTargetCam: false, restoreCockpit: !SuppressNativeDisplay);
+                ClearFeed(showTargetCam: false, restoreCockpit: !SuppressNativeDisplay, reason: "TargetCam field read failed");
                 return;
             }
 
@@ -169,10 +177,10 @@ namespace NOXMFD
             // pushing then so MJPEG clients see "no feed" and fall back to NO TARGET.
             if (!TryReadTargetCamFields(tc, out cam, out screenRenderer))
             {
-                ClearFeed(showTargetCam: false, restoreCockpit: !SuppressNativeDisplay);
+                ClearFeed(showTargetCam: false, restoreCockpit: !SuppressNativeDisplay, reason: "TargetCam field read failed (post SetTargetCam)");
                 return;
             }
-            if (cam == null || !cam.enabled) { ClearFeed(showTargetCam: false, restoreCockpit: !SuppressNativeDisplay); return; }
+            if (cam == null || !cam.enabled) { ClearFeed(showTargetCam: false, restoreCockpit: !SuppressNativeDisplay, reason: cam == null ? "TargetCam's camera is null" : "TargetCam's camera is disabled (no active lock/timeout expired)"); return; }
 
             TgpCaptureSettings settings = TgpFeedSettings.Resolve(Resolution, JpegQuality);
             Texture? src;
@@ -189,7 +197,7 @@ namespace NOXMFD
                     if (screenRenderer != null && screenRenderer.material != null)
                         src = screenRenderer.material.mainTexture;
                 }
-                if (src == null) { ClearFeed(showTargetCam: hasTargets, restoreCockpit: !SuppressNativeDisplay); return; }
+                if (src == null) { ClearFeed(showTargetCam: hasTargets, restoreCockpit: !SuppressNativeDisplay, reason: "native capture texture unavailable (cam.targetTexture and the cockpit renderer's material both null)"); return; }
             }
             else
             {
@@ -201,7 +209,7 @@ namespace NOXMFD
                 _mirror.Engage(tc, settings.Width, settings.Height);
                 _mirror.SyncFromSource(cam);
                 src = _mirror.Texture;
-                if (src == null) { ClearFeed(showTargetCam: hasTargets, restoreCockpit: !SuppressNativeDisplay); return; }
+                if (src == null) { ClearFeed(showTargetCam: hasTargets, restoreCockpit: !SuppressNativeDisplay, reason: "mirror camera texture unavailable"); return; }
             }
             Texture source = src;
 
@@ -403,6 +411,11 @@ namespace NOXMFD
                             continue;
 
                         TelemetryServer.PushTgpFrame(jpg);
+                        if (_stallLogged)
+                        {
+                            _stallLogged = false;
+                            Plugin.Log?.LogInfo("[NOXMFD] TGP feed resumed pushing frames.");
+                        }
                         _active = true;
                         _engaged = true;
                     }
@@ -457,8 +470,16 @@ namespace NOXMFD
         // itself has gone dark. Doesn't touch the buffers Disengage() releases — those guards fire
         // far more often than an actual disengage (every tick with no lock at all), so reallocating
         // them each time would be wasteful.
-        private void ClearFeed(bool showTargetCam, bool restoreCockpit = true)
+        private void ClearFeed(bool showTargetCam, bool restoreCockpit = true, string reason = "unknown")
         {
+            // Edge-triggered: only worth a log line the moment a still-connected subscriber stops
+            // getting frames (see _stallLogged's own comment) — not on every ordinary "nothing
+            // locked" tick, which would drown the log.
+            if (_active && !_stallLogged && TelemetryServer.WantsTgpFrames)
+            {
+                _stallLogged = true;
+                Plugin.Log?.LogWarning($"[NOXMFD] TGP feed stopped pushing frames while a client is still connected: {reason}.");
+            }
             InvalidatePendingWork();
             _mirror?.Disengage();
             if (restoreCockpit)
@@ -480,6 +501,7 @@ namespace NOXMFD
             bool wasEngaged    = _engaged;
             _engaged           = false;
             _active            = false;
+            _stallLogged       = false;   // a clean disengage isn't a stall; a future re-engage should log fresh
             InvalidatePendingWork();
             _lastSourceWidth = _lastSourceHeight = -1;
             _lastSourceResolution = (TgpResolution)(-1);

@@ -12,14 +12,22 @@ const tgpOverlay = document.getElementById('tgp-overlay');
 // hard case where the connection breaks outright (network blip, backgrounded tab, server-side
 // disconnect). <img> never retries a stream on its own, so without this the feed stays dead
 // until the whole page is reloaded — reopen the connection ourselves instead.
+// Player report (2026-09): the video feed sometimes appears to just stop, with nothing useful in
+// the log — because none of this page's own teardown/resume/retry decisions were ever logged, so
+// there was no way to tell which one fired (or didn't). Tagged consistently so it's easy to filter
+// in devtools; console.info rather than .log/.debug so it survives a "Info" level filter.
+function tgpLog(msg) { console.info('[NOXMFD TGP] ' + msg); }
+
 let tgpRetryCount = 0;
 let tgpRetryTimer = null;
 let tgpTornDown = window.location.hash === '#cfg';
 function scheduleTgpRetry() {
   if (tgpTornDown || tgpRetryTimer) return;
+  tgpLog('img error fired — scheduling retry in 1200ms (attempt ' + (tgpRetryCount + 1) + ').');
   tgpRetryTimer = setTimeout(function () {
     tgpRetryTimer = null;
     if (tgpTornDown) return;
+    tgpLog('retrying now (attempt ' + (tgpRetryCount + 1) + ').');
     tgpImg.src = '/tgp.mjpg?r=' + (++tgpRetryCount);
   }, 1200);
 }
@@ -31,8 +39,9 @@ tgpImg.addEventListener('error', function() {
 });
 
 // Explicitly stop page-owned work before iframe navigation; src='' can issue another request.
-function suspendTgp() {
+function suspendTgp(reason) {
   if (tgpTornDown) return;
+  tgpLog('suspending (' + reason + ').');
   tgpTornDown = true;
   if (tgpRetryTimer) { clearTimeout(tgpRetryTimer); tgpRetryTimer = null; }
   overlayObserver.disconnect();
@@ -40,20 +49,23 @@ function suspendTgp() {
   tgpImg.removeAttribute('src');
   ovBoxes.replaceChildren();
 }
-window.addEventListener('pagehide', suspendTgp);
-function resumeTgp() {
+window.addEventListener('pagehide', function () { suspendTgp('pagehide'); });
+function resumeTgp(reason) {
   if (!tgpTornDown) return;
+  tgpLog('resuming (' + reason + ').');
   tgpTornDown = false;
   overlayObserver.observe(tgpPanel);
   tgpImg.src = '/tgp.mjpg';
 }
 window.addEventListener('hashchange', function () {
-  if (window.location.hash === '#cfg') suspendTgp();
-  else resumeTgp();
+  tgpLog('hashchange fired, hash=' + JSON.stringify(window.location.hash) + '.');
+  if (window.location.hash === '#cfg') suspendTgp('hashchange to #cfg');
+  else resumeTgp('hashchange away from #cfg');
 });
 window.addEventListener('pageshow', function (e) {
+  tgpLog('pageshow fired, persisted=' + e.persisted + ', hash=' + JSON.stringify(window.location.hash) + '.');
   // A restored document needs its stream and observer, but must not resume held input.
-  if (e.persisted && window.location.hash !== '#cfg') resumeTgp();
+  if (e.persisted && window.location.hash !== '#cfg') resumeTgp('pageshow persisted');
 });
 
 // Keeps the overlay's box pinned to the <img>'s real letterboxed content rect, not the panel's
