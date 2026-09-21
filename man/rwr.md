@@ -31,6 +31,7 @@ A contact fades as its last update ages, so a stale return looks fainter than a 
 
 A missile actually in flight toward you shows as a flickering red/yellow dart, pointing inward
 from its launch bearing — the line connecting it to you shortens as it closes the distance. Its
-label shows the seeker type (when known) and range in kilometers. If the missile carries a radar
-seeker, a dashed yellow line is also drawn straight through your position along its beam axis —
-the notch line — so you can see the actual line of the threat, not just its origin bearing.
+label shows the seeker type (when known) and range, in km or nm to match your Metric/Imperial
+setting. If the missile carries a radar seeker, a dashed yellow line is also drawn straight
+through your position along its beam axis — the notch line — so you can see the actual line of
+the threat, not just its origin bearing.

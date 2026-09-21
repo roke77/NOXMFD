@@ -903,7 +903,7 @@ function hsdMsg() {
            items: hsdData.items || [], threats: hsdData.threats || [],
            focusedTargetId: hsdData.focusedTargetId || 0 };
 }
-function mwMsg() { return { mfd: true, type: 'mw', items: mwData.items || [] }; }
+function mwMsg() { return { mfd: true, type: 'mw', items: mwData.items || [], metric: !!mwData.metric }; }
 // MW shares RWR's pane/page (no separate NAV entry), hence the 'rwr' filter on the Panes side.
 function forwardMwToFrame() { forwardToFrame(mwMsg()); }
 function forwardMwToPanes() { forwardToPanes('rwr', mwMsg()); }
@@ -1649,7 +1649,7 @@ let avnData = { name: null, parts: null, failures: null, pylons: null, fuel: -1,
 // Latest RWR emitters + incoming missiles, mirrored from the map iframe's SSE feed. The shell
 // keeps only this state (the forwarders read it); all scope SVG rendering lives in src/web/pages/rwr/.
 let rwrData = { items: [] };
-let mwData  = { items: [] };
+let mwData  = { items: [], metric: false };
 
 // Latest RDR B-scope block (docs/rdr-page.md), mirrored from the map iframe's SSE feed. present is
 // false when the aircraft has no radar; the page draws its own scale/contacts from range/cone/items.
@@ -2200,7 +2200,7 @@ window.addEventListener('message', function(e) {
     if (splitMode) forwardRwrToPanes();
   } else if (m.type === 'mw') {
     // Mirror incoming missiles for the RWR's launch indicator (same plumbing as 'rwr').
-    mwData = { items: Array.isArray(m.items) ? m.items : [] };
+    mwData = { items: Array.isArray(m.items) ? m.items : [], metric: !!m.metric };
     if (currentPage === 'rwr' && !splitMode) forwardMwToFrame();
     if (splitMode) forwardMwToPanes();
   } else if (m.type === 'rdr') {

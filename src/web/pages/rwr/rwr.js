@@ -47,7 +47,14 @@ function renderRwr() {
 }
 // Incoming missiles: { az, rng (km), st (seeker) }. A flickering spear (currentColor +
 // the #rwr-threats CSS animation) points from the missile's bearing in toward the player.
+// rng always arrives in km (telemetry-source.js) — mwMetric (from the same 'mw' message,
+// matching HSD/FCR/OBJ/WPT's own metric-flag convention) picks km vs nm for the label only;
+// the dart's radial position (frac, below) stays km-based since RMAX is just a fixed geometry cap.
 var mwItems = [];
+var mwMetric = false;
+function fmtMwRng(km) {
+  return mwMetric ? km.toFixed(1) + ' km' : (km * 0.539957).toFixed(1) + ' nm';
+}
 function renderThreats() {
   var g = document.getElementById('rwr-threats');
   if (!g) return;
@@ -73,26 +80,33 @@ function renderThreats() {
            (mx - ux * HB + qx * HW).toFixed(1) + ',' + (my - uy * HB + qy * HW).toFixed(1) + ' ' +
            (mx - ux * HB - qx * HW).toFixed(1) + ',' + (my - uy * HB - qy * HW).toFixed(1) + '" fill="currentColor"/>';
     var lr = tr + 34, lx = cx + sn * lr, ly = cy - cs * lr;
-    var label = (m.st ? m.st + ' ' : '') + (typeof m.rng === 'number' ? m.rng.toFixed(1) : '');
+    var label = (m.st ? m.st + ' ' : '') + (typeof m.rng === 'number' ? fmtMwRng(m.rng) : '');
     out += '<text x="' + lx.toFixed(1) + '" y="' + (ly + 10).toFixed(1) + '" fill="#ff3b30" text-anchor="' +
            (sn >= 0 ? 'start' : 'end') + '">' + label + '</text>';
   });
   g.innerHTML = out;
 }
-window.addEventListener('message', function(e) {
-  var m = e.data;
-  if (!m || !m.mfd) return;
-  if (m.type === 'rwr') { rwrItems = Array.isArray(m.items) ? m.items : []; renderRwr(); }
-  else if (m.type === 'mw') { mwItems = Array.isArray(m.items) ? m.items : []; renderThreats(); }
-});
-// Flicker the missile layer red<->yellow on its own timer (~3.8 Hz), independent of the data
-// rate; only writes when a missile is present (children use currentColor).
-var mwFlip = false;
-setInterval(function() {
-  var g = document.getElementById('rwr-threats');
-  if (!g || !g.firstChild) return;
-  mwFlip = !mwFlip;
-  g.style.color = mwFlip ? '#ffd21e' : '#ff3b30';
-}, 130);
-renderRwr();
-renderThreats();
+// Browser-only wiring, guarded so this file can also be require()'d under Node for the pure
+// fmtMwRng logic below (same pattern as hsd.js).
+if (typeof window !== 'undefined' && window.addEventListener) {
+  window.addEventListener('message', function(e) {
+    var m = e.data;
+    if (!m || !m.mfd) return;
+    if (m.type === 'rwr') { rwrItems = Array.isArray(m.items) ? m.items : []; renderRwr(); }
+    else if (m.type === 'mw') { mwItems = Array.isArray(m.items) ? m.items : []; mwMetric = !!m.metric; renderThreats(); }
+  });
+  // Flicker the missile layer red<->yellow on its own timer (~3.8 Hz), independent of the data
+  // rate; only writes when a missile is present (children use currentColor).
+  var mwFlip = false;
+  setInterval(function() {
+    var g = document.getElementById('rwr-threats');
+    if (!g || !g.firstChild) return;
+    mwFlip = !mwFlip;
+    g.style.color = mwFlip ? '#ffd21e' : '#ff3b30';
+  }, 130);
+  renderRwr();
+  renderThreats();
+}
+
+if (typeof module !== 'undefined' && module.exports)
+  module.exports = { fmtMwRngForTest: function (metric, km) { mwMetric = metric; return fmtMwRng(km); } };

@@ -386,7 +386,7 @@ export class TelemetrySource {
         mw.push(item);
       }
     }
-    this._postUp({ type: 'mw', items: mw });
+    this._postUp({ type: 'mw', items: mw, metric: !!d.metric });
 
     // RDR → nose-up B-scope contacts (docs/rdr-page.md). az = signed bearing off nose, rng = world
     // distance (same units as range), rhdg = travel heading relative to nose (velocity stub). The
@@ -551,7 +551,7 @@ export class TelemetrySource {
     this._postUp({ type: 'mapinfo', mission: null, grid: null, x: null, z: null, hdg: null, ox: null, oy: null, metric: false });
     this._postUp({ type: 'targets', items: [], metric: false });
     this._postUp({ type: 'rwr', items: [] });
-    this._postUp({ type: 'mw', items: [] });
+    this._postUp({ type: 'mw', items: [], metric: false });
     this._postUp({ type: 'hsd', metric: false, items: [], threats: [] });
     this._postUp({ type: 'avn', name: null, parts: null, failures: null, pylons: null, fuel: -1, throttle: -1, gearDown: false, radar: false, guns: false, ignition: false, assist: false, turret: false, nvg: false, navLights: false });
     this._postUp({ type: 'tgt', present: false });

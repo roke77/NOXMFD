@@ -16,7 +16,9 @@
 
   Shell -> page messages (all {mfd:true, ...}):
     'rwr' : { items:[{ az, d, tr, fr, n, k }] } — nose-up plot data (converted by ClientPage).
-    'mw'  : { items:[{ az, rng, st, nb }] }     — incoming missiles for the launch indicator.
+    'mw'  : { items:[{ az, rng, st, nb }], metric } — incoming missiles for the launch indicator.
+                                                      rng is always km; metric picks the label's
+                                                      km/nm display, same convention as HSD/FCR/OBJ.
 -->
 <link rel="stylesheet" href="/assets/shared/font.css">
 <link rel="stylesheet" href="/assets/shared/theme.css">
