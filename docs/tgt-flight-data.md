@@ -8,7 +8,10 @@
 
 A DETAILED/COMPACT toggle at the bottom right of [TGT](../man/tgt.md)'s target-list footer —
 same real-sliding-switch component as [AKF's own density toggle](akf-page.md), but the opposite
-default (TGT starts COMPACT). DETAILED appends three columns after GRID: **SPD**, **ALT**, **HDG**.
+default (TGT starts COMPACT). DETAILED appends three columns after RNG: **SPD**, **ALT**, **HDG**.
+(GRID joined this DETAILED-only group later, in the TYPE column follow-on —
+`docs/tgt-target-type.md` — so DETAILED now shows four extra columns, not three; the
+`HasDetail`/`SpeedReading`/`AltReading`/`Heading` mechanics below are unaffected by that move.)
 
 No plugin-side change: `HasDetail`/`SpeedReading`/`AltReading`/`Heading` are the same per-unit
 fields the map's own hover tooltip already reads off a contact (`map.js`). This feature is purely

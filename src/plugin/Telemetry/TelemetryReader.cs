@@ -1642,12 +1642,11 @@ namespace NOXMFD
                 // above, not the game's own definition-based CATEGORY classification (TargetListSelector
                 // matches by u.definition.GetType(); this matches the live Unit instead, since it's
                 // simpler and this codebase already leans on `u is X` elsewhere). NUCLEAR overrides
-                // MISSILE — docs/tgt-nuclear-clear.md's WeaponInfo.nuclear check, read straight off the
-                // locked missile/bomb rather than duplicated as a separate helper for a one-line check.
+                // MISSILE via CommandDispatcher.IsNuclearOrdnance — the same WeaponInfo.nuclear check
+                // the NUCLEAR button's own predicate uses (docs/tgt-nuclear-clear.md), not duplicated.
                 string targetKind = u switch
                 {
-                    Missile missileUnit => missileUnit.GetWeaponInfo() != null && missileUnit.GetWeaponInfo().nuclear
-                        ? "NUCLEAR" : "MISSILE",
+                    Missile missileUnit => CommandDispatcher.IsNuclearOrdnance(missileUnit) ? "NUCLEAR" : "MISSILE",
                     Aircraft      => "AIRCRAFT",
                     Ship          => "SHIP",
                     Building      => "BUILDING",

@@ -738,16 +738,25 @@ namespace NOXMFD
             return !playerHQ.IsTargetPositionAccurate(unit, 20f);
         }
 
+        // Whether a locked Missile instance is itself nuclear ordnance — shared by the NUCLEAR
+        // button's predicate below and TelemetryReader.cs's TYPE column classification, so the
+        // WeaponInfo.nuclear check and its null-guard exist exactly once. In-flight ordnance only: a
+        // launch platform (bomber, TEL, silo) is never itself nuclear, only what it fires. There's no
+        // separate Bomb class in the game — a released bomb is a Missile instance too (confirmed via
+        // OpticalSeekerBomb : MissileSeeker), so this one check covers missiles and bombs alike.
+        internal static bool IsNuclearOrdnance(Missile m)
+        {
+            WeaponInfo info = m.GetWeaponInfo();
+            return info != null && info.nuclear;
+        }
+
         // TGT page's NUCLEAR button (issue #91): tap deselects every currently-locked target that
         // ISN'T nuclear ordnance, leaving only nuclear locks selected — the inverse of
         // IsDatalinkOnly/IsStale, which each name what gets cleared. Faction-agnostic by design (no
-        // NetworkHQ == playerHQ guard, unlike the two predicates above) — the requester wants nuclear
-        // ordnance from any faction surfaced, not just the enemy's. In-flight ordnance only: a launch
-        // platform (bomber, TEL, silo) is never itself nuclear, only what it fires. There's no
-        // separate Bomb class in the game — a released bomb is a Missile instance too (confirmed via
-        // OpticalSeekerBomb : MissileSeeker), so this one check covers missiles and bombs alike.
+        // NetworkHQ == playerHQ guard, unlike the two predicates above) — nuclear ordnance from any
+        // faction is worth isolating, not just the enemy's.
         private static bool IsNotNuclearOrdnance(FactionHQ playerHQ, Unit unit) =>
-            !(unit is Missile m && m.GetWeaponInfo() != null && m.GetWeaponInfo().nuclear);
+            !(unit is Missile m && IsNuclearOrdnance(m));
 
         // Shared by TgtClearDatalink/TgtClearStale/TgtClearNuclear: bulk-deselect whichever
         // currently-locked targets match the given predicate.

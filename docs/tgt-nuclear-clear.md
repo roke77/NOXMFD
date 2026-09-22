@@ -40,9 +40,12 @@ what's shown.
 
 ## The plan (as built)
 
-1. **`CommandDispatcher.IsNotNuclearOrdnance(FactionHQ, Unit)`** — the predicate, inverse of
-   `IsDatalinkOnly`/`IsStale`: `!(unit is Missile m && m.GetWeaponInfo() != null &&
-   m.GetWeaponInfo().nuclear)`. No `NetworkHQ == playerHQ` guard (unlike the other two) — nuclear
+1. **`CommandDispatcher.IsNuclearOrdnance(Missile)`** — the actual `WeaponInfo.nuclear` check (plus
+   its null-guard), factored out so it exists exactly once: both the NUCLEAR button's predicate
+   below and `TelemetryReader.cs`'s TYPE column classification (`docs/tgt-target-type.md`) call it
+   instead of each duplicating the check. **`IsNotNuclearOrdnance(FactionHQ, Unit)`** — the
+   predicate itself, inverse of `IsDatalinkOnly`/`IsStale`: `!(unit is Missile m &&
+   IsNuclearOrdnance(m))`. No `NetworkHQ == playerHQ` guard (unlike the other two) — nuclear
    ordnance from any faction should be isolated, not just the enemy's.
 2. **`ClearNonNuclearTargets()`** — `TgtClearBy("tgt.clear-non-nuclear", IsNotNuclearOrdnance)`,
    reusing the exact bulk-deselect helper `ClearDatalinkTargets`/`ClearStaleTargets` already share.

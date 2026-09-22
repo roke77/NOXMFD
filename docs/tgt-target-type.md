@@ -38,9 +38,9 @@ should agree in practice (an `Aircraft` unit has an `AircraftDefinition`, etc.),
 check matches this codebase's existing style rather than introducing a new classification pattern
 for one column.
 
-The NUCLEAR override reuses the exact check `docs/tgt-nuclear-clear.md` already established:
-`WeaponInfo.nuclear`, read off the live `Missile.GetWeaponInfo()` — not duplicated as a separate
-helper, since it's a one-line check done in the same per-contact loop either way.
+The NUCLEAR override calls `CommandDispatcher.IsNuclearOrdnance(Missile)` — the same
+`WeaponInfo.nuclear` check the NUCLEAR button's own predicate uses (`docs/tgt-nuclear-clear.md`),
+factored into one shared helper rather than duplicated across the two files.
 
 ## The plan (as built)
 
