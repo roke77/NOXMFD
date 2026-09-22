@@ -1638,6 +1638,23 @@ namespace NOXMFD
                 string speedReading = hasDetail ? UnitConverter.SpeedReading(u.speed) : string.Empty;
                 string altReading   = hasDetail ? UnitConverter.AltitudeReading(gp.y) : string.Empty;
 
+                // TYPE column (see UnitInfo.TargetKind) — same runtime-type idiom as hasDetail just
+                // above, not the game's own definition-based CATEGORY classification (TargetListSelector
+                // matches by u.definition.GetType(); this matches the live Unit instead, since it's
+                // simpler and this codebase already leans on `u is X` elsewhere). NUCLEAR overrides
+                // MISSILE — docs/tgt-nuclear-clear.md's WeaponInfo.nuclear check, read straight off the
+                // locked missile/bomb rather than duplicated as a separate helper for a one-line check.
+                string targetKind = u switch
+                {
+                    Missile missileUnit => missileUnit.GetWeaponInfo() != null && missileUnit.GetWeaponInfo().nuclear
+                        ? "NUCLEAR" : "MISSILE",
+                    Aircraft      => "AIRCRAFT",
+                    Ship          => "SHIP",
+                    Building      => "BUILDING",
+                    GroundVehicle => "GROUND",
+                    _             => string.Empty,
+                };
+
                 _unitBuf.Add(new UnitInfo
                 {
                     Id       = u.persistentID.Id,
@@ -1662,6 +1679,7 @@ namespace NOXMFD
                     // (above) — see UnitInfo.IsAircraft's own comment for why this isn't a new
                     // classification, just exposing an existing one.
                     IsAircraft = def.typeIdentity.air > 0.5f,
+                    TargetKind = targetKind,
                     HasPeerFuel = hasPeerFuel,
                     PeerFuelRatio = peerFuelRatio
                 });

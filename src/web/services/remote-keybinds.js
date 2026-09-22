@@ -75,6 +75,7 @@
       case 'tgt-prev':     return { cmd: 'map.action', args: { wname: 'tgt-prev' } };
       case 'tgt-datalink': return { cmd: 'map.action', args: { wname: 'tgt-datalink' } };
       case 'tgt-stale':    return { cmd: 'map.action', args: { wname: 'tgt-stale' } };
+      case 'tgt-nuclear':  return { cmd: 'map.action', args: { wname: 'tgt-nuclear' } };
       case 'soi-next':     return { cmd: 'soi.next' };
       case 'soi-prev':     return { cmd: 'soi.prev' };
       case 'soi-nav-up':   return { cmd: 'soi.action', args: { wname: 'up' } };

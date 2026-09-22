@@ -599,6 +599,14 @@ namespace NOXMFD
         // threshold (> 0.5f), which is the game's own continuous score, not a bool.
         public bool IsAircraft;
 
+        // TYPE column (issue #91 follow-up, docs/tgt-target-type.md) — a coarse "what kind of thing
+        // is this" label: AIRCRAFT/MISSILE/GROUND/BUILDING/SHIP, or NUCLEAR overriding MISSILE when
+        // the locked missile/bomb's own WeaponInfo says so. Independent of CATEGORY's native toggle
+        // groups (those gate selectability; this is a display label for whatever's already locked).
+        // Empty for anything that isn't one of the five known Unit subclasses (shouldn't happen for
+        // a real lockable target, but the client already treats an empty/unrecognised label as "—").
+        public string TargetKind;
+
         // Peer-reported fuel (docs/atc-extension-support.md item 1) — FuelBroadcast.cs's own value
         // for this unit's controlling pilot, not a server-authoritative game read (the game has
         // none for a non-local aircraft; see that doc for why). Bool-gated rather than a sentinel

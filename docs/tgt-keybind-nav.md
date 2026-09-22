@@ -5,39 +5,44 @@
 row and press Select to deselect it — but aiming a 2D crosshair at a specific row in a scrolling list
 is fussier than it needs to be. This doc originally added a discrete row-stepper (`highlightIndex`)
 walked by Next/Previous Target binds, plus two more keybinds that mirror the DATALINK/STALE buttons
-(`docs/tgt-datalink-cancel.md`, `docs/tgt-stale-lock.md`). The row-stepper itself was later removed
-in favor of the shared `TargetFocus.Id` (see "Superseded by TargetFocus" below) — Next/Previous still
-drives a page-side effect on TGT today, just a different one: which control Cursor Select acts on
-(`docs/tgt-cycle-focus.md`'s "Select arbitration"), not a separate stepped index. This doc now covers
-the two DATALINK/STALE binds in full, and points to `tgt-cycle-focus.md` for Next/Previous.
+(`docs/tgt-datalink-cancel.md`, `docs/tgt-stale-lock.md`); a third mirroring bind, Clear Non-Nuclear
+(`docs/tgt-nuclear-clear.md`), was added later on the same shape. The row-stepper itself was later
+removed in favor of the shared `TargetFocus.Id` (see "Superseded by TargetFocus" below) — Next/Previous
+still drives a page-side effect on TGT today, just a different one: which control Cursor Select acts
+on (`docs/tgt-cycle-focus.md`'s "Select arbitration"), not a separate stepped index. This doc now
+covers the three DATALINK/STALE/NUCLEAR binds in full, and points to `tgt-cycle-focus.md` for
+Next/Previous.
 
-## The four binds
+## The five binds
 
-All four are `TGT Keybinds` (`src/plugin/Input/Keybinds.cs`), placed right after `MAP Keybinds` —
+All five are `TGT Keybinds` (`src/plugin/Input/Keybinds.cs`), placed right after `MAP Keybinds` —
 DefFree like MAP/SOI, since they drive the mod's own display rather than the aeroplane:
 
 - **Next Target** / **Previous Target** — see `docs/tgt-cycle-focus.md` (both the shared
   `TargetFocus.Id` they step, and TGT's own "Select arbitration" reaction to the press).
-- **Clear Datalink** / **Clear Stale** — deselect those locks in the game directly, the keybind
-  equivalents of tapping those buttons.
+- **Clear Datalink** / **Clear Stale** / **Clear Non-Nuclear** — deselect those locks in the game
+  directly, the keybind equivalents of tapping those buttons. (Clear Non-Nuclear is the odd one out
+  semantically — it deselects everything *except* nuclear ordnance, not "nuclear" locks themselves —
+  but rides the identical transport as the other two; see `docs/tgt-nuclear-clear.md`.)
 
 ## Transport: reusing map-act, plus a direct global call
 
 Zoom In/Out prove out a generic channel for "an extra discrete action bound to whatever's
 SOI-focused; the page decides what it means" (`Keybinds.cs` → `TelemetryServer.MapAction("...")` →
 `mfd.js`'s `map-act` forwarding, gated on `focusedCursorWindow()`, → the focused page's `message`
-handler as `{mfd:true, action:'...'}`). All four binds above still fire their own action string on
-that channel (`'tgt-next'`, `'tgt-prev'`, `'tgt-datalink'`, `'tgt-stale'`) for whichever page happens
-to be SOI-focused — Next/Previous need it there for TGT's own "Select arbitration" reaction. But none
-of the four are SOI-gated for their real effect: like Next/Previous firing `Keybinds.CycleTargetFocus(dir)`
-directly (`TargetFocus.Id` reaches every open TGT/FCR/HSD browser regardless of which has SOI,
-`docs/tgt-cycle-focus.md`), Clear Datalink/Clear Stale call `CommandDispatcher.ClearDatalinkTargets()`/
-`ClearStaleTargets()` directly — the same bulk-deselect `tgt.clear-datalink`/`tgt.clear-stale` already
-run, now reachable without a TGT display ever being open or focused. The remote/WSO path
-(`remote-keybinds.js` → `map.action` → `CommandDispatcher.MapAction`) gets the same direct call from
-that handler, since a remote press never goes through `Keybinds.cs`'s own poll loop. The lingering
-`map-act` broadcast to an SOI-focused TGT page re-sends the identical, already-applied command — a
-harmless no-op, not a second distinct effect.
+handler as `{mfd:true, action:'...'}`). All five binds above still fire their own action string on
+that channel (`'tgt-next'`, `'tgt-prev'`, `'tgt-datalink'`, `'tgt-stale'`, `'tgt-nuclear'`) for
+whichever page happens to be SOI-focused — Next/Previous need it there for TGT's own "Select
+arbitration" reaction. But none of the five are SOI-gated for their real effect: like Next/Previous
+firing `Keybinds.CycleTargetFocus(dir)` directly (`TargetFocus.Id` reaches every open TGT/FCR/HSD
+browser regardless of which has SOI, `docs/tgt-cycle-focus.md`), Clear Datalink/Clear Stale/Clear
+Non-Nuclear call `CommandDispatcher.ClearDatalinkTargets()`/`ClearStaleTargets()`/
+`ClearNonNuclearTargets()` directly — the same bulk-deselect `tgt.clear-datalink`/`tgt.clear-stale`/
+`tgt.clear-non-nuclear` already run, now reachable without a TGT display ever being open or focused.
+The remote/WSO path (`remote-keybinds.js` → `map.action` → `CommandDispatcher.MapAction`) gets the
+same direct call from that handler, since a remote press never goes through `Keybinds.cs`'s own poll
+loop. The lingering `map-act` broadcast to an SOI-focused TGT page re-sends the identical,
+already-applied command — a harmless no-op, not a second distinct effect.
 
 ## Superseded by TargetFocus (row-stepper removed)
 
@@ -73,19 +78,20 @@ but caught by the same testing pass.
 
 ## TD Keybinds (issue #47)
 
-The same map-act-plus-direct-call shape gained a third user: `TD Keybinds`'
+The same map-act-plus-direct-call shape gained another user: `TD Keybinds`'
 `td-assign-1`..`td-assign-9` (Target Designator, docs/target-designator.md) — a `MapAction
 ("td-assign-N")` broadcast either way, but the direct call needs a tap-vs-hold split Clear Datalink/
-Clear Stale don't: mirroring the on-screen squad button's own tap-assigns-and-clears/hold-assigns-
-and-keeps gesture means these are registered `edge:false` and driven by `Keybinds.PollTapHold`
-(the same `KeybindTapHold` state machine the combat-mode A/A/A/G binds use), not a plain edge
-trigger. See docs/target-designator.md for the full command/transport picture.
+Clear Stale/Clear Non-Nuclear don't: mirroring the on-screen squad button's own tap-assigns-and-clears/
+hold-assigns-and-keeps gesture means these are registered `edge:false` and driven by
+`Keybinds.PollTapHold` (the same `KeybindTapHold` state machine the combat-mode A/A/A/G binds use),
+not a plain edge trigger. See docs/target-designator.md for the full command/transport picture.
 
 ## Verification
 
 `dotnet build` (0 errors). `serve_web` harness, both layouts: `window.__mapAct('tgt-datalink')`/
-`'tgt-stale'` post the same `/command` bodies the buttons do. On F-35 specifically: confirmed a TGT
-portal's crosshair shows on SOI focus and a separate RDR portal's own cursor element receives real
-`cursor` vector messages with the posted x/y — both of which reached nothing before the `f35.js`
-widening. Next/Previous Target's current page-side effect (Select arbitration) is covered by
-`docs/tgt-cycle-focus.md`'s own verification, including the in-game finding that prompted it.
+`'tgt-stale'`/`'tgt-nuclear'` post the same `/command` bodies the buttons do. On F-35 specifically:
+confirmed a TGT portal's crosshair shows on SOI focus and a separate RDR portal's own cursor
+element receives real `cursor` vector messages with the posted x/y — both of which reached nothing
+before the `f35.js` widening. Next/Previous Target's current page-side effect (Select arbitration)
+is covered by `docs/tgt-cycle-focus.md`'s own verification, including the in-game finding that
+prompted it.

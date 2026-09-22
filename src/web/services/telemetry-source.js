@@ -322,7 +322,8 @@ export class TelemetrySource {
     // the map's target box), so derive from contacts; a preview mock may override via d.targets.
     // hd/sp/al/h (issue #88, TGT's DETAILED flight-data columns) are the same HasDetail/SpeedReading/
     // AltReading/Heading fields MAP's own hover tooltip already reads off a contact — carried through
-    // as-is, no new derivation needed.
+    // as-is, no new derivation needed. ty (issue #91 follow-up, TGT's TYPE column) is the same
+    // AIRCRAFT/MISSILE/NUCLEAR/GROUND/BUILDING/SHIP label every contact already carries.
     let targets;
     if (Array.isArray(d.targets)) {
       targets = d.targets;
@@ -332,7 +333,7 @@ export class TelemetrySource {
         if (!u.tg) continue;
         const dx = u.x - d.world.x;
         const dz = u.z - d.world.z;
-        targets.push({ id: u.id, n: u.t, g: gridLabel(u.x, u.z, this._meta), r: Math.hypot(dx, dz) / 1000, f: u.f, dl: !!u.dl, st: !!u.st, hd: !!u.hd, sp: u.sp || '', al: u.al || '', h: typeof u.h === 'number' ? u.h : null });
+        targets.push({ id: u.id, n: u.t, g: gridLabel(u.x, u.z, this._meta), r: Math.hypot(dx, dz) / 1000, f: u.f, dl: !!u.dl, st: !!u.st, hd: !!u.hd, sp: u.sp || '', al: u.al || '', h: typeof u.h === 'number' ? u.h : null, ty: u.ty || '' });
       }
       // Sort to match weaponManager.GetTargetList()'s own order (TargetFocus.cs, lockedTargetIds) —
       // the contact scan above walks an unrelated order, so without this TGT's Next/Previous would

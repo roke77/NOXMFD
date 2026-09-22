@@ -18,6 +18,7 @@ const countNEl = document.getElementById('tgt-count-n');
 const listScroll = document.querySelector('.tgt-list-scroll');
 const datalinkBtn = document.getElementById('datalink-btn');
 const staleBtn = document.getElementById('stale-btn');
+const nuclearBtn = document.getElementById('nuclear-btn');
 const presetLabelEl = document.getElementById('tgt-preset-label');
 const presetSaveBtn = document.getElementById('tgt-preset-save');
 const presetLoadBtn = document.getElementById('tgt-preset-load');
@@ -206,12 +207,13 @@ function renderTargets() {
       name.appendChild(nameText); name.appendChild(tti);
       const td   = document.createElement('span'); td.className = 'tl-td';
       const src  = document.createElement('span'); src.className = 'tl-src';
+      const type = document.createElement('span'); type.className = 'tl-type';
       const dist = document.createElement('span'); dist.className = 'tl-dist';
       const grid = document.createElement('span'); grid.className = 'tl-grid';
       const spd  = document.createElement('span'); spd.className = 'tl-spd';
       const alt  = document.createElement('span'); alt.className = 'tl-alt';
       const hdg  = document.createElement('span'); hdg.className = 'tl-hdg';
-      row.appendChild(name); row.appendChild(td); row.appendChild(src); row.appendChild(dist); row.appendChild(grid);
+      row.appendChild(name); row.appendChild(td); row.appendChild(src); row.appendChild(type); row.appendChild(dist); row.appendChild(grid);
       row.appendChild(spd); row.appendChild(alt); row.appendChild(hdg);
       listRows.appendChild(row);
     });
@@ -223,6 +225,13 @@ function renderTargets() {
     // TTI (docs/hud-tti-estimate.md): only when this lock actually has one of the player's own
     // in-flight guided weapons tracking it (telemetry-source.js only sets t.tti in that case).
     el.querySelector('.tl-tti').textContent = typeof t.tti === 'number' ? 'TTI ' + fmtTti(t.tti) : '';
+    // TYPE (issue #91 follow-up, docs/tgt-target-type.md): AIRCRAFT/MISSILE/NUCLEAR/GROUND/BUILDING/
+    // SHIP, straight off the server's own classification — '—' for the (in practice unreachable)
+    // case of a locked unit that isn't one of the five known kinds. data-type drives the NUCLEAR red
+    // accent in tgt.css, the same pattern ATC's per-row STATUS dropdown uses for its own coloring.
+    const typeEl = el.querySelector('.tl-type');
+    typeEl.textContent = t.ty || '—';
+    typeEl.dataset.type = t.ty || '';
     el.querySelector('.tl-grid').textContent = t.g != null ? String(t.g) : '—';
     el.querySelector('.tl-dist').textContent = fmtRng(t.r, targetsMetric);
     // TD column (issue #47 follow-up) — blank when this target isn't currently assigned to anyone;
@@ -294,19 +303,20 @@ document.querySelectorAll('.tgt-action').forEach(function (b) {
 modeEls.laser.addEventListener('click', function () { send('tgt.laser', { on: !state.laser }); });
 modeEls.hud.addEventListener('click', function () { send('tgt.hud', { on: !state.hud }); });
 
-// DATALINK / STALE buttons (docs/tgt-datalink-cancel.md, docs/tgt-stale-lock.md): tap deselects the
-// datalink-only / stale-locked targets — a bulk server-side deselect, no client-side filtering. Not
-// folded into the .tgt-cell/.tgt-veh handling above, since these aren't game filter cells (no
-// group/index, no tgt.set/tgt.only) — this is the real mouse/touch path; the PAD cursor mirrors the
-// same tap below (padCursorSelectAt).
+// DATALINK / STALE / NUCLEAR buttons (docs/tgt-datalink-cancel.md, docs/tgt-stale-lock.md,
+// docs/tgt-nuclear-clear.md): tap deselects the datalink-only / stale-locked / non-nuclear targets
+// — a bulk server-side deselect, no client-side filtering. Not folded into the .tgt-cell/.tgt-veh
+// handling above, since these aren't game filter cells (no group/index, no tgt.set/tgt.only) —
+// this is the real mouse/touch path; the PAD cursor mirrors the same tap below (padCursorSelectAt).
 datalinkBtn.addEventListener('click', function () { send('tgt.clear-datalink'); });
 staleBtn.addEventListener('click', function () { send('tgt.clear-stale'); });
+nuclearBtn.addEventListener('click', function () { send('tgt.clear-non-nuclear'); });
 
 // ── PAD cursor (docs/page-cursor.md) ──────────────────────────────────────────────────
 // Same crosshair/transport MAP uses (pad-cursor.js), driven here only while this TGT is the SOI's
 // focused surface. Clamped to the panel's own box (panel-local px, matching the crosshair's
 // positioned ancestor — see tgt.css's .tgt-panel { position: relative }).
-const CURSORABLE = '.tgt-cell, .tgt-veh, .tl-row, .tgt-action, .tgt-mode, .tgt-datalink-btn, .tgt-stale-btn, .tgt-preset-btn, .tgt-density-toggle';
+const CURSORABLE = '.tgt-cell, .tgt-veh, .tl-row, .tgt-action, .tgt-mode, .tgt-datalink-btn, .tgt-stale-btn, .tgt-nuclear-btn, .tgt-preset-btn, .tgt-density-toggle';
 const padCursorEl = document.getElementById('pad-cursor');
 const cursor = createPadCursor({
   el: padCursorEl,
@@ -343,6 +353,8 @@ function padCursorSelectAt(px, py) {
     send('tgt.clear-datalink');   // mirrors datalinkBtn's own click outcome
   } else if (el.classList.contains('tgt-stale-btn')) {
     send('tgt.clear-stale');   // mirrors staleBtn's own click outcome
+  } else if (el.classList.contains('tgt-nuclear-btn')) {
+    send('tgt.clear-non-nuclear');   // mirrors nuclearBtn's own click outcome
   } else {
     el.click();   // .tl-row / .tgt-action / .tgt-mode already have plain click handlers
   }
@@ -422,6 +434,8 @@ window.addEventListener('message', function (e) {
     send('tgt.clear-datalink');
   } else if (m.action === 'tgt-stale') {
     send('tgt.clear-stale');
+  } else if (m.action === 'tgt-nuclear') {
+    send('tgt.clear-non-nuclear');
   }
 });
 

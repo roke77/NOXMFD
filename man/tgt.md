@@ -32,8 +32,12 @@ Every target you currently have selected, one row per target:
 - **SRC** — where the lock is coming from: **SENSOR** (your own live sensors), **DATALINK**
   (relayed by your faction, still trustworthy), or **STALE** (relayed, but the game no longer
   trusts the position — the same check behind the TGP page's own "?" marker).
+- **TYPE** — what kind of thing this is: **AIRCRAFT**, **MISSILE**, **GROUND**, **BUILDING**, or
+  **SHIP**. An in-flight missile or bomb that's nuclear-type reads **NUCLEAR** (red) instead of
+  MISSILE — the same classification the footer's [NUCLEAR button](#bulk-clearing-by-source) acts
+  on. Unlike every other column here, TYPE stays visible in COMPACT too (see "Flight data columns"
+  below) — it's meant to answer "what is this lock" at a glance, not just in DETAILED mode.
 - **RNG** — range to the target.
-- **GRID** — its grid position.
 
 If you have more than one target selected, an outline marks whichever one is currently *focused* —
 the same one [FCR/HSD](rdr.md#when-a-target-is-locked) read out at the bottom of their own screens.
@@ -46,17 +50,18 @@ still read it out), but Select now acts on whatever the cursor is pointing at in
 
 ## Flight data columns
 
-A DETAILED/COMPACT toggle, bottom right of the target list footer, appends three more columns
-after GRID:
+A DETAILED/COMPACT toggle, bottom right of the target list footer, appends four more columns after
+RNG:
 
+- **GRID** — the target's grid position.
 - **SPD** — the target's current speed.
 - **ALT** — the target's current altitude.
 - **HDG** — the target's current heading.
 
-Same data the [MAP](map.md) page's own hover tooltip already shows for a unit. A target shows
-**—** in all three when that data isn't available — a stale lock, or a target that isn't an
-aircraft or missile. COMPACT (today's NAME/TD/SRC/RNG/GRID columns only) is the default; the
-setting isn't remembered across a reload.
+SPD/ALT/HDG are the same data the [MAP](map.md) page's own hover tooltip already shows for a unit.
+All three show **—** when that data isn't available — a stale lock, or a target that isn't an
+aircraft or missile. COMPACT (NAME/TYPE/TD/SRC/RNG only) is the default; the setting isn't
+remembered across a reload.
 
 ![TGT page in DETAILED mode](images/TGT_DETAILED.png)
 
@@ -83,6 +88,14 @@ Two buttons below the list clear targets by *why* they're selected, without touc
 
 - **DATALINK** — deselects every datalink-only lock.
 - **STALE** — deselects every stale lock.
+
+A third works the opposite way — it clears everything *except* the kind it names, to isolate
+in-flight nuclear ordnance (a launched missile or dropped bomb, of any faction) among your current
+locks for tracking:
+
+- **NUCLEAR** — deselects every lock that *isn't* nuclear ordnance, leaving only nuclear ones
+  selected. A launch platform (bomber, mobile launcher, silo) is never itself nuclear — only what
+  it's actually fired counts.
 
 ## Presets
 
