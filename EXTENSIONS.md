@@ -369,8 +369,9 @@ empty state instead:
 
 Your page also works in the classic bezel's split-pane mode automatically — no extra code needed.
 And since your page's own content commonly starts right at the top-left corner (a table header, a
-title), the same corner the classic bezel's MAIN nav label would otherwise sit over, MAIN stands
-upright there automatically too (the same treatment TGT/BDF/etc. use) — there's no way for your
+title), the same corner the MAIN nav label would otherwise sit over (the classic bezel's, and the
+F-35 layout's, which draws it on the page itself), MAIN stands upright there automatically in both
+layouts (the same treatment TGT/BDF/etc. use) — there's no way for your
 extension to opt out of this today, since NOXMFD has no way to ask it whether it wants to.
 
 ## Reusing NOXMFD's shared assets

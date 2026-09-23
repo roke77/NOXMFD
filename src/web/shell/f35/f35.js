@@ -793,6 +793,7 @@
       const mode = NAV_LAYOUT[currentPage] || 'edge';
       grid.className = 'nav-grid ' + mode;
       grid.dataset.page = currentPage;   // lets f35.css special-case a page's labels (see TGT)
+      grid.toggleAttribute('data-ext', ExtNav.isExtensionPage(currentPage));   // any extension page, same reason
       grid.textContent = '';
       itemsFor(currentPage).forEach(function (item, i) {
         // An item may name its own cell (WPN's NEXT sits top-right); otherwise it takes the

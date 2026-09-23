@@ -668,7 +668,9 @@ html, body {
    .overlay.vmain .overlay-item.left in mfd.css — including pulling in to the edge, since 16px of
    margin would still leave the label overlapping. BDF/PAL/MIS/OBJ are one family (MD —
    docs/md-pages.md) reachable from each other, and AKF matches the bezel's isVmainPage() list, so
-   all need the same treatment here. HUD and RDR (FCR/HSD) stay horizontal (per user preference) —
+   all need the same treatment here. Extension pages ([data-ext], set by f35.js renderNav) get it
+   too, matching isVmainPage()'s ExtNav.isExtensionPage: an extension lays out its own page and
+   can't know this layout draws MAIN on top of its top-left (ATC's RANGE bar did). HUD and RDR (FCR/HSD) stay horizontal (per user preference) —
    RDR's MAIN label does overlap the B-scope's own top-left RWS text as a result, accepted as-is
    rather than fixed. HUD's own CSS pads around the label's width instead of standing it up
    (hud.css). */
@@ -677,7 +679,8 @@ html, body {
 .nav-grid.edge[data-page="bdf"] .nav-item,
 .nav-grid.edge[data-page="pal"] .nav-item,
 .nav-grid.edge[data-page="mis"] .nav-item,
-.nav-grid.edge[data-page="obj"] .nav-item {
+.nav-grid.edge[data-page="obj"] .nav-item,
+.nav-grid.edge[data-ext] .nav-item {
   writing-mode: vertical-rl;
   text-orientation: upright;
   letter-spacing: 0;
