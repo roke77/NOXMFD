@@ -135,7 +135,7 @@ namespace NOXMFD
 
         public static bool WantsTgpFrames => TgpMjpegHandler.WantsFrames;
 
-        // SOI focus + MAP cursor/action state — see src/plugin/Http/SoiFocus.cs. Kept as thin
+        // SOI focus + MAP cursor/action state — see src/plugin/Input/SoiFocus.cs. Kept as thin
         // facades so existing call sites (CommandDispatcher.cs, Keybinds.cs, HarmonyPatches.cs,
         // TgpManualControl.cs, SseHub.cs) don't need to change.
         internal static string SoiTarget           => SoiFocus.Target;

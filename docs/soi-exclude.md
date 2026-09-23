@@ -97,8 +97,8 @@ maintained copy of it.
 
 | File | What |
 |---|---|
-| [`src/plugin/Http/SoiFocus.cs`](../src/plugin/Http/SoiFocus.cs) | `_excluded` set; `IsIncluded`/`SetIncluded`/`ExcludedJson`; `RingLocked`/`Cycle`/`SetPaneCount`'s clamp delegate to `SoiRing` below; `SetPaneCount`/`ReleaseOnDisconnect` purge stale entries. |
-| [`src/plugin/Http/SoiRing.cs`](../src/plugin/Http/SoiRing.cs), [`tools/tests/SoiRingTests.cs`](../tools/tests/SoiRingTests.cs) | Pure ring-build/cycle-step/shrink-clamp rules, no game touchpoint — linked directly into `NOXMFD.Tests.csproj` so the shrink-plus-exclusion case (and the rest of the ring rules) run against the real production logic. |
+| [`src/plugin/Input/SoiFocus.cs`](../src/plugin/Input/SoiFocus.cs) | `_excluded` set; `IsIncluded`/`SetIncluded`/`ExcludedJson`; `RingLocked`/`Cycle`/`SetPaneCount`'s clamp delegate to `SoiRing` below; `SetPaneCount`/`ReleaseOnDisconnect` purge stale entries. |
+| [`src/plugin/Input/SoiRing.cs`](../src/plugin/Input/SoiRing.cs), [`tools/tests/SoiRingTests.cs`](../tools/tests/SoiRingTests.cs) | Pure ring-build/cycle-step/shrink-clamp rules, no game touchpoint — linked directly into `NOXMFD.Tests.csproj` so the shrink-plus-exclusion case (and the rest of the ring rules) run against the real production logic. |
 | [`src/plugin/Http/TelemetryServer.cs`](../src/plugin/Http/TelemetryServer.cs) | `SetSoiIncluded` — thin delegate to `SoiFocus.SetIncluded`, same shape as its other SOI wrappers. |
 | [`src/plugin/Http/ConfigEndpoint.cs`](../src/plugin/Http/ConfigEndpoint.cs), [`TelemetryHttpRouter.cs`](../src/plugin/Http/TelemetryHttpRouter.cs) | `GET /soi-excluded?cid=...` → `{"excluded":[pane,...]}`. |
 | [`src/plugin/CommandDispatcher.cs`](../src/plugin/CommandDispatcher.cs) | `soi.include` — `cid`/`n`/`on`, all pre-existing envelope fields. |

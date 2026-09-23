@@ -51,7 +51,7 @@
          SoiFocus.cs's RingLocked/Cycle/SetPaneCount delegate to, factored out specifically so this
          project can exercise the ACTUAL production logic instead of only tools/soi-focus.test.js's
          hand-written JS mirror model. Pure BCL — no SseHub/TgpManualControl touchpoint. -->
-    <Compile Include="..\..\src\plugin\Http\SoiRing.cs" Link="Source\SoiRing.cs" />
+    <Compile Include="..\..\src\plugin\Input\SoiRing.cs" Link="Source\SoiRing.cs" />
     <!-- PresetSlots.cs (shared by HudPresetStore.cs/TgtPresetStore.cs) — BCL-only through the same
          LogWarning seam RouteStore.cs uses above; ConfigBackup.cs/JsonLite.cs are already linked. -->
     <Compile Include="..\..\src\plugin\Stores\PresetSlots.cs" Link="Source\PresetSlots.cs" />

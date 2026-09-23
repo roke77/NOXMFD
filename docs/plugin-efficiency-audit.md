@@ -280,7 +280,7 @@ standalone tests and tools depend on. Raise the initial capacity while there.
 
 ### 11 — `CursorJson()` is formatted and boxed before the change check that discards it
 
-`Http/SoiFocus.cs:286-289`, called from `Http/SseHub.cs:143`. Once per 16 ms tick, per SSE
+`Input/SoiFocus.cs:286-289`, called from `Http/SseHub.cs:143`. Once per 16 ms tick, per SSE
 connection, before the comparison.
 
 A 6-argument `string.Format` — a `params object[]` plus two float and three long boxes — built
@@ -295,7 +295,7 @@ then compares a `long`.
 
 **Ordering requirement:** bump the version *after* the value write, or a reader caches stale bytes
 under the new version. Three of the four writers already hold `_lock`; `SetCursorSelectHeld` at
-`Http/SoiFocus.cs:177` is a bare `Volatile.Write` and needs the same lock or an ordered
+`Input/SoiFocus.cs:177` is a bare `Volatile.Write` and needs the same lock or an ordered
 `Interlocked.Increment` after the write.
 
 ### 12 — Extension SSE events allocate a full dictionary copy per tick, per connection
