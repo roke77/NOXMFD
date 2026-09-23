@@ -670,7 +670,8 @@ html, body {
    docs/md-pages.md) reachable from each other, and AKF matches the bezel's isVmainPage() list, so
    all need the same treatment here. Extension pages ([data-ext], set by f35.js renderNav) get it
    too, matching isVmainPage()'s ExtNav.isExtensionPage: an extension lays out its own page and
-   can't know this layout draws MAIN on top of its top-left (ATC's RANGE bar did). HUD and RDR (FCR/HSD) stay horizontal (per user preference) —
+   can't know this layout draws MAIN on top of its top-left (ATC's RANGE bar, for one). HUD and
+   RDR (FCR/HSD) stay horizontal (per user preference) —
    RDR's MAIN label does overlap the B-scope's own top-left RWS text as a result, accepted as-is
    rather than fixed. HUD's own CSS pads around the label's width instead of standing it up
    (hud.css). */

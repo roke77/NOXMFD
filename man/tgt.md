@@ -55,7 +55,7 @@ after GRID:
 
 Same data the [MAP](map.md) page's own hover tooltip already shows for a unit. A target shows
 **—** in all three when that data isn't available — a stale lock, or a target that isn't an
-aircraft or missile. COMPACT (today's NAME/TD/SRC/RNG/GRID columns only) is the default; the
+aircraft or missile. COMPACT (the NAME/TD/SRC/RNG/GRID columns only) is the default; the
 setting isn't remembered across a reload.
 
 ![TGT page in DETAILED mode](images/TGT_DETAILED.png)
