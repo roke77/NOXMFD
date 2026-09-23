@@ -40,7 +40,7 @@ Actions workflow is added later:
 
 1. `dotnet build -c Release` — fail on any error (warnings don't fail the check; see
    `docs/build-warning-cleanup.md` for that separate effort).
-2. Run every `src/web/**/*.test.js` and `tools/*.test.js` via `node`, fail on any non-zero exit or
+2. Run every `src/web/**/*.test.js` and `tools/tests/*.test.js` via `node`, fail on any non-zero exit or
    non-"OK"/"passed" output.
 3. Start `tools/serve_web.py` on a scratch port, `curl`/fetch `/` and a small representative set of
    page routes (e.g. `/afm`, `/map-view?bare`, `/hud`), assert HTTP 200, then stop the server. Not a

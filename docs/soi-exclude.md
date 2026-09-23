@@ -86,7 +86,7 @@ surviving pane on that display is excluded too.
 
 The ring-selection rules this touches (`RingLocked`'s build, `Cycle`'s step, and this shrink clamp)
 moved into a new pure, BCL-only `SoiRing.cs`, linked directly into `NOXMFD.Tests.csproj` — the
-review separately observed that `tools/soi-focus.test.js` only exercises a hand-copied JS model of
+review separately observed that `tools/tests/soi-focus.test.js` only exercises a hand-copied JS model of
 these rules, never the actual production code, which is exactly how the shrink-plus-exclusion case
 went untested in the first place. `SoiFocus.cs` still owns all the locking and live state
 (`SseHub.Instances()`, `TgpManualControl.ManualMode`); `SoiRing`'s functions only compute over
@@ -106,7 +106,7 @@ maintained copy of it.
 | [`src/web/shell/shared/layout-keydown.js`](../src/web/shell/shared/layout-keydown.js) | `makeLayoutKeydownHandlers`'s new `getSoiSurfaces` parameter; fetches `/soi-excluded`, builds the checkbox specs, sends `soi.include` on change. |
 | [`src/web/shell/classic/mfd.js`](../src/web/shell/classic/mfd.js), [`src/web/shell/f35/f35.js`](../src/web/shell/f35/f35.js) | `soiSurfaces()` — this shell's own full/H-split/V-split or portal-count labels. |
 | [`tools/serve_web.py`](../tools/serve_web.py) | Stateful mock: `SOI_EXCLUDED` (cid → excluded-pane set), `/soi-excluded`, `soi.include`. |
-| [`tools/soi-focus.test.js`](../tools/soi-focus.test.js) | Extended the existing pure-JS SOI ring model with exclude/include, focus-move-on-exclude, pane-shrink purge, and disconnect purge. |
+| [`tools/tests/soi-focus.test.js`](../tools/tests/soi-focus.test.js) | Extended the existing pure-JS SOI ring model with exclude/include, focus-move-on-exclude, pane-shrink purge, and disconnect purge. |
 
 ## Verification performed
 
@@ -136,7 +136,7 @@ Shrink-plus-exclusion fix (review follow-up):
 - `dotnet build -c Release` — 0 errors, same warning baseline.
 - `SoiRingTests.cs` — 12 new xUnit cases against the actual production ring-build/step/clamp logic,
   including the exact review-flagged scenario (4 portals, one excluded, shrink to 2) and its
-  "every surviving pane also excluded" variant. `tools/soi-focus.test.js`'s JS mirror model also
+  "every surviving pane also excluded" variant. `tools/tests/soi-focus.test.js`'s JS mirror model also
   extended with the same two cases, kept for the browser-facing checkbox/command wiring it alone
   covers.
 - Full `tools/ci-check.ps1` — every `*.test.js` file, 303 `dotnet test` cases, route smoke, all

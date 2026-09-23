@@ -5,7 +5,7 @@ namespace NOXMFD.Tests
     // SoiRing is pure and stateless (no static mutable state, unlike SoiFocus/TargetFocus) — every
     // test just calls a function with plain data and asserts the result, no seeding/reset dance.
     // This is the ACTUAL production logic SoiFocus.cs's RingLocked/Cycle/SetPaneCount delegate to
-    // (an external review of issue #58 flagged that tools/soi-focus.test.js only exercised a
+    // (an external review of issue #58 flagged that tools/tests/soi-focus.test.js only exercised a
     // hand-copied JS mirror of it, which is exactly how the shrink-plus-exclusion bug below slipped
     // through once already).
     public class SoiRingTests

@@ -262,7 +262,7 @@ uncluttered.
   is still connected the display is still there, and focus stays put.
 
 Connects and disconnects each arrive on their own threadpool thread and both can touch the
-target, so every change takes one lock. `tools/soi-focus.test.js` models these rules and locks
+target, so every change takes one lock. `tools/tests/soi-focus.test.js` models these rules and locks
 them.
 
 `POST /command` `soi.next` / `soi.prev` drive focus as well as the binds do, which is how it is

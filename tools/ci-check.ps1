@@ -18,10 +18,10 @@ Write-Host "== dotnet build -c Release ==" -ForegroundColor Cyan
 dotnet build -c Release
 if ($LASTEXITCODE -ne 0) { Fail "dotnet build failed (exit $LASTEXITCODE)" }
 
-# 2. Every src/web/**/*.test.js and tools/*.test.js via node.
+# 2. Every src/web/**/*.test.js and tools/tests/*.test.js via node.
 Write-Host "== node *.test.js ==" -ForegroundColor Cyan
 $testFiles = @(Get-ChildItem -Path "src/web" -Filter "*.test.js" -Recurse -File) +
-             @(Get-ChildItem -Path "tools" -Filter "*.test.js" -File)
+             @(Get-ChildItem -Path "tools/tests" -Filter "*.test.js" -File)
 foreach ($f in $testFiles) {
     $rel = Resolve-Path -Relative $f.FullName
     Write-Host "  node $rel"

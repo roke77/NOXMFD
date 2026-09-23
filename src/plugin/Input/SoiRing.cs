@@ -5,7 +5,7 @@ namespace NOXMFD
 {
     // Pure SOI ring-selection rules, no SseHub/TgpManualControl/game dependency — so tools/tests can
     // exercise the ACTUAL production logic directly (linked into NOXMFD.Tests.csproj) instead of only
-    // a hand-written JS mirror model (tools/soi-focus.test.js, kept for the browser-facing
+    // a hand-written JS mirror model (tools/tests/soi-focus.test.js, kept for the browser-facing
     // checkbox/command wiring it alone covers). SoiFocus.cs supplies the live inputs and owns all the
     // locking/state; every method here only computes over plain data.
     internal static class SoiRing

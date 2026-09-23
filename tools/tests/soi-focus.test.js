@@ -9,7 +9,7 @@
 // (1 full view, 2 classic split, up to 4 F-35 portals). SOI cycles the flat ring of every
 // instance's every surface, instance-major and surface-minor, oldest connection first, deduped by
 // cid so a twin doesn't double-count.
-// Run: node tools/soi-focus.test.js
+// Run: node tools/tests/soi-focus.test.js
 const assert = require('assert');
 
 const NONE = { cid: '', pane: -1 };
