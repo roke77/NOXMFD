@@ -255,7 +255,7 @@ is flying undetected to avoid air defenses; a player able to designate live SAM 
 detected defeats that mechanic directly, independent of any jamming.
 
 **Fixed and verified live, 2026-08-30.** `TargetSelectionPolicy.IsSelectable` (new,
-`src/plugin/TargetSelectionPolicy.cs`) requires `factionKnown || ownRadarDetected` — the same two
+`src/plugin/Targeting/TargetSelectionPolicy.cs`) requires `factionKnown || ownRadarDetected` — the same two
 gates `BuildUnits`/`BuildRdr` already use for what MAP/FCR disclose. It's applied only in
 `CommandDispatcher.TargetSelect`, the external `/command` entry point, not in the shared
 `TrySelectTarget` — the manual TGP's internal call to `TrySelectTarget` after its own

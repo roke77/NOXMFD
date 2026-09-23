@@ -289,7 +289,8 @@ runtime-coupled code. Keep composition roots (`Plugin.cs`, `TelemetryServer.cs`,
 responsibility-group per commit — large reshuffles are hard to review and wreck blame.
 
 `src/plugin/Hud/`, `src/plugin/Http/`, `src/plugin/Stores/`, `src/plugin/Telemetry/`,
-`src/plugin/Input/`, `src/plugin/Tgp/`, `src/plugin/Akf/`, `src/plugin/InternalMFD/`, and
+`src/plugin/Input/`, `src/plugin/Tgp/`, `src/plugin/Akf/`, `src/plugin/InternalMFD/`,
+`src/plugin/Targeting/`, and
 `src/web/shell/shared/` are done — the rest of `src/plugin/` stays flat until enough files
 are ready to move together.
 

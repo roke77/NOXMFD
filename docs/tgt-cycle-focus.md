@@ -63,7 +63,7 @@ just re-targeted at the single surviving tracker instead of a second one.
 
 ## Shared state: TargetFocus
 
-`src/plugin/Http/TargetFocus.cs` holds one id (a `Unit.persistentID.Id`, 0 = none) — no version
+`src/plugin/Targeting/TargetFocus.cs` holds one id (a `Unit.persistentID.Id`, 0 = none) — no version
 counter, unlike `SoiFocus.cs`'s own idempotent fields: `FocusedTargetId` rides inside
 `TelemetrySnapshot` itself (`TelemetryReader.PushSnapshot`), so it's already covered by the
 snapshot's own version, whereas SOI state is serialized live off `SoiFocus` at request time

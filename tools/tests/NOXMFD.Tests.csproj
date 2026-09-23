@@ -43,7 +43,7 @@
     <Compile Include="..\..\src\plugin\Telemetry\TelemetryJson.cs" Link="Source\TelemetryJson.cs" />
     <!-- TargetFocus.cs (issue #62) has no Unity/BepInEx touchpoint either — same pure-state shape
          as SoiFocus.cs, just never pulled in before since nothing there needed testing standalone. -->
-    <Compile Include="..\..\src\plugin\Http\TargetFocus.cs" Link="Source\TargetFocus.cs" />
+    <Compile Include="..\..\src\plugin\Targeting\TargetFocus.cs" Link="Source\TargetFocus.cs" />
     <!-- SharedSelection.cs (docs/atc-extension-support.md item 3) — same pure-state shape as
          TargetFocus.cs above, no Unity/BepInEx touchpoint. -->
     <Compile Include="..\..\src\plugin\Extensions\SharedSelection.cs" Link="Source\SharedSelection.cs" />
@@ -61,7 +61,7 @@
          HttpListenerContext-facing half needs a real HTTP round trip, which only the in-game server
          can give it. HttpListenerContext itself is plain BCL, so the whole file still compiles. -->
     <Compile Include="..\..\src\plugin\Http\TelemetryAssets.cs" Link="Source\TelemetryAssets.cs" />
-    <Compile Include="..\..\src\plugin\TargetSelectionPolicy.cs" Link="Source\TargetSelectionPolicy.cs" />
+    <Compile Include="..\..\src\plugin\Targeting\TargetSelectionPolicy.cs" Link="Source\TargetSelectionPolicy.cs" />
     <Compile Include="..\..\src\plugin\Akf\AkfTrackerLogic.cs" Link="Source\AkfTrackerLogic.cs" />
     <Compile Include="..\..\src\plugin\Input\KeybindTapHold.cs" Link="Source\KeybindTapHold.cs" />
     <Compile Include="..\..\src\plugin\Input\KeybindConflict.cs" Link="Source\KeybindConflict.cs" />
