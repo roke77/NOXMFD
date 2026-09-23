@@ -20,11 +20,6 @@ MAP rendering lifetime. It does not establish the cause of reported cumulative b
 
 ## Verification
 
-`tools/map-lifecycle-browser.cjs` is an opt-in Playwright check against the running preview at 8782.
-It checks repeated classic MAP/WPT navigation, no hidden MAP drawing, MAP document reuse,
-F-35 telemetry delivery without map resources, and repeat-safe disposal. Set `NODE_PATH` to a
-Playwright installation and run `node tools/map-lifecycle-browser.cjs` (uses installed Edge).
-
 Live checks still required:
 
 - [ ] Classic full: repeat MAP/WPT transitions with real contacts and route data; check SOI/PAD

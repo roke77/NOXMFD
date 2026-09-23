@@ -78,8 +78,8 @@ try {
 
     Expect-Failure "failing-js-test" {
         param($caseDir)
-        Add-Content -Path (Join-Path $caseDir "tools\map-cursor.test.js") -Value "`nprocess.exit(42);"
-    } "tools\map-cursor.test.js failed"
+        Add-Content -Path (Join-Path $caseDir "src\web\pages\map\map-select.test.js") -Value "`nprocess.exit(42);"
+    } "src\web\pages\map\map-select.test.js failed"
 
     Expect-Failure "failing-dotnet-test" {
         param($caseDir)

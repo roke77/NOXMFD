@@ -32,8 +32,6 @@ The user still observed memory growth during navigation with this build.
 - Late messages and resize callbacks do not render after teardown.
 - Persisted pageshow reconnects the image and observer without resuming input.
 - Node tests cover teardown, input release, idempotence, and restoration.
-- `tools/tgp-lifecycle-browser.cjs` exercises 30 classic TGP / CFG transitions
-  against the preview and checks teardown/restoration in a real browser.
 
 ## Live evidence and snapshot findings
 

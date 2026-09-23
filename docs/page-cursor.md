@@ -149,8 +149,8 @@ region today, so they're simply inert there, same as Follow already is on a non-
    pipeline (`__mapAct` → `mfd.js` → the page's own handler). **Not confirmed here, same caveat
    `docs/map-cursor.md` already names:** the rAF glide itself — this harness's Browser pane doesn't
    composite frames when not displayed, so a held vector never visibly moves the crosshair in
-   harness. That math is unchanged from MAP's own (already covered by
-   `tools/map-cursor.test.js`), just re-parameterized. **Needs a real in-game/browser check** for
+   harness. That math is unchanged from MAP's own (covered by
+   `src/web/services/pad-cursor.test.js`), just re-parameterized. **Needs a real in-game/browser check** for
    the visual glide and the actual click-through on TGT/HUD, same as MAP needed one for its own
    rollout.
 6. **`f35.js` widened (docs/tgt-keybind-nav.md).** Originally scoped to classic-layout-only, since

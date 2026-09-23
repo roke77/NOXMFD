@@ -1,7 +1,9 @@
-// Self-check for the SOI focus rules in TelemetryServer.cs (SoiCycle / SoiRingLocked /
-// SetPaneCount / SoiReleaseOnDisconnect). Models them the way layout-sticky.test.js models the
-// shells' inline head guards: the plugin has no C# test harness, and these are pure rules over a
-// list, so the thing worth locking is the behaviour rather than the implementation.
+// Self-check for the SOI focus rules in src/plugin/Input/SoiFocus.cs (Cycle / RingLocked /
+// SetPaneCount / ReleaseOnDisconnect, plus exclude/include). Models them the way
+// layout-sticky.test.js models the shells' inline head guards. The pure ring rules SoiFocus
+// delegates to (SoiRing.cs) are also tested directly in tools/tests/SoiRingTests.cs; this model
+// is what covers the stateful rest — exclusion purges, focus moving off an excluded pane, and
+// release on disconnect — since SoiFocus.cs itself depends on SseHub and can't be linked there.
 //
 // Focus is a SURFACE — a (cid, pane) pair, not a whole document. An instance shows `panes` surfaces
 // (1 full view, 2 classic split, up to 4 F-35 portals). SOI cycles the flat ring of every

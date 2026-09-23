@@ -219,7 +219,7 @@ No per-layout cursor code — just the same "is my focused surface a MAP? then f
    an F-35 portal. **Not confirmed here:** the actual rAF glide — this harness's Browser pane
    doesn't composite frames when not displayed, so `requestAnimationFrame` never fires and the
    crosshair never visibly moves in-harness. The integrate/clamp math is covered by
-   `tools/map-cursor.test.js` instead. **Needs a real in-game/browser check for the visual motion**
+   `src/web/services/pad-cursor.test.js` instead. **Needs a real in-game/browser check for the visual motion**
    before calling this done.
 5. **Axis source — built.** `BindDef` gained a nullable analog side (`AxisEntry`/`AxisJoyNumEntry`/
    `AxisInvertEntry`) alongside the nullable digital side, so a bind is either digital or axis-only
@@ -245,5 +245,6 @@ No per-layout cursor code — just the same "is my focused surface a MAP? then f
   slide under it, rather than pinning it to a world point.
 - **Speed tuning** — constant to start; a config entry only if asked.
 - **`ponytail:` non-trivial logic** — the rAF integrator + clamp and the vector-assembly in `Poll()`
-  each get one runnable self-check (e.g. `tools/map-cursor.test.js`: integrate a vector over dt,
-  assert clamp-to-rect and that select hit-tests the nearest unselected contact).
+  each get one runnable self-check (`src/web/services/pad-cursor.test.js`: integrate a vector
+  over dt and assert clamp-to-rect; `src/web/pages/map/map-select.test.js`: select hit-tests the
+  nearest unselected contact).
