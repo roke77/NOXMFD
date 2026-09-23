@@ -47,10 +47,10 @@
     <!-- SharedSelection.cs (docs/atc-extension-support.md item 3) — same pure-state shape as
          TargetFocus.cs above, no Unity/BepInEx touchpoint. -->
     <Compile Include="..\..\src\plugin\Extensions\SharedSelection.cs" Link="Source\SharedSelection.cs" />
-    <!-- SoiRing.cs (issue #58 review follow-up) — the ring-build/cycle-step/shrink-clamp rules
-         SoiFocus.cs's RingLocked/Cycle/SetPaneCount delegate to, factored out specifically so this
-         project can exercise the ACTUAL production logic instead of only tools/tests/soi-focus.test.js's
-         hand-written JS mirror model. Pure BCL — no SseHub/TgpManualControl touchpoint. -->
+    <!-- SoiRing.cs — the ring-build/cycle-step/shrink-clamp rules SoiFocus.cs's
+         RingLocked/Cycle/SetPaneCount delegate to, so this project exercises the ACTUAL production
+         logic rather than only tools/tests/soi-focus.test.js's hand-written JS mirror model.
+         Pure BCL — no SseHub/TgpManualControl touchpoint. -->
     <Compile Include="..\..\src\plugin\Input\SoiRing.cs" Link="Source\SoiRing.cs" />
     <!-- PresetSlots.cs (shared by HudPresetStore.cs/TgtPresetStore.cs) — BCL-only through the same
          LogWarning seam RouteStore.cs uses above; ConfigBackup.cs/JsonLite.cs are already linked. -->

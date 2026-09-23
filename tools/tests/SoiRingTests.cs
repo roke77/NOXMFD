@@ -4,10 +4,9 @@ namespace NOXMFD.Tests
 {
     // SoiRing is pure and stateless (no static mutable state, unlike SoiFocus/TargetFocus) — every
     // test just calls a function with plain data and asserts the result, no seeding/reset dance.
-    // This is the ACTUAL production logic SoiFocus.cs's RingLocked/Cycle/SetPaneCount delegate to
-    // (an external review of issue #58 flagged that tools/tests/soi-focus.test.js only exercised a
-    // hand-copied JS mirror of it, which is exactly how the shrink-plus-exclusion bug below slipped
-    // through once already).
+    // This is the ACTUAL production logic SoiFocus.cs's RingLocked/Cycle/SetPaneCount delegate to,
+    // not a hand-copied mirror like tools/tests/soi-focus.test.js — a mirror can agree with itself
+    // while the real code drifts, e.g. the shrink-plus-exclusion case below.
     public class SoiRingTests
     {
         private static readonly HashSet<(string, int)> NoExclusions = new HashSet<(string, int)>();

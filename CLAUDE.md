@@ -272,8 +272,9 @@ release proceed.
 
 ## Folder architecture
 
-Current split: `src/plugin/` (C# runtime; `Hud/`, `Http/`, `Stores/`, `Telemetry/`, `Input/`,
-`Tgp/`, `Akf/`, and `InternalMFD/` already broken out as internal groupings — see below), `src/web/pages/`
+Current split: `src/plugin/` (C# runtime; `Akf/`, `Assets/`, `Extensions/`, `Hud/`, `Http/`,
+`Immersion/`, `Input/`, `InternalMFD/`, `Squad/`, `Stores/`, `Targeting/`, `Telemetry/`, and `Tgp/`
+already broken out as internal groupings — see below), `src/web/pages/`
 (page-specific browser code), `src/web/shell/`
 (shell/layout code, mixing shared shell mechanics with classic/f35 subfolders),
 `src/web/services/` (shared browser services), `src/web/shared/` (shared CSS/fonts/
@@ -288,11 +289,8 @@ runtime-coupled code. Keep composition roots (`Plugin.cs`, `TelemetryServer.cs`,
 `NOXMFD.csproj`/embedded-resource paths in the same commit as any move. One
 responsibility-group per commit — large reshuffles are hard to review and wreck blame.
 
-`src/plugin/Hud/`, `src/plugin/Http/`, `src/plugin/Stores/`, `src/plugin/Telemetry/`,
-`src/plugin/Input/`, `src/plugin/Tgp/`, `src/plugin/Akf/`, `src/plugin/InternalMFD/`,
-`src/plugin/Targeting/`, and
-`src/web/shell/shared/` are done — the rest of `src/plugin/` stays flat until enough files
-are ready to move together.
+Those `src/plugin/` groupings and `src/web/shell/shared/` are done — the rest of `src/plugin/`
+stays flat until enough files are ready to move together.
 
 `src/plugin/InternalMFD/` (issue #43, docs/internal-mfd.md) splits by responsibility, not
 just "everything about this feature in one folder": `InternalMfdController.cs` (the `MonoBehaviour`
@@ -313,8 +311,7 @@ If/when it grows enough to need more internal structure, this is the target shap
   `Http/` (`TelemetryServer.cs`, `TelemetryAssets.cs`, `TelemetryHttpRouter.cs`; remaining
   candidates are stream/session and command-endpoint extraction) · `Commands/` (`CommandDispatcher.cs`) ·
   `Stores/` (`RouteStore.cs`, `LayoutStore.cs`, `HudPresetStore.cs` — JSON-backed,
-  test-friendly, avoid direct Unity/BepInEx coupling) · `Assets/` (`AssetCapture.cs`, `SpriteCapture.cs`) ·
-  `Immersion/` (`ImmersionConfig.cs`, `ImmersionState.cs`) · `Config/` (`RatesConfig.cs`,
+  test-friendly, avoid direct Unity/BepInEx coupling) · `Config/` (`RatesConfig.cs`,
   `ConfigurationManagerAttributes.cs`) · `Interop/` (`CmReflection.cs` and future narrow,
   specifically-named reflection adapters — never a generic `ReflectionUtils` bucket) ·
   `Util/` (`JsonLite.cs`).
