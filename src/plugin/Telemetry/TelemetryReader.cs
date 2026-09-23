@@ -217,6 +217,9 @@ namespace NOXMFD
                 // SQD's roster picker (docs/squadron-transport.md) — who else is in this match, for
                 // the squad leader to invite. 1 Hz is ample; player join/leave isn't latency-sensitive.
                 PlayerRoster.Refresh();
+                // Squad designations as in-game names (docs/squad-callsign-names.md) — after the
+                // roster refresh above, which must still read Steam names.
+                PlayerNameOverride.Reconcile(Squad.Designations());
                 // Detects a leader/member who crashed or force-quit without a graceful sqd.leave/
                 // disband/kick (Squad.cs's own header comment) — same 1 Hz cadence as the roster
                 // refresh above, since it depends on Presence's data that refresh just fed.
@@ -1615,11 +1618,13 @@ namespace NOXMFD
                 // Same Aircraft.pilots[0].player read TgpOverlay uses for a locked target's pilot
                 // readout — works for either faction, and naturally empty for an AI-flown aircraft.
                 string pilotName = string.Empty;
+                string pilotSteamName = string.Empty;
                 bool hasPeerFuel = false;
                 float peerFuelRatio = 0f;
                 if (u is Aircraft ac && ac.pilots.Length > 0 && ac.pilots[0].player != null)
                 {
                     pilotName = ac.pilots[0].player.GetDisplayName(PlayerNameContext.Other) ?? string.Empty;
+                    pilotSteamName = PlayerNameOverride.SteamNameIfRenamed(ac.pilots[0].player.SteamID);
                     // Peer-reported fuel (docs/atc-extension-support.md item 1) — this pilot's own
                     // NOXMFD instance broadcasting its own accurate reading; null when we haven't
                     // heard from them within FuelBroadcast's TTL (not running the mod, out of range
@@ -1655,6 +1660,7 @@ namespace NOXMFD
                     Stale    = stale,
                     SquadMember = PlayerRoster.IsSquadAircraft(u.persistentID.Id),
                     PilotName = pilotName,
+                    PilotSteamName = pilotSteamName,
                     HasDetail = hasDetail,
                     SpeedReading = speedReading,
                     AltReading = altReading,

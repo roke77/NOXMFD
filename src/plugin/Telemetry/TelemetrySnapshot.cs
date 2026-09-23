@@ -576,6 +576,10 @@ namespace NOXMFD
         // player-controlled aircraft apart from AI without a separate flag.
         public string PilotName;
 
+        // The pilot's real Steam name while PilotName shows their squad designation
+        // (docs/squad-callsign-names.md); empty otherwise, and then left off the wire (`psn`).
+        public string PilotSteamName;
+
         // Same "HasDetail" gate TgpOverlay already uses for a locked target's kinematics readout:
         // an Aircraft or Missile whose position is currently trustworthy (mirrors Stale — see there).
         // Drives whether MAP's hover tooltip shows a HDG/SpeedReading/AltReading block at all — false

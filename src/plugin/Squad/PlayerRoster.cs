@@ -11,8 +11,8 @@ namespace NOXMFD
     // NetworkBehaviours whose SteamID SyncVar replicates server -> every observing client, and
     // FactionHQ.GetPlayers already exposes them per faction — the same source the game's own
     // scoreboard uses — so no host privilege and no new game-side plumbing is needed. Display names
-    // come from Player.GetDisplayName(PlayerNameContext.Other), not a plain field — the game
-    // resolves/caches the Steam persona name behind that call.
+    // come from PlayerNameOverride.OriginalDisplayName: the game's own Steam-derived name, even
+    // while a squadmate is shown in game under their designation (docs/squad-callsign-names.md).
     //
     // Further filtered to faction-mates actually running NOXMFD right now (Presence.cs) — someone
     // without the mod can't receive or answer an invite, so offering them just produces a dead
@@ -99,7 +99,7 @@ namespace NOXMFD
                 if (!Presence.HasNoxmfd(id)) continue;   // only offer players actually running NOXMFD
                 if (!first) sb.Append(',');
                 first = false;
-                string name = p.GetDisplayName(PlayerNameContext.Other) ?? string.Empty;
+                string name = PlayerNameOverride.OriginalDisplayName(p);   // Steam name, never a designation
                 sb.Append("{\"id\":\"").Append(id).Append("\",\"name\":\"")
                   .Append(TelemetryServer.EscapeJson(name)).Append("\"}");
             }

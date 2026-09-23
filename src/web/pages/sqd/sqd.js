@@ -142,6 +142,12 @@ function kick(id) {
   sendCommand('sqd.kick', { peer: id }).catch(function () {});
 }
 
+// ▲/▼: move a member one number up (-1) or down (+1); the leader always stays 1
+// (docs/squad-callsign-names.md).
+function moveMember(id, dir) {
+  sendCommand('sqd.move-member', { peer: id, index: dir }).catch(function () {});
+}
+
 function render() {
   if (!state) return;
 
@@ -282,7 +288,8 @@ function squadDesignation(memberNumber) {
 }
 
 // One row of the roster table: [callsign+number] [player name] [LEADER badge, or for the leader
-// viewing a subordinate: a star to promote them (relinquishTo) and a x to kick them (sqd.kick,
+// viewing a subordinate: ▲/▼ to renumber them (moveMember), a star to promote them (relinquishTo)
+// and a x to kick them (sqd.kick,
 // docs/squadron-transport.md)]. Plain Unicode symbols, not emoji — same rule the rest of the app's
 // row icons already follow (WPT's ✎/↺/⇩/⇪/×): U+2605 BLACK STAR has no emoji presentation, unlike
 // U+2B50 "star" emoji, which does.
@@ -328,8 +335,20 @@ function addSquadRow(number, name, aircraft, isLeaderRow, isSelf, memberId) {
     mark.className = 'sqd-row-mark sqd-row-trailing'; mark.textContent = 'LEADER';
     row.appendChild(mark);
   } else if (state.role === 'leader') {
+    // Both arrows on every row, the unusable one hidden rather than left out, so the star and x
+    // line up down the table.
+    [[-1, '▲', 'Move up', number > 2], [1, '▼', 'Move down', number < state.members.length + 1]]
+      .forEach(function (a, i) {
+        const btn = document.createElement('button');
+        btn.className = 'sqd-row-icon-btn pad-hoverable' + (i === 0 ? ' sqd-row-trailing' : '');
+        btn.textContent = a[1]; btn.title = a[2];
+        if (a[3]) btn.onclick = function () { moveMember(memberId, a[0]); };
+        else { btn.disabled = true; btn.style.visibility = 'hidden'; }
+        row.appendChild(btn);
+      });
+
     const star = document.createElement('button');
-    star.className = 'sqd-row-icon-btn sqd-row-trailing pad-hoverable'; star.textContent = '★'; star.title = 'Make leader';
+    star.className = 'sqd-row-icon-btn pad-hoverable'; star.textContent = '★'; star.title = 'Make leader';
     star.onclick = function () { relinquishTo(memberId); };
     row.appendChild(star);
 

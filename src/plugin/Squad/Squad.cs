@@ -80,6 +80,17 @@ namespace NOXMFD
             if (_role == Role.Member) yield return _leaderId;
         }
 
+        // SteamID → "<CALLSIGN> <FLIGHT>-<MEMBER>" for everyone in this pilot's squad, self included
+        // (docs/squad-callsign-names.md); empty outside a squad. The leader numbers 1 and is absent
+        // from their own _members, while a member's _members is the leader's roster verbatim —
+        // either way _members holds numbers 2..n in order.
+        internal static Dictionary<ulong, string> Designations()
+        {
+            if (_role == Role.None) return new Dictionary<ulong, string>();
+            ulong leader = _role == Role.Leader ? Squadron.SelfId() : _leaderId;
+            return SquadDesignations.Build(_callsign, _flight, leader, new List<ulong>(MemberIds()));
+        }
+
         // For RouteStore.cs to attribute an incoming shared route without the client having to pass
         // it through the payload itself — HandleData already only accepts data FROM the current
         // leader (from != _leaderId is rejected), so the leader's identity is already known
@@ -313,6 +324,20 @@ namespace NOXMFD
             _flight = flight;
             RebuildState();
             BroadcastRoster();
+            return true;
+        }
+
+        // Moves a member one place up (dir -1) or down (+1) in the numbering — the SQD roster's ▲/▼.
+        // Leader-only; the leader is always 1 and isn't in _members, so only numbers 2..n move. TD
+        // slot assignments follow the member to their new number.
+        internal static bool MoveMember(ulong memberId, int dir)
+        {
+            if (_role != Role.Leader) return false;
+            int idx = _members.FindIndex(m => m.Id == memberId);
+            if (!SquadDesignations.TrySwap(_members, idx, dir)) return false;
+            TdStore.SwapSlots(idx + 2, idx + dir + 2);
+            BroadcastRoster();
+            RebuildState();
             return true;
         }
 

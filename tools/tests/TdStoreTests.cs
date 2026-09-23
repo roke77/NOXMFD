@@ -104,6 +104,23 @@ namespace NOXMFD.Tests
         }
 
         [Fact]
+        public void SwapSlots_moves_each_assignment_with_its_member()
+        {
+            TdStore.ToggleSelect(1);
+            TdStore.Assign(2);        // target 1 -> slot 2
+            TdStore.ToggleSelect(2);
+            TdStore.Assign(3);        // target 2 -> slot 3
+            TdStore.ToggleSelect(3);
+            TdStore.Assign(4);        // target 3 -> slot 4 (not part of the swap)
+
+            TdStore.SwapSlots(2, 3);
+
+            Assert.Contains("\"1\":[3]", TdStore.StateJson);
+            Assert.Contains("\"2\":[2]", TdStore.StateJson);
+            Assert.Contains("\"3\":[4]", TdStore.StateJson);
+        }
+
+        [Fact]
         public void RenumberAfterMemberRemoved_is_a_safe_no_op_with_nothing_to_renumber()
         {
             Assert.Equal("{\"selected\":[],\"assignments\":{},\"designated\":[]}", TdStore.StateJson);

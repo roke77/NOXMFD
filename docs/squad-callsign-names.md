@@ -62,8 +62,13 @@ For each SteamID with a designation, on the local client:
 5. Keep the original `PlayerName` so leaving the squad (or a kick, disband, or a member moving to
    another number) restores or re-renames it through the same steps.
 
-Re-run on every roster change (join, leave, kick, reorder, EDIT callsign/flight, leadership
-transfer) and after `UnitRegistry.Reinitialize`, which clears `cachedPlayerNames`.
+`PlayerNameOverride.Reconcile(Squad.Designations())` runs these steps once a second from
+`TelemetryReader`'s slow tick, right after `PlayerRoster.Refresh()`. It compares every player's
+cached name object with the rename it expects, so one pass covers every roster change (join,
+leave, kick, reorder, EDIT callsign/flight, leadership transfer), a new aircraft, and
+`UnitRegistry.Reinitialize` clearing `cachedPlayerNames`. A rename lands up to a second after the
+roster change. `SquadDesignations.cs` holds the pure part: the format, the SteamID → designation
+map, and the member swap.
 
 This needs **no Harmony patch**: steps 2–3 are writes to private fields through one cached
 `FieldInfo` each, in a narrowly named reflection adapter like `CmReflection.cs`, failing safe with
@@ -89,11 +94,14 @@ Where each page shows what:
 |---|---|
 | Game map, kill feed, chat, scoreboard | `TALON 1-3` |
 | MAP pilot-name labels | `TALON 1-3` (label space) |
-| MAP selected-unit info, ATC list | `TALON 1-3 (SteamName)` |
-| AKF kill feed | `TALON 1-3 (SteamName)` |
+| AKF kill feed | `TALON 1-3 (SteamName) [<type>]` (`PlayerNameOverride.WithSteamName`) |
 | TGP overlay pilot | `TALON 1-3` |
 | SQD roster | designation column + Steam name column (unchanged layout) |
 | TD squad buttons | `TALON 1-3` (unchanged) |
+| ATC extension | `TALON 1-3` from `pn`; its SELECTED line can add `psn` in parentheses (ATC repo) |
+
+A unit in the telemetry frame carries `psn`, the pilot's Steam name, only while `pn` shows their
+designation, for any page that wants the parenthesised form.
 
 ## Member reordering
 

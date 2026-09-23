@@ -112,6 +112,21 @@ namespace NOXMFD
             if (changed) RebuildState();
         }
 
+        // A squad reorder (Squad.MoveMember) swaps two members' numbers, so every assignment to
+        // either slot moves with its member.
+        internal static void SwapSlots(int a, int b)
+        {
+            bool changed = false;
+            foreach (HashSet<int> slots in _assignments.Values)
+            {
+                bool hasA = slots.Remove(a), hasB = slots.Remove(b);
+                if (hasA) slots.Add(b);
+                if (hasB) slots.Add(a);
+                changed |= hasA != hasB;
+            }
+            if (changed) RebuildState();
+        }
+
         // Leader's CLEAR — discards in-progress (unsent) selection/assignment work.
         internal static bool ClearOwn()
         {

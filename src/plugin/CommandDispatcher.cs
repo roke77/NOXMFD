@@ -42,6 +42,7 @@ namespace NOXMFD
                                 // sqd.create / sqd.set-callsign : the squad's flight number 1-9
                                 // (Squadron Callsign System, docs/squadron-transport.md) — editable
                                 // later via sqd.set-callsign too, not fixed for the squad's life
+                                // sqd.move-member : -1 = one number up, +1 = one number down
                                 // tgp.zoom.set : +1 = zoom in, -1 = zoom out (TgpManualControl.SetZoom's
                                 // dir). tgp.zoom.step : same +1/-1 meaning, routed by mode to
                                 // TgpManualControl.StepZoom or TgpLockZoom.StepZoom (issue #83)
@@ -68,7 +69,8 @@ namespace NOXMFD
         public float  hz;      // rates.set : desired rate in Hz (group picks which — "fast" | "contact" | "tgp")
         public float  x;       // cursor.set : live cursor velocity X [-1,1]
         public float  y;       // cursor.set : live cursor velocity Y [-1,1]
-        public string peer;    // sqd.invite / sqd.relinquish / sqd.accept / sqd.decline : a SteamID64,
+        public string peer;    // sqd.invite / sqd.relinquish / sqd.accept / sqd.decline / sqd.kick /
+                               // sqd.move-member : a SteamID64,
                                // as text — a string, not a long, because a 17-digit SteamID64 exceeds
                                // what JavaScript's Number can represent exactly
                                // (docs/squadron-transport.md). Empty on sqd.relinquish means
@@ -136,6 +138,7 @@ namespace NOXMFD
                 { "sqd.relinquish", e => Squad.RelinquishLeadership(TryPeer(e.peer, out ulong p) ? (ulong?)p : null) },
                 { "sqd.disband",    e => Squad.Disband() },
                 { "sqd.kick",       e => { if (TryPeer(e.peer, out ulong p)) Squad.Kick(p); } },
+                { "sqd.move-member", e => { if (TryPeer(e.peer, out ulong p)) Squad.MoveMember(p, e.index); } },
                 { "sqd.send",       e => Squad.SendData(e.type, e.payload) },
                 // Target Designator (issue #47, docs/target-designator.md) — reuses existing
                 // envelope fields rather than adding new ones: `id` (target.select's own field) for

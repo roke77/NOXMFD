@@ -181,7 +181,7 @@
    need flex:1 here to push their own trailing button to the row's right edge): fixed width, so
    the name sits close to the aircraft column right after it instead of flex:1 stretching to
    consume all the leftover space and shoving that column out toward the far right. The actual
-   right-edge push for LEADER/star+kick is .sqd-row-trailing's own margin-left: auto now. */
+   right-edge push for LEADER/▲▼+star+kick is .sqd-row-trailing's own margin-left: auto now. */
 #sqd-squad-rows .sqd-row-name {
   flex: none;
   width: 130px;
@@ -240,7 +240,7 @@
   padding: 3px 8px;
 }
 .sqd-row-btn:hover { background: var(--no-green-dim); color: var(--no-ink); }
-/* Star (make leader) / x (kick) on each non-leader roster row (sqd.js) — plain icon buttons, no
+/* ▲/▼ (renumber), star (make leader) / x (kick) on each non-leader roster row (sqd.js) — plain icon buttons, no
    border, matching WPT's own row-action icons (shared/page-chrome.css's .wpt-row-btn/
    .sqd-row-icon-btn rule) rather than this page's pill-style .sqd-row-btn (kept for INVITE, the
    one text-labelled row action left). */

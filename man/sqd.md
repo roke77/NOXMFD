@@ -16,9 +16,18 @@ flight number later — re-numbering the flight immediately updates every member
 
 Members render as a table: each pilot's callsign designation, their Steam display name, and their
 current aircraft (blank when not flying one). A designation reads `CALLSIGN FLIGHT-MEMBER` — e.g.
-`TALON 1-2` — where FLIGHT is the squad's current flight number and MEMBER is join order (the
-leader is always 1). The leader's row carries a LEADER badge; on every other row the leader sees a
-star (promote) and an × (kick). Your own row is highlighted.
+`TALON 1-2` — where FLIGHT is the squad's current flight number and MEMBER starts as join order
+(the leader is always 1). The leader's row carries a LEADER badge; on every other row the leader
+sees ▲/▼ (move that pilot one number up or down), a star (promote) and an × (kick). Your own row is
+highlighted.
+
+## Designations as in-game names
+
+While you're in a squad, every squadmate — you included — shows under their designation instead of
+their Steam name in your game: the map, kill feed, chat, scoreboard and HUD markers, and every
+NOXMFD page. Leaving the squad brings the Steam names back. Only squad members see these names;
+everyone else in the match still sees Steam names. The NOXMFD AKF feed adds the Steam name in
+parentheses, e.g. `TALON 1-2 (Roke) [F/A-26]`, and the SQD roster keeps both columns.
 
 **INVITE** picks from faction-mates in the current match who are also running NOXMFD.
 

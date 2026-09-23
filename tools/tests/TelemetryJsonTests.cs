@@ -203,6 +203,17 @@ namespace NOXMFD.Tests
             Assert.Equal("12,500 ft", contact["al"]);
             Assert.Equal(1.0, contact["ac"]);
             Assert.Equal(0.625, (double)contact["pf"]!, 3);
+            Assert.False(contact.ContainsKey("psn"));   // not renamed → left off the wire
+        }
+
+        [Fact]
+        public void Unit_contact_carries_the_steam_name_only_while_renamed()
+        {
+            var s = default(TelemetrySnapshot);
+            s.Units = new[] { new UnitInfo { Id = 1, Type = "F-16C", PilotName = "TALON 1-2", PilotSteamName = "Ro\"ke" } };
+            var contact = Obj(Arr(Root(s)["contacts"])[0]);
+            Assert.Equal("TALON 1-2", contact["pn"]);
+            Assert.Equal("Ro\"ke", contact["psn"]);
         }
 
         // BuildHsd already trusts UnitDefinition.typeIdentity.air for its own aerial-only contact

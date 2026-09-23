@@ -276,8 +276,11 @@ with every member; members only ever talk to the leader, never each other):
   carried through every roster/invite envelope and a leadership handoff (`sqd.transfer`'s own
   envelope) so both survive. SQD's page title reads "`<CALLSIGN> SQUAD`" and doubles as the inline
   editor (EDIT swaps the title for a callsign+flight picker in place). Re-numbering the flight
-  re-numbers every member's own `"<CALLSIGN> <FLIGHT>-<MEMBER>"` designation immediately, since
-  MEMBER (join order) never changes.
+  re-numbers every member's own `"<CALLSIGN> <FLIGHT>-<MEMBER>"` designation immediately, keeping
+  each MEMBER number.
+- `sqd.move-member` — leader-only, `{peer, index: -1|1}`: swaps a member with its neighbour in
+  `_members`, renumbering both, then broadcasts the roster. TD slot assignments move with the
+  member (`TdStore.SwapSlots`). docs/squad-callsign-names.md.
 - `sqd.data` — the generic data slot this doc's scope section describes. WPT uses it for per-route
   and per-steer-point sharing; share buttons only show for a squad leader with at least one member.
   `Squad.SendDataTo` is the per-recipient sibling
@@ -347,8 +350,8 @@ squadron block that used to live on WPT. The roster renders as a table, not plai
 column is each pilot's Squadron Callsign System designation (see below), second is the player's
 Steam display name, third is their current aircraft (icon reused from `/icon?type=`, the same
 endpoint MAP draws its blips from — blank, not a placeholder, whenever `AircraftFor` has nothing to
-report), and a trailing LEADER badge or, on a subordinate's row when viewing as leader, a star
-(promote, `sqd.relinquish`) and an × (kick, `sqd.kick`). The pilot's own row highlights in place of
+report), and a trailing LEADER badge or, on a subordinate's row when viewing as leader, ▲/▼
+(renumber, `sqd.move-member`), a star (promote, `sqd.relinquish`) and an × (kick, `sqd.kick`). The pilot's own row highlights in place of
 the old "highlight the leader" behaviour, so a member can find themselves in their own squad at a
 glance.
 
@@ -370,15 +373,16 @@ of free text and a bare join-order count.
   (`src/web/pages/sqd/callsigns.js`), not a text input: a deduped, alphabetized list flattened from
   a real DCS World callsigns reference across every aircraft/role category (GitHub issue #42's own
   comment) — this list only cares about the name itself, not which aircraft type it was originally
-  associated with. `sqd.set-callsign` (EDIT) uses the same picker later.
+  associated with — plus PHANTOM, SENTINEL and TALON, added at players' request. `sqd.set-callsign`
+  (EDIT) uses the same picker later.
 - **Flight number** — a second `<select>`, 1-9, chosen at CREATE SQUAD time
   (`Squad.CreateSquad(callsign, flight)`) and editable later via the same EDIT picker as the
   callsign (`Squad.SetCallsign(name, flight)`, issue #47 follow-up).
 - **Per-member designation** — every roster row (SQD) and squad button (TD, docs/target-designator.md)
   renders `"<CALLSIGN> <FLIGHT>-<MEMBER>"`, e.g. `TALON 1-2`: `FLIGHT` is the squad's current flight
-  number, `MEMBER` is the pre-existing join-order number (1 = leader, `Squad.cs`'s own `_members`
-  list only ever appends so index order IS join order — unchanged by this feature, just given a new
-  display format). Matches the standard "Flight Lead / Wingman / Element Lead / Element Wingman"
+  number, `MEMBER` is the member's position in `Squad.cs`'s `_members` + 2 (1 = leader). New
+  members append, so it starts as join order; the leader's ▲/▼ (`sqd.move-member`) reorders it
+  (docs/squad-callsign-names.md, which also makes the designation the in-game player name). Matches the standard "Flight Lead / Wingman / Element Lead / Element Wingman"
   4-ship structure (`CALLSIGN FLIGHT-AIRCRAFT` format) a real squadron uses.
 
 ## Security and privacy consequences

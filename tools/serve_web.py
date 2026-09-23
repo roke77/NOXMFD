@@ -553,6 +553,18 @@ def _squad_command(env):
         if _SQD["role"] != "leader":
             return
         _SQD["members"] = [m for m in _SQD["members"] if m["id"] != peer]
+    elif cmd == "sqd.move-member":
+        # Mirrors Squad.MoveMember: swap with the neighbour one step up (-1) or down (+1).
+        if _SQD["role"] != "leader":
+            return
+        members = _SQD["members"]
+        idx = next((i for i, m in enumerate(members) if m["id"] == peer), -1)
+        try:
+            target = idx + int(env.get("index") or 0)
+        except (TypeError, ValueError):
+            return
+        if idx >= 0 and target != idx and 0 <= target < len(members):
+            members[idx], members[target] = members[target], members[idx]
     elif cmd in ("sqd.leave", "sqd.disband"):
         _SQD["role"] = "none"; _SQD["leaderId"] = ""; _SQD["leaderName"] = ""; _SQD["callsign"] = ""
         _SQD["flight"] = 1; _SQD["members"] = []; _SQD["pendingSent"] = {}

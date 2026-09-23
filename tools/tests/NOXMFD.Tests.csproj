@@ -52,6 +52,9 @@
          logic rather than only tools/tests/soi-focus.test.js's hand-written JS mirror model.
          Pure BCL — no SseHub/TgpManualControl touchpoint. -->
     <Compile Include="..\..\src\plugin\Input\SoiRing.cs" Link="Source\SoiRing.cs" />
+    <!-- SquadDesignations.cs — the designation format/numbering and the roster swap behind SQD's
+         ▲/▼ (docs/squad-callsign-names.md). Pure BCL. -->
+    <Compile Include="..\..\src\plugin\Squad\SquadDesignations.cs" Link="Source\SquadDesignations.cs" />
     <!-- PresetSlots.cs (shared by HudPresetStore.cs/TgtPresetStore.cs) — BCL-only through the same
          LogWarning seam RouteStore.cs uses above; ConfigBackup.cs/JsonLite.cs are already linked. -->
     <Compile Include="..\..\src\plugin\Stores\PresetSlots.cs" Link="Source\PresetSlots.cs" />

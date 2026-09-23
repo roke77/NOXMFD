@@ -55,9 +55,9 @@ namespace NOXMFD
             _logic.RecordKill(
                 killerID,
                 hasKiller,
-                killerUnit != null ? killerUnit.unitName : null,
+                killerUnit != null ? PlayerNameOverride.WithSteamName(killerUnit.unitName) : null,
                 killerUnit != null && killerUnit.GetHQ() != localHq,
-                killedUnit.unitName,
+                PlayerNameOverride.WithSteamName(killedUnit.unitName),
                 victimHostile,
                 ToKind(killedType),
                 verb,

@@ -110,7 +110,8 @@ the plugin (rather than deferring it to whichever browser tab happened to be ope
 ## Squad-slot numbering
 
 Reuses the exact scheme `sqd.js`'s roster table already established: slot 1 is the leader (self),
-slot `i+2` is `state.members[i]` (join order — `Squad.cs`'s `_members` list only ever appends).
+slot `i+2` is `state.members[i]` (`Squad.cs`'s `_members` order: join order until the leader
+reorders with SQD's ▲/▼, which moves each assignment with its member — `TdStore.SwapSlots`).
 Slot 1 assignments are tag-only, per the issue's own scope — DESIGNATE never sends to yourself.
 
 ## Keybinds
