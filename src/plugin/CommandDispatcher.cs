@@ -101,9 +101,8 @@ namespace NOXMFD
                 { "tgt.only",        TgtOnly },
                 { "tgt.reset",       TgtReset },
                 { "tgt.clear",       TgtClear },
-                { "tgt.clear-datalink",    TgtClearDatalink },
-                { "tgt.clear-stale",       TgtClearStale },
-                { "tgt.clear-non-nuclear", TgtClearNuclear },
+                { "tgt.clear-datalink", TgtClearDatalink },
+                { "tgt.clear-stale",    TgtClearStale },
                 { "tgt.laser",       TgtLaser },
                 { "tgt.hud",         TgtHud },
                 { "hud.set",         HudSet },
@@ -626,7 +625,6 @@ namespace NOXMFD
             else if (act == "tgt-prev") Keybinds.CycleTargetFocus(-1);
             else if (act == "tgt-datalink") ClearDatalinkTargets();
             else if (act == "tgt-stale") ClearStaleTargets();
-            else if (act == "tgt-nuclear") ClearNonNuclearTargets();
             // TD's 9 squad-slot binds (issue #47) reach the remote/WSO path the same way — real
             // effect fires here too, same as tgt-datalink/tgt-stale above, since a remote press
             // never runs through Keybinds.cs's own poll loop (docs/tgt-keybind-nav.md).
@@ -738,28 +736,8 @@ namespace NOXMFD
             return !playerHQ.IsTargetPositionAccurate(unit, 20f);
         }
 
-        // Whether a locked Missile instance is itself nuclear ordnance — shared by the NUCLEAR
-        // button's predicate below and TelemetryReader.cs's TYPE column classification, so the
-        // WeaponInfo.nuclear check and its null-guard exist exactly once. In-flight ordnance only: a
-        // launch platform (bomber, TEL, silo) is never itself nuclear, only what it fires. There's no
-        // separate Bomb class in the game — a released bomb is a Missile instance too (confirmed via
-        // OpticalSeekerBomb : MissileSeeker), so this one check covers missiles and bombs alike.
-        internal static bool IsNuclearOrdnance(Missile m)
-        {
-            WeaponInfo info = m.GetWeaponInfo();
-            return info != null && info.nuclear;
-        }
-
-        // TGT page's NUCLEAR button (issue #91): tap deselects every currently-locked target that
-        // ISN'T nuclear ordnance, leaving only nuclear locks selected — the inverse of
-        // IsDatalinkOnly/IsStale, which each name what gets cleared. Faction-agnostic by design (no
-        // NetworkHQ == playerHQ guard, unlike the two predicates above) — nuclear ordnance from any
-        // faction is worth isolating, not just the enemy's.
-        private static bool IsNotNuclearOrdnance(FactionHQ playerHQ, Unit unit) =>
-            !(unit is Missile m && IsNuclearOrdnance(m));
-
-        // Shared by TgtClearDatalink/TgtClearStale/TgtClearNuclear: bulk-deselect whichever
-        // currently-locked targets match the given predicate.
+        // Shared by TgtClearDatalink/TgtClearStale: bulk-deselect whichever currently-locked targets
+        // match the given predicate.
         private static void TgtClearBy(string op, Func<FactionHQ, Unit, bool> predicate)
         {
             TargetListSelector sel = SceneSingleton<TargetListSelector>.i;
@@ -784,14 +762,12 @@ namespace NOXMFD
 
         private static void TgtClearDatalink(CommandEnvelope env) => ClearDatalinkTargets();
         private static void TgtClearStale(CommandEnvelope env)    => ClearStaleTargets();
-        private static void TgtClearNuclear(CommandEnvelope env)  => ClearNonNuclearTargets();
 
-        // Internal, not private — same reasoning as Keybinds.CycleTargetFocus: the DATALINK/STALE/
-        // NUCLEAR clear keybinds call these directly (Keybinds.cs) so they act regardless of SOI
-        // focus, rather than only reaching the SOI-focused TGT display via the map-act browser round trip.
-        internal static void ClearDatalinkTargets()    => TgtClearBy("tgt.clear-datalink", IsDatalinkOnly);
-        internal static void ClearStaleTargets()       => TgtClearBy("tgt.clear-stale", IsStale);
-        internal static void ClearNonNuclearTargets()  => TgtClearBy("tgt.clear-non-nuclear", IsNotNuclearOrdnance);
+        // Internal, not private — same reasoning as Keybinds.CycleTargetFocus: the DATALINK/STALE
+        // clear keybinds call these directly (Keybinds.cs) so they act regardless of SOI focus,
+        // rather than only reaching the SOI-focused TGT display via the map-act browser round trip.
+        internal static void ClearDatalinkTargets() => TgtClearBy("tgt.clear-datalink", IsDatalinkOnly);
+        internal static void ClearStaleTargets()    => TgtClearBy("tgt.clear-stale", IsStale);
 
         // Target Designator's AQUIRE (issue #47) — selects every currently-designated target
         // in-game, all at once. Reuses the same lookup/selection path target.select goes through

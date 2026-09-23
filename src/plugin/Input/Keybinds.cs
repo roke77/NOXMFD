@@ -256,10 +256,6 @@ namespace NOXMFD
                 "Deselect every stale lock, same as tapping STALE on a TGT display — works regardless " +
                 "of which display (if any) is focused.",
                 () => { TelemetryServer.MapAction("tgt-stale"); CommandDispatcher.ClearStaleTargets(); });
-            DefFree(config, "tgt-nuclear", tgt, "TgtNuclear", "Clear Non-Nuclear", edge: true,
-                "Deselect every lock that isn't nuclear ordnance, same as tapping NUCLEAR on a TGT " +
-                "display — works regardless of which display (if any) is focused.",
-                () => { TelemetryServer.MapAction("tgt-nuclear"); CommandDispatcher.ClearNonNuclearTargets(); });
 
             // Target Designator binds (issue #47, docs/target-designator.md) — one per squad slot
             // (1 = leader/self, 2..9 = members in join order), mirroring the TD page's own squad
@@ -667,11 +663,11 @@ namespace NOXMFD
                 "active, the same pair cycles saved steer points. Zoom " +
                 "In/Out moved to the shared Cursor Zoom In/Out (see Cursor Keybinds).",
             "TGT Keybinds" =>
-                "All five act regardless of which display is focused (or whether one is). Next/Previous " +
+                "All four act regardless of which display is focused (or whether one is). Next/Previous " +
                 "focus a locked target across TGT/FCR/HSD; on the focused TGT display, they also hide " +
                 "the crosshair and hand Cursor Select to the focused row — moving Cursor Up/Down/Left/" +
-                "Right (or its axis) hands Select back to the crosshair. Datalink/Stale/Non-Nuclear " +
-                "deselect those locks everywhere, same as tapping the DATALINK/STALE/NUCLEAR buttons.",
+                "Right (or its axis) hands Select back to the crosshair. Datalink/Stale deselect those " +
+                "locks everywhere, same as tapping the DATALINK/STALE buttons.",
             "TD Keybinds" =>
                 "Only meaningful on the leader's own TD display while it holds SOI — assigns whatever's " +
                 "currently selected on that table to squad slot 1-9 (1 is yourself), same as tapping the " +

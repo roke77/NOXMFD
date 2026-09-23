@@ -61,8 +61,8 @@ below, which also drives [manual TGP camera](tgp.md#manual-camera-control) zoom.
   TGT/FCR/HSD page, in every browser. On the SOI-focused TGT display, the same press hides the PAD
   crosshair and makes **Cursor Select** deselect the focused row directly; moving the crosshair hands
   Select back to the cursor.
-- **Clear Datalink / Clear Stale / Clear Non-Nuclear** — the keybind equivalents of tapping
-  [TGT](tgt.md)'s own DATALINK/STALE/NUCLEAR buttons.
+- **Clear Datalink / Clear Stale** — the keybind equivalents of tapping [TGT](tgt.md)'s own
+  DATALINK/STALE buttons.
 
 ## TD
 

@@ -160,47 +160,43 @@ html, body {
 .tgt-list-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
 .tgt-list-scroll::-webkit-scrollbar-track { background: transparent; }
 .tgt-list-scroll::-webkit-scrollbar-thumb { background: var(--no-gray); border-radius: 3px; }
-/* Shared 4-column track: [name grows] [source] [type] [range]. Head + rows use the same grid so the
+/* Shared 4-column track: [name grows] [source] [range] [grid]. Head + rows use the same grid so the
    columns line up. minmax(90px, 1fr) still lets NAME grow on a wide panel, but never below a
    readable floor — once the other three tracks' floors plus this one exceed the scroller's width,
-   the row overflows it rather than compressing further. TYPE (issue #91 follow-up) is always
-   present here, unlike GRID/SPD/ALT/HDG below — it's the one classification column meant to survive
-   COMPACT mode, so a nuclear lock still reads NUCLEAR even with DETAILED off. */
+   the row overflows it rather than compressing further. */
 .tgt-list-head, .tl-row {
   display: grid;
-  grid-template-columns: minmax(90px, 1fr) clamp(52px, 8vw, 86px) clamp(58px, 8.5vw, 90px) clamp(60px, 9vw, 96px);
+  grid-template-columns: minmax(90px, 1fr) clamp(52px, 8vw, 86px) clamp(60px, 9vw, 96px) clamp(46px, 7vw, 76px);
   gap: clamp(6px, 1.4vw, 14px);
   align-items: center;
-  /* Sum of the four columns' floors + 3 gap floors (90+52+58+60 + 3*6). Both are flex items of
+  /* Sum of the four columns' floors + 3 gap floors (90+52+60+46 + 3*6). Both are flex items of
      .tgt-list-scroll (flex-direction: column), which stretches its children to its own width by
      default — without this they'd shrink below their grid tracks' own minimums instead of the
      scroller overflowing, undoing the point of giving NAME a real floor above. */
-  min-width: 278px;
+  min-width: 266px;
 }
-/* GRID/SPD/ALT/HDG columns (GRID moved in here from the base track above, alongside issue #88's
-   SPD/ALT/HDG) — floors picked to fit "Kh55" / "1,234 KT" / "45,000 FT" / "359°" comfortably. Each
-   combines with .has-td-col independently of the other (a squad leader can also be in DETAILED
-   mode), so all four track-count combinations are spelled out below rather than trying to compose
-   grid-template-columns from parts. */
-.tgt-flight-head, .tl-grid, .tl-spd, .tl-alt, .tl-hdg { display: none; }
+/* SPD/ALT/HDG columns (issue #88) — same widths for all three, floor picked to fit "1,234 KT" /
+   "45,000 FT" / "359°" comfortably. Each combines with .has-td-col independently of the other (a
+   squad leader can also be in DETAILED mode), so all four track-count combinations are spelled out
+   below rather than trying to compose grid-template-columns from parts. */
+.tgt-flight-head, .tl-spd, .tl-alt, .tl-hdg { display: none; }
 .tgt-panel.has-flight-col .tgt-list-head,
 .tgt-panel.has-flight-col .tl-row {
-  grid-template-columns: minmax(90px, 1fr) clamp(52px, 8vw, 86px) clamp(58px, 8.5vw, 90px) clamp(60px, 9vw, 96px) clamp(46px, 7vw, 76px)
+  grid-template-columns: minmax(90px, 1fr) clamp(52px, 8vw, 86px) clamp(60px, 9vw, 96px) clamp(46px, 7vw, 76px)
                           clamp(56px, 8vw, 80px) clamp(60px, 9vw, 86px) clamp(48px, 7vw, 66px);
-  /* Base floor sum (278, see above) + the 4 new columns' floors + 4 more gap floors (46+56+60+48 + 4*6). */
-  min-width: 512px;
+  /* Base floor sum (266, see above) + the 3 new columns' floors + 3 more gap floors (56+60+48 + 3*6). */
+  min-width: 448px;
 }
 .tgt-panel.has-flight-col .tgt-flight-head,
-.tgt-panel.has-flight-col .tl-grid,
 .tgt-panel.has-flight-col .tl-spd,
 .tgt-panel.has-flight-col .tl-alt,
 .tgt-panel.has-flight-col .tl-hdg { display: block; }
 .tgt-panel.has-td-col.has-flight-col .tgt-list-head,
 .tgt-panel.has-td-col.has-flight-col .tl-row {
-  grid-template-columns: minmax(90px, 1fr) clamp(30px, 5vw, 48px) clamp(52px, 8vw, 86px) clamp(58px, 8.5vw, 90px) clamp(60px, 9vw, 96px) clamp(46px, 7vw, 76px)
+  grid-template-columns: minmax(90px, 1fr) clamp(30px, 5vw, 48px) clamp(52px, 8vw, 86px) clamp(60px, 9vw, 96px) clamp(46px, 7vw, 76px)
                           clamp(56px, 8vw, 80px) clamp(60px, 9vw, 86px) clamp(48px, 7vw, 66px);
-  /* has-td-col's own floor sum (314, see below) + the 4 new columns' floors + 4 more gap floors. */
-  min-width: 548px;
+  /* has-td-col's own floor sum (302) + the 3 new columns' floors + 3 more gap floors. */
+  min-width: 484px;
 }
 .tgt-list-head {
   position: sticky;
@@ -228,27 +224,21 @@ html, body {
 .tl-tti { flex: 0 0 auto; font-size: 0.8em; letter-spacing: 0.02em; white-space: nowrap; color: var(--no-amber); }
 .tl-grid, .tl-dist { color: var(--no-green-dim); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .tl-spd, .tl-alt, .tl-hdg { color: var(--no-green-dim); font-variant-numeric: tabular-nums; white-space: nowrap; }
-/* TYPE column (issue #91 follow-up, docs/tgt-target-type.md): dim green like GRID/RNG for the
-   ordinary AIRCRAFT/MISSILE/GROUND/BUILDING/SHIP labels; NUCLEAR gets the theme's alert token
-   instead (same red DATALINK/STALE/NUCLEAR's own footer button already uses for this concept) so a
-   nuclear lock reads as a warning at a glance, not just another classification. */
-.tl-type { color: var(--no-green-dim); letter-spacing: 0.02em; white-space: nowrap; }
-.tl-type[data-type="NUCLEAR"] { color: var(--no-red); font-weight: 600; }
 
 /* TD column (issue #47 follow-up) — leader-only, hidden by default (both the header cell and every
    row's .tl-td) so a pilot who isn't currently leading a squad never sees a column of meaningless
-   blanks. .has-td-col (toggled on .tgt-panel from squad state, tgt.js) switches both the base track
-   above to this 5-column one AND un-hides the two elements — a `display:none` grid item is
+   blanks. .has-td-col (toggled on .tgt-panel from squad state, tgt.js) switches both the 4-column
+   track above to this 5-column one AND un-hides the two elements — a `display:none` grid item is
    excluded from track sizing entirely, so simply revealing it without the wider track here would
    just squeeze the existing four columns instead of adding a fifth. */
 .tgt-td-head, .tl-td { display: none; }
 .tl-td { color: var(--no-squad); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .tgt-panel.has-td-col .tgt-list-head,
 .tgt-panel.has-td-col .tl-row {
-  grid-template-columns: minmax(90px, 1fr) clamp(30px, 5vw, 48px) clamp(52px, 8vw, 86px) clamp(58px, 8.5vw, 90px) clamp(60px, 9vw, 96px);
+  grid-template-columns: minmax(90px, 1fr) clamp(30px, 5vw, 48px) clamp(52px, 8vw, 86px) clamp(60px, 9vw, 96px) clamp(46px, 7vw, 76px);
   /* Same floor-sum reasoning as the base rule above, with the TD column + its extra gap added
-     (90+30+52+58+60 + 4*6). */
-  min-width: 314px;
+     (90+30+52+60+46 + 4*6). */
+  min-width: 302px;
 }
 .tgt-panel.has-td-col .tgt-td-head,
 .tgt-panel.has-td-col .tl-td { display: block; }
@@ -334,31 +324,6 @@ html, body {
 .tgt-stale-btn:active { background: rgba(var(--no-label-rgb), 0.20); }
 .tgt-stale-desc {
   color: var(--no-label);
-  font-size: clamp(8px, 1.3vmin, 11px);
-  line-height: 1.25;
-}
-
-/* NUCLEAR button (issue #91) — same mod-only dashed treatment as DATALINK/STALE, in --no-red (the
-   theme's alert/danger token) since this one isolates a threat rather than clearing a data-quality
-   issue. Behaves the opposite of DATALINK/STALE though: those two clear what they name, NUCLEAR
-   clears everything ELSE and keeps what it names — see docs/tgt-nuclear-clear.md. */
-.tgt-nuclear-btn {
-  font-family: var(--no-font);
-  background: var(--no-panel-bg);
-  color: var(--no-red);
-  border: 1.5px dashed var(--no-red);
-  border-radius: 3px;
-  padding: clamp(5px, 1.2vh, 10px) clamp(8px, 1.6vw, 14px);
-  font-size: clamp(9px, 1.7vmin, 14px);
-  letter-spacing: 0.04em;
-  cursor: pointer;
-  white-space: nowrap;
-  flex: 0 0 auto;
-  transition: background .08s, box-shadow .08s;
-}
-.tgt-nuclear-btn:active { background: rgba(var(--no-red-rgb), 0.20); }
-.tgt-nuclear-desc {
-  color: var(--no-red);
   font-size: clamp(8px, 1.3vmin, 11px);
   line-height: 1.25;
 }

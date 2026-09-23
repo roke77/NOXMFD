@@ -179,7 +179,7 @@ namespace NOXMFD.Tests
                     Jammed = true, JammedBy = 7, Datalink = true, Stale = true, SquadMember = true,
                     PilotName = "Bandit \"Ace\" 1-1",
                     HasDetail = true, SpeedReading = "420 kt", AltReading = "12,500 ft",
-                    IsAircraft = true, TargetKind = "NUCLEAR",
+                    IsAircraft = true,
                     HasPeerFuel = true, PeerFuelRatio = 0.625f,
                 },
             };
@@ -203,19 +203,6 @@ namespace NOXMFD.Tests
             Assert.Equal("12,500 ft", contact["al"]);
             Assert.Equal(1.0, contact["ac"]);
             Assert.Equal(0.625, (double)contact["pf"]!, 3);
-            Assert.Equal("NUCLEAR", contact["ty"]);
-        }
-
-        // TYPE column (issue #91 follow-up, docs/tgt-target-type.md): defaults empty under
-        // default(UnitInfo), same "no data" convention as PilotName — the client already renders an
-        // empty/unrecognised ty as "—" (tgt.js), so an empty string here is correct, not a bug.
-        [Fact]
-        public void Unit_contact_target_kind_defaults_empty()
-        {
-            var s = default(TelemetrySnapshot);
-            s.Units = new[] { new UnitInfo { Id = 1, Type = "SAM" } };
-            var contact = Obj(Arr(Root(s)["contacts"])[0]);
-            Assert.Equal("", contact["ty"]);
         }
 
         // BuildHsd already trusts UnitDefinition.typeIdentity.air for its own aerial-only contact

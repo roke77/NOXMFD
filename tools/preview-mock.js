@@ -212,8 +212,8 @@
       { id: 205, t: 'SAM',     f: 2, x: -2000,  z: -15000, h: 0,   o: false, s: 1 },
       { id: 206, t: 'Vessel',  f: 0, x: -14000, z: -4000,  h: 0,   o: false, s: 1 },
     ],
-    // 14 mock target locks — the MFD's TGT page lists them under its filters (it scrolls, so
-    // all 14 show). `f` matches the contact faction code (0 = neutral, 1 = friendly,
+    // 12 mock target locks — the MFD's TGT page lists them under its filters (it scrolls, so
+    // all 12 show). `f` matches the contact faction code (0 = neutral, 1 = friendly,
     // 2 = enemy) and drives the row colour.
     // A couple flagged dl:true (docs/tgt-datalink-cancel.md) and one st:true (docs/tgt-stale-lock.md,
     // implies dl) so the harness exercises the SRC column + the DATALINK/STALE buttons'
@@ -227,27 +227,19 @@
     // none and renders "—" in SPD/ALT/HDG once DETAILED is toggled on. id 109 is a grounded aircraft
     // (0 kt, low alt) — HasDetail doesn't care whether it's airborne, only its unit class + staleness,
     // so this exercises that distinction from the ground-vehicle rows around it.
-    // ty (issue #91 follow-up, TGT's TYPE column, docs/tgt-target-type.md): AIRCRAFT/GROUND/SHIP/
-    // BUILDING match each row's obvious real-world kind. 113/114 are real in-flight nuclear-capable
-    // ordnance (nuclearoption.wiki.gg's Category:Nuclear_Weapon) — a conventional Piledriver TBM and
-    // its nuclear-armed sibling, same airframe/name, so the harness exercises the one case that
-    // actually distinguishes "reads the live weapon" from "infers from the unit name" (see
-    // docs/tgt-nuclear-clear.md).
     targets: [
-      { id: 101, n: 'HLT Flatbed',   g: 'Kg53', r: 8.4,  f: 2, tti: 7.6, ty: 'GROUND' },
-      { id: 102, n: 'BMP-2',         g: 'Kh54', r: 9.1,  f: 2, dl: true, ty: 'GROUND' },
-      { id: 103, n: 'F-18',          g: 'Kh55', r: 9.6,  f: 1, hd: true, sp: '310 kt', al: '2,000 ft', h: 95, ty: 'AIRCRAFT' },
-      { id: 104, n: 'ZSU-23-4',      g: 'Lh55', r: 10.3, f: 2, ty: 'GROUND' },
-      { id: 105, n: 'Vessel',        g: 'Lh56', r: 11.0, f: 0, ty: 'SHIP' },
-      { id: 106, n: 'SA-15 Tor',     g: 'Lj57', r: 12.4, f: 2, dl: true, st: true, ty: 'GROUND' },
-      { id: 107, n: 'Airbase',       g: 'Lj58', r: 12.9, f: 1, ty: 'BUILDING' },
-      { id: 108, n: 'Truck',         g: 'Mj58', r: 13.5, f: 0, tti: 62, ty: 'GROUND' },
-      { id: 109, n: 'Su-25 (gnd)',   g: 'Mj59', r: 14.2, f: 2, hd: true, sp: '0 kt', al: '450 ft', h: 180, ty: 'AIRCRAFT' },
-      { id: 110, n: 'Pantsir-S1',    g: 'Mk59', r: 15.0, f: 2, tti: 125, ty: 'GROUND' },
-      { id: 111, n: 'KamAZ Fuel',    g: 'Mk60', r: 16.1, f: 2, ty: 'GROUND' },
-      { id: 112, n: 'Radar Mast',    g: 'Nk60', r: 17.3, f: 2, ty: 'BUILDING' },
-      { id: 113, n: 'Piledriver TBM (HE)',  g: 'Nk61', r: 18.0, f: 2, hd: true, sp: '3,200 kt', al: '61,000 ft', h: 240, ty: 'MISSILE' },
-      { id: 114, n: 'Piledriver TBM (Nuc)', g: 'Nk62', r: 18.4, f: 2, hd: true, sp: '3,150 kt', al: '58,000 ft', h: 238, ty: 'NUCLEAR' },
+      { id: 101, n: 'HLT Flatbed',   g: 'Kg53', r: 8.4,  f: 2, tti: 7.6 },
+      { id: 102, n: 'BMP-2',         g: 'Kh54', r: 9.1,  f: 2, dl: true },
+      { id: 103, n: 'F-18',          g: 'Kh55', r: 9.6,  f: 1, hd: true, sp: '310 kt', al: '2,000 ft', h: 95 },
+      { id: 104, n: 'ZSU-23-4',      g: 'Lh55', r: 10.3, f: 2 },
+      { id: 105, n: 'Vessel',        g: 'Lh56', r: 11.0, f: 0 },
+      { id: 106, n: 'SA-15 Tor',     g: 'Lj57', r: 12.4, f: 2, dl: true, st: true },
+      { id: 107, n: 'Airbase',       g: 'Lj58', r: 12.9, f: 1 },
+      { id: 108, n: 'Truck',         g: 'Mj58', r: 13.5, f: 0, tti: 62 },
+      { id: 109, n: 'Su-25 (gnd)',   g: 'Mj59', r: 14.2, f: 2, hd: true, sp: '0 kt', al: '450 ft', h: 180 },
+      { id: 110, n: 'Pantsir-S1',    g: 'Mk59', r: 15.0, f: 2, tti: 125 },
+      { id: 111, n: 'KamAZ Fuel',    g: 'Mk60', r: 16.1, f: 2 },
+      { id: 112, n: 'Radar Mast',    g: 'Nk60', r: 17.3, f: 2 },
     ],
     // TGT filter panel — mirrors the game's TargetListSelector so the TGT page renders real toggle
     // states in preview. A couple flipped off to show the on/off styling; names + order match the
