@@ -7,7 +7,7 @@
 //
 // The pairing is the real invariant: every name codeToKey can emit must render through displayKey.
 const assert = require('assert');
-const { CODE2KEY, codeToKey, displayKey } = require('./keybinds-keymap.js');
+const { CODE2KEY, codeToKey, displayKey, displayName, eventToKey, eventKeys, captureStep } = require('./keybinds-keymap.js');
 
 // ── codeToKey: the mechanical families ───────────────────────────────────────────────────
 assert.strictEqual(codeToKey('KeyA'), 'A', 'KeyA should be A');
@@ -68,5 +68,28 @@ for (const name of emitted) {
 // shadow is dead weight, and one that returns something else is a table/branch disagreement.
 for (const [code, name] of Object.entries(CODE2KEY))
   assert.strictEqual(codeToKey(code), name, `codeToKey('${code}') should give '${name}'`);
+
+// ── modifier chords ──────────────────────────────────────────────────────────────────────
+const ev = (type, code, mods) => Object.assign({ type, code, ctrlKey: false, altKey: false, shiftKey: false }, mods);
+assert.strictEqual(eventToKey(ev('keydown', 'Digit1', { altKey: true })), 'LeftAlt+Alpha1', 'Alt+1 is a chord');
+assert.strictEqual(eventToKey(ev('keydown', 'KeyS', { shiftKey: true, ctrlKey: true })), 'LeftControl+LeftShift+S',
+  'modifiers are stored in fixed Control, Alt, Shift order');
+assert.strictEqual(eventToKey(ev('keydown', 'AltRight', { altKey: true })), 'RightAlt', 'a lone modifier names only itself');
+assert.strictEqual(eventToKey(ev('keydown', 'MetaLeft', {})), null, 'unmappable keys stay unbindable');
+assert.deepStrictEqual(eventKeys(ev('keydown', 'Digit1', { altKey: true })), ['LeftAlt+Alpha1', 'Alpha1'],
+  'lookup tries the chord first, then the bare key');
+assert.deepStrictEqual(eventKeys(ev('keydown', 'Digit1', {})), ['Alpha1'], 'no modifiers: just the key');
+
+// capture: a modifier alone keeps listening; the next key finishes the chord; releasing the
+// modifier first finishes as the lone modifier.
+assert.deepStrictEqual(captureStep(ev('keydown', 'AltLeft', { altKey: true })), { pending: 'ALT+…' });
+assert.deepStrictEqual(captureStep(ev('keydown', 'Digit1', { altKey: true })), { key: 'LeftAlt+Alpha1' });
+assert.deepStrictEqual(captureStep(ev('keyup', 'AltLeft', {})), { key: 'LeftAlt' });
+assert.deepStrictEqual(captureStep(ev('keyup', 'AltLeft', { ctrlKey: true })), { key: 'LeftControl+LeftAlt' });
+assert.strictEqual(captureStep(ev('keyup', 'KeyA', {})), null, 'a plain key release is ignored');
+
+assert.strictEqual(displayName('LeftAlt+Alpha1'), 'ALT+1');
+assert.strictEqual(displayName('LeftControl+LeftShift+F5'), 'CTRL+SHIFT+F5');
+assert.strictEqual(displayName('LeftAlt'), 'L-ALT', 'a lone modifier keeps its side');
 
 console.log(`keybinds-keymap.test.js: OK (${emitted.size} key names render)`);

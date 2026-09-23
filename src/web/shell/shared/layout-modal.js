@@ -90,6 +90,8 @@
   //                                 swap (mirrors WPT's own editRow — wpt.js), Enter/✓ to commit.
   //   opts.onDelete(item)        — optional. Adds a "×" button per row, no confirm step (mirrors
   //                                 WPT's own route/waypoint delete — low-stakes, easy to redo).
+  //   opts.rowExtra(item, index) — optional. Returns an element (or null) placed between the row's
+  //                                 name and its buttons — LOAD LAYOUT's per-slot keybind box.
   //   opts.checkboxes            — optional array of {label, checked, onChange(checked)}, rendered
   //                                 above the list (issue #58's SOI include/exclude controls — a
   //                                 generic slot, not SOI-specific, same reasoning as item.display).
@@ -131,10 +133,10 @@
         listEl.appendChild(empty);
         return;
       }
-      items.forEach(function (item) { listEl.appendChild(buildRow(item)); });
+      items.forEach(function (item, i) { listEl.appendChild(buildRow(item, i)); });
     }
 
-    function buildRow(item) {
+    function buildRow(item, index) {
       const row = document.createElement('div');
       row.className = 'layout-modal-row';
 
@@ -146,6 +148,8 @@
       name.textContent = item.display != null ? item.display : item.name;
       name.addEventListener('click', function () { close(); opts.onPick(item); });
       row.appendChild(name);
+      const extra = opts.rowExtra && opts.rowExtra(item, index);
+      if (extra) row.appendChild(extra);
 
       if (opts.onRename) {
         const edit = document.createElement('button');

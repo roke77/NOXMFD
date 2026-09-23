@@ -97,8 +97,24 @@ Capture is split by source, because each side can only see its own input:
 - **Keyboard is captured in the browser** — while you're on the page, keyboard focus is on
   the browser and the game never sees the key. The `KeyboardEvent.code` maps to a Unity
   `KeyCode` name (letters/digits/F-keys/numpad mechanically, the rest via a small table in
-  `keybinds.js`); unmappable keys flash UNSUPPORTED. Mouse buttons are not capturable — a
+  `keybinds-keymap.js`); unmappable keys flash UNSUPPORTED. Mouse buttons are not capturable — a
   click is how the page is driven.
+- **Modifier chords** — a key name may carry Ctrl/Alt/Shift, stored as
+  `LeftControl+LeftAlt+LeftShift+<key>` (fixed order, only the modifiers held, always the `Left*`
+  name). `KeybindsKeymap.captureStep` runs on keydown and keyup: modifiers alone keep the cell
+  listening (`ALT+…`), the next key finishes the chord, and releasing a modifier first binds that
+  modifier alone. The plugin checks the chord's shape (`KeyChord.TrySplit`, pure and unit-tested in
+  `KeyChordTests.cs`), parses it into a `KeyboardShortcut` with modifiers
+  (`Keybinds.TryParseChord`), and serves it back in the same form (`Keybinds.KeyName` →
+  `KeyChord.Join`). Either side
+  of a modifier satisfies it, in game (`ModifiersHeld`) and in the browser, which only sees
+  `ctrlKey`/`altKey`/`shiftKey`.
+- **Most specific wins** — a bind on `1` doesn't fire on Alt+1 when another bind claims Alt+1
+  (`Keybinds.Shadowed` in game; `KeybindsKeymap.eventKeys` tries the chord before the bare key in
+  the browser). With nothing claiming the chord, the bare key still fires with a modifier held, so
+  a modifier held for flight never blocks a gameplay key. The layout shortcuts
+  (`LayoutKeybinds.match`) skip that fallback while Ctrl/Alt are held, so a bare `S` bind doesn't
+  fire on the browser's own Ctrl+S.
 - **Joystick is captured by the plugin** (`Keybinds.ArmJoyCapture`) — only Rewired's button
   numbering matches playback (a browser Gamepad index doesn't line up; XInput, for one, is
   offset). While armed, the plugin overrides `Application.runInBackground` and Rewired's

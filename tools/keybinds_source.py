@@ -312,6 +312,7 @@ def self_check(repo_root):
 
     check(all(f"hud-preset-{n}" in by_id for n in range(1, 6)), "all 5 hud-preset-N binds must be present")
     check(all(f"tgt-preset-{n}" in by_id for n in range(1, 6)), "all 5 tgt-preset-N binds must be present")
+    check(all(f"layout-preset-{n}" in by_id for n in range(1, 6)), "all 5 layout-preset-N binds must be present")
 
     check("axis" in by_id["cursor-axis-h"] and "key" not in by_id["cursor-axis-h"], "cursor-axis-h is axis-only")
     check("key" in by_id["layout-save"] and "joyButton" not in by_id["layout-save"], "layout-save is key-only")

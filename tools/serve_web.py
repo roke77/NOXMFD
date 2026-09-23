@@ -672,6 +672,12 @@ LAYOUTS = [
     {"id": "l_demo_f35", "name": "F-35 demo", "shell": "f35",
      "data": json.dumps({"cells": [{"span": 2, "ate": "right"}, {"span": 1}, {"span": 1}],
                           "pages": ["wpn", "main", "map"]})},
+] + [
+    # Five more CLASSIC layouts so LOAD's list shows the Layout Preset boxes stopping after row 5
+    # (issue #90).
+    {"id": f"l_demo_classic_{n}", "name": f"Classic full {page.upper()}", "shell": "classic",
+     "data": json.dumps({"splitMode": False, "pages": [page]})}
+    for n, page in enumerate(["map", "tgt", "hud", "wpn", "rwr"], start=2)
 ]
 
 
@@ -842,6 +848,7 @@ for _b in KEYBINDS:
         _b["key"], _b["joyButton"], _b["joyNum"] = "J", 3, 2
         break
 KB_STATE = {"capturing": None, "capturingKind": None, "armed_at": 0.0, "bgInput": False,
+            "rejected": {"seq": 0, "bind": "", "by": ""},
             "radarOnOnStart": True, "engineOnOnStart": True, "masterArmsOnOnStart": True,
             "powerOnOnStart": True, "hudFiltersOnCombatMode": False}
 
@@ -853,13 +860,14 @@ def _keybinds_config():
             if b["id"] == KB_STATE["capturing"]:
                 if KB_STATE["capturingKind"] == "axis":
                     b["axis"], b["axisNum"] = 3, 1
-                else:
+                elif not _kb_taken(b, lambda o: o.get("joyButton") == 7):
                     b["joyButton"], b["joyNum"] = 7, 1
         KB_STATE["capturing"] = None
         KB_STATE["capturingKind"] = None
     return json.dumps({"binds": KEYBINDS, "notes": _KEYBIND_NOTES,
                        "capturing": KB_STATE["capturing"],
                        "capturingKind": KB_STATE["capturingKind"],
+                       "rejected": KB_STATE["rejected"],
                        "bgInput": KB_STATE["bgInput"],
                        "radarOnOnStart": KB_STATE["radarOnOnStart"],
                        "engineOnOnStart": KB_STATE["engineOnOnStart"],
@@ -868,12 +876,28 @@ def _keybinds_config():
                        "hudFiltersOnCombatMode": KB_STATE["hudFiltersOnCombatMode"]}).encode("utf-8")
 
 
+# Mirrors KeybindConflict.cs: a key/button already used by another bind is refused when a Layout
+# Preset slot is on either side, and the refusal is named in the config's `rejected`.
+def _kb_taken(row, uses):
+    slot = row["id"].startswith("layout-preset-")
+    other = next((o for o in KEYBINDS if o is not row
+                  and (slot or o["id"].startswith("layout-preset-")) and uses(o)), None)
+    if other is None:
+        return False
+    r = KB_STATE["rejected"]
+    KB_STATE["rejected"] = {"seq": r["seq"] + 1, "bind": row["id"], "by": other["label"]}
+    return True
+
+
 def _keybinds_command(env):
     cmd, bind = env.get("cmd", ""), env.get("bind", "")
     row = next((b for b in KEYBINDS if b["id"] == bind), None)
     if cmd == "keybind.set-key" and row is not None:
         key = env.get("key", "")
-        row["key"] = "" if key in ("", "None") else key
+        if key in ("", "None"):
+            row["key"] = ""
+        elif not _kb_taken(row, lambda o: o.get("key") == key):
+            row["key"] = key
     elif cmd == "keybind.arm-joy" and row is not None:
         KB_STATE.update(capturing=bind, capturingKind="joy", armed_at=time.monotonic())
     elif cmd == "keybind.cancel-joy":

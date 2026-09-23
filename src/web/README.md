@@ -20,9 +20,9 @@ src/web/
             range-format.js                               # TGT/TD's shared range formatter (docs/units-toggle.md)
   shell/    shared/        nav-model.js                   # NAV registry — the layout seam, BOTH shells load it
                            layout-pages.js                # where each layout mounts each NAV destination
-                           layout-keydown.js               # shared SAVE/LOAD LAYOUT keyboard wiring
+                           layout-keydown.js               # shared SAVE/LOAD LAYOUT + Layout 1-5 keyboard wiring
                            layout-store.js  layout-modal.js/.css  # SAVE/LOAD LAYOUT storage + dialog
-                           layout-keybinds.js              # SAVE/LOAD LAYOUT keybind matching
+                           layout-keybinds.js              # SAVE/LOAD LAYOUT + Layout 1-5 key matching, slot keybind box
                            boot-reveal.js                 # shared boot loading-bar + typewriter mechanics
                            wake-lock.js  wake-lock.test.js # screen wake-lock controller (docs/screen-wake-lock.md)
                            conn-lost-banner.js  .test.js   # disconnect-banner dismiss/re-arm state machine (issue #79)
@@ -86,7 +86,7 @@ Logic worth checking gets split into a **pure sibling module** the page loads an
 without a DOM — the page keeps the elements and live state and passes what the module needs in. The
 same move the shell makes with `nav-model.js` / `classic-paging.js`. Named for what it does:
 `map-transform.js` (world⇄pixel maths), `bdf-funds.js` (the magnitude-band money format),
-`keybinds-keymap.js` (KeyboardEvent.code ⇄ Unity KeyCode names), `remote-keybinds.js` (the
+`keybinds-keymap.js` (KeyboardEvent ⇄ Unity KeyCode names, including Ctrl/Alt/Shift chords), `remote-keybinds.js` (the
 per-browser KEY-page listener that maps configured keys into `/command` posts), `wpt-route.js`
 (navigation display derivation — bearing/distance math, effective route/steer target selection,
 and client-side pre-validation for pasted JSON; the actual navigation data and its mutation live

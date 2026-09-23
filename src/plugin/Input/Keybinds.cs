@@ -413,6 +413,21 @@ namespace NOXMFD
             DefKeyOnly(config, "layout-load", layout, "LayoutLoad", "Load Layout",
                 "Load a previously saved screen layout.");
 
+            // Layout preset keybinds (issue #90) — slot N loads the Nth saved layout of whichever view
+            // (CLASSIC/F-35) the receiving browser shows: position-based, not tied to one layout. A
+            // key pressed IN a browser is handled there (layout-keydown.js), never reaching this
+            // Poll(); a press the game sees itself (joystick, or a key while the game window has
+            // focus) goes to the SOI browser over the same map-act channel as the MAP binds.
+            const string layoutPresets = "Layout Preset Keybinds";
+            for (int p = 1; p <= KeybindConflict.LayoutSlotCount; p++)
+            {
+                // Literal id (not the LayoutSlotPrefix const) so tools/keybinds_source.py can read it.
+                string act = "layout-preset-" + p;
+                DefFree(config, "layout-preset-" + p, layoutPresets, "LayoutPreset" + p, "Layout " + p, edge: true,
+                    "Load saved layout " + p + " of the view the browser is showing.",
+                    () => TelemetryServer.MapAction(act));
+            }
+
             // HUD preset keybinds (issue #50 follow-up) — unlike layout-save/load above, these ARE
             // real DriveFree actions: pressing one directly recalls that numbered preset's saved HUD
             // filters onto the live HUD (HudPresetStore.LoadPreset), the same direct-recall behaviour
@@ -634,6 +649,7 @@ namespace NOXMFD
             "Cursor Keybinds"         => "CURSOR",
             "TGP Keybinds"            => "TGP",
             "Layout Keybinds"         => "LAYOUT",
+            "Layout Preset Keybinds"  => "LAYOUT PRESETS",
             "HUD Preset Keybinds"     => "HUD PRESETS",
             "TGT Preset Keybinds"     => "TGT PRESETS",
             "Immersion Keybinds"      => "IMMERSION OPTIONS",
@@ -689,6 +705,11 @@ namespace NOXMFD
             "Layout Keybinds" =>
                 "Keyboard only, no joystick/HOTAS. Acts on whichever browser window has focus when " +
                 "pressed, and applies to every connected browser.",
+            "Layout Preset Keybinds" =>
+                "Layout N loads the Nth layout in LOAD LAYOUT's list for the view (CLASSIC or F-35) " +
+                "the browser is showing; also settable from that list. A key pressed in a browser " +
+                "loads there; a joystick button (or a key while the game window has focus) loads in " +
+                "the browser holding SOI. A key or button already used by another bind is refused.",
             "Immersion Keybinds" =>
                 "A/A and A/G each restrict Cycle Missile on a tap; hold either one to reset to ALL " +
                 "(unrestricted). Every other bind here is a plain dedicated action.",
@@ -707,22 +728,78 @@ namespace NOXMFD
             ConfigChanged();
         }
 
-        // ── Bind writes (driven by the /keybinds page via CommandDispatcher, main thread) ───────────
-        // Set a bind's keyboard key from its Unity KeyCode name; "" / "None" clears. Rejects unknown
-        // ids, unparseable names, and joystick KeyCodes (those go through the Rewired index instead).
-        internal static bool SetKeyBind(string id, string keyName)
+        // The last assignment KeybindConflict refused — surfaced in /keybinds-config so the page or
+        // LOAD LAYOUT picker that asked can name the bind already using it. seq bumps per refusal so
+        // a repeat of the same refusal still reads as new.
+        private static long _rejectSeq;
+        private static string _rejectBind = string.Empty, _rejectBy = string.Empty;
+        internal static (long Seq, string Bind, string By) LastRejected => (_rejectSeq, _rejectBind, _rejectBy);
+
+        // True (and the refusal recorded) when another bind already uses what `b` is being given.
+        private static bool Taken(BindDef b, Func<BindDef, bool> uses)
         {
-            KeyCode key = KeyCode.None;
-            bool clear = string.IsNullOrEmpty(keyName) || keyName == "None";
-            if (!clear && (!Enum.TryParse(keyName, ignoreCase: true, out key) || key >= KeyCode.JoystickButton0))
-                return false;
-            BindDef? b = FindBind(id);
-            if (b == null || b.KeyEntry == null) return false;
-            BackupNow();
-            b.KeyEntry.Value = clear ? KeyboardShortcut.Empty : new KeyboardShortcut(key);
+            int i = KeybindConflict.Find(_binds.Count, n => _binds[n].Id, _binds.IndexOf(b), n => uses(_binds[n]));
+            if (i < 0) return false;
+            _rejectBind = b.Id;
+            _rejectBy = _binds[i].Label;
+            _rejectSeq++;
+            Plugin.Log?.LogInfo($"[NOXMFD] keybind '{b.Id}': refused, already used by '{_binds[i].Id}'.");
             ConfigChanged();
             return true;
         }
+
+        // ── Bind writes (driven by the /keybinds page via CommandDispatcher, main thread) ───────────
+        // Set a bind's keyboard key from its stored name — a Unity KeyCode name, optionally prefixed by
+        // Ctrl/Alt/Shift modifiers joined with '+' ("LeftAlt+Alpha1", keybinds-keymap.js's format);
+        // "" / "None" clears. Rejects unknown ids, unparseable names, joystick KeyCodes (those go
+        // through the Rewired index instead), and a modifier slot holding a non-modifier key.
+        internal static bool SetKeyBind(string id, string keyName)
+        {
+            bool clear = string.IsNullOrEmpty(keyName) || keyName == "None";
+            KeyboardShortcut sc = KeyboardShortcut.Empty;
+            if (!clear && !TryParseChord(keyName, out sc)) return false;
+            BindDef? b = FindBind(id);
+            if (b == null || b.KeyEntry == null) return false;
+            string name = KeyName(sc);
+            if (!clear && Taken(b, o => o.KeyEntry != null && KeyName(o.KeyEntry.Value) == name)) return false;
+            BackupNow();
+            b.KeyEntry.Value = sc;
+            ConfigChanged();
+            return true;
+        }
+
+        // Chord modifiers are stored as the Left* name (KeyChord); either side satisfies one
+        // (ModifiersHeld), since a browser can't report which side is held.
+        private static KeyCode OtherSide(KeyCode k) => k switch
+        {
+            KeyCode.LeftControl => KeyCode.RightControl,
+            KeyCode.LeftAlt     => KeyCode.RightAlt,
+            KeyCode.LeftShift   => KeyCode.RightShift,
+            _ => k,
+        };
+
+        private static bool TryParseKey(string token, out KeyCode key) =>
+            // Enum.TryParse also accepts "A, B" and bare numbers — neither is a key name.
+            Enum.TryParse(token, ignoreCase: false, out key) && char.IsLetter(token[0]) && token.IndexOf(',') < 0 &&
+            key != KeyCode.None && key < KeyCode.JoystickButton0;
+
+        // KeyChord validates the shape; this only turns the names into KeyCodes.
+        private static bool TryParseChord(string name, out KeyboardShortcut sc)
+        {
+            sc = KeyboardShortcut.Empty;
+            if (!KeyChord.TrySplit(name, out List<string> modNames, out string mainName) ||
+                !TryParseKey(mainName, out KeyCode main)) return false;
+            var mods = new KeyCode[modNames.Count];
+            for (int i = 0; i < mods.Length; i++)
+                if (!TryParseKey(modNames[i], out mods[i])) return false;
+            sc = new KeyboardShortcut(main, mods);
+            return true;
+        }
+
+        // Stored name of a bind's key — what /keybinds-config serves and browsers match against.
+        internal static string KeyName(KeyboardShortcut sc) =>
+            sc.MainKey == KeyCode.None ? string.Empty
+                : KeyChord.Join(sc.Modifiers.Select(m => m.ToString()), sc.MainKey.ToString());
 
         // ── Joystick capture (driven by the /keybinds page) ─────────────────────────────────────────
         // Arm capture for a bind id: the next joystick button pressed is written into its joy entry.
@@ -1165,6 +1242,13 @@ namespace NOXMFD
                 {
                     if (!joy.GetButton(b)) { _latched.Remove((i, b)); continue; }   // seen up → capturable again
                     if (_latched.Contains((i, b)) || !joy.GetButtonDown(b)) continue;
+                    int btn = b, num = i + 1;
+                    if (Taken(_capturing!, o => o.JoyEntry != null &&
+                            KeybindConflict.JoyMatches(btn, num, o.JoyEntry.Value, o.JoyNumEntry!.Value)))
+                    {
+                        Disarm();
+                        return;
+                    }
                     BackupNow();
                     _capturing!.JoyEntry!.Value = b;
                     _capturing.JoyNumEntry!.Value = i + 1;   // pin to the device it came from
@@ -1236,16 +1320,31 @@ namespace NOXMFD
             KeyboardShortcut sc = bind.KeyEntry.Value;
             KeyCode k = sc.MainKey;
             bool kbd = k != KeyCode.None && k < KeyCode.JoystickButton0 &&
-                       (edge ? Input.GetKeyDown(k) : Input.GetKey(k)) && ModifiersHeld(sc);
+                       (edge ? Input.GetKeyDown(k) : Input.GetKey(k)) && ModifiersHeld(sc) && !Shadowed(bind, sc);
             // JoyEntry is null for a key-only bind (DefKeyOnly, e.g. SAVE/LOAD LAYOUT) — no
             // joystick/HOTAS source to check, so the keyboard result alone decides it.
             return kbd || (bind.JoyEntry != null && JoyBtn(bind.JoyEntry.Value, bind.JoyNumEntry!.Value, edge));
         }
 
-        // No bind in this codebase's own capture flow (SetKeyBind → new KeyboardShortcut(key)) ever
-        // configures a modifier, so this is always vacuously true today — kept so a future modifier-
-        // capable capture UI doesn't silently regress this check.
-        private static bool ModifiersHeld(KeyboardShortcut sc) => sc.Modifiers.All(Input.GetKey);
+        // Either side of each configured modifier counts (see ChordModifiers).
+        private static bool ModifiersHeld(KeyboardShortcut sc) =>
+            sc.Modifiers.All(m => Input.GetKey(m) || Input.GetKey(OtherSide(m)));
+
+        // Most specific wins: a bind on 1 doesn't fire while Alt+1 is pressed if another bind has
+        // Alt+1 — but still fires with Alt held when nothing claims that chord, so a held modifier
+        // (e.g. for flight) never blocks an ordinary key. keybinds-keymap.js's eventKeys mirrors this
+        // in the browser. Only evaluated when this bind's own key is already down.
+        private static bool Shadowed(BindDef bind, KeyboardShortcut sc)
+        {
+            int mine = sc.Modifiers.Count();
+            foreach (BindDef o in _binds)
+            {
+                if (o == bind || o.KeyEntry == null) continue;
+                KeyboardShortcut osc = o.KeyEntry.Value;
+                if (osc.MainKey == sc.MainKey && osc.Modifiers.Count() > mine && ModifiersHeld(osc)) return true;
+            }
+            return false;
+        }
 
         // Reads a bind's analog axis, deadzoned and inverted, folded straight into the cursor vector —
         // 0 means "no axis bound, centered, or within the deadzone," which Poll() treats as "the keys

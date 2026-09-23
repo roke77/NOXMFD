@@ -5,6 +5,13 @@ takes a keyboard/mouse key, a joystick/HOTAS button, or both — click a cell on
 the key or button to bind it. Multi-stick HOTAS setups are supported; each bind remembers which
 stick it came from.
 
+A keyboard bind can include **Ctrl**, **Alt** and/or **Shift**. Hold them, then press the key: the
+cell shows `ALT+…` while you hold Alt, then `ALT+1`. Press and release a modifier on its own to bind
+just that key. Left or right Ctrl/Alt/Shift both work. If one bind is `1` and another is `ALT+1`,
+Alt+1 fires only the second. With nothing bound to the combination, `1` still fires while a
+modifier is held, so a held key never blocks it. Browser shortcuts the browser keeps for itself
+(Ctrl+W, Ctrl+T, Alt+F4) can't be captured on this page.
+
 ![Extended keybinds page](images/KEY.png)
 
 ## Weapons
@@ -199,6 +206,18 @@ same two actions are also available as **SAVE**/**LOAD** buttons on [LYT](layout
 for a tablet with no keyboard.
 
 ![Layout section](images/LYT_KEY.png)
+
+## Layout Presets
+
+- **Layout 1** through **Layout 5** load the 1st-5th layout in [LOAD LAYOUT](layouts.md#saveload-layout)'s
+  list for the view the browser is showing (CLASSIC or F-35), so one key works in both views. Nothing
+  happens if no layout is saved at that position.
+
+Keyboard and joystick/HOTAS both work. A key pressed in a browser loads the layout in that browser.
+A joystick button, or a key pressed while the game window has focus, loads it in the browser holding
+[SOI](#sensor-of-interest-soi). You can also set these from the keybind box on the first five rows of
+LOAD LAYOUT's list. A key or button already used by another bind is refused, and the cell names the
+bind that uses it.
 
 ## HUD Presets
 

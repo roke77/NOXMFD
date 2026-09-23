@@ -1240,6 +1240,8 @@
       if (w) w.postMessage({ mfd: true, action: 'cursor-held', held: !!m.held }, '*');
       return;
     }
+    // Layout 1-5 (issue #90) — the layout is the glass's business, not the focused portal's.
+    if (m.type === 'map-act' && loadSlotAct(m.act)) return;
     if (m.type === 'map-act') {
       // Same wire action the bezel forwards (toggle-follow/zoom-in/zoom-out/tgt-next/tgt-prev/
       // tgt-datalink/tgt-stale, docs/tgt-keybind-nav.md) — no MAP_ACTIONS translation needed since
@@ -1457,7 +1459,7 @@
     return { cid: myCid, labels: portals.map(function (_, i) { return 'Include portal ' + (i + 1) + ' in SOI'; }) };
   }
 
-  const { openSaveLayoutModal, openLoadLayoutModal, handleLayoutKeydown, wireLayoutKeydown } =
+  const { openSaveLayoutModal, openLoadLayoutModal, loadSlotAct, handleLayoutKeydown, wireLayoutKeydown } =
     LayoutKeydown.makeLayoutKeydownHandlers('f35', captureLayoutState, applyLayoutState, soiSurfaces);
 
   // ── Layout picker ──────────────────────────────────────────────────────────────────────

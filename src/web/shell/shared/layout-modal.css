@@ -127,6 +127,33 @@
   border-color: var(--no-green);
   color: var(--no-green);
 }
+/* Layout Preset slot keybind box (issue #90) — same capturing/rejected states as the /keybinds
+   page's .kb-val (keybinds.css). */
+.layout-modal-kb {
+  flex: none;
+  min-width: 64px;
+  max-width: 45%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: var(--no-panel-bg);
+  border: 1px dashed var(--no-green-dark);
+  color: var(--no-green);
+  font-family: var(--no-font);
+  font-size: 11px;
+  padding: 0 8px;
+  cursor: pointer;
+}
+.layout-modal-kb:hover { border-color: var(--no-green); }
+.layout-modal-kb.unbound { color: var(--no-green-dark); }
+.layout-modal-kb.capturing {
+  color: var(--no-amber);
+  border-color: var(--no-amber);
+  animation: layout-modal-kb-blink 1s step-end infinite;
+}
+.layout-modal-kb.rejected { color: var(--no-red); border-color: var(--no-red); }
+@keyframes layout-modal-kb-blink { 50% { opacity: 0.45; } }
+@media (prefers-reduced-motion: reduce) { .layout-modal-kb.capturing { animation: none; } }
 .layout-modal-row input.layout-modal-input {
   flex: 1;
   min-width: 0;

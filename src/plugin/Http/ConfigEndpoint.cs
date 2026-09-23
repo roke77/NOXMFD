@@ -61,8 +61,7 @@ namespace NOXMFD
                 // always-empty joystick cell next to it.
                 if (b.KeyEntry != null)
                 {
-                    KeyCode key = b.KeyEntry.Value.MainKey;
-                    sb.Append(",\"key\":\"").Append(key == KeyCode.None ? string.Empty : TelemetryServer.EscapeJson(key.ToString())).Append('"');
+                    sb.Append(",\"key\":\"").Append(TelemetryServer.EscapeJson(Keybinds.KeyName(b.KeyEntry.Value))).Append('"');
                     if (b.JoyEntry != null)
                         sb.Append(",\"joyButton\":").Append(b.JoyEntry.Value.ToString(CultureInfo.InvariantCulture))
                           .Append(",\"joyNum\":").Append(b.JoyNumEntry!.Value.ToString(CultureInfo.InvariantCulture));
@@ -96,6 +95,9 @@ namespace NOXMFD
             string? capKind = Keybinds.CapturingKind;
             sb.Append("},\"capturing\":").Append(cap == null ? "null" : "\"" + TelemetryServer.EscapeJson(cap) + "\"")
               .Append(",\"capturingKind\":").Append(capKind == null ? "null" : "\"" + TelemetryServer.EscapeJson(capKind) + "\"")
+              .Append(",\"rejected\":{\"seq\":").Append(Keybinds.LastRejected.Seq.ToString(CultureInfo.InvariantCulture))
+              .Append(",\"bind\":\"").Append(TelemetryServer.EscapeJson(Keybinds.LastRejected.Bind))
+              .Append("\",\"by\":\"").Append(TelemetryServer.EscapeJson(Keybinds.LastRejected.By)).Append("\"}")
               .Append(",\"bgInput\":").Append(Keybinds.BackgroundInput ? "true" : "false")
               .Append(",\"radarOnOnStart\":").Append(ImmersionConfig.RadarOnOnStart ? "true" : "false")
               .Append(",\"engineOnOnStart\":").Append(ImmersionConfig.EngineOnOnStart ? "true" : "false")

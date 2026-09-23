@@ -57,6 +57,11 @@ portal shows — under a name, and load it back later. Multiple named layouts ca
 - **Save Layout** — prompts for a name, then saves.
 - **Load Layout** — lists every saved layout; pick one to apply it immediately. A pencil renames a
   saved layout and an × deletes it, right in that list.
+- **Layout 1-5 keybinds**: the first five rows each have a keybind box. Click it, then press a key
+  or joystick button. Esc cancels and Delete clears. That key then loads whichever layout is in that
+  position, with no list to open. It's the same setting as
+  [KEY's Layout Presets](keybinds.md#layout-presets), and it's shared between CLASSIC and F-35:
+  Layout 1 is the first layout in each view's own list.
 
 Reach both from a keybind (configured on [KEY](keybinds.md), shared by every connected browser) or
 from the **SAVE**/**LOAD** buttons on this LYT page — the touch-friendly path for a tablet with no

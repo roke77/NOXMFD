@@ -48,17 +48,38 @@
         .catch(function () { return []; });
     }
 
+    // A saved layout's data is an opaque JSON blob (LayoutStore never parses it), so a corrupted or
+    // hand-edited one is skipped with a warning instead of throwing out of a click/keypress handler.
+    function applyItem(item) {
+      try { applyLayoutState(JSON.parse(item.data)); }
+      catch (e) { console.warn('[layout] saved layout "' + item.name + '" could not be applied:', e); }
+    }
+
     function openLoadLayoutModal() {
       soiCheckboxes().then(function (checkboxes) {
         LayoutModal.pickList('LOAD LAYOUT', shellLayouts, {
           checkboxes: checkboxes,
-          onPick: function (item) {
-            try { applyLayoutState(JSON.parse(item.data)); } catch (e) {}
-          },
+          onPick: applyItem,
           onRename: function (item, name) { return LayoutStore.rename(item.id, name); },
           onDelete: function (item) { return LayoutStore.remove(item.id); },
+          // Layout Preset slots (issue #90) are positional: the first five rows carry slot 1-5's box.
+          rowExtra: function (item, i) { return i < LayoutKeybinds.SLOT_COUNT ? LayoutKeybinds.slotBox(i + 1) : null; },
         });
       });
+    }
+
+    // Layout Preset slot n (issue #90): the nth layout in this shell's LOAD LAYOUT list, same apply
+    // as picking it there. No layout at that position → nothing happens.
+    function loadSlot(n) {
+      shellLayouts().then(function (items) { if (items[n - 1]) applyItem(items[n - 1]); });
+    }
+
+    // The shells' map-act handler asks this first: a joystick/in-game press of Layout N arrives as
+    // act 'layout-preset-N' at the SOI browser. Returns true when it was a slot (and loads it).
+    function loadSlotAct(act) {
+      const m = /^layout-preset-(\d)$/.exec(act || '');
+      if (m) loadSlot(+m[1]);
+      return !!m;
     }
 
     // A keydown only reaches window.addEventListener('keydown', ...) on the document it lands in —
@@ -69,12 +90,13 @@
     // be re-attached after every navigation, since reassigning src tears down that whole document
     // (and any listeners on it), same as a real page load.
     function handleLayoutKeydown(e) {
-      if (e.ctrlKey || e.altKey || e.metaKey) return;
+      if (e.metaKey) return;   // Ctrl/Alt chords are matched (LayoutKeybinds.match); Win/Cmd never
       const t = e.target;
       if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
       const action = LayoutKeybinds.match(e);
       if (action === 'save') openSaveLayoutModal();
       else if (action === 'load') openLoadLayoutModal();
+      else if (action) loadSlot(+action.slice('slot-'.length));
     }
     function wireLayoutKeydown(iframe) {
       function attach() { try { iframe.contentWindow.addEventListener('keydown', handleLayoutKeydown); } catch (e) {} }
@@ -85,6 +107,7 @@
     return {
       openSaveLayoutModal: openSaveLayoutModal,
       openLoadLayoutModal: openLoadLayoutModal,
+      loadSlotAct: loadSlotAct,
       handleLayoutKeydown: handleLayoutKeydown,
       wireLayoutKeydown: wireLayoutKeydown,
     };

@@ -2078,6 +2078,9 @@ window.addEventListener('message', function(e) {
     // a hold. MAP ignores this action; only pages that opt in (pass onHold to createPadCursor) do.
     const w = focusedCursorWindow();
     if (w) w.postMessage({ mfd: true, action: 'cursor-held', held: !!m.held }, '*');
+  } else if (m.type === 'map-act' && loadSlotAct(m.act)) {
+    // Layout 1-5 (issue #90) — loaded above; the layout is this shell's business, not the
+    // focused page's, so it's not forwarded.
   } else if (m.type === 'map-act') {
     // Follow/Zoom In/Zoom Out — MAP interprets these as view controls; TGT repurposes Zoom In/Out
     // to scroll its target list (docs/page-cursor.md), HUD has nothing to do with them yet, so
@@ -3056,7 +3059,7 @@ function soiSurfaces() {
 
 // SAVE/LOAD LAYOUT keyboard wiring is shared with f35.js via src/web/shell/layout-keydown.js —
 // only captureLayoutState/applyLayoutState (this shell's own state shape) stay here.
-const { openSaveLayoutModal, openLoadLayoutModal, handleLayoutKeydown, wireLayoutKeydown } =
+const { openSaveLayoutModal, openLoadLayoutModal, loadSlotAct, handleLayoutKeydown, wireLayoutKeydown } =
   LayoutKeydown.makeLayoutKeydownHandlers('classic', captureLayoutState, applyLayoutState, soiSurfaces);
 window.addEventListener('keydown', handleLayoutKeydown);
 wireLayoutKeydown(mapFrame);

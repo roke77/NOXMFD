@@ -354,9 +354,19 @@
     post('fire.set', { group: role, on: !!on }).catch(function () {});
   }
 
+  // Which stored key name each physical key (e.code) resolved to on keydown, so its keyup releases
+  // that same bind even if a modifier was let go first ("LeftAlt+Alpha1" pressed, Alt released,
+  // then 1 released — a fresh lookup would say "Alpha1" and leave the chord's hold stuck on).
+  let heldByCode = Object.create(null);
+
+  function mapped(key) { return !!(cursorByKey[key] || fireByKey[key] || bindsByKey[key]); }
+
   function keydown(e) {
     if (!enabled || editableTarget(e.target)) return;
-    const key = Keymap && Keymap.codeToKey ? Keymap.codeToKey(e.code) : null;
+    // Chord first, then the bare key — the same "most specific wins" rule Keybinds.cs applies to
+    // an in-game press (KeybindsKeymap.eventKeys).
+    const names = Keymap && Keymap.eventKeys ? Keymap.eventKeys(e) : [];
+    const key = names.filter(mapped)[0] || names[0];
     if (!key) {
       // e.code is unmapped (empty string, or a physical key codeToKey doesn't recognize — e.g. a
       // non-US layout or browser quirk producing something unexpected). Distinct from "no remote
@@ -374,6 +384,7 @@
       return;
     }
     e.preventDefault();
+    heldByCode[e.code] = key;
     if (cursorRole && !cursorActive[cursorRole]) {
       if (cursorRole === 'select') post('cursor.select').catch(function () {});
       setCursorRole(cursorRole, true);
@@ -390,8 +401,9 @@
   }
 
   function keyup(e) {
-    const key = Keymap && Keymap.codeToKey ? Keymap.codeToKey(e.code) : null;
+    const key = heldByCode[e.code];
     if (!key) return;
+    delete heldByCode[e.code];
     const cursorRole = cursorByKey[key];
     const fireRole = fireByKey[key];
     if (cursorRole && cursorActive[cursorRole]) setCursorRole(cursorRole, false);
@@ -407,6 +419,7 @@
       if (active[key] !== true) root.clearInterval(active[key]);
     });
     active = Object.create(null);
+    heldByCode = Object.create(null);
     if (cursorIsActive()) {
       cursorActive = Object.create(null);
       stopCursorTimer();

@@ -5,6 +5,11 @@
 // KeyboardEvent.code into the Unity KeyCode name the plugin stores (keybind.set-key), and
 // displayKey renders one of those stored names compactly for the bind row. Anything codeToKey can
 // produce, displayKey has to render — the test holds them to that.
+//
+// A bind's key can also be a modifier chord: Ctrl/Alt/Shift names joined with '+' before the main
+// key, in that fixed order ("LeftControl+LeftAlt+Alpha1" — Keybinds.cs's KeyName writes the same
+// form). Modifiers are always stored as the Left* name and match either side, because a browser
+// event only reports ctrlKey/altKey/shiftKey, not which side is held.
 (function (root) {
   // Letters/digits/F-keys/numpad are mechanical; the rest enumerated. Escape is reserved (it
   // cancels capture) and mouse buttons are not capturable — clicking is how this page is driven.
@@ -44,7 +49,60 @@
       .toUpperCase();
   }
 
-  const api = { CODE2KEY, codeToKey, displayKey };
+  // Chord modifiers, in stored order: [event flag, stored name, display name].
+  const MODS = [['ctrlKey', 'LeftControl', 'CTRL'], ['altKey', 'LeftAlt', 'ALT'], ['shiftKey', 'LeftShift', 'SHIFT']];
+  const MOD_CODES = /^(Control|Alt|Shift)(Left|Right)$/;
+  function isModifierCode(code) { return MOD_CODES.test(code || ''); }
+
+  // Stored name for a keydown: the held modifiers + the main key. Pressing a modifier on its own
+  // names just that key ("LeftAlt"), so a lone modifier stays bindable. null = not bindable.
+  function eventToKey(e) {
+    const main = codeToKey(e.code);
+    if (!main) return null;
+    if (isModifierCode(e.code)) return main;
+    return MODS.filter(function (m) { return e[m[0]]; }).map(function (m) { return m[1]; })
+      .concat(main).join('+');
+  }
+
+  // Names to look a keydown up by, most specific first: the chord, then the bare main key. A bind on
+  // the bare key still fires with a modifier held unless a chord bind claims that press — the same
+  // "most specific wins" rule Keybinds.cs applies in game (Shadowed).
+  function eventKeys(e) {
+    const chord = eventToKey(e);
+    if (!chord) return [];
+    const bare = codeToKey(e.code);
+    return chord === bare ? [chord] : [chord, bare];
+  }
+
+  // Capture step for a bind cell (KEY page, LOAD LAYOUT's slot box), fed each keydown AND keyup:
+  //   { key }     — capture finished with this stored name (null = the key isn't bindable)
+  //   { pending } — only modifiers held so far; show this label and keep listening
+  //   null        — nothing to do (a non-modifier released, e.g. one held from before capture)
+  // A modifier released before any other key finishes the capture as that lone modifier.
+  function captureStep(e) {
+    if (!isModifierCode(e.code)) return e.type === 'keyup' ? null : { key: eventToKey(e) };
+    if (e.type === 'keydown') return { pending: pendingLabel(e) };
+    const mine = e.code.replace(/(Left|Right)$/, '');
+    const held = MODS.filter(function (m) { return e[m[0]] && m[1].indexOf(mine) < 0; })
+      .map(function (m) { return m[1]; });
+    return { key: held.concat(codeToKey(e.code)).join('+') };
+  }
+  function pendingLabel(e) {
+    const held = MODS.filter(function (m) { return e[m[0]]; }).map(function (m) { return m[2]; });
+    return held.length ? held.join('+') + '+…' : null;
+  }
+
+  // Display of a stored name, chord or not: "LeftAlt+Alpha1" → "ALT+1", "LeftAlt" → "L-ALT".
+  function displayName(k) {
+    const parts = k.split('+');
+    const main = displayKey(parts.pop());
+    return parts.map(function (p) {
+      const m = MODS.find(function (x) { return x[1] === p; });
+      return m ? m[2] : displayKey(p);
+    }).concat(main).join('+');
+  }
+
+  const api = { CODE2KEY, codeToKey, displayKey, displayName, eventToKey, eventKeys, captureStep, isModifierCode };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.KeybindsKeymap = api;
 })(typeof self !== 'undefined' ? self : this);

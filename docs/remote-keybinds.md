@@ -230,6 +230,11 @@ the two gaps this doc used to list here:
   state commands, since a remote browser has no reliable read of current state to send the
   opposite of.
 
+**Modifier chords:** a keydown is looked up chord-first, then by the bare key
+(`KeybindsKeymap.eventKeys`), the same "most specific wins" rule as an in-game press. The key name
+it resolved to is remembered per physical key (`heldByCode`), so its keyup releases the same bind
+even if the modifier was let go first.
+
 **Binds that stay unrelayed, on purpose:** Cursor Horizontal/Vertical and Cursor Zoom Axis are
 axis-only — no `key` field exists for a browser keydown to match in the first place, since they
 represent a continuous HOTAS axis a keyboard tap can't produce (Cursor Left/Right/Up/Down/the
@@ -237,7 +242,9 @@ zoom-in/out pair above are the discrete keyboard-shaped equivalents, and those a
 LOAD LAYOUT's two binds pop a client-side modal in whatever browser is looking at the KEY page —
 there's no server-side action to relay at all, and triggering a text-entry modal on a *different*
 browser than the one physically being typed into wouldn't make sense as "remote" in the first
-place.
+place. Layout 1-5 (issue #90, docs/layout-preset-keybinds.md) also have no case: the browser that
+receives the key loads the layout itself, and a joystick press reaches the SOI browser through
+`map-act`, so there's nothing left to relay.
 
 That preserves the existing two-stage switch-then-fire behavior and avoids relying on HTTP repeat
 cadence to mimic Unity frame continuity. The server-side expiry is the safety valve: if a browser

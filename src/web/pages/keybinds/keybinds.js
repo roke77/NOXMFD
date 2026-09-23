@@ -23,6 +23,7 @@ var notes     = {};      // per-section shared-behaviour note, keyed by section 
 var capturing = null;    // plugin-side joy/axis capture: bind id or null (server state, mirrored)
 var capturingKind = null; // 'joy' | 'axis' | null — which capture `capturing` refers to
 var kbCapture = null;    // browser-side keyboard capture: bind id or null (local state)
+var kbPending = null;    // modifiers held so far during that capture ("ALT+…"), or null
 var bgInput   = false;   // InputWhenGameUnfocused — a plain setting, not a bind (server state)
 var remoteKeybinds = false;  // per-browser remote-listening toggle (localStorage, not server state)
 var remoteKeybindsSamePc = false;
@@ -37,6 +38,8 @@ var powerOnOnStart      = true;
 // false rather than true until the first /keybinds-config snapshot.
 var hudFiltersOnCombatMode = false;
 var lastJson  = '';      // skip re-render when nothing changed
+var rejectSeq = null;    // last seen cfg.rejected.seq (KeybindConflict.cs refusals)
+var lastSetKind = {};    // bind id → 'key' | 'joy': which cell the last assignment came from
 var capturePollTimer = null;
 var commandResyncTimer = null;
 
@@ -120,8 +123,7 @@ var renderHudFiltersOnCombatMode = makeSettingToggle('kb-hud-filters-on-combat-m
 
 // Key naming (KeyboardEvent.code → Unity KeyCode name, and its compact display form) lives in
 // keybinds-keymap.js, pure and unit-checked.
-var codeToKey = KeybindsKeymap.codeToKey;
-var displayKey = KeybindsKeymap.displayKey;
+var displayName = KeybindsKeymap.displayName;
 
 // ── Render ───────────────────────────────────────────────────────────────────────────────────
 function cell(bind, kind) {
@@ -131,13 +133,13 @@ function cell(bind, kind) {
   var val = document.createElement('button');
   val.className = 'kb-val';
   var bound = kind === 'key' ? !!bind.key : bind.joyButton >= 0;
-  if (kind === 'key' && kbCapture === bind.id) { val.textContent = 'PRESS A KEY…';    val.className += ' capturing'; }
+  if (kind === 'key' && kbCapture === bind.id) { val.textContent = kbPending || 'PRESS A KEY…'; val.className += ' capturing'; }
   else if (kind === 'joy' && capturing === bind.id && capturingKind === 'joy')
                                                { val.textContent = 'PRESS A BUTTON…'; val.className += ' capturing'; }
   else if (!bound)                             { val.textContent = '—';               val.className += ' unbound'; }
   // joystick display carries the device number when pinned ("J2 B55") — with a multi-stick
   // HOTAS the button index alone is ambiguous
-  else val.textContent = kind === 'key' ? displayKey(bind.key)
+  else val.textContent = kind === 'key' ? displayName(bind.key)
     : (bind.joyNum > 0 ? 'J' + bind.joyNum + ' B' + bind.joyButton : 'JOY ' + bind.joyButton);
   val.onclick = function () { (kind === 'key' ? keyCellClick : joyCellClick)(bind.id); };
 
@@ -278,35 +280,49 @@ function renderImmersionRows() {
 function keyCellClick(id) {
   if (capturing) sendConfigCommand('keybind.cancel-joy', {}).catch(function () {});
   kbCapture = kbCapture === id ? null : id;
+  kbPending = null;
   render();
 }
 
-document.addEventListener('keydown', function (e) {
+// Keyup too: holding only modifiers keeps listening (the cell shows "ALT+…"), and releasing a
+// modifier before any other key binds that modifier on its own (KeybindsKeymap.captureStep).
+function onCaptureKey(e) {
   if (!kbCapture) return;
-  e.preventDefault();
+  e.preventDefault();   // also keeps a lone Alt from focusing the browser's menu bar
+  var cancel = e.type === 'keydown' && e.code === 'Escape';
+  var step = cancel ? null : KeybindsKeymap.captureStep(e);
+  if (!cancel && !step) return;
+  if (step && 'pending' in step) { kbPending = step.pending; render(); return; }
   var id = kbCapture;
   kbCapture = null;
-  if (e.code === 'Escape') { render(); return; }
-  var key = codeToKey(e.code);
+  kbPending = null;
+  if (cancel) { render(); return; }
+  var key = step.key;
   if (!key) { flashRejected(id); return; }   // unmappable (media keys, ...)
   sendConfigCommand('keybind.set-key', { bind: id, key: key }).catch(function () {});
+  lastSetKind[id] = 'key';
   // Optimistic: the follow-up snapshot reconciles server truth.
   binds.forEach(function (b) { if (b.id === id) b.key = key; });
   render();
-});
+}
+document.addEventListener('keydown', onCaptureKey);
+document.addEventListener('keyup', onCaptureKey);
 
 // brief red flash on the keyboard cell of a bind whose captured key can't be mapped. Looks the row
 // up by id (row.dataset.bindId, set in buildRow) rather than a positional index into `binds` — an
 // index counts every bind including the Immersion section's, which renders into its own table
 // (immersionRowsEl), so a positional lookup into rowsEl's rows was wrong for any Immersion bind.
-function flashRejected(id) {
+// Also names the bind already using a refused key/button (text = 'USED BY …'); kind picks which
+// of the row's two cells shows it.
+function flashRejected(id, text, kind) {
   render();
   var row = document.querySelector('.kb-row[data-bind-id="' + id + '"]');
   if (!row) return;
-  var val = row.querySelectorAll('.kb-val')[0];
+  var vals = row.querySelectorAll('.kb-val');
+  var val = vals[kind === 'joy' && vals.length > 1 ? 1 : 0];
   val.classList.add('rejected');
-  val.textContent = 'UNSUPPORTED';
-  setTimeout(render, 900);
+  val.textContent = text || 'UNSUPPORTED';
+  setTimeout(render, text ? 1800 : 900);
 }
 
 // ── Joystick capture (plugin-side) ───────────────────────────────────────────────────────────
@@ -314,6 +330,7 @@ function joyCellClick(id) {
   kbCapture = null;
   var already = capturing === id && capturingKind === 'joy';
   sendConfigCommand(already ? 'keybind.cancel-joy' : 'keybind.arm-joy', { bind: id }).catch(function () {});
+  lastSetKind[id] = 'joy';
   capturing = already ? null : id;             // optimistic; the poll is the truth
   capturingKind = already ? null : 'joy';
   render();
@@ -361,6 +378,10 @@ function applyConfig(cfg) {
     renderHudFiltersOnCombatMode();
     render();
     updateCaptureFallback();
+    var r = cfg.rejected;
+    if (r && rejectSeq !== null && r.seq !== rejectSeq && lastSetKind[r.bind])
+      flashRejected(r.bind, 'USED BY ' + r.by.toUpperCase(), lastSetKind[r.bind]);
+    if (r) rejectSeq = r.seq;
 }
 
 function refresh() {
