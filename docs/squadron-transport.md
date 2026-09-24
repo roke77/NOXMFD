@@ -373,7 +373,7 @@ of free text and a bare join-order count.
   (`src/web/pages/sqd/callsigns.js`), not a text input: a deduped, alphabetized list flattened from
   a real DCS World callsigns reference across every aircraft/role category (GitHub issue #42's own
   comment) — this list only cares about the name itself, not which aircraft type it was originally
-  associated with — plus PHANTOM, SENTINEL and TALON, added at players' request. `sqd.set-callsign`
+  associated with — plus GRIZZLY, PHANTOM, QUARTERMASTER, SENTINEL, TALON, TRIDENT and VULCAN, added at players' request. `sqd.set-callsign`
   (EDIT) uses the same picker later.
 - **Flight number** — a second `<select>`, 1-9, chosen at CREATE SQUAD time
   (`Squad.CreateSquad(callsign, flight)`) and editable later via the same EDIT picker as the
