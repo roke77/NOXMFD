@@ -14,8 +14,8 @@ assigning here never changes what's selected on TGT.
 
 - **Tap a row** to select it (highlighted amber). Multiple rows can be selected at once.
 - **Squad buttons** above the table, one per squad slot including yourself, labeled with each
-  pilot's callsign designation (e.g. `TALON 1-1` is you, `TALON 1-2` the first member, and so on —
-  same numbering as the [SQD](sqd.md) roster). With one or more rows selected:
+  pilot's callsign designation (e.g. `TALON 1-1` is you, `TALON 1-2` and up your members — the
+  same numbers as the [SQD](sqd.md) roster, with no button for an open slot). With one or more rows selected:
   - **Tap** a squad button to assign them to that slot — the row's highlight clears and a small
     tag (the plain slot number, not the full designation) shows who has it.
   - **Long-press** a squad button instead to assign without clearing the highlight, so you can

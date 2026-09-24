@@ -7,6 +7,9 @@ column (yours — weapon name included where resolvable, plus lines for when you
 your own ordnance is intercepted). Session kill tally, funds gained/spent, and current rank are
 shown below the feeds.
 
+Squadmates show under their squad designation with their Steam name in parentheses, e.g.
+`TALON 1-2 (Roke) [F/A-26]` ([SQD](sqd.md#designations-as-in-game-names)).
+
 The native kill-feed ticker this replicates can be hidden from the in-cockpit HUD with
 [HUD](hud.md#declutter)'s **FEED** toggle, without affecting this page.
 
