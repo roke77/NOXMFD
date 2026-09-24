@@ -463,9 +463,9 @@ _SQD = {
     # leader (BuildStateJson), only for a MEMBER's view of who leads them.
     "role": "leader", "leaderId": "", "leaderName": "", "callsign": "TALON", "flight": 1,
     "members": [
-        {"id": "76561198000000002",   "name": "Foxtrot", "aircraft": "KR-67 Ifrit"},
-        {"id": "76561198000000003",   "name": "Ghost",   "aircraft": "FS-12 Revoker"},
-        {"id": "76561198000000004",   "name": "Havoc",   "aircraft": "FS-12 Revoker"},
+        {"id": "76561198000000002",   "name": "Foxtrot", "slot": 2, "aircraft": "KR-67 Ifrit"},
+        {"id": "76561198000000003",   "name": "Ghost",   "slot": 3, "aircraft": "FS-12 Revoker"},
+        {"id": "76561198000000004",   "name": "Havoc",   "slot": 4, "aircraft": "FS-12 Revoker"},
     ],
     "pendingSent": {}, "pendingInvites": [],
     "noticeSeq": 0, "notice": "",
@@ -486,7 +486,11 @@ def _squad_state():
     for peer in accepted:
         name = next((p["name"] for p in _SERVER_PLAYERS if p["id"] == peer), peer)
         if not any(m["id"] == peer for m in _SQD["members"]):
-            _SQD["members"].append({"id": peer, "name": name, "aircraft": ""})
+            # Mirrors Squad.HandleAccept: the lowest free slot from 2 up, so a hole fills first.
+            taken = {m["slot"] for m in _SQD["members"]}
+            slot = next(n for n in range(2, len(taken) + 3) if n not in taken)
+            _SQD["members"].append({"id": peer, "name": name, "slot": slot, "aircraft": ""})
+            _SQD["members"].sort(key=lambda m: m["slot"])
 
     state = {
         "role": _SQD["role"], "self": _SQD_SELF, "selfName": _SQD_SELF_NAME,
@@ -554,17 +558,25 @@ def _squad_command(env):
             return
         _SQD["members"] = [m for m in _SQD["members"] if m["id"] != peer]
     elif cmd == "sqd.move-member":
-        # Mirrors Squad.MoveMember: swap with the neighbour one step up (-1) or down (+1).
+        # Mirrors Squad.MoveMember: into the neighbouring slot one step up (-1) or down (+1),
+        # swapping with whoever holds it, within 2..the highest held slot.
         if _SQD["role"] != "leader":
             return
         members = _SQD["members"]
-        idx = next((i for i, m in enumerate(members) if m["id"] == peer), -1)
+        member = next((m for m in members if m["id"] == peer), None)
         try:
-            target = idx + int(env.get("index") or 0)
+            dir_ = int(env.get("index") or 0)
         except (TypeError, ValueError):
             return
-        if idx >= 0 and target != idx and 0 <= target < len(members):
-            members[idx], members[target] = members[target], members[idx]
+        if member is None or dir_ == 0:
+            return
+        target = member["slot"] + dir_
+        if 2 <= target <= members[-1]["slot"]:
+            other = next((m for m in members if m["slot"] == target), None)
+            if other:
+                other["slot"] = member["slot"]
+            member["slot"] = target
+            members.sort(key=lambda m: m["slot"])
     elif cmd in ("sqd.leave", "sqd.disband"):
         _SQD["role"] = "none"; _SQD["leaderId"] = ""; _SQD["leaderName"] = ""; _SQD["callsign"] = ""
         _SQD["flight"] = 1; _SQD["members"] = []; _SQD["pendingSent"] = {}

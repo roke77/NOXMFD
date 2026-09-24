@@ -11,14 +11,14 @@ namespace NOXMFD
         internal static string Format(string callsign, int flight, int member) =>
             (string.IsNullOrEmpty(callsign) ? "SQD" : callsign) + " " + flight + "-" + member;
 
-        // SteamID → designation for a whole squad: the leader is 1, memberIds[i] is i + 2 — the same
-        // positional numbering the SQD roster and TD's slots use. Zero ids are skipped.
-        internal static Dictionary<ulong, string> Build(string callsign, int flight, ulong leaderId, IReadOnlyList<ulong> memberIds)
+        // SteamID → designation for a whole squad: the leader is 1, every member keeps the slot they
+        // hold (2..n, with holes left by departures). Zero ids are skipped.
+        internal static Dictionary<ulong, string> Build(string callsign, int flight, ulong leaderId, IReadOnlyList<(ulong Id, int Slot)> members)
         {
             var result = new Dictionary<ulong, string>();
             if (leaderId != 0) result[leaderId] = Format(callsign, flight, 1);
-            for (int i = 0; i < memberIds.Count; i++)
-                if (memberIds[i] != 0) result[memberIds[i]] = Format(callsign, flight, i + 2);
+            foreach (var m in members)
+                if (m.Id != 0) result[m.Id] = Format(callsign, flight, m.Slot);
             return result;
         }
 
@@ -29,14 +29,23 @@ namespace NOXMFD
                 ? shown + " (" + steamName + ")" + unitName.Substring(shown.Length)
                 : null;
 
-        // Swaps list[index] with its neighbour one step in `dir` (-1 up, +1 down). False, list
-        // untouched, when either position falls outside the list.
-        internal static bool TrySwap<T>(List<T> list, int index, int dir)
+        // The slot a new member joins at: the lowest free one from 2 up, so a departure's hole is
+        // filled before the squad grows.
+        internal static int FirstFreeSlot(IEnumerable<int> taken)
         {
-            int target = index + dir;
-            if (dir == 0 || index < 0 || index >= list.Count || target < 0 || target >= list.Count) return false;
-            (list[index], list[target]) = (list[target], list[index]);
-            return true;
+            var used = new HashSet<int>(taken);
+            int slot = 2;
+            while (used.Contains(slot)) slot++;
+            return slot;
+        }
+
+        // Where the SQD roster's ▲ (dir -1) / ▼ (+1) takes a member at `slot`: the neighbouring slot,
+        // held or empty, within 2..maxSlot (the highest held slot, so nobody can walk past the end of
+        // the squad). -1 when it would leave that range.
+        internal static int MoveTarget(int slot, int dir, int maxSlot)
+        {
+            int target = slot + dir;
+            return dir != 0 && slot >= 2 && target >= 2 && target <= maxSlot ? target : -1;
         }
     }
 }

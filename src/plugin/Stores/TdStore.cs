@@ -86,34 +86,27 @@ namespace NOXMFD
             return true;
         }
 
-        // Slot numbers are POSITIONAL (slot = a member's index in Squad._members + 2, the same
-        // number td.js's own squadSlots() computes) — a kick or voluntary leave shrinks that list,
-        // so everyone after the departed member shifts down one slot on the very next read (a poll,
-        // a DESIGNATE). Without this, an assignment made before the departure would silently land on
-        // whoever now sits in that old slot instead. Called from Squad.cs's Kick()/HandleLeave() with
-        // the departed member's own slot, before anything else reads _assignments against the
-        // already-shrunk roster.
-        internal static void RenumberAfterMemberRemoved(int removedSlot)
+        // Slot numbers are each member's own Squad Member.Slot, kept when others leave — so a kick,
+        // leave or dropout only drops assignments to the departed member's slot, which stays empty
+        // until someone joins into it. Without this, an assignment made before the departure would
+        // land on whoever takes that slot next. Called from Squad.cs's CleanupRemovedMember.
+        internal static void ClearSlot(int slot)
         {
-            if (removedSlot <= 0 || _assignments.Count == 0) return;
+            if (slot <= 0 || _assignments.Count == 0) return;
             bool changed = false;
             var emptyIds = new List<uint>();
             foreach (var kv in _assignments)
             {
-                HashSet<int> slots = kv.Value;
-                if (slots.Remove(removedSlot)) changed = true;
-                var toShift = new List<int>();
-                foreach (int s in slots) if (s > removedSlot) toShift.Add(s);
-                foreach (int s in toShift) { slots.Remove(s); slots.Add(s - 1); changed = true; }
-                if (slots.Count == 0) emptyIds.Add(kv.Key);
+                if (kv.Value.Remove(slot)) changed = true;
+                if (kv.Value.Count == 0) emptyIds.Add(kv.Key);
             }
             // Same "an empty slot set removes the target entirely" convention Assign() already uses.
             foreach (uint id in emptyIds) _assignments.Remove(id);
             if (changed) RebuildState();
         }
 
-        // A squad reorder (Squad.MoveMember) swaps two members' numbers, so every assignment to
-        // either slot moves with its member.
+        // A squad reorder (Squad.MoveMember) swaps two slots' numbers (or moves a member into an
+        // empty one), so every assignment to either slot moves with its member.
         internal static void SwapSlots(int a, int b)
         {
             bool changed = false;

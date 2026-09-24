@@ -280,8 +280,8 @@ function renderRoster(showInvite) {
 }
 
 // Squadron Callsign System (issue #42) — "<CALLSIGN> <FLIGHT>-<MEMBER>", e.g. "TALON 1-2". FLIGHT
-// is Squad.cs's own fixed-at-creation number; MEMBER is the join-order number this function's own
-// callers already compute (1 = leader). TD's own squad buttons render the identical format off the
+// is Squad.cs's own fixed-at-creation number; MEMBER is the pilot's slot (1 = leader, each member's
+// own `slot` otherwise). TD's own squad buttons render the identical format off the
 // same state fields — see td.js's squadSlots/renderLeader.
 function squadDesignation(memberNumber) {
   return (state.callsign || 'SQD') + ' ' + (state.flight || 1) + '-' + memberNumber;
@@ -337,7 +337,7 @@ function addSquadRow(number, name, aircraft, isLeaderRow, isSelf, memberId) {
   } else if (state.role === 'leader') {
     // Both arrows on every row, the unusable one hidden rather than left out, so the star and x
     // line up down the table.
-    [[-1, '▲', 'Move up', number > 2], [1, '▼', 'Move down', number < state.members.length + 1]]
+    [[-1, '▲', 'Move up', number > 2], [1, '▼', 'Move down', number < lastSlot()]]
       .forEach(function (a, i) {
         const btn = document.createElement('button');
         btn.className = 'sqd-row-icon-btn pad-hoverable' + (i === 0 ? ' sqd-row-trailing' : '');
@@ -357,6 +357,27 @@ function addSquadRow(number, name, aircraft, isLeaderRow, isSelf, memberId) {
     kickBtn.onclick = function () { kick(memberId); };
     row.appendChild(kickBtn);
   }
+  squadRows.appendChild(row);
+}
+
+// Highest held slot — state.members arrives sorted by slot (Squad.cs's SortMembers). ▼ stops here,
+// and empty slots below it render as OPEN rows.
+function lastSlot() {
+  return state.members.length ? state.members[state.members.length - 1].slot : 1;
+}
+
+// A slot left empty by a departure (docs/squad-callsign-names.md): stays until someone joins into
+// it or the leader moves a member there with ▲/▼.
+function addOpenRow(number) {
+  const row = document.createElement('div');
+  row.className = 'sqd-row open';
+  const tag = document.createElement('span');
+  tag.className = 'sqd-row-tag';
+  tag.textContent = squadDesignation(number);
+  const nameEl = document.createElement('span');
+  nameEl.className = 'sqd-row-name';
+  nameEl.textContent = 'OPEN';
+  row.appendChild(tag); row.appendChild(nameEl);
   squadRows.appendChild(row);
 }
 
@@ -387,23 +408,26 @@ function renderSquad() {
 
   // Number 1 is always the leader — this pilot themselves when leading (state.selfName, since a
   // leader has no reason to appear in their own state.members list), or state.leaderName when a
-  // member. Every entry in state.members is numbered from there in join order (Squad.cs's own
-  // _members list only ever appends, per its own header comment, so index IS join order) —
-  // members[0] becomes 2, members[1] becomes 3, and so on.
+  // member. Every other row is a slot from 2 up to the highest held one: its member, or OPEN when
+  // a departure left it empty.
   const leaderName = isLeader ? (state.selfName || '—') : (state.leaderName || state.leaderId);
   const leaderAircraft = isLeader ? state.selfAircraft : state.leaderAircraft;
   const rowsSig = isLeader + '|' + leaderName + '|' + leaderAircraft + '|' + state.self + '|' + iconStatusVersion + '|' +
     state.callsign + '|' + state.flight + '|' +
-    state.members.map(function (m) { return m.id + ':' + (m.name || '') + ':' + (m.aircraft || ''); }).join(',');
+    state.members.map(function (m) { return m.id + ':' + m.slot + ':' + (m.name || '') + ':' + (m.aircraft || ''); }).join(',');
   if (rowsSig === lastSquadRowsSig) return;
   lastSquadRowsSig = rowsSig;
   squadRows.innerHTML = '';
 
   addSquadRow(1, leaderName, leaderAircraft, true, isLeader, null);
 
-  state.members.forEach(function (m, i) {
-    addSquadRow(i + 2, m.name || m.id, m.aircraft, false, m.id === state.self, m.id);
-  });
+  const bySlot = {};
+  state.members.forEach(function (m) { bySlot[m.slot] = m; });
+  for (let n = 2; n <= lastSlot(); n++) {
+    const m = bySlot[n];
+    if (m) addSquadRow(n, m.name || m.id, m.aircraft, false, m.id === state.self, m.id);
+    else addOpenRow(n);
+  }
 }
 
 // `s` is /squad's own {ready, state} shape — identical whether it came from the one-time bootstrap

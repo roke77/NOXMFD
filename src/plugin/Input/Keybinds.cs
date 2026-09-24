@@ -258,7 +258,7 @@ namespace NOXMFD
                 () => { TelemetryServer.MapAction("tgt-stale"); CommandDispatcher.ClearStaleTargets(); });
 
             // Target Designator binds (issue #47, docs/target-designator.md) — one per squad slot
-            // (1 = leader/self, 2..9 = members in join order), mirroring the TD page's own squad
+            // (1 = leader/self, 2..9 = each member's own slot number), mirroring the TD page's own squad
             // buttons: assigns whatever's currently selected on the leader's TD table to that slot.
             // edge:false + PollTapHold (below), not a plain DefFree action, so a hold assigns without
             // clearing the selection — same tap-vs-hold gesture the on-screen squad button itself uses.

@@ -16,10 +16,16 @@ flight number later — re-numbering the flight immediately updates every member
 
 Members render as a table: each pilot's callsign designation, their Steam display name, and their
 current aircraft (blank when not flying one). A designation reads `CALLSIGN FLIGHT-MEMBER` — e.g.
-`TALON 1-2` — where FLIGHT is the squad's current flight number and MEMBER starts as join order
-(the leader is always 1). The leader's row carries a LEADER badge; on every other row the leader
-sees ▲/▼ (move that pilot one number up or down), a star (promote) and an × (kick). Your own row is
-highlighted.
+`TALON 1-2` — where FLIGHT is the squad's current flight number and MEMBER is the pilot's number
+in the squad (the leader is always 1). The leader's row carries a LEADER badge; on every other row
+the leader sees ▲/▼ (move that pilot one number up or down, swapping with whoever has it), a star
+(promote) and an × (kick). Your own row is highlighted.
+
+Numbers stick. When a pilot leaves, is kicked or drops out, their number stays empty and shows as
+an OPEN row; nobody else's number changes. The next pilot to join takes the lowest open number, or
+the leader can move someone into it with ▲/▼. When the leader leaves, leadership passes to the
+lowest-numbered member (or whoever the leader promoted with the star), who becomes 1, and everyone
+else is renumbered from 2 in their current order.
 
 ## Designations as in-game names
 

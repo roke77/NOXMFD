@@ -21,6 +21,9 @@ everywhere: the game's own map, kill feed, chat and scoreboard, and every NOXMFD
 - **One naming system.** No separate free-text display name: the squad designation is the name.
 - **Leader reorders members.** SQD gets up/down buttons per member row so the leader can set who is
   `-2`, `-3`, … instead of living with join order.
+- **Numbers stick.** A member leaving, being kicked or dropping out leaves their number empty
+  instead of renumbering everyone below them, so nobody's name changes under them mid-flight. Only
+  the leader leaving renumbers the squad.
 - **Callsign list.** Stays the fixed `callsigns.js` list; more entries get added separately.
 - **No persistence.** Squads stay in-memory and re-form after a restart, like today.
 - **Who sees the names.** Squad members see each other's designations (they already hold the
@@ -105,20 +108,30 @@ designation, for any page that wants the parenthesised form.
 
 ## Member reordering
 
-- New leader-only command `sqd.move-member {id, dir: -1|1}`: swaps the member with its neighbour in
-  `_members`, then `BroadcastRoster()` as every other roster change does. Members already renumber
-  from roster order, so the new numbers reach every squadmate with the next roster.
+- Each member carries its own slot (`Squad.Member.Slot`, `slot` in every roster, invite and
+  transfer message; a peer that sends none gets its list position). Joining takes the lowest free
+  slot from 2 up (`SquadDesignations.FirstFreeSlot`), so an empty slot fills before the squad grows.
+- New leader-only command `sqd.move-member {id, dir: -1|1}`: moves the member into the neighbouring
+  slot — swapping with whoever holds it, or moving into it when it's empty — within 2 up to the
+  highest held slot (`SquadDesignations.MoveTarget`), then `BroadcastRoster()` as every other
+  roster change does, so the new numbers reach every squadmate with the next roster.
 - The leader stays `-1`; up/down only reorder members `2..n` (the top member row has no up button,
   the last no down button). Making someone else `-1` is the existing leadership transfer: the old
   leader leaves the squad, the successor becomes `-1`, and the remaining members keep their order.
 - SQD renders ▲/▼ on each member row for the leader only, beside the existing ★/× buttons.
-- A member leaving closes the gap (numbers below it move up), as today.
+- A member leaving, being kicked or dropping out leaves their slot empty; nobody else's number
+  changes. SQD shows the empty slot as an `OPEN` row, and TD drops assignments to it
+  (`TdStore.ClearSlot`). The next pilot to join takes it, or the leader moves a member into it.
+- The leader leaving hands off to `_members[0]` (the lowest-numbered member) unless they pick a
+  successor with ★. The successor becomes `-1` and everyone else is renumbered `-2..` in slot
+  order, closing any empty slots.
 
 ## Checks
 
-- Pure logic gets xUnit tests in `tools/tests/`: the member swap (bounds, leader fixed) and the
-  designation-per-SteamID map built from roster state.
+- Pure logic gets xUnit tests in `tools/tests/`: the move target (bounds, leader fixed), the
+  first free slot, and the designation-per-SteamID map built from slots.
 - `serve_web.py` mock: `sqd.move-member`, and the Steam name field for the pages above.
 - In game, with two or more NOXMFD clients in a squad: map labels, kill feed, chat and scoreboard
   show designations on both clients; reorder and EDIT rename live; leaving restores the Steam
-  name; a non-squad client still sees Steam names.
+  name; a non-squad client still sees Steam names; a member leaving leaves their number OPEN on
+  every client while everyone else keeps theirs, and the next join fills it.

@@ -109,9 +109,9 @@ the plugin (rather than deferring it to whichever browser tab happened to be ope
 
 ## Squad-slot numbering
 
-Reuses the exact scheme `sqd.js`'s roster table already established: slot 1 is the leader (self),
-slot `i+2` is `state.members[i]` (`Squad.cs`'s `_members` order: join order until the leader
-reorders with SQD's ▲/▼, which moves each assignment with its member — `TdStore.SwapSlots`).
+Reuses the exact numbers `sqd.js`'s roster table shows: slot 1 is the leader (self), every member
+is its own `state.members[i].slot` (`Squad.Member.Slot`). The leader's ▲/▼ in SQD moves each
+assignment with its member (`TdStore.SwapSlots`).
 Slot 1 assignments are tag-only, per the issue's own scope — DESIGNATE never sends to yourself.
 
 ## Keybinds
@@ -141,15 +141,11 @@ instantly.
 An audit of what actually gets cleared when a squad ends, or the pilot returns to the main menu and
 starts a new mission, found several gaps specific to TD:
 
-- **Slot renumbering on roster shrink.** `TdStore._assignments` is keyed by target id -> a set of
-  *positional* slot numbers (slot = a member's index in `Squad._members` + 2, the same number
-  `td.js`'s own `squadSlots()` computes). A kick or a voluntary leave shrinks `_members` without
-  touching those slot numbers, so every assignment above the departed member's own slot used to
-  silently point at the wrong pilot the next time anything read it (a poll, DESIGNATE). Fixed by
-  `TdStore.RenumberAfterMemberRemoved(removedSlot)`, called from `Squad.cs`'s `Kick()` and
-  `HandleLeave()` right after the member is actually removed: it drops the departed member's own
-  slot from every assignment (removing the target entirely if that was its only slot) and shifts
-  every slot above it down by one.
+- **Assignments to a departed member.** `TdStore._assignments` is keyed by target id -> a set of
+  slot numbers. A kick, leave or dropout leaves the departed member's slot empty (nobody else's
+  number changes), so `TdStore.ClearSlot(slot)`, called from `Squad.cs`'s `CleanupRemovedMember`,
+  drops that slot from every assignment (removing the target entirely if that was its only slot).
+  Otherwise the next pilot to join into that slot would inherit targets meant for someone else.
 - **Reacting to a disband while TD is already open.** TD deliberately has no polling of its own
   (see "A static table, on purpose" above) — a squad ending while the page sits open had no way to
   reach it. First fixed with a one-shot `td-squad-ended` window event, piggybacked on `td-nav.js`'s

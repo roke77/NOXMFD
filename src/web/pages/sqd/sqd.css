@@ -240,6 +240,9 @@
   padding: 3px 8px;
 }
 .sqd-row-btn:hover { background: var(--no-green-dim); color: var(--no-ink); }
+/* A slot left empty by a departure (sqd.js addOpenRow) — inactive, so --no-gray. */
+.sqd-row.open .sqd-row-name { color: var(--no-gray); }
+
 /* ▲/▼ (renumber), star (make leader) / x (kick) on each non-leader roster row (sqd.js) — plain icon buttons, no
    border, matching WPT's own row-action icons (shared/page-chrome.css's .wpt-row-btn/
    .sqd-row-icon-btn rule) rather than this page's pill-style .sqd-row-btn (kept for INVITE, the

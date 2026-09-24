@@ -278,9 +278,9 @@ with every member; members only ever talk to the leader, never each other):
   editor (EDIT swaps the title for a callsign+flight picker in place). Re-numbering the flight
   re-numbers every member's own `"<CALLSIGN> <FLIGHT>-<MEMBER>"` designation immediately, keeping
   each MEMBER number.
-- `sqd.move-member` — leader-only, `{peer, index: -1|1}`: swaps a member with its neighbour in
-  `_members`, renumbering both, then broadcasts the roster. TD slot assignments move with the
-  member (`TdStore.SwapSlots`). docs/squad-callsign-names.md.
+- `sqd.move-member` — leader-only, `{peer, index: -1|1}`: moves a member into the neighbouring
+  slot, swapping with whoever holds it or moving into it when empty, then broadcasts the roster. TD
+  slot assignments move with the member (`TdStore.SwapSlots`). docs/squad-callsign-names.md.
 - `sqd.data` — the generic data slot this doc's scope section describes. WPT uses it for per-route
   and per-steer-point sharing; share buttons only show for a squad leader with at least one member.
   `Squad.SendDataTo` is the per-recipient sibling
@@ -380,9 +380,11 @@ of free text and a bare join-order count.
   callsign (`Squad.SetCallsign(name, flight)`, issue #47 follow-up).
 - **Per-member designation** — every roster row (SQD) and squad button (TD, docs/target-designator.md)
   renders `"<CALLSIGN> <FLIGHT>-<MEMBER>"`, e.g. `TALON 1-2`: `FLIGHT` is the squad's current flight
-  number, `MEMBER` is the member's position in `Squad.cs`'s `_members` + 2 (1 = leader). New
-  members append, so it starts as join order; the leader's ▲/▼ (`sqd.move-member`) reorders it
-  (docs/squad-callsign-names.md, which also makes the designation the in-game player name). Matches the standard "Flight Lead / Wingman / Element Lead / Element Wingman"
+  number, `MEMBER` is the member's own slot (`Squad.Member.Slot`, 1 = leader). A new member takes
+  the lowest free slot; a departure leaves its slot empty rather than renumbering anyone; the
+  leader's ▲/▼ (`sqd.move-member`) moves members between slots, and a leadership handoff renumbers
+  the rest `2..n` (docs/squad-callsign-names.md, which also makes the designation the in-game
+  player name). Matches the standard "Flight Lead / Wingman / Element Lead / Element Wingman"
   4-ship structure (`CALLSIGN FLIGHT-AIRCRAFT` format) a real squadron uses.
 
 ## Security and privacy consequences

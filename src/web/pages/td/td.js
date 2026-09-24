@@ -70,11 +70,11 @@ function makeRow(t, onClick) {
   return row;
 }
 
-// Squad-slot numbering — 1 is the leader/self, member i (join order) is i+2. Same scheme sqd.js's
-// own addSquadRow uses (Squad.cs's _members list only ever appends, so index IS join order).
+// Squad-slot numbering — 1 is the leader/self, every member carries its own `slot` (Squad.cs's
+// Member.Slot, kept when others leave). Same numbers sqd.js's roster shows.
 function squadSlots(state) {
   const slots = [{ num: 1, name: 'SELF' }];
-  (state.members || []).forEach(function (m, i) { slots.push({ num: i + 2, name: m.name || m.id }); });
+  (state.members || []).forEach(function (m) { slots.push({ num: m.slot, name: m.name || m.id }); });
   return slots;
 }
 
@@ -235,8 +235,8 @@ designateBtn.addEventListener('click', function () {
   const assignments = effectiveAssignments(td.state);
   const byId = {};
   liveTargets.forEach(function (t) { byId[t.id] = t; });
-  (state.members || []).forEach(function (m, i) {
-    const slot = i + 2;
+  (state.members || []).forEach(function (m) {
+    const slot = m.slot;
     const ids = Object.keys(assignments).filter(function (id) { return assignments[id].indexOf(slot) !== -1; });
     if (ids.length === 0) return;   // nothing assigned to this member — nothing to send
     const rows = ids.map(function (id) { return byId[id]; }).filter(Boolean)

@@ -99,7 +99,7 @@ of units can be squad-targeted at once.
   data; the marker pool then naturally empties on the very next frame since nothing queries true
   anymore — no separate HUD-side cleanup needed.
 - **Roster shrink**: `SquadTargetsStore.RemoveMember` is called from `Squad.cs`'s `Kick()`/
-  `HandleLeave()`, right alongside the existing `TdStore.RenumberAfterMemberRemoved` call — a
+  `HandleLeave()`, right alongside the `TdStore.ClearSlot` call — a
   departed member's last-known lock set stops counting toward "any other member" immediately, not
   just after their next (nonexistent) update.
 
