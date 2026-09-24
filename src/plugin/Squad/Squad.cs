@@ -199,6 +199,7 @@ namespace NOXMFD
             _members.Clear();
             _callsign = name;
             _flight = flight;
+            PlayerNameOverride.SquadLog($"created squad {_callsign} {_flight}");
             RebuildState();
             return true;
         }
@@ -238,6 +239,7 @@ namespace NOXMFD
             _flight = inv.Flight;
             _members.Clear();
             _members.AddRange(inv.Members);
+            PlayerNameOverride.SquadLog($"joined {_leaderName}'s squad {_callsign} {_flight}: {RosterSummary()}");
 
             Squadron.SendTo(_leaderId, "sqd.accept", "{\"name\":\"" + Esc(SelfName()) + "\"}");
             RebuildState();
@@ -304,6 +306,8 @@ namespace NOXMFD
             string leaderChanged = "{\"leaderId\":\"" + newLeader.ToString(CultureInfo.InvariantCulture) +
                                     "\",\"leaderName\":\"" + Esc(successor.Name) + "\"}";
             foreach (var m in remaining) Squadron.SendTo(m.Id, "sqd.leader-changed", leaderChanged);
+            PlayerNameOverride.SquadLog($"handed lead to {successor.Name} ({newLeader}); rest renumbered: " +
+                                        string.Join(", ", remaining.ConvertAll(m => m.Slot + ":" + m.Name)));
 
             // No CloseSessions here — same reasoning as Leave(): sqd.transfer/sqd.leader-changed are
             // the messages this whole handoff depends on, and closing these sessions immediately
@@ -327,6 +331,7 @@ namespace NOXMFD
             if (flight < 1 || flight > 9) return false;
             _callsign = name;
             _flight = flight;
+            PlayerNameOverride.SquadLog($"callsign set to {_callsign} {_flight}");
             RebuildState();
             BroadcastRoster();
             return true;
@@ -344,6 +349,8 @@ namespace NOXMFD
             int target = SquadDesignations.MoveTarget(member.Slot, dir, _members[_members.Count - 1].Slot);
             if (target < 0) return false;
             Member? other = _members.Find(m => m.Slot == target);
+            PlayerNameOverride.SquadLog($"move {member.Name} slot {member.Slot} -> {target}" +
+                                        (other != null ? $" (swapped with {other.Name})" : " (into open slot)"));
             if (other != null) other.Slot = member.Slot;
             TdStore.SwapSlots(member.Slot, target);
             member.Slot = target;
@@ -373,6 +380,7 @@ namespace NOXMFD
             if (_role != Role.Leader) return false;
             int slot = RemoveMember(memberId);
             if (slot < 0) return false;
+            PlayerNameOverride.SquadLog($"kicked {memberId}; slot {slot} open: {RosterSummary()}");
             CleanupRemovedMember(slot, memberId);
             // No CloseSession here — same reasoning as Leave(): sqd.kick must arrive, and closing this
             // session immediately after queuing it risks Steam dropping it before it flushes. The
@@ -409,6 +417,7 @@ namespace NOXMFD
                 {
                     int slot = RemoveMember(m.Id);
                     if (slot < 0) continue;
+                    PlayerNameOverride.SquadLog($"lost contact with {m.Name} ({m.Id}); slot {slot} open: {RosterSummary()}");
                     CleanupRemovedMember(slot, m.Id);
                 }
                 BroadcastRoster();
@@ -497,6 +506,7 @@ namespace NOXMFD
             {
                 _members.Add(new Member(from, name, SquadDesignations.FirstFreeSlot(_members.ConvertAll(m => m.Slot))));
                 SortMembers();
+                PlayerNameOverride.SquadLog($"{name} ({from}) joined: {RosterSummary()}");
             }
             BroadcastRoster();
             RebuildState();
@@ -538,6 +548,7 @@ namespace NOXMFD
             _flight = IntField(obj, "flight");
             _members.Clear();
             _members.AddRange(ParseMembers(obj != null && obj.TryGetValue("members", out object? mv) ? mv : null));
+            PlayerNameOverride.SquadLog($"roster from {_leaderName}, {_callsign} {_flight}: {RosterSummary()}");
             RebuildState();
         }
 
@@ -546,6 +557,7 @@ namespace NOXMFD
             if (_role != Role.Leader) return;
             int slot = RemoveMember(from);
             if (slot < 0) return;
+            PlayerNameOverride.SquadLog($"{from} left; slot {slot} open: {RosterSummary()}");
             CleanupRemovedMember(slot, from);
             Squadron.CloseSession(from);
             BroadcastRoster();
@@ -591,6 +603,7 @@ namespace NOXMFD
             _members.AddRange(members);
             _pendingSent.Clear();
             foreach (var m in _members) Squadron.OpenSession(m.Id);
+            PlayerNameOverride.SquadLog($"became leader of {_callsign} {_flight}: {RosterSummary()}");
             // This pilot's own MEMBER-side state — a received designation snapshot, a route locked
             // read-only from the old leader — is now stale: the old leader is gone and this pilot is
             // about to start acting as leader instead. Same "the old relationship is over, whether
@@ -610,6 +623,7 @@ namespace NOXMFD
             var obj = JsonLite.Parse(payload) as Dictionary<string, object?>;
             _leaderId = ULongOf(Str(obj, "leaderId"));
             _leaderName = Str(obj, "leaderName");
+            PlayerNameOverride.SquadLog($"new leader {_leaderName} ({_leaderId})");
             // Roster stays as last known until the new leader's own sqd.roster confirms it.
             // Same treatment as the squad actually ending (OnSquadEnded's own header has the full
             // reasoning): SendData is leader-only, so the OLD leader just lost the ability to ever
@@ -708,6 +722,7 @@ namespace NOXMFD
         // possibly in a different mission, without disturbing the seq's own contract.
         private static void ResetToNone()
         {
+            if (_role != Role.None) PlayerNameOverride.SquadLog("out of the squad");
             _role = Role.None;
             _leaderId = 0;
             _leaderName = string.Empty;
@@ -747,6 +762,10 @@ namespace NOXMFD
             }
             return -1;
         }
+
+        // ponytail: part of the temporary SquadLog diagnostics — remove with them.
+        private static string RosterSummary() =>
+            _members.Count == 0 ? "no members" : string.Join(", ", _members.ConvertAll(m => m.Slot + ":" + m.Name));
 
         private static void SortMembers() => _members.Sort((a, b) => a.Slot.CompareTo(b.Slot));
 

@@ -22,6 +22,11 @@ namespace NOXMFD
             typeof(Player).GetField("_onNameResolved", BindingFlags.NonPublic | BindingFlags.Instance);
         private static bool _loggedFailure;
 
+        // ponytail: temporary field diagnostics for the squad-designation release, so players can
+        // send logs of renames and slot changes. Remove this and every SquadLog call once reports
+        // settle (grep SquadLog).
+        internal static void SquadLog(string msg) => Plugin.Log?.LogInfo("[NOXMFD squad-names] " + msg);
+
         private sealed class Applied
         {
             internal PlayerName Original = null!;   // the game's own object, restored on leave
@@ -74,12 +79,15 @@ namespace NOXMFD
                             PlayerName original = liveIsOurs ? cur!.Original : live;
                             var renamed = new PlayerName(original.RawSteamName, Sanitize(designation));
                             Set(p, renamed);
+                            SquadLog($"rename {id} '{original.SanitizedName}' -> '{designation}'" +
+                                     (cur != null && !liveIsOurs ? " (re-applied after the game reset its name cache)" : ""));
                             next[id] = new Applied { Original = original, Renamed = renamed, Designation = designation };
                         }
                     }
                     else if (liveIsOurs)
                     {
                         Set(p, cur!.Original);
+                        SquadLog($"restore {id} -> '{cur.Original.SanitizedName}'");
                     }
                     else continue;
 
@@ -105,7 +113,10 @@ namespace NOXMFD
                 if (wanted.ContainsKey(kv.Key)) { next[kv.Key] = kv.Value; continue; }
                 var key = new CSteamID(kv.Key);
                 if (UnitRegistry.cachedPlayerNames.TryGetValue(key, out PlayerName cached) && ReferenceEquals(cached, kv.Value.Renamed))
+                {
                     UnitRegistry.cachedPlayerNames[key] = kv.Value.Original;
+                    SquadLog($"restore {kv.Key} (not in match) -> '{kv.Value.Original.SanitizedName}'");
+                }
             }
             _applied = next;
         }
@@ -159,6 +170,7 @@ namespace NOXMFD
                 if (ac == null || ac.Player != p || ac.definition == null) continue;
                 string want = label + ac.definition.unitName + "]";
                 if (ac.unitName == want) continue;
+                SquadLog($"relabel aircraft {ac.persistentID} '{ac.unitName}' -> '{want}'");
                 ac.unitName = want;
                 if (UnitRegistry.TryGetPersistentUnit(ac.persistentID, out PersistentUnit pu) && pu != null)
                     pu.unitName = want;
