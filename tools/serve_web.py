@@ -189,6 +189,17 @@ def _map_page(telemetry_only=False):
     return html.replace("</head>", injection + "</head>", 1).encode("utf-8")
 
 
+def _tgt_page():
+    """The TGT page with a fetch wrapper that, once a /command POST lands, nudges the MAP iframe's
+    mock stream (preview-mock.js) to re-poll /__preview-push right away — TGT's header sort
+    (tgt.sort) otherwise waits up to that poll's 1.5s interval to show."""
+    html = (WEB / "pages" / "tgt" / "tgt.html").read_text(encoding="utf-8")
+    nudge = ("<script>(function(){const f=window.fetch.bind(window);window.fetch=function(i,o){"
+             "const p=f(i,o);if(String(i).indexOf('/command')===0)p.then(function(){"
+             "try{new BroadcastChannel('preview-push').postMessage(1);}catch(e){}});return p;};})();</script>\n")
+    return html.replace("</head>", nudge + "</head>", 1).encode("utf-8")
+
+
 def _wpt_page():
     """The WPT page (src/web/pages/wpt/wpt.html) with the showcase route seeded before </head> —
     unlike map.html above it has no /stream mock to inject, just the localStorage seed, since WPT
@@ -294,7 +305,7 @@ def _preview_push(query):
         hashes[name] = digest
         if previous.get(name, [""])[0] != digest:
             events[name] = json.loads(payload)
-    return json.dumps({"hashes": hashes, "events": events}).encode("utf-8")
+    return json.dumps({"hashes": hashes, "events": events, "tgtSort": TGT_SORT}).encode("utf-8")
 
 
 # Mock of the plugin's /hud-options (TelemetryServer.RefreshHudOptions). A real in-game snapshot,
@@ -799,6 +810,18 @@ def _preset_command(env):
 TGT_PRESETS = [{"index": i, "name": "", "hasData": False} for i in range(1, 6)]
 TGT_PRESET_STATE = {"current": 1}
 
+# Mock of TargetSort.cs's shared TGT column sort — tgt.sort sets it; preview-mock.js reads it back
+# off /__preview-push and re-sorts its own mock target list the same way the plugin would.
+TGT_SORT = {"key": "", "dir": 1}
+
+
+def _tgt_sort_command(env):
+    if env.get("cmd") != "tgt.sort" or env.get("key", "") not in ("", "n", "src", "r"):
+        return False
+    TGT_SORT["key"] = env.get("key", "")
+    TGT_SORT["dir"] = -1 if (env.get("index") or 1) < 0 else 1
+    return True
+
 
 def _tgt_presets_options():
     return json.dumps({"current": TGT_PRESET_STATE["current"], "presets": TGT_PRESETS}).encode("utf-8")
@@ -974,6 +997,7 @@ class H(http.server.SimpleHTTPRequestHandler):
             _layout_command(env)
             _preset_command(env)
             _tgt_preset_command(env)
+            _tgt_sort_command(env)
             _soi_command(env)
             self.send_response(204)
             self.end_headers()
@@ -1038,6 +1062,8 @@ class H(http.server.SimpleHTTPRequestHandler):
                 return self._send(_map_page('telemetry=1' in self.path), 'text/html; charset=utf-8')
             except OSError as e:
                 return self.send_error(404, str(e))
+        if path == '/tgt':
+            return self._send(_tgt_page(), 'text/html; charset=utf-8')
         if path == '/wpt':
             try:
                 return self._send(_wpt_page(), 'text/html; charset=utf-8')

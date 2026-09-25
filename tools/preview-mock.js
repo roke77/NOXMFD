@@ -310,6 +310,28 @@
     FRAME.xz = [{ id: 900, x: ow.x + 9000, z: ow.z + 6000, r: 5200 }];
   }
 
+  // TGT column sort (TargetSort.cs mirror): serve_web.py holds the tgt.sort state and hands it back
+  // on /__preview-push; the plugin sorts lockedTargetIds, but the mock ships its rows as
+  // FRAME.targets, so re-sort those directly. Same rules: stable (ties keep lock order), NAME
+  // case-insensitive, SRC alphabetical by label, unknown RNG last in either direction.
+  const TGT_LOCK_ORDER = Array.isArray(FRAME.targets) ? FRAME.targets.slice() : [];
+  function applyTgtSort(s) {
+    if (!s || (FRAME.tgtSort === s.key && FRAME.tgtSortDir === s.dir)) return;
+    FRAME.tgtSort = s.key; FRAME.tgtSortDir = s.dir;
+    const src = t => t.st ? 'STALE' : t.dl ? 'DATALINK' : 'SENSOR';
+    const val = { n: t => (t.n || '').toLowerCase(), src: src, r: t => t.r }[s.key];
+    FRAME.targets = !val ? TGT_LOCK_ORDER.slice() : TGT_LOCK_ORDER.slice().sort((a, b) => {
+      const x = val(a), y = val(b);
+      if (s.key === 'r') {
+        const fx = Number.isFinite(x), fy = Number.isFinite(y);
+        if (fx !== fy) return fx ? -1 : 1;
+        if (!fx) return 0;
+        return (x - y) * s.dir;
+      }
+      return (x < y ? -1 : x > y ? 1 : 0) * s.dir;
+    });
+  }
+
   // RWR/RDR: prefer a real capture's own contacts when it has any (tools/capture_screenshots.py's
   // whole point is documenting real per-mission state, and a real capture with an empty scope is
   // itself real information, not a gap to paper over). The curated synthetic scenario further down
@@ -514,6 +536,7 @@
           .then(r => r.ok ? r.json() : null).then(result => {
             if (!result) return;
             pushHashes = result.hashes || pushHashes;
+            applyTgtSort(result.tgtSort);
             Object.keys(result.events || {}).forEach(name => {
               this._fire(name, JSON.stringify(result.events[name]));
             });
@@ -527,6 +550,8 @@
         this._timer = setInterval(tick, 150);
         this._cursorTimer = setInterval(cursorTick, 16);
         this._pushTimer = setInterval(pushTick, 1500);
+        // serve_web.py's _tgt_page nudges this after a tgt.sort so it shows now, not on the next tick.
+        try { this._bc = new BroadcastChannel('preview-push'); this._bc.onmessage = pushTick; } catch (e) {}
       }, 30);
     }
     addEventListener(type, fn) { (this._listeners[type] = this._listeners[type] || []).push(fn); }
@@ -537,7 +562,7 @@
     }
     _fire(type, data) { (this._listeners[type] || []).forEach(fn => fn({ data })); }
     _send(data) { if (this.onmessage) this.onmessage({ data }); }
-    close() { clearInterval(this._timer); clearInterval(this._cursorTimer); clearInterval(this._pushTimer); }
+    close() { clearInterval(this._timer); clearInterval(this._cursorTimer); clearInterval(this._pushTimer); if (this._bc) this._bc.close(); }
   }
   window.EventSource = MockEventSource;
 
