@@ -640,7 +640,7 @@ def _td_command(env):
         except (TypeError, ValueError):
             return
         # Mirrors TdStore.Assign(): toggle slot membership for every currently-selected id, then
-        # clear the selection.
+        # clear the selection — unless `on` (a long-press) asks to keep it.
         for tid in _TD["selected"]:
             key = str(tid)
             slots = _TD["assignments"].setdefault(key, [])
@@ -650,7 +650,8 @@ def _td_command(env):
                     del _TD["assignments"][key]
             else:
                 slots.append(slot)
-        _TD["selected"].clear()
+        if not env.get("on"):
+            _TD["selected"].clear()
     elif cmd == "td.assign-all":
         # Mirrors TdStore.AssignAll(): every squad slot (leader = 1), all-or-nothing.
         every = [1] + [m["slot"] for m in _SQD["members"]]
