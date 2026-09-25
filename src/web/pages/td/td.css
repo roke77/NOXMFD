@@ -30,12 +30,20 @@
 .td-section { margin-bottom: 20px; }
 
 /* Squad-slot buttons — 4 columns per issue #47's scope, including a dedicated leader/self button. */
-.td-squad-buttons {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
+.td-squad-row {
+  display: flex;
   gap: 8px;
   margin-bottom: 16px;
 }
+.td-squad-buttons {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+.td-squad-all { flex: 0 0 auto; display: flex; flex-direction: column; }
+.td-squad-all .td-squad-btn { padding: 8px 12px; }
 .td-squad-btn {
   padding: 8px 4px;
   border: 1px solid var(--no-squad);

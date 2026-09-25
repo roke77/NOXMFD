@@ -651,6 +651,20 @@ def _td_command(env):
             else:
                 slots.append(slot)
         _TD["selected"].clear()
+    elif cmd == "td.assign-all":
+        # Mirrors TdStore.AssignAll(): every squad slot (leader = 1), all-or-nothing.
+        every = [1] + [m["slot"] for m in _SQD["members"]]
+        sel = [str(t) for t in _TD["selected"]]
+        remove = all(set(every) <= set(_TD["assignments"].get(k, [])) for k in sel)
+        for key in sel:
+            slots = set(_TD["assignments"].get(key, []))
+            slots = slots - set(every) if remove else slots | set(every)
+            if slots:
+                _TD["assignments"][key] = sorted(slots)
+            else:
+                _TD["assignments"].pop(key, None)
+        if not env.get("on"):
+            _TD["selected"].clear()
     elif cmd == "td.clear":
         _TD["selected"].clear()
         _TD["assignments"] = {}

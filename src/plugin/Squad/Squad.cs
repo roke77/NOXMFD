@@ -116,6 +116,14 @@ namespace NOXMFD
         // current by the leader's sqd.roster broadcasts. Always sorted by Slot (SortMembers).
         private static readonly List<Member> _members = new List<Member>();
 
+        // Every squad slot, leader (1) first — TD's "<CALLSIGN> ALL" assigns to all of them.
+        internal static List<int> AllSlots()
+        {
+            var slots = new List<int> { 1 };
+            foreach (Member m in _members) slots.Add(m.Slot);
+            return slots;
+        }
+
         // Leader only: invites sent, awaiting sqd.accept/sqd.decline/sqd.conflict — id -> the
         // invitee's name, kept only so a later notice (HandleConflict) can name them. No expiry:
         // an invite lives until the pilot actually answers it, however long that takes — there's no

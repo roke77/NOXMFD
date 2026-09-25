@@ -52,7 +52,12 @@
 
   <!-- Leader: own live TGT list + squad-slot assignment overlay. -->
   <div class="td-section" id="td-leader-section" style="display:none;">
-    <div class="td-squad-buttons" id="td-squad-buttons"></div>
+    <!-- "<CALLSIGN> ALL" sits in its own column right of the member grid, so it stays beside the
+         members however many rows they wrap to. -->
+    <div class="td-squad-row">
+      <div class="td-squad-buttons" id="td-squad-buttons"></div>
+      <div class="td-squad-all" id="td-squad-all"></div>
+    </div>
 
     <div class="td-list">
       <div class="td-list-head">

@@ -38,6 +38,25 @@ namespace NOXMFD.Tests
             Assert.Contains("\"2\":[3]", TdStore.StateJson);
         }
 
+        // "<CALLSIGN> ALL": all-or-nothing, not a per-slot toggle — a target that already has some
+        // of the slots gains the rest rather than losing the ones it had.
+        [Fact]
+        public void AssignAll_adds_every_slot_then_a_second_press_removes_them_all()
+        {
+            var slots = new List<int> { 1, 2, 3 };
+            TdStore.ToggleSelect(1);
+            TdStore.Assign(2);                        // target 1 already has slot 2
+            TdStore.ToggleSelect(1);
+            TdStore.ToggleSelect(2);
+            Assert.True(TdStore.AssignAll(slots, retain: true));
+            Assert.Contains("\"1\":[2,1,3]", TdStore.StateJson);
+            Assert.Contains("\"2\":[1,2,3]", TdStore.StateJson);
+
+            Assert.True(TdStore.AssignAll(slots));    // everyone already on both -> clear them all
+            Assert.Contains("\"assignments\":{}", TdStore.StateJson);
+            Assert.Contains("\"selected\":[]", TdStore.StateJson);
+        }
+
         [Fact]
         public void Assign_a_second_time_for_the_same_slot_unassigns_it()
         {

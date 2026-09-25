@@ -86,6 +86,30 @@ namespace NOXMFD
             return true;
         }
 
+        // TD's "<CALLSIGN> ALL" button: every squad slot (leader included) at once. Not a per-slot
+        // toggle — that would flip a partly-assigned target's existing slots off — but all-or-nothing:
+        // if every selected target already carries every slot, removes them all; otherwise assigns
+        // them all. `retain` is Assign's own tap-vs-long-press flag.
+        internal static bool AssignAll(IReadOnlyList<int> slots, bool retain = false)
+        {
+            if (slots.Count == 0 || _selected.Count == 0) return false;
+            bool allAssigned = true;
+            foreach (uint id in _selected)
+                foreach (int slot in slots)
+                    if (!_assignments.TryGetValue(id, out HashSet<int>? has) || !has.Contains(slot)) allAssigned = false;
+            foreach (uint id in _selected)
+            {
+                if (!_assignments.TryGetValue(id, out HashSet<int>? has))
+                    _assignments[id] = has = new HashSet<int>();
+                foreach (int slot in slots)
+                    if (slot > 0) { if (allAssigned) has.Remove(slot); else has.Add(slot); }
+                if (has.Count == 0) _assignments.Remove(id);
+            }
+            if (!retain) _selected.Clear();
+            RebuildState();
+            return true;
+        }
+
         // Slot numbers are each member's own Squad Member.Slot, kept when others leave — so a kick,
         // leave or dropout only drops assignments to the departed member's slot, which stays empty
         // until someone joins into it. Without this, an assignment made before the departure would

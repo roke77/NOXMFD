@@ -152,6 +152,7 @@ namespace NOXMFD
                 // than inside Squad/TdStore themselves.
                 { "td.select",              e => { if (Squad.IsLeader) TdStore.ToggleSelect(unchecked((uint)e.id)); } },
                 { "td.assign",              e => { if (Squad.IsLeader) TdStore.Assign(e.index, e.on); } },
+                { "td.assign-all",          e => { if (Squad.IsLeader) TdStore.AssignAll(Squad.AllSlots(), e.on); } },
                 { "td.clear",               e => { if (Squad.IsLeader) TdStore.ClearOwn(); } },
                 { "td.designate",           TdDesignate },
                 { "td.member-clear",        e => TdStore.ClearDesignated() },

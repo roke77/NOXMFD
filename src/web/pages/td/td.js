@@ -25,6 +25,7 @@ const unavailableEl = document.getElementById('td-unavailable');
 const leaderSection  = document.getElementById('td-leader-section');
 const memberSection  = document.getElementById('td-member-section');
 const squadButtons   = document.getElementById('td-squad-buttons');
+const squadAllEl     = document.getElementById('td-squad-all');
 const leaderRows     = document.getElementById('td-leader-rows');
 const leaderEmpty    = document.getElementById('td-leader-empty');
 const designateBtn   = document.getElementById('td-designate');
@@ -133,18 +134,31 @@ let lastAppliedMetric = null;     // liveTargetsMetric as of the last leader/mem
 // selection to several slots in a row without re-selecting between each one. `on` tells the plugin
 // to do the same server-side, so a REFRESH mid-sequence doesn't wipe the highlights being kept.
 const LONG_MS = 500;
+// `slot` is one squad slot, or 'all' (the "<CALLSIGN> ALL" button): every slot at once, all-or-
+// nothing — removes them all if every selected target already has every slot, else adds them all
+// (TdStore.AssignAll). The optimistic update mirrors the plugin's own rule.
 function doAssign(slot, retain) {
+  const all = slot === 'all';
+  const slots = all ? squadSlots(squad.state).map(function (s) { return s.num; }) : [slot];
   const nextAssignments = Object.assign({}, effectiveAssignments(td.state));
-  effectiveSelected(td.state).forEach(function (id) {
+  const selected = effectiveSelected(td.state);
+  const allAssigned = all && Array.from(selected).every(function (id) {
+    const has = nextAssignments[String(id)] || [];
+    return slots.every(function (n) { return has.indexOf(n) !== -1; });
+  });
+  selected.forEach(function (id) {
     const key = String(id);
     const memberSlots = new Set(nextAssignments[key] || []);
-    if (memberSlots.has(slot)) memberSlots.delete(slot); else memberSlots.add(slot);
+    slots.forEach(function (n) {
+      if (all ? allAssigned : memberSlots.has(n)) memberSlots.delete(n); else memberSlots.add(n);
+    });
     if (memberSlots.size) nextAssignments[key] = Array.from(memberSlots); else delete nextAssignments[key];
   });
   assignmentsOverride = nextAssignments;
   if (!retain) selectedOverride = new Set();
   applySelectionState();
-  send('td.assign', { index: slot, on: retain });
+  if (all) send('td.assign-all', { on: retain });
+  else send('td.assign', { index: slot, on: retain });
 }
 
 function renderSquadButtons(state) {
@@ -153,10 +167,11 @@ function renderSquadButtons(state) {
   if (sig === lastSquadSig) return;
   lastSquadSig = sig;
   squadButtons.innerHTML = '';
-  slots.forEach(function (s) {
+  squadAllEl.innerHTML = '';
+  slots.concat([{ num: 'all', name: 'Every squad member' }]).forEach(function (s) {
     const btn = document.createElement('button');
     btn.className = 'td-squad-btn pad-hoverable';
-    btn.textContent = squadDesignation(state, s.num);
+    btn.textContent = s.num === 'all' ? (state.callsign || 'SQD') + ' ALL' : squadDesignation(state, s.num);
     btn.title = s.name;
     btn.dataset.slot = s.num;
     let longFired = false;
@@ -171,7 +186,7 @@ function renderSquadButtons(state) {
     });
     btn.addEventListener('pointerleave', function () { clearTimeout(timer); });
     btn.addEventListener('pointercancel', function () { clearTimeout(timer); });
-    squadButtons.appendChild(btn);
+    (s.num === 'all' ? squadAllEl : squadButtons).appendChild(btn);
   });
 }
 
