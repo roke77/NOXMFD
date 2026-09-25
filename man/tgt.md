@@ -14,6 +14,8 @@ buttons:
 - **Hold** a filter to isolate it — turns everything else in its row off, leaving just that one on.
 - **RESET FILTER** turns every filter back on.
 
+Units the filters leave out are drawn dimmed on the [MAP](map.md), same as on the in-game map.
+
 ## Target list
 
 The **NAME** column header reads **TARGETS (N)** — the running total in amber — handy for matching
