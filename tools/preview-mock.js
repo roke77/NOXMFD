@@ -303,6 +303,13 @@
         { targets: window.__PREVIEW_FRAME__.targets || DEFAULT_FRAME.targets })
     : DEFAULT_FRAME;
 
+  // One nuclear exclusion zone (MAP's orange ring, FactionHQ.GetExclusionZones) placed off the
+  // active frame's ownship so it lands on-screen for any capture: {id,x,z,r}, metres.
+  if (!Array.isArray(FRAME.xz)) {
+    const ow = FRAME.world || { x: 0, z: 0 };
+    FRAME.xz = [{ id: 900, x: ow.x + 9000, z: ow.z + 6000, r: 5200 }];
+  }
+
   // RWR/RDR: prefer a real capture's own contacts when it has any (tools/capture_screenshots.py's
   // whole point is documenting real per-mission state, and a real capture with an empty scope is
   // itself real information, not a gap to paper over). The curated synthetic scenario further down

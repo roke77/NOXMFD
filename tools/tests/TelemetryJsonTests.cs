@@ -35,6 +35,8 @@ namespace NOXMFD.Tests
             Assert.Empty(Arr(Obj(root["rdr"])["pb"]));
             Assert.Empty(Arr(Obj(root["hsd"])["items"]));
             Assert.Empty(Arr(root["contacts"]));
+            Assert.Empty(Arr(root["xz"]));
+            Assert.Equal("", root["tgtSort"]);
             Assert.Empty(Arr(root["loadout"]));
             Assert.Empty(Arr(root["parts"]));
             Assert.Empty(Arr(root["pylons"]));
@@ -49,6 +51,24 @@ namespace NOXMFD.Tests
             Assert.Equal(0.0, Obj(akf["kills"])["aircraft"]);
 
             Assert.Empty(Obj(Obj(root["colors"])["types"]));
+        }
+
+        // Nuclear exclusion zones (MAP's orange ring) and TGT's shared sort state, both top-level.
+        [Fact]
+        public void Exclusion_zones_and_tgt_sort_are_serialized_top_level()
+        {
+            var s = new TelemetrySnapshot
+            {
+                ExclusionZones = new[] { new HsdThreat { Id = 7, X = 100.5f, Z = -200f, Range = 1234.5f, Name = "" } },
+                TgtSortKey = "r", TgtSortDir = -1,
+            };
+            var root = Root(s);
+            var z = Obj(Arr(root["xz"])[0]);
+            Assert.Equal(100.5, z["x"]);
+            Assert.Equal(-200.0, z["z"]);
+            Assert.Equal(1234.5, z["r"]);
+            Assert.Equal("r", root["tgtSort"]);
+            Assert.Equal(-1.0, root["tgtSortDir"]);
         }
 
         // Top-level, not nested in "rdr"/"hsd" (issue #84) — OBJ/WPT/TGT/TD need the player's

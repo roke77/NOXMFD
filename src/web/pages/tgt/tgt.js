@@ -27,6 +27,11 @@ let state = { present: false, laser: false, hud: false, faction: [], category: [
 let targets = [];        // selected-target list (from 'tgt-targets'): [{ id, n, g, r, f, dl, hd, sp, al, h }]
 let targetsKey = '';     // id-set signature; rebuild rows only when it changes
 let targetsMetric = false;   // player's Metric/Imperial preference, carried on 'tgt-targets' too
+// Shared column sort (TargetSort.cs) — owned by the plugin, so the rows already arrive in this order
+// and Next/Previous steps through them in it; the page only draws the ▲/▼ and sends taps.
+let sortKey = '', sortDir = 1;
+const sortBtns = document.querySelectorAll('.tl-sort');
+const SORT_NAMES = { n: 'name', src: 'source', r: 'range' };
 
 // ── DETAILED/COMPACT flight-data toggle (issue #88) ────────────────────────────────────
 // Purely a client-local display preference, same as AKF's identical toggle — nothing here reaches
@@ -183,6 +188,21 @@ function fmtHdg(deg) {
   return Math.round(((deg % 360) + 360) % 360) + '°';
 }
 
+function renderSort() {
+  sortBtns.forEach(function (b) {
+    const active = b.dataset.sort === sortKey;
+    if (active) b.dataset.dir = sortDir; else delete b.dataset.dir;
+    b.setAttribute('aria-label', 'Sort by ' + SORT_NAMES[b.dataset.sort] +
+      (active ? (sortDir > 0 ? ', ascending' : ', descending') : ''));
+  });
+}
+
+// Tap = sort by this column (again = reverse); long-press (below) = back to lock order.
+function tapSort(key) {
+  send('tgt.sort', { key: key, index: key === sortKey ? -sortDir : 1 });
+}
+function clearSort() { send('tgt.sort', { key: '', index: 1 }); }
+
 function renderTargets() {
   const list = targets;
   countNEl.textContent = list.length ? '(' + list.length + ')' : '';
@@ -256,31 +276,42 @@ listRows.addEventListener('click', function (e) {
   if (id) send('target.deselect', { id: Number(id) });
 });
 
-// ── Interaction: tap = toggle, long-press = "only this" (filter cells only) ───────────
+// ── Interaction: tap = toggle, long-press = "only this" (filter cells) ────────────────
+// Sort headers share the same tap/long-press split: tap = sort, long-press = lock order.
 const LONG_MS = 500;
-let press = null;   // { group, index, longFired, timer }
+let press = null;   // { group, index, sort, longFired, timer }
 
 function clearPress() { if (press) { clearTimeout(press.timer); press = null; } }
 
 panel.addEventListener('pointerdown', function (e) {
-  const cell = e.target.closest('.tgt-cell, .tgt-veh');
+  const cell = e.target.closest('.tgt-cell, .tgt-veh, .tl-sort');
   if (!cell) return;
-  press = { group: cell.dataset.group, index: +cell.dataset.index, longFired: false };
+  press = { group: cell.dataset.group, index: +cell.dataset.index, sort: cell.dataset.sort, longFired: false };
   press.timer = setTimeout(function () {
     if (!press) return;
     press.longFired = true;
-    send('tgt.only', { group: press.group, index: press.index });   // isolate this one in its group
+    if (press.sort) clearSort();
+    else send('tgt.only', { group: press.group, index: press.index });   // isolate this one in its group
   }, LONG_MS);
 });
 
 panel.addEventListener('pointerup', function (e) {
   if (!press) return;
-  const cell = e.target.closest('.tgt-cell, .tgt-veh');
-  // Fire the tap only if released on the same cell and the long-press hasn't already fired.
-  if (cell && cell.dataset.group === press.group && +cell.dataset.index === press.index && !press.longFired) {
+  const cell = e.target.closest('.tgt-cell, .tgt-veh, .tl-sort');
+  if (press.sort) {
+    if (cell && cell.dataset.sort === press.sort && !press.longFired) tapSort(press.sort);
+  } else if (cell && cell.dataset.group === press.group && +cell.dataset.index === press.index && !press.longFired) {
+    // Fire the tap only if released on the same cell and the long-press hasn't already fired.
     send('tgt.set', { group: press.group, index: press.index, on: !isOn(press.group, press.index) });
   }
   clearPress();
+});
+
+// Keyboard activation of a sort header (Enter/Space) — pointer taps are handled above, and a click
+// from those carries detail >= 1.
+panel.addEventListener('click', function (e) {
+  const b = e.target.closest('.tl-sort');
+  if (b && e.detail === 0) tapSort(b.dataset.sort);
 });
 
 panel.addEventListener('pointercancel', clearPress);
@@ -306,7 +337,7 @@ staleBtn.addEventListener('click', function () { send('tgt.clear-stale'); });
 // Same crosshair/transport MAP uses (pad-cursor.js), driven here only while this TGT is the SOI's
 // focused surface. Clamped to the panel's own box (panel-local px, matching the crosshair's
 // positioned ancestor — see tgt.css's .tgt-panel { position: relative }).
-const CURSORABLE = '.tgt-cell, .tgt-veh, .tl-row, .tgt-action, .tgt-mode, .tgt-datalink-btn, .tgt-stale-btn, .tgt-preset-btn, .tgt-density-toggle';
+const CURSORABLE = '.tgt-cell, .tgt-veh, .tl-sort, .tl-row, .tgt-action, .tgt-mode, .tgt-datalink-btn, .tgt-stale-btn, .tgt-preset-btn, .tgt-density-toggle';
 const padCursorEl = document.getElementById('pad-cursor');
 const cursor = createPadCursor({
   el: padCursorEl,
@@ -343,19 +374,23 @@ function padCursorSelectAt(px, py) {
     send('tgt.clear-datalink');   // mirrors datalinkBtn's own click outcome
   } else if (el.classList.contains('tgt-stale-btn')) {
     send('tgt.clear-stale');   // mirrors staleBtn's own click outcome
+  } else if (el.classList.contains('tl-sort')) {
+    tapSort(el.dataset.sort);   // mirrors the header's own pointer tap
   } else {
     el.click();   // .tl-row / .tgt-action / .tgt-mode already have plain click handlers
   }
 }
 
-// Select's HOLD outcome — only filter cells (.tgt-cell/.tgt-veh) have a long-press meaning ("only
-// this"); everything else, DATALINK included, has no hold behaviour, so holding over it is simply a
-// no-op (same as holding the pointer down over a plain button already is today).
+// Select's HOLD outcome — filter cells (.tgt-cell/.tgt-veh: "only this") and sort headers (lock
+// order) have a long-press meaning; everything else, DATALINK included, has no hold behaviour, so
+// holding over it is simply a no-op (same as holding the pointer down over a plain button already is).
 function padCursorHoldAt(px, py) {
   const el = elAt(px, py);
   if (!el) return;
   if (el.classList.contains('tgt-cell') || el.classList.contains('tgt-veh')) {
     send('tgt.only', { group: el.dataset.group, index: +el.dataset.index });
+  } else if (el.classList.contains('tl-sort')) {
+    clearSort();
   }
 }
 
@@ -393,6 +428,9 @@ window.addEventListener('message', function (e) {
     targets = Array.isArray(m.items) ? m.items : [];
     focusedTargetId = m.focusedTargetId || 0;
     targetsMetric = !!m.metric;
+    sortKey = m.sortKey || '';
+    sortDir = m.sortDir < 0 ? -1 : 1;
+    renderSort();
     renderTargets();
   } else if (m.action === 'cursor-focus') {
     // A fresh SOI grant always starts crosshair-active, regardless of whatever mode a previous
@@ -426,4 +464,5 @@ window.addEventListener('message', function (e) {
 });
 
 paint();          // initial paint — UNAVAILABLE until the first frame arrives
+renderSort();
 renderTargets();  // initial empty list

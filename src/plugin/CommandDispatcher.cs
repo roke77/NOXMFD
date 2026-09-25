@@ -46,6 +46,7 @@ namespace NOXMFD
                                 // tgp.zoom.set : +1 = zoom in, -1 = zoom out (TgpManualControl.SetZoom's
                                 // dir). tgp.zoom.step : same +1/-1 meaning, routed by mode to
                                 // TgpManualControl.StepZoom or TgpLockZoom.StepZoom (issue #83)
+                                // tgt.sort : +1 = ascending, -1 = descending
                                 // hsd.set-view : desired range-ladder index (hsd.js's own rangeIdx,
                                 // 0-4 into whichever of CEN_RANGE_NM/DEP_RANGE_NM the mode selects)
         public bool   on;      // tgt.set / tgt.laser / tgt.hud : desired toggle state
@@ -61,6 +62,7 @@ namespace NOXMFD
         public string? bind;   // keybind.* : BindDef id ("flares", "gear-up", ...)
                                 // wpt.* : route or steer-point id ("" = clear selection)
         public string? key;    // keybind.set-key : Unity KeyCode name ("" or "None" clears)
+                                // tgt.sort : "" (lock order) | "n" | "src" | "r"
         public string? cid;    // soi.panes / soi.page / soi.include : which instance is reporting
                                 // (a POST isn't tied to its /stream)
         public int    n;       // soi.panes : how many focusable surfaces that instance now shows
@@ -105,6 +107,7 @@ namespace NOXMFD
                 { "tgt.clear",       TgtClear },
                 { "tgt.clear-datalink", TgtClearDatalink },
                 { "tgt.clear-stale",    TgtClearStale },
+                { "tgt.sort",        TgtSort },
                 { "tgt.laser",       TgtLaser },
                 { "tgt.hud",         TgtHud },
                 { "hud.set",         HudSet },
@@ -765,6 +768,14 @@ namespace NOXMFD
 
         private static void TgtClearDatalink(CommandEnvelope env) => ClearDatalinkTargets();
         private static void TgtClearStale(CommandEnvelope env)    => ClearStaleTargets();
+
+        // TGT header tap/long-press (TargetSort.cs): key "" = back to lock order. Takes effect on
+        // the next contact scan, which re-sorts LockedTargetIds.
+        private static void TgtSort(CommandEnvelope env)
+        {
+            if (!TargetSort.Set(env.key ?? "", env.index))
+                Plugin.Log?.LogInfo($"[NOXMFD] tgt.sort: unknown key '{env.key}' — ignored.");
+        }
 
         // Internal, not private — same reasoning as Keybinds.CycleTargetFocus: the DATALINK/STALE
         // clear keybinds call these directly (Keybinds.cs) so they act regardless of SOI focus,

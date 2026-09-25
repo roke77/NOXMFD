@@ -44,6 +44,8 @@
     <!-- TargetFocus.cs (issue #62) has no Unity/BepInEx touchpoint either — same pure-state shape
          as SoiFocus.cs, just never pulled in before since nothing there needed testing standalone. -->
     <Compile Include="..\..\src\plugin\Targeting\TargetFocus.cs" Link="Source\TargetFocus.cs" />
+    <!-- TargetSort.cs — TGT's shared column sort, which TargetFocus.Cycle steps through. Pure BCL. -->
+    <Compile Include="..\..\src\plugin\Targeting\TargetSort.cs" Link="Source\TargetSort.cs" />
     <!-- SharedSelection.cs (docs/atc-extension-support.md item 3) — same pure-state shape as
          TargetFocus.cs above, no Unity/BepInEx touchpoint. -->
     <Compile Include="..\..\src\plugin\Extensions\SharedSelection.cs" Link="Source\SharedSelection.cs" />

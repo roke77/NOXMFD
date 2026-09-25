@@ -5,6 +5,7 @@ namespace NOXMFD.Tests
     // TargetFocus is internal static, process-wide mutable state (like SoiFocus) — every test starts
     // by driving it to a known state via Reconcile/Cycle rather than resetting a field directly, so
     // tests stay independent of xunit's run order without needing a [Collection]/lock dance.
+    [Collection("TargetFocus")]
     public class TargetFocusTests
     {
         [Fact]

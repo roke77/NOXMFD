@@ -132,6 +132,11 @@ namespace NOXMFD
         // focused one the native HUD cue already does.
         public float[] LockedTargetTti;
 
+        // TGT's shared column sort (TargetSort.cs) — "" (lock order) | "n" | "src" | "r", and
+        // +1/-1. LockedTargetIds above is already in this order; TGT only draws the ▲/▼ from it.
+        public string TgtSortKey;
+        public int    TgtSortDir;
+
         // The game's own HUD faction colors (hex), so the web map matches the game. An extension
         // can override these live via Api.SetFactionColorOverride (docs/vanilla-icons-plus-extension.md).
         public string ColFriendly;
@@ -248,6 +253,12 @@ namespace NOXMFD
         // anti-air-capable weapon station, and that station's effective max engagement range.
         // Same faction-known-position gating as Hsd above — an undetected SAM site gets no ring.
         public HsdThreat[] HsdThreats;
+
+        // Nuclear exclusion zones (FactionHQ.GetExclusionZones) — the orange rings the game's own map
+        // draws from a nuke's launch until it detonates, for the player's faction only. Id = the
+        // weapon's persistentID, Range = zone radius (m).
+        // ponytail: reuses HsdThreat's {id,x,z,r} circle shape rather than a near-identical struct.
+        public HsdThreat[] ExclusionZones;
 
         // HSD's own CEN/DEP mode + range-ladder index (HsdViewState, set by hsd.js's "hsd.set-view"
         // command) — lets InternalMfdHsdPage track whatever range/mode the external web HSD page

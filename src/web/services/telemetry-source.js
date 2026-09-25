@@ -334,9 +334,9 @@ export class TelemetrySource {
         const dz = u.z - d.world.z;
         targets.push({ id: u.id, n: u.t, g: gridLabel(u.x, u.z, this._meta), r: Math.hypot(dx, dz) / 1000, f: u.f, dl: !!u.dl, st: !!u.st, hd: !!u.hd, sp: u.sp || '', al: u.al || '', h: typeof u.h === 'number' ? u.h : null });
       }
-      // Sort to match weaponManager.GetTargetList()'s own order (TargetFocus.cs, lockedTargetIds) —
-      // the contact scan above walks an unrelated order, so without this TGT's Next/Previous would
-      // step focus in one order while the table displayed the locks in a different one.
+      // Sort to lockedTargetIds — the plugin's TGT order (TargetSort.cs: the game's own lock order,
+      // or the shared NAME/SRC/RNG column sort), the same order Next/Previous steps focus through.
+      // The contact scan above walks an unrelated order.
       if (Array.isArray(d.lockedTargetIds) && d.lockedTargetIds.length > 1) {
         const orderById = new Map(d.lockedTargetIds.map((id, i) => [id, i]));
         targets.sort((a, b) => orderById.get(a.id) - orderById.get(b.id));
@@ -354,7 +354,8 @@ export class TelemetrySource {
         if (typeof v === 'number' && v >= 0) t.tti = v;
       }
     }
-    this._postUp({ type: 'targets', items: targets, focusedTargetId: d.focusedTargetId || 0, metric: !!d.metric });
+    this._postUp({ type: 'targets', items: targets, focusedTargetId: d.focusedTargetId || 0, metric: !!d.metric,
+                   sortKey: d.tgtSort || '', sortDir: d.tgtSortDir || 1 });
 
     // Radar-warning emitters → nose-up plot (az = bearing relative to heading, dist = 1 - power).
     let rwr = [];

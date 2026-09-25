@@ -99,6 +99,9 @@ namespace NOXMFD
                     sb.Append(lockedTti[i].ToString("0.0", CultureInfo.InvariantCulture));
                 }
             sb.Append("],");
+            // TGT's shared column sort (TargetSort.cs) — lockedTargetIds above is already in this order.
+            sb.Append("\"tgtSort\":\"").Append(JsonLite.EscapeJson(s.TgtSortKey ?? "")).Append("\",");
+            sb.Append("\"tgtSortDir\":").Append(s.TgtSortDir < 0 ? -1 : 1).Append(',');
             sb.Append("\"tgpResolution\":\"").Append(JsonLite.EscapeJson(s.TgpResolution ?? "native")).Append("\",");
             sb.Append("\"tgpQuality\":\"").Append(JsonLite.EscapeJson(s.TgpQuality ?? "native")).Append("\",");
             sb.Append("\"tgpManual\":").Append(JsonBool(s.TgpManualActive)).Append(',');
@@ -115,6 +118,7 @@ namespace NOXMFD
               .Append("\",\"types\":").Append(TypeColorOverridesJson(s.TypeColorOverrides))
               .Append(",\"ids\":").Append(IdColorOverridesJson(s.IdColorOverrides)).Append('}')
               .Append(",\"contacts\":").Append(UnitsArray(s.Units))
+              .Append(",\"xz\":").Append(HsdThreatArray(s.ExclusionZones))
               .Append(",\"playerId\":").Append(s.PlayerId)
               .Append(",\"pjm\":").Append(JsonBool(s.PlayerJammed))
               .Append(",\"pjb\":").Append(s.PlayerJammedBy)

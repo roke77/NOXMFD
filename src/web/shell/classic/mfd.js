@@ -974,7 +974,8 @@ function forwardServerPlayersToPanes() { if (serverPlayersData) forwardToPanes('
 // No pagination — the page scrolls — so forward the whole list, to the frame and any TGT pane.
 function tgtTargetsMsg() {
   return { mfd: true, type: 'tgt-targets', items: targetsData.targets || [],
-           focusedTargetId: targetsData.focusedTargetId || 0, metric: targetsData.metric || false };
+           focusedTargetId: targetsData.focusedTargetId || 0, metric: targetsData.metric || false,
+           sortKey: targetsData.sortKey || '', sortDir: targetsData.sortDir || 1 };
 }
 function forwardTgtTargetsToFrame() { forwardToFrame(tgtTargetsMsg()); }
 function forwardTgtTargetsToPanes() { forwardToPanes('tgt', tgtTargetsMsg()); }
@@ -2223,7 +2224,8 @@ window.addEventListener('message', function(e) {
   } else if (m.type === 'targets') {
     // Mirror the selected-target list; the TGT page renders it under its filters, and TD (issue
     // #47, docs/target-designator.md) mirrors the identical list on its leader view.
-    targetsData = { targets: Array.isArray(m.items) ? m.items : [], focusedTargetId: m.focusedTargetId || 0, metric: !!m.metric };
+    targetsData = { targets: Array.isArray(m.items) ? m.items : [], focusedTargetId: m.focusedTargetId || 0, metric: !!m.metric,
+                    sortKey: m.sortKey || '', sortDir: m.sortDir || 1 };
     if ((currentPage === 'tgt' || currentPage === 'td') && !splitMode) forwardTgtTargetsToFrame();
     if (splitMode) { forwardTgtTargetsToPanes(); forwardToPanes('td', tgtTargetsMsg()); }
   } else if (m.type === 'sqd-state') {

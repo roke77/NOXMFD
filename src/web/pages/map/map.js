@@ -570,6 +570,28 @@ function drawGrid() {
 // everything before it (index < nextIndex) is already flown, drawn dim gray — a waypoint carries no
 // "reached" flag of its own (WptRoute's nextIndex is a plain progress COUNT, not a per-waypoint
 // state — same reasoning the reorder/delete fix relies on), so "reached" here is just index < nextIndex.
+// Nuclear exclusion zones (lastData.xz, FactionHQ.GetExclusionZones) — the in-game map's orange
+// ring + translucent disc, shown from a nuke's launch until it detonates. Canvas can't read CSS vars
+// per stroke, so the theme triple is read once.
+let nukeRgb = null;
+function drawExclusionZones() {
+  if (!Array.isArray(lastData.xz) || !lastData.xz.length) return;
+  if (!nukeRgb) nukeRgb = getComputedStyle(document.documentElement).getPropertyValue('--no-nuclear-orange-rgb').trim();
+  oc.save();
+  oc.lineWidth = 4;
+  oc.strokeStyle = 'rgb(' + nukeRgb + ')';
+  oc.fillStyle = 'rgba(' + nukeRgb + ', 0.35)';
+  for (const z of lastData.xz) {
+    const c = worldToOverlay(z.x, z.z), e = worldToOverlay(z.x + z.r, z.z);
+    if (!c || !e) continue;
+    oc.beginPath();
+    oc.arc(c.cx, c.cy, Math.abs(e.cx - c.cx), 0, Math.PI * 2);
+    oc.fill();
+    oc.stroke();
+  }
+  oc.restore();
+}
+
 function drawWaypoints() {
   if (!waypointRoute || !waypointRoute.waypoints.length) return;
   const pts = waypointRoute.waypoints.map(w => Object.assign({}, w, worldToOverlay(w.x, w.z)));
@@ -685,6 +707,7 @@ function drawOverlay() {
 
   // Coordinate grid under the icons, same layer as the RWR spokes.
   drawGrid();
+  drawExclusionZones();
 
   // Pilot-placed waypoints/route (issue #38) — same layer as the grid.
   drawWaypoints();

@@ -48,6 +48,7 @@ namespace NOXMFD
         private RdrContact[] _cachedRdr = Array.Empty<RdrContact>();
         private HsdContact[] _cachedHsd = Array.Empty<HsdContact>();
         private HsdThreat[] _cachedHsdThreats = Array.Empty<HsdThreat>();
+        private HsdThreat[] _cachedExclusionZones = Array.Empty<HsdThreat>();
         private PitbullContact[] _cachedPitbull = Array.Empty<PitbullContact>();
         private uint[] _cachedLockedIds = Array.Empty<uint>();
         private float[] _cachedLockedTti = Array.Empty<float>();
@@ -902,6 +903,8 @@ namespace NOXMFD
                 SelectedUnitTrack = SharedSelection.Track,
                 LockedTargetIds = _cachedLockedIds,
                 LockedTargetTti = _cachedLockedTti,
+                TgtSortKey     = TargetSort.Key,
+                TgtSortDir     = TargetSort.Dir,
                 ColFriendly    = factionOverride.Friendly ?? _colFriendly,
                 ColHostile     = factionOverride.Enemy    ?? _colHostile,
                 ColNeutral     = factionOverride.Neutral  ?? _colNeutral,
@@ -941,6 +944,7 @@ namespace NOXMFD
                 Rdr            = _cachedRdr,
                 Hsd            = _cachedHsd,
                 HsdThreats     = _cachedHsdThreats,
+                ExclusionZones = _cachedExclusionZones,
                 HsdDep         = HsdViewState.Dep,
                 HsdRangeIdx    = HsdViewState.RangeIdx,
                 Pitbull        = _cachedPitbull,
@@ -1004,12 +1008,13 @@ namespace NOXMFD
             _cachedRdr = BuildRdr(aircraft, out _cachedRadarPresent, out _cachedRadarRange, out _cachedRadarConeDeg);
             _cachedHsd = BuildHsd(aircraft);
             _cachedHsdThreats = BuildHsdThreats(aircraft);
+            _cachedExclusionZones = BuildExclusionZones();
             _cachedPitbull = BuildPitbull(aircraft);
 
             // Keeps TargetFocus honest against locks changing here rather than via a Next/Prev press
             // (issue #62) — see TargetFocus.Reconcile for the actual rules.
             List<Unit>? targets = aircraft.weaponManager?.GetTargetList();
-            _cachedLockedIds = TargetIds(targets).ToArray();
+            _cachedLockedIds = SortLockedIds(TargetIds(targets).ToArray(), aircraft);
             TargetFocus.Reconcile(_cachedLockedIds);
 
             // A TTI reading per locked target, using this contact-scan cadence rather than adding
@@ -1018,6 +1023,24 @@ namespace NOXMFD
             // UnitRegistry.allUnits once per target.
             uint playerId = aircraft.persistentID.Id;
             _cachedLockedTti = TargetTtiEstimator.ComputeAll(_cachedLockedIds, playerId);
+        }
+
+        // TGT's column sort (TargetSort.cs), keyed off the same UnitInfo rows TGT itself renders —
+        // a lock with no disclosed contact (e.g. hidden by picture jamming) has no row and sorts last.
+        private uint[] SortLockedIds(uint[] ids, Aircraft aircraft)
+        {
+            if (TargetSort.Key == "") return TargetSort.Sort(ids, _ => null);
+            GlobalPosition me = aircraft.GlobalPosition();
+            var rows = new Dictionary<uint, TargetSort.Row>(_cachedUnits.Length);
+            foreach (UnitInfo u in _cachedUnits)
+                if (u.Targeted)
+                    rows[u.Id] = new TargetSort.Row
+                    {
+                        Name  = u.Type ?? "",
+                        Src   = TargetSort.SrcLabel(u.Datalink, u.Stale),
+                        Range = (float)Math.Sqrt((u.X - me.x) * (u.X - me.x) + (u.Z - me.z) * (u.Z - me.z)),
+                    };
+            return TargetSort.Sort(ids, id => rows.TryGetValue(id, out var r) ? r : (TargetSort.Row?)null);
         }
 
         // Shared with Keybinds.cs's CycleTargetFocus (issue #62) — both need the same
@@ -1413,6 +1436,24 @@ namespace NOXMFD
         // station's effective max range (WeaponInfo.targetRequirements.maxRange — the same
         // envelope CombatAI.AnalyzeTarget uses to gate whether a target is attackable). This is
         // the weapon's engagement range, not radar detection range (RadarParameters.maxRange).
+        // Nuclear exclusion zones (MAP) — the same list DynamicMap draws its orange rings from: the
+        // player faction's HQ, which only registers zones from non-enemy launchers (the RPC fills it
+        // on every MP client too). GetExclusionZones prunes a zone only once its weapon leaves
+        // UnitRegistry, but the map drops the ring as soon as the weapon is disabled (detonated/shot
+        // down), so skip those to match.
+        private static HsdThreat[] BuildExclusionZones()
+        {
+            List<NuclearOption.ExclusionZone>? zones = SceneSingleton<DynamicMap>.i?.HQ?.GetExclusionZones();
+            if (zones == null || zones.Count == 0) return Array.Empty<HsdThreat>();
+            var result = new List<HsdThreat>(zones.Count);
+            foreach (NuclearOption.ExclusionZone z in zones)
+            {
+                if (!UnitRegistry.TryGetUnit(z.sourceId, out Unit u) || u == null || u.disabled) continue;
+                result.Add(new HsdThreat { Id = z.sourceId.Id, X = z.position.x, Z = z.position.z, Range = z.radius, Name = "" });
+            }
+            return result.ToArray();
+        }
+
         private HsdThreat[] BuildHsdThreats(Aircraft player)
         {
             var playerHQ = player.NetworkHQ;

@@ -139,10 +139,12 @@
     <div class="tgt-list" id="tgt-list">
       <div class="tgt-list-scroll">
         <div class="tgt-list-head">
+          <!-- NAME / SRC / RNG are sort buttons (TargetSort.cs, shared by every TGT view): tap sorts by
+               that column / reverses it, long-press goes back to the game's lock order. -->
           <!-- NAME header replaced with "TARGETS (N)" — the total selected count in amber, right in
                the column header, so a squadron lead can match ordnance count to target count at a
                glance without leaving the map to check the cockpit MFD. -->
-          <span>TARGETS <span class="tgt-count-n" id="tgt-count-n"></span></span><span class="tgt-td-head">TD</span><span>SRC</span><span>RNG</span><span>GRID</span><span class="tgt-flight-head">SPD</span><span class="tgt-flight-head">ALT</span><span class="tgt-flight-head">HDG</span>
+          <button class="tl-sort pad-hoverable" data-sort="n">TARGETS <span class="tgt-count-n" id="tgt-count-n"></span></button><span class="tgt-td-head">TD</span><button class="tl-sort pad-hoverable" data-sort="src">SRC</button><button class="tl-sort pad-hoverable" data-sort="r">RNG</button><span>GRID</span><span class="tgt-flight-head">SPD</span><span class="tgt-flight-head">ALT</span><span class="tgt-flight-head">HDG</span>
         </div>
         <div class="tgt-list-rows" id="tgt-list-rows"></div>
         <div class="tgt-list-empty" id="tgt-list-empty">&mdash; NO TARGETS SELECTED &mdash;</div>

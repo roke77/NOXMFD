@@ -46,6 +46,8 @@
   --no-hsd-pink:     rgb(var(--no-hsd-pink-rgb));
   --no-hsd-yellow-rgb: 224, 194, 0;   /* F-16 HSD-style yellow AA threat rings (docs/rdr-fcr-hsd.md) */
   --no-hsd-yellow:     rgb(var(--no-hsd-yellow-rgb));
+  --no-nuclear-orange-rgb: 232, 100, 44;  /* #e8642c — nuclear exclusion zone ring (MAP), matching the in-game map */
+  --no-nuclear-orange:     rgb(var(--no-nuclear-orange-rgb));
   --no-blue-rgb:   77, 159, 255;
   --no-blue:       rgb(var(--no-blue-rgb));  /* mod-only decorative accent (WPN's MODE label, docs/radar-master-arms.md) */
   --no-bg:         #000;

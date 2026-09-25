@@ -208,6 +208,14 @@ html, body {
   letter-spacing: 0.06em;
   border-bottom: 1px solid var(--no-green-dark);
 }
+/* NAME / SRC / RNG sort buttons — look like the plain header text, plus a ▲/▼ on the active one. */
+.tl-sort {
+  font: inherit; color: inherit; letter-spacing: inherit; text-align: left;
+  background: none; border: 0; padding: 0; cursor: pointer; width: 100%;
+}
+.tl-sort[data-dir]::after { color: var(--no-green); }
+.tl-sort[data-dir="1"]::after  { content: ' ▲'; }
+.tl-sort[data-dir="-1"]::after { content: ' ▼'; }
 .tl-row {
   padding: clamp(4px, 1vh, 9px) clamp(4px, 1vw, 10px);
   border-bottom: 1px solid rgba(var(--no-green-rgb),0.10);
