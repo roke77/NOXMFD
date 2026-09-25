@@ -35,6 +35,13 @@ locked target's kinematics — the label adds stacked heading, speed, and altitu
 without needing to lock it first. A datalink-stale contact, or any non-aircraft contact, just shows
 the type with no extra lines.
 
+## Nuclear exclusion zones
+
+When a nuclear weapon is launched at a target, the map draws the same orange **exclusion zone**
+ring the in-game map shows — a translucent orange disc around the target's position at launch,
+sized to the weapon's blast. It stays up until the weapon detonates or is shot down. Like the
+in-game map, you only see zones launched by your own side.
+
 ## Status row
 
 A row in the bottom-right corner, each item shown only while it applies:

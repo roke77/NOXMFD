@@ -21,6 +21,10 @@ assigning here never changes what's selected on TGT.
   - **Long-press** a squad button instead to assign without clearing the highlight, so you can
     designate the same selection to several slots in a row without re-selecting each time.
 
+  - **`<CALLSIGN> ALL`** (e.g. `TALON ALL`), right of the squad buttons, assigns every slot at
+    once, yourself included — same tap/long-press behaviour. If every selected target already has
+    every slot, it removes them all instead; otherwise it fills in whichever slots are missing.
+
   A target can go to more than one slot; assigning again for an already-assigned target/slot pair
   un-assigns it. Assigning to your own button is just a personal marker — it's never actually sent
   anywhere.

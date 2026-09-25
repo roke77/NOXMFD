@@ -121,6 +121,25 @@ handing it to `tgt.js`. This is purely a display nicety now, not a correctness f
 nothing depends on the table's row order for correctness anymore, only on `focusedTargetId` matching
 the right row wherever it sits.
 
+## Column sort (NAME / SRC / RNG)
+
+TGT's column headers sort the table, and Next/Previous follow the sorted order — which rules out a
+page-local sort: two TGT displays sorted differently would disagree about which target is "next",
+and the focus is one shared id. So the sort lives in the plugin (`Targeting/TargetSort.cs`), one
+state for every display:
+
+- `tgt.sort {key, index}` sets it — key `""` (the game's lock order, the default) / `n` / `src` /
+  `r`, index ±1 for the direction. A header tap sends it; a long-press sends key `""`.
+- `TelemetryReader.RefreshContactSnapshotIfNeeded` sorts `LockedTargetIds` with it each contact
+  scan (~4 Hz), from the same `UnitInfo` rows TGT renders, so the "Display order matches cycle
+  order" mechanism above carries the sorted order to the table with no page-side change. RNG
+  therefore re-sorts live. A lock with no disclosed contact row, or an unknown range under RNG,
+  sorts last either way; the sort is stable, so ties keep lock order and equal rows never swap.
+- `TargetFocus.Cycle` runs its list through `TargetSort.Follow`, which reorders a live
+  `GetTargetList()` read into the last sorted order, so a Next/Previous press between scans still
+  steps in the visible order.
+- `tgtSort` / `tgtSortDir` ride the frame so each page draws the ▲/▼ on the active header.
+
 ## Transport
 
 `TelemetrySnapshot.FocusedTargetId` is a new top-level field, broadcast the same way `MapReachW`/`H`

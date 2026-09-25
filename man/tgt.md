@@ -44,6 +44,21 @@ still read it out), but Select now acts on whatever the cursor is pointing at in
 
 **Tap anywhere on a row** to deselect that target. **CLEAR TARGETS** deselects everything at once.
 
+### Sorting
+
+**Tap the NAME, SRC or RNG column header** to sort the list by that column; tap it again to
+reverse the order. A green **▲** / **▼** beside the header shows which column is sorting and in
+which direction. **Long-press** any of the three to go back to the default order — the order the
+game itself holds your locks in. GRID and the TD/flight-data columns don't sort.
+
+- NAME sorts alphabetically, SRC in the order DATALINK, SENSOR, STALE.
+- RNG re-sorts live as ranges change, with any target whose range isn't known always last.
+- Targets that tie keep their default order.
+
+The sort is shared: every TGT display — full view, split panes, the F-35 layout, other browsers —
+shows the same order, and **Next Target / Previous Target** step through the list in that order,
+top to bottom.
+
 ## Flight data columns
 
 A DETAILED/COMPACT toggle, bottom right of the target list footer, appends three more columns

@@ -25,12 +25,13 @@ NOT redraw on every one of those messages — see "A static table, on purpose" b
 
 ## Wire commands
 
-Every TD command reuses an existing `CommandEnvelope` field — no new ones were added:
+Every TD command reuses an existing `CommandEnvelope` field — none needs a new one:
 
 | Command | Fields reused | Effect |
 | --- | --- | --- |
 | `td.select` | `id` | Leader: toggle a row's selection. |
 | `td.assign` | `index` (slot), `on` (retain) | Leader: toggle every selected target's membership in that slot, then clear selection unless `on` (a long-press — see below). |
+| `td.assign-all` | `on` (retain) | Leader: the `<CALLSIGN> ALL` button — every squad slot (`Squad.AllSlots()`, leader included) at once via `TdStore.AssignAll`. All-or-nothing rather than a per-slot toggle: if every selected target already has every slot it removes them all, otherwise it adds them all, so a partly-assigned target gains the missing slots instead of losing the ones it had. |
 | `td.clear` | — | Leader: wipe selection + assignments. |
 | `td.designate` | `peer`, `text` | Leader: `Squad.SendDataTo(peer, "td.designate", text)` — one call per member with 1+ assigned targets. |
 | `td.member-clear` | — | Member: empty the designated-target table. |
