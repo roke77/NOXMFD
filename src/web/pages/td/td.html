@@ -31,17 +31,17 @@
 -->
 <link rel="stylesheet" href="/assets/shared/font.css">
 <link rel="stylesheet" href="/assets/shared/theme.css">
-<link rel="stylesheet" href="/assets/shared/page-chrome.css">
 <link rel="stylesheet" href="/assets/pages/td/td.css">
 </head>
 <body>
 
 <div class="td-panel" id="td-panel">
-  <a class="td-back" href="/tgt">&lt; TGT</a>
-  <!-- Squad-button tap/hold legend (issue #47 follow-up) — same top-right placement and wording
-       shape as TGT's own .tgt-hint (tgt.html), just describing TD's own assign gesture instead. -->
-  <span class="td-hint">tap&nbsp;=&nbsp;assign&nbsp;·&nbsp;hold&nbsp;=&nbsp;keep&nbsp;selection</span>
-  <div class="td-title">TARGET DESIGNATOR</div>
+  <!-- Same header as TGT's .tgt-head: title left, the squad-button tap/hold legend right. -->
+  <div class="td-head">
+    <a class="td-back" href="/tgt">&lt; TGT</a>
+    <span class="td-title">TARGET DESIGNATOR</span>
+    <span class="td-hint">tap&nbsp;=&nbsp;assign&nbsp;·&nbsp;hold&nbsp;=&nbsp;keep&nbsp;selection</span>
+  </div>
 
   <!-- PAD cursor (docs/page-cursor.md) — same fixed-position crosshair SQD/WPT use. -->
   <div id="pad-cursor" class="pad-cursor"></div>
