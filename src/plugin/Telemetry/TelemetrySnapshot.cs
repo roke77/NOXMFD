@@ -624,5 +624,11 @@ namespace NOXMFD
         // hasn't broadcast within FuelBroadcast's TTL.
         public bool  HasPeerFuel;
         public float PeerFuelRatio;   // meaningful only when HasPeerFuel; 0..1.
+
+        // Filtered out by the TARGET SELECTION panel (TargetListSelector.CheckExclusions — its
+        // faction/category/vehicle toggles, the LASER filter, and the HUD settings while its HUD
+        // button is on). The game's own map dims these icons (UnitMapIcon: color *= 0.67); MAP does
+        // the same.
+        public bool   Excluded;
     }
 }

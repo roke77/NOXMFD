@@ -128,6 +128,16 @@ const PLAYER_COLOR = '#39ff14';                     // player stays HUD green �
                                                      // canvas strokeStyle can't use CSS var()
 const TARGET_COLOR = '#ff8000';                     // orange ring on the player's targeted unit(s)
 const STALE_ALPHA  = 0.5;                           // faded icon opacity for a stale contact (F2)
+// A unit the TGT filters exclude (u.ex, TargetListSelector.CheckExclusions): the game's own map
+// multiplies the icon's whole RGBA by 0.67 (UnitMapIcon_UpdateColor) — darker AND more transparent.
+const EXCLUDED_DIM = 0.67;
+function dimHex(hex, k) {
+  const m = /^#([0-9a-f]{6})/i.exec(hex);
+  if (!m) return hex;
+  const n = parseInt(m[1], 16);
+  const c = s => Math.round(((n >> s) & 255) * k).toString(16).padStart(2, '0');
+  return '#' + c(16) + c(8) + c(0);
+}
 // A squadmate's aircraft (issue #48, docs/squadron-transport.md) — matches --no-squad-rgb
 // (78,201,201, theme.css); canvas strokeStyle can't use CSS var() so this is its own literal, same
 // reasoning as PLAYER_COLOR above. Takes priority over the plain faction color, but never applies
@@ -727,10 +737,11 @@ function drawOverlay() {
       ensureIconImage(u.t);
       const typeOv = typeColors[u.t];
       const typeHex = typeOv && (typeOv.f == null || typeOv.f === u.f) ? typeOv.hex : null;
-      const hex = u.sq ? SQUAD_COLOR : (typeHex || factionColors[u.f] || factionColors[0]);
-      if (u.st) oc.globalAlpha = STALE_ALPHA;
+      const baseHex = u.sq ? SQUAD_COLOR : (typeHex || factionColors[u.f] || factionColors[0]);
+      const hex = u.ex ? dimHex(baseHex, EXCLUDED_DIM) : baseHex;
+      oc.globalAlpha = (u.st ? STALE_ALPHA : 1) * (u.ex ? EXCLUDED_DIM : 1);
       const r = drawIcon(u.t, hex, p.cx, p.cy, u.h, u.o, iconBase(), u.s);
-      if (u.st) oc.globalAlpha = 1;
+      oc.globalAlpha = 1;
       const idOv = idColors[u.id];
       if (idOv) drawStatusRing(p.cx, p.cy, r, idOv.hex);
       if (u.tg) { drawTargetBox(p.cx, p.cy, r + 4); pendingSel.delete(u.id); }   // telemetry confirms selection

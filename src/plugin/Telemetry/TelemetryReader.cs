@@ -1612,6 +1612,22 @@ namespace NOXMFD
         // true position; enemies only when tracked, at their last-known position (fog of war).
         private readonly List<UnitInfo> _unitBuf = new List<UnitInfo>(256);
 
+        // TargetListSelector.CheckExclusions is the game's own "dim this map icon" test (UnitMapIcon.
+        // UnitMapIcon_UpdateColor). It reads the panel's toggle caches, so a panel that isn't fully set
+        // up (or a future game change) could throw — fail safe to "not excluded", logged once.
+        private static bool _tgtExcludeFailed;
+        private static bool IsTgtExcluded(TargetListSelector? sel, Unit u)
+        {
+            if (sel == null || _tgtExcludeFailed) return false;
+            try { return sel.CheckExclusions(u); }
+            catch (Exception ex)
+            {
+                _tgtExcludeFailed = true;
+                Plugin.Log?.LogWarning($"[NOXMFD] TargetListSelector.CheckExclusions failed; MAP won't dim filtered units: {ex.Message}");
+                return false;
+            }
+        }
+
         private UnitInfo[] BuildUnits(Aircraft player)
         {
             var playerHQ = player.NetworkHQ;
@@ -1620,6 +1636,7 @@ namespace NOXMFD
             // The player's current target(s): the live weapon target list (public API, no
             // reflection). Reference-matched against each scanned unit below.
             List<Unit>? targets = player.weaponManager != null ? player.weaponManager.GetTargetList() : null;
+            TargetListSelector? tgtSel = SceneSingleton<TargetListSelector>.i;
 
             _unitBuf.Clear();
             foreach (Unit u in _units)
@@ -1710,7 +1727,8 @@ namespace NOXMFD
                     // classification, just exposing an existing one.
                     IsAircraft = def.typeIdentity.air > 0.5f,
                     HasPeerFuel = hasPeerFuel,
-                    PeerFuelRatio = peerFuelRatio
+                    PeerFuelRatio = peerFuelRatio,
+                    Excluded = IsTgtExcluded(tgtSel, u)
                 });
             }
             return _unitBuf.ToArray();

@@ -584,6 +584,8 @@ namespace NOXMFD
                 // — absent otherwise, rather than an empty string on every contact every frame.
                 if (!string.IsNullOrEmpty(u.PilotSteamName))
                     sb.Append(",\"psn\":\"").Append(JsonLite.EscapeJson(u.PilotSteamName)).Append('"');
+                // TGT-filtered (UnitInfo.Excluded) — only when set, same reasoning as psn above.
+                if (u.Excluded) sb.Append(",\"ex\":1");
                 sb.Append('}');
             }
             return sb.Append(']').ToString();

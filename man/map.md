@@ -29,6 +29,11 @@ creates a standalone steer point. Long-pressing directly on an existing waypoint
 removes it instead — useful for undoing a placement without opening [WPT](wpt.md). Both kinds of
 navigation point are otherwise managed there.
 
+Units your [TGT](tgt.md) filters leave out — a faction, category or vehicle type switched off, or
+anything not being lased while LASER is on — are drawn darker and slightly transparent, the same
+way the in-game map dims them. With TGT's **HUD** button on, those filters follow your in-game HUD
+settings, so changing the HUD screen dims the map the same way.
+
 Hovering the mouse over a contact shows its type in a small floating label. For an aircraft or
 missile whose position is currently trustworthy — the same condition [TGP](tgp.md) uses to show a
 locked target's kinematics — the label adds stacked heading, speed, and altitude lines, live,

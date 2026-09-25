@@ -224,6 +224,16 @@ namespace NOXMFD.Tests
             Assert.Equal(1.0, contact["ac"]);
             Assert.Equal(0.625, (double)contact["pf"]!, 3);
             Assert.False(contact.ContainsKey("psn"));   // not renamed → left off the wire
+            Assert.False(contact.ContainsKey("ex"));    // not TGT-filtered → left off the wire
+        }
+
+        // TGT-filtered contacts (UnitInfo.Excluded) carry "ex":1 so MAP can dim them like the game.
+        [Fact]
+        public void Unit_contact_carries_ex_only_while_tgt_filtered()
+        {
+            var s = default(TelemetrySnapshot);
+            s.Units = new[] { new UnitInfo { Id = 1, Type = "T-72", Excluded = true } };
+            Assert.Equal(1.0, Obj(Arr(Root(s)["contacts"])[0])["ex"]);
         }
 
         [Fact]

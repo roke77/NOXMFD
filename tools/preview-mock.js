@@ -310,6 +310,12 @@
     FRAME.xz = [{ id: 900, x: ow.x + 9000, z: ow.z + 6000, r: 5200 }];
   }
 
+  // TGT-filtered contacts (u.ex — MAP dims them like the game's own map): mark every third
+  // non-targeted contact so the dimmed look shows in any capture that doesn't carry the flag.
+  if (Array.isArray(FRAME.contacts) && !FRAME.contacts.some(u => u.ex)) {
+    FRAME.contacts.forEach((u, i) => { if (!u.tg && i % 3 === 0) u.ex = 1; });
+  }
+
   // TGT column sort (TargetSort.cs mirror): serve_web.py holds the tgt.sort state and hands it back
   // on /__preview-push; the plugin sorts lockedTargetIds, but the mock ships its rows as
   // FRAME.targets, so re-sort those directly. Same rules: stable (ties keep lock order), NAME
