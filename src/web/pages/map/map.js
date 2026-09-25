@@ -582,7 +582,9 @@ function drawExclusionZones() {
   oc.strokeStyle = 'rgb(' + nukeRgb + ')';
   oc.fillStyle = 'rgba(' + nukeRgb + ', 0.35)';
   for (const z of lastData.xz) {
-    const c = worldToOverlay(z.x, z.z), e = worldToOverlay(z.x + z.r, z.z);
+    // Half of z.r: DynamicMap.DisplayExclusionZone scales a unit-sized sprite by the radius, so the
+    // in-game ring's DIAMETER is z.r. The zone itself (what the AI autopilot avoids) is the full z.r.
+    const c = worldToOverlay(z.x, z.z), e = worldToOverlay(z.x + z.r / 2, z.z);
     if (!c || !e) continue;
     oc.beginPath();
     oc.arc(c.cx, c.cy, Math.abs(e.cx - c.cx), 0, Math.PI * 2);
