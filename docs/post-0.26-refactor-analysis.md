@@ -153,6 +153,15 @@ Recommendation: in a future cleanup, keep the current-behavior explanation and r
 
 Recommendation: keep these as manual release-check bullets unless/until the harness can simulate them.
 
+Status (live Free Flight mission, 2026-08-22): BDF/PAL faction data, fresh-mission icon capture,
+classic full/split forwarding, the `TelemetryJson.cs` stream shape, the fullscreen icon token, and
+the `Keybinds.cs` `FindBind(id)` paths are confirmed. Still pending:
+
+- [ ] CM category display and keybind-driven CM category cycling after `CmReflection` (needs an
+  actual in-game keypress).
+- [ ] RDR/RWR/MW contact rendering with a live radar-equipped aircraft and nearby threats (the
+  tested session had no radar and no contacts).
+
 #### Pre-Merge Live-Game Checklist For The Refactor Package
 
 Run this after `tools/ci-check.ps1` passes and before merging the `refactor-package-19-20-08`
