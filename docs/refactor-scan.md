@@ -507,8 +507,8 @@ document alone.
       (per-connection/session state, not snapshot data). Verified: `dotnet build` + `ci-check.ps1`
       green, 30/30 xUnit tests passing, plus a live in-game spot-check (2026-08-22, against a
       running Free Flight mission) confirming the `/stream` SSE payload's `bdf`/`pal`/`mis`/`obj`/
-      `akf`/`tgt` blocks are all shaped and populated correctly post-extraction — see CLAUDE.md's
-      live-game verification checklist.
+      `akf`/`tgt` blocks are all shaped and populated correctly post-extraction — see the live-game
+      status in `docs/post-0.26-refactor-analysis.md` ("Validation Is Strong But Not Complete").
 - [x] **Step 11 — re-check the deferred splits**. Done. Re-scanned all four against the same
       standard as the original two passes (every finding verified against the actual code, not
       just shape). Verdicts:

@@ -52,7 +52,7 @@ existing `rdrMsg()` pattern is effectively the shape this doc proposes generaliz
   44 places; nothing enforces that the copies stay in sync as new pages get added.
 - **Every new MFD page pays a fixed, avoidable tax.** Adding a page currently means writing a new
   `ToPanes`/`ToFrame` pair by hand, copy-pasting the surrounding pattern — exactly the kind of
-  boilerplate this codebase's own conventions (CLAUDE.md: "deletion over addition") argue against.
+  boilerplate this codebase's own conventions ("deletion over addition") argue against.
 - **It's mechanical, which makes it safe.** Unlike the split-layout math elsewhere in the same file
   (`renderSplitLabels`, `mainPaneSlice`, `avnPaneSlice`, etc. — genuinely bespoke per-page geometry,
   not a candidate for this treatment), the relay functions have zero page-specific logic beyond the
