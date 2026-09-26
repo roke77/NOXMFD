@@ -209,7 +209,7 @@ namespace NOXMFD
                 LanUrl = "";
 
                 // Prefer binding all interfaces so a tablet on the LAN can reach us. Windows guards
-                // that with two gates (see docs/networking.md): HTTP.sys needs a URL reservation for
+                // that with two gates (see NETWORKING.md): HTTP.sys needs a URL reservation for
                 // the wildcard prefix, and the firewall needs an inbound allow for the port. If the
                 // bind is denied we try to add both ourselves (works only when the game is elevated;
                 // they persist, so it's one-time); otherwise we fall back to localhost-only and log
@@ -269,7 +269,7 @@ namespace NOXMFD
                 }
                 else
                 {
-                    Plugin.Log?.LogWarning($"[NOXMFD] LAN access disabled (localhost only). To enable it, run the game as Administrator once (auto-setup), or run these once in an elevated shell — see docs/networking.md:");
+                    Plugin.Log?.LogWarning($"[NOXMFD] LAN access disabled (localhost only). To enable it, run the game as Administrator once (auto-setup), or run these once in an elevated shell — see NETWORKING.md:");
                     Plugin.Log?.LogWarning($"[NOXMFD]   netsh http add urlacl url=http://+:{Port}/ user=Everyone");
                     Plugin.Log?.LogWarning($"[NOXMFD]   netsh advfirewall firewall add rule name=\"NOXMFD ({Port})\" dir=in action=allow protocol=TCP localport={Port}");
                 }
