@@ -17,7 +17,7 @@ seen NOXMFD's internals — everything you need is the public surface described 
 
 - [Prerequisites](#prerequisites)
 - [Quick start](#quick-start)
-- [The eight surfaces](#the-eight-surfaces)
+- [The nine surfaces](#the-nine-surfaces)
   - [1. Registering your extension](#1-registering-your-extension)
   - [2. Serving your page](#2-serving-your-page)
   - [3. Publishing telemetry](#3-publishing-telemetry)
@@ -26,6 +26,7 @@ seen NOXMFD's internals — everything you need is the public surface described 
   - [6. Icon color overrides](#6-icon-color-overrides)
   - [7. A shared MAP highlight](#7-a-shared-map-highlight)
   - [8. Continuous follow on MAP](#8-continuous-follow-on-map)
+  - [9. The active WPT route](#9-the-active-wpt-route)
 - [Appearing in the EXT nav — automatic](#appearing-in-the-ext-nav--automatic)
 - [Reusing NOXMFD's shared assets](#reusing-noxmfds-shared-assets)
 - [Versioning](#versioning)
@@ -88,10 +89,10 @@ Build, drop the DLL into `BepInEx/plugins/`, restart the game. Your page appears
 **EXT** nav, labeled "MY PAGE", reachable in both the classic bezel and F-35 layouts, in full
 view and split panes — you didn't write any of that wiring yourself.
 
-## The eight surfaces
+## The nine surfaces
 
 Everything an extension can do goes through `NOXMFD.Api` (`using NOXMFD;`), a static class with
-eight capabilities. You don't need all eight — the quick-start example above only used the first.
+nine capabilities. You don't need all nine — the quick-start example above only used the first.
 
 ### 1. Registering your extension
 
@@ -352,6 +353,37 @@ NOXMFD.Api.SetSelectedUnitTrack(true);    // MAP now follows contactId
 NOXMFD.Api.SetSelectedUnitTrack(false);   // MAP stops following (stays where it was)
 ```
 
+### 9. The active WPT route
+
+```csharp
+public static NavRoute? GetActiveRoute();
+public static NavPoint? GetActiveSteerPoint();
+public static int RouteRevision { get; }
+public static bool SetActiveRouteNextIndex(int index);
+```
+
+Read the pilot's active route (or, with no route active, their selected steer point) and step
+its progress — for example to hand the route to an autopilot. Both reads return copies; editing
+them changes nothing. `NavPoint.X`/`Z` are global coordinates, the same space as
+`GlobalPosition()`. `NavRoute.NextIndex` counts completed waypoints, so `Points[NextIndex]` is
+the current target. NOXMFD advances the route itself when the aircraft passes within 1 km of a
+waypoint; `SetActiveRouteNextIndex` is for jumping elsewhere (direct-to, loop back to 0).
+
+Poll `RouteRevision` from `Update()` and re-read only when it changes. Call all four on the main
+thread (`Update()` or your command handler), never from your asset resolver.
+
+```csharp
+int rev = NOXMFD.Api.RouteRevision;
+if (rev != _lastRev)
+{
+    _lastRev = rev;
+    NavRoute? route = NOXMFD.Api.GetActiveRoute();
+    if (route != null)
+        for (int i = route.NextIndex; i < route.Points.Length; i++)
+            Queue(route.Points[i].X, route.Points[i].Z);
+}
+```
+
 ## Appearing in the EXT nav — automatic
 
 Once `RegisterExtension` succeeds, your `id`/`label` show up in `GET /ext-manifest`, which
@@ -392,7 +424,7 @@ without hand-matching colors.
 ## Versioning
 
 ```csharp
-public const int ApiVersion = 6;
+public const int ApiVersion = 7;
 ```
 
 `NOXMFD.Api.ApiVersion` is there if you want to branch on it at runtime, but the real enforcement

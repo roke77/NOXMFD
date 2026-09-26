@@ -649,5 +649,36 @@ namespace NOXMFD.Tests
             Assert.Contains("\"id\":\"s_x\"", RouteStore.RoutesJson);
             Assert.True(RouteStore.RenameSteerPoint("s_x", "Now mine"));            // unlocked, editable again
         }
+
+        // The extension API's contract: snapshots are copies (an extension can't alter the store
+        // through them), and Revision moves on every change an autopilot must re-sync on,
+        // including the 1 Hz proximity advance.
+        [Fact]
+        public void Snapshots_are_detached_copies_and_revision_tracks_every_change()
+        {
+            Assert.Null(RouteStore.GetActiveRouteSnapshot());
+            Assert.Null(RouteStore.GetActiveSteerPointSnapshot());
+
+            RouteStore.AddSteerPoint(30f, 40f, "IP");
+            NavPoint? sp = RouteStore.GetActiveSteerPointSnapshot();
+            Assert.Equal("IP", sp!.Name);
+            Assert.Equal(30f, sp.X);
+
+            RouteStore.AddWaypoint(0f, 0f, "W0");
+            RouteStore.AddWaypoint(5000f, 0f, "W1");
+            NavRoute before = RouteStore.GetActiveRouteSnapshot()!;
+            Assert.Equal(0, before.NextIndex);
+            Assert.Equal(new[] { "W0", "W1" }, Array.ConvertAll(before.Points, p => p.Name));
+
+            int rev = RouteStore.Revision;
+            RouteStore.AdvanceIfNear(1f, 1f);
+            Assert.NotEqual(rev, RouteStore.Revision);
+            Assert.Equal(0, before.NextIndex);                                   // old snapshot untouched
+            Assert.Equal(1, RouteStore.GetActiveRouteSnapshot()!.NextIndex);
+
+            rev = RouteStore.Revision;
+            RouteStore.AdvanceIfNear(-9000f, 0f);                                // no change, no bump
+            Assert.Equal(rev, RouteStore.Revision);
+        }
     }
 }

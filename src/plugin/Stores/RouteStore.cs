@@ -48,6 +48,32 @@ namespace NOXMFD
         public bool SharedWithSquad;
     }
 
+    // Public read-only copies handed to extensions (Api.GetActiveRoute/GetActiveSteerPoint): the
+    // store's own Route/Waypoint/SteerPoint stay internal and mutable, so an extension can never
+    // edit the library behind RouteStore's back. X/Z are global coordinates (GlobalPosition().x/z),
+    // unaffected by floating-origin shifts.
+    public sealed class NavPoint
+    {
+        public readonly string Id;
+        public readonly string Name;
+        public readonly float X;
+        public readonly float Z;
+
+        public NavPoint(string id, string name, float x, float z) { Id = id; Name = name; X = x; Z = z; }
+    }
+
+    public sealed class NavRoute
+    {
+        public readonly string Id;
+        public readonly string Name;
+        // Count of completed waypoints, so Points[NextIndex] is the current target;
+        // NextIndex == Points.Length means the route is complete.
+        public readonly int NextIndex;
+        public readonly NavPoint[] Points;
+
+        public NavRoute(string id, string name, int nextIndex, NavPoint[] points) { Id = id; Name = name; NextIndex = nextIndex; Points = points; }
+    }
+
     // A shared route awaiting this pilot's accept/reject — not yet a real Route (docs/squadron-
     // transport.md). Kept entirely in memory, not persisted to routes.json: like squad membership
     // itself, a pending share only makes sense within the squad session that produced it.
@@ -219,7 +245,16 @@ namespace NOXMFD
 
         // For mutations that don't touch persisted route shape (pending-share bookkeeping): only the
         // served view changes, so no file write is needed.
-        private static void RefreshServedJsonOnly() => RoutesJson = BuildRoutesJson(served: true);
+        private static void RefreshServedJsonOnly()
+        {
+            RoutesJson = BuildRoutesJson(served: true);
+            Revision++;
+        }
+
+        // Bumped on every change to the served view (every mutator ends in Save or
+        // RefreshServedJsonOnly), so an extension can poll it cheaply instead of diffing snapshots.
+        // Main-thread only, like the mutators.
+        internal static int Revision;
 
         private static string BuildPendingJson()
         {
@@ -1027,6 +1062,27 @@ namespace NOXMFD
             name = point.Name;
             index = _steerPoints.IndexOf(point);
             return true;
+        }
+
+        // ── extension snapshots (Api.GetActiveRoute/GetActiveSteerPoint) ─────────────────────────
+
+        public static NavRoute? GetActiveRouteSnapshot()
+        {
+            Route? route = ActiveRoute;
+            if (route == null) return null;
+            var points = new NavPoint[route.Waypoints.Count];
+            for (int i = 0; i < points.Length; i++)
+            {
+                Waypoint w = route.Waypoints[i];
+                points[i] = new NavPoint(w.Id, w.Name, w.X, w.Z);
+            }
+            return new NavRoute(route.Id, route.Name, route.NextIndex, points);
+        }
+
+        public static NavPoint? GetActiveSteerPointSnapshot()
+        {
+            SteerPoint? p = ActiveSteerPoint;
+            return p == null ? null : new NavPoint(p.Id, p.Name, p.X, p.Z);
         }
 
         // Test-only: _routes/_activeRouteId are static (plugin-lifetime by design, see the class

@@ -10,8 +10,9 @@ namespace NOXMFD
         // carries this value. 4 adds SetUnitColorOverride/ClearUnitColorOverride
         // (docs/atc-extension-support.md item 2). 5 adds SetSelectedUnit (item 3). 6 adds
         // SetSelectedUnitTrack, the item 3 follow-on that lets an extension put MAP into
-        // follow-this-unit mode instead of only highlighting it.
-        public const int ApiVersion = 6;
+        // follow-this-unit mode instead of only highlighting it. 7 adds the WPT route/steer-point
+        // reads and SetActiveRouteNextIndex, for coupling an autopilot to NOXMFD's route (issue #86).
+        public const int ApiVersion = 7;
 
         // Called on an HTTP worker: relPath "" is the page's own HTML (/ext/<id>); otherwise it is
         // an asset under that path. Return null for 404. Content-Type is inferred from its path suffix.
@@ -84,5 +85,21 @@ namespace NOXMFD
         // FLW key would), the same way it already re-centers on the player. off leaves MAP's pan
         // alone; it does not restore FLW. No effect until a non-zero id is also selected.
         public static void SetSelectedUnitTrack(bool on) => SharedSelection.SetTrack(on);
+
+        // WPT navigation (docs/extensions-api.md section 8). RouteStore stays the only authority on
+        // route progress, and its data is main-thread only — call these from Update(), never from the
+        // asset resolver. An active route owns navigation even when complete; only with no active
+        // route does the selected steer point apply (same priority as the HUD waypoint cue).
+        public static NavRoute? GetActiveRoute() => RouteStore.GetActiveRouteSnapshot();
+
+        public static NavPoint? GetActiveSteerPoint() => RouteStore.GetActiveSteerPointSnapshot();
+
+        // Changes whenever the route library or selection changes (edits, activation, proximity
+        // advance). Re-read GetActiveRoute/GetActiveSteerPoint only when this differs from last time.
+        public static int RouteRevision => RouteStore.Revision;
+
+        // Jumps the active route's progress to index (clamped to 0..Points.Length), as WPT's
+        // per-waypoint reset does. False when no route is active.
+        public static bool SetActiveRouteNextIndex(int index) => RouteStore.ResetWaypoint(index);
     }
 }

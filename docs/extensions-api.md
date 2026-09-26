@@ -2,10 +2,11 @@
 
 ## Status
 
-**Built and available as API version 5.** A separate BepInEx plugin can register an MFD page,
+**Built and available as API version 7.** A separate BepInEx plugin can register an MFD page,
 publish telemetry, receive commands on the Unity main thread, appear under the EXT navigation hub,
 provide an MJPEG feed, override MAP's unit icon colors (by faction, by type, or by one specific
-unit instance), and drive a shared MAP highlight — all without changing NOXMFD source.
+unit instance), drive a shared MAP highlight, and read and step the active WPT route — all without
+changing NOXMFD source.
 
 The concrete example is
 [NOXMFD-Extension-Remote-Control-Missile-Camera-POC](https://github.com/roke77/NOXMFD-Extension-Remote-Control-Missile-Camera-POC),
@@ -212,6 +213,36 @@ contact and leaves the view alone. Built for the ATC extension's TRACK ON MAP ch
 controller keeping MAP centered on whichever aircraft they're currently handling), but generic to
 any extension.
 
+## 8. WPT navigation
+
+```csharp
+NavRoute? Api.GetActiveRoute();
+NavPoint? Api.GetActiveSteerPoint();
+int Api.RouteRevision { get; }
+bool Api.SetActiveRouteNextIndex(int index);
+```
+
+`ApiVersion` 7+ (issue #86, coupling an autopilot mod to NOXMFD's route). `RouteStore` stays the
+single source of truth for the navigation library and the only proximity authority; an extension
+reads copies and steps progress through the same path WPT's per-waypoint reset uses.
+
+- `GetActiveRoute` returns a detached `NavRoute` (`Id`, `Name`, `NextIndex`, `NavPoint[] Points`)
+  or `null` when no route is active. `NextIndex` is a count of completed waypoints, so
+  `Points[NextIndex]` is the current target and `NextIndex == Points.Length` means complete.
+- `GetActiveSteerPoint` returns the selected standalone steer point, or `null`. It applies only
+  when no route is active: an active route owns navigation even when complete, the same priority
+  the HUD waypoint cue uses.
+- `NavPoint` carries `Id`, `Name`, `X`, `Z` in global coordinates (`GlobalPosition().x/z`), with no
+  altitude.
+- `RouteRevision` changes on every library or selection change, including the 1 Hz proximity
+  advance, so an extension polls it in `Update()` and re-reads only when it moves.
+- `SetActiveRouteNextIndex` clamps to `0..Points.Length` and returns `false` when no route is
+  active. It is the hook for direct-to, looping, and keeping another mod's own waypoint
+  sequencing in step with `RouteStore`.
+
+All four are main-thread only, like the store's mutators: call them from `Update()` or a command
+handler, never from the asset resolver.
+
 ## Known limitations
 
 - The generic browser side does not subscribe to names published through `Api.PublishEvent`.
@@ -241,3 +272,5 @@ any extension.
   forwarding.
 - `src/plugin/Extensions/IconColorRegistry.cs` — faction and per-unit-type color override storage.
 - `src/web/pages/map/map.js` — consumes `colors.types` alongside the existing `colors.f/e/n`.
+- `src/plugin/Stores/RouteStore.cs` — `NavRoute`/`NavPoint` snapshots and `Revision` behind the WPT
+  navigation reads.
