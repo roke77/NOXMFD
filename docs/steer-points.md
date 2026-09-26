@@ -37,6 +37,10 @@ the route library. The browser does not keep a second writable copy.
 
 Route proximity advance remains route-only. Steer points never participate in `AdvanceIfNear`.
 
+Extensions (`Api.GetActiveRoute`/`GetActiveSteerPoint`, docs/extensions-api.md section 8) receive
+read-only copies and apply the same priority themselves; `Api.SetActiveRouteNextIndex` is their only
+write, through the same `ResetWaypoint` path WPT uses, so `RouteStore` stays the single authority.
+
 ## Commands and page behavior
 
 The browser uses context-level commands for actions whose meaning depends on route state:
