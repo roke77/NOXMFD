@@ -165,7 +165,7 @@ target (tight on one, wide enough to fit several) — press either button to tak
 stepping up or down the ladder from wherever it started. Locking a fresh target afterward hands
 zoom back to the game's own automatic choice until you press Z+/Z− again.
 
-![MAN and CLR lit during Point Track, locked onto a helicopter](images/TPG_MAN.png)
+![MAN and CLR lit during Point Track, locked onto a helicopter](images/TGP_MAN.png)
 
 ## Mark steer point
 
