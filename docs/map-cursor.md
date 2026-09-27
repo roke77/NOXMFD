@@ -96,6 +96,9 @@ Give the cursor a small reach pad (like touch's `TOUCH_HIT_PAD`) so it needn't b
 an icon. Selection **only ever adds** targets, same rule as the tap: nearest unselected contact in
 reach, no-op if none — deselection stays a TGT-page concern.
 
+> Deselection later came to MAP too: right-click and the Cursor Deselect keybind call `deselectAt`,
+> which shares `selectAt`'s hit test (`nearestContact`) filtered to selected contacts.
+
 > `docs/page-cursor.md` later added a second, LIVE signal alongside this edge — `held` on the same
 > `cursor` SSE event, sourced from the same bind's continuous (non-edge) press state
 > (`Keybinds.Poll()`'s `Active(_cursorSelect, edgeOverride: false)`). MAP still only ever consumes

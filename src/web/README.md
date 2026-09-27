@@ -211,7 +211,8 @@ selected FCR range follows the same pattern under `noxmfd.rdr.view`; HSD keeps i
   drawing no crosshair: its on-screen joystick uses the raw vector only to detect physical PAD
   Cursor input and hide itself in favor of it (docs/tgp-manual-control.md).
 - **Write commands:** `src/web/services/send-command.js` POSTs the flat `{cmd, …}` envelope to `/command`
-  — from pages (MAP tap → `target.select`; TGT → `tgt.*` + `target.deselect`; AVN → `avn.toggle`;
+  — from pages (MAP tap → `target.select`, right-click/Cursor Deselect → `target.deselect`;
+  TGT → `tgt.*` + `target.deselect`; AVN → `avn.toggle`;
   HUD → `hud.*`/`declutter.set`/`preset.*` (issue #50 follow-up); KEYBINDS → the `keybind.*` family;
   WPT → the `wpt.*` family, including its squad-share sub-group (docs/squadron-transport.md); SQD →
   the `sqd.*` family; TD → the `td.*` family (issue #47, docs/target-designator.md))

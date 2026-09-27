@@ -333,7 +333,8 @@ instead of re-toggling the first hit on and off. Deselecting is now a separate, 
   shape as `tgt-datalink`/`zoom-in`, no native/server-side effect of its own. No effect on MAP (no
   deselect concept there either) or TGT (already has its own dedicated deselect path via row tap /
   focused-lock Select, docs/tgt-cycle-focus.md) — the action reaches whichever page holds SOI, and
-  only `rdr.js`/`hsd.js` listen for it.
+  only `rdr.js`/`hsd.js` listen for it. (MAP later gained a listener too: `map.js`'s `deselectAt`,
+  also bound to right-click — see docs/map-cursor.md.)
 - **`rdr.js`/`hsd.js`**: `padSelect` now calls a new `nearestContactBy(px, py, wantLocked)` — the
   same hit-test loop as `nearestContact`, but filtered to only-unlocked (Select) or only-locked
   (the new `padDeselect`) candidates, mirroring MAP's own `selectAt`'s "skip already-selected"

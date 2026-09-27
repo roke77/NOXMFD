@@ -1284,10 +1284,10 @@ mapPanel.addEventListener('mousemove', function(e) {
 mapPanel.addEventListener('mouseleave', function() { unitLabel.style.display = 'none'; updateCursorChip(null); });
 
 // ── Tap-to-select (POC write path) ──────────────────────────────────────────────────
-// A tap on a contact POSTs its id to /select; the mod targets it in-game. Map-select only ever
-// ADDS targets — removal is right-click / Cursor Deselect (deselectAt). So a tap picks the nearest NOT-yet-selected contact under
-// the cursor: tapping an already-selected unit selects the next nearby one instead, and when
-// every nearby contact is already selected the tap is a no-op. Taps that were really a pan/pinch
+// A tap on a contact POSTs its id to /select; the mod targets it in-game. A tap only ever ADDS
+// targets (removal is right-click / Cursor Deselect, deselectAt), so it picks the nearest
+// NOT-yet-selected contact under the cursor: tapping an already-selected unit selects the next
+// nearby one instead, and when every nearby contact is already selected the tap is a no-op. Taps that were really a pan/pinch
 // (gestureMoved) are ignored, and the player icon has no id so it's never selectable.
 //
 // Selection state comes from each contact's tg flag (telemetry), but that lags a tap by ~100 ms.
