@@ -1185,6 +1185,7 @@ overlay.addEventListener('wheel', function(e) {
 // gives clampPan slack even at zoom 1, and clampPan itself is what actually enforces the limit —
 // this only decides whether to listen for the drag at all.
 overlay.addEventListener('pointerdown', function(e) {
+  if (e.pointerType === 'mouse' && e.button === 2) return;   // right button = deselect (auxclick), never pan or long-press
   pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
   downX = e.clientX; downY = e.clientY; gestureMoved = false;
   lastPointerType = e.pointerType || 'mouse';   // drives the tap-select reach (touch = fat finger)
@@ -1284,7 +1285,7 @@ mapPanel.addEventListener('mouseleave', function() { unitLabel.style.display = '
 
 // ── Tap-to-select (POC write path) ──────────────────────────────────────────────────
 // A tap on a contact POSTs its id to /select; the mod targets it in-game. Map-select only ever
-// ADDS targets — it never deselects. So a tap picks the nearest NOT-yet-selected contact under
+// ADDS targets — removal is right-click / Cursor Deselect (deselectAt). So a tap picks the nearest NOT-yet-selected contact under
 // the cursor: tapping an already-selected unit selects the next nearby one instead, and when
 // every nearby contact is already selected the tap is a no-op. Taps that were really a pan/pinch
 // (gestureMoved) are ignored, and the player icon has no id so it's never selectable.
@@ -1305,24 +1306,51 @@ function isSelected(t) {
   if (performance.now() >= exp) { pendingSel.delete(t.id); return false; }
   return true;
 }
-// Picks the NEAREST unselected contact within reach of (px,py) and selects it — the shared body
-// behind a mouse click, a touch tap, and (docs/map-cursor.md) a Cursor Select press. "Within reach"
-// scales with pad so a fat touch tap or a coarse HOTAS cursor need not be pixel-precise.
-function selectAt(px, py, pad) {
+// The NEAREST contact within reach (r + pad) of (px,py) whose selection state is `selected`, or
+// null — the hit test selectAt and deselectAt share.
+function nearestContact(px, py, pad, selected) {
   let hit = null, bestD2 = Infinity;
   for (let i = hitTargets.length - 1; i >= 0; i--) {
     const t = hitTargets[i];
-    if (t.id == null || isSelected(t)) continue;
+    if (t.id == null || isSelected(t) !== selected) continue;
     const dx = px - t.cx, dy = py - t.cy, d2 = dx * dx + dy * dy;
     const reach = t.r + pad;
     if (d2 <= reach * reach && d2 < bestD2) { bestD2 = d2; hit = t; }
   }
+  return hit;
+}
+
+// Picks the NEAREST unselected contact within reach of (px,py) and selects it — the shared body
+// behind a mouse click, a touch tap, and (docs/map-cursor.md) a Cursor Select press. "Within reach"
+// scales with pad so a fat touch tap or a coarse HOTAS cursor need not be pixel-precise.
+function selectAt(px, py, pad) {
+  const hit = nearestContact(px, py, pad, false);
   if (!hit) return;   // nothing in reach, or everything in reach already selected → no-op (never deselects)
   pendingSel.set(hit.id, performance.now() + 1500);
   sendCommand('target.select', { id: hit.id })
     .then(function(r) { if (r.ok) flashSelect(hit.id); else pendingSel.delete(hit.id); })
     .catch(function() { pendingSel.delete(hit.id); });
 }
+
+// The removal twin of selectAt — the shared body behind a right-click and a Cursor Deselect press:
+// drops the NEAREST selected contact within reach of (px,py).
+// ponytail: no optimistic pending-deselect like pendingSel, so a second right-click inside the
+// ~100 ms telemetry lag re-hits the same unit instead of advancing through a stack. Mirror
+// pendingSel if players deselect stacked contacts that fast.
+function deselectAt(px, py, pad) {
+  const hit = nearestContact(px, py, pad, true);
+  if (!hit) return;
+  pendingSel.delete(hit.id);
+  sendCommand('target.deselect', { id: hit.id }).catch(function() {});
+}
+
+// Right-click deselects (mouse only). auxclick, not contextmenu: a touch long-press also raises
+// contextmenu, and on MAP that gesture places a waypoint.
+overlay.addEventListener('auxclick', function(e) {
+  if (e.button !== 2) return;
+  const rect = overlay.getBoundingClientRect();
+  deselectAt(e.clientX - rect.left, e.clientY - rect.top, 0);
+});
 
 overlay.addEventListener('click', function(e) {
   if (longPress && longPress.fired) { longPress = null; return; }   // that was a waypoint placement, not a select
@@ -1393,6 +1421,8 @@ window.addEventListener('message', function(e) {
     // would make Cursor Select's hold arbitration (pad-cursor.js's setSelectHeld) unreachable, same
     // as a mouse click short-circuiting tgt.js's own long-press timer.
     case 'cursor-held':   cursor.setSelectHeld(!!m.held); break;
+    // Cursor Deselect (a dedicated keybind): hit-tests at the cursor, same reach as Cursor Select.
+    case 'cursor-deselect': { const p = cursor.getPos(); if (p) deselectAt(p.x, p.y, CURSOR_HIT_PAD); } break;
   }
 });
 

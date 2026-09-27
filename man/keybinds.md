@@ -179,8 +179,8 @@ from the HOTAS, without touching the screen.
   contact after another instead of re-toggling the same one. **Holding** Select there instead of
   tapping it toggles a fixed zoom centered on the cursor — useful for pulling an overlapping
   cluster of contacts apart to pick them out individually; hold again to zoom back out.
-- **Cursor Deselect** — FCR/HSD only: removes whichever locked contact the cursor is nearest to. No
-  effect on any other page.
+- **Cursor Deselect** — MAP/FCR/HSD only: removes whichever locked contact the cursor is nearest to.
+  No effect on any other page.
 - **Zoom In/Out** zoom the MAP view as usual, or scroll the page up/down on HUD/TGT.
 - On MAP, pushing the cursor against the edge with FLW off pans the view to reveal more terrain.
 

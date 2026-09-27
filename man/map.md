@@ -1,11 +1,12 @@
 # MAP
 
 Full-screen tactical map showing friendly/hostile units and your own position. Click a unit to
-target it. Your own plane always renders green; while you're in a [squad](sqd.md), every other
-squad member's plane renders in the squad's teal instead of its plain friendly/hostile color, so
-you can spot them at a glance. [MAP CFG](mapcfg.md)'s SHOW PLAYER NAMES toggle adds a pilot name
-label above any player-controlled aircraft — friendly or enemy — wherever it's visible as a
-contact; off by default.
+target it; right-click a targeted unit to drop it (or use the **Cursor Deselect**
+[keybind](keybinds.md#pad-cursor)). Your own plane always renders green; while you're in a
+[squad](sqd.md), every other squad member's plane renders in the squad's teal instead of its plain
+friendly/hostile color, so you can spot them at a glance. [MAP CFG](mapcfg.md)'s SHOW PLAYER NAMES
+toggle adds a pilot name label above any player-controlled aircraft — friendly or enemy — wherever
+it's visible as a contact; off by default.
 
 ![MAP page](images/MAP.png)
 

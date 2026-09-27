@@ -318,15 +318,15 @@ namespace NOXMFD
                     TelemetryServer.CursorSelect();
                     TgpManualControl.TryLockTrackedUnit();
                 });
-            // FCR/HSD's own Cursor Select never deselects (mirrors MAP's cursor select, which has
-            // always been add-only) — this is the dedicated removal path for those two pages. A
-            // plain one-shot MapAction, same shape as tgt-datalink/zoom-in: no native/server-side
-            // effect of its own, just a named trigger the focused page's own JS decides what to do
-            // with (rdr.js/hsd.js's padDeselect, hit-testing against the PAD cursor's own current
-            // position). No effect on MAP (no deselect concept) or TGT (already has its own dedicated
-            // deselect path via row tap / focused-lock Select, docs/tgt-cycle-focus.md).
+            // MAP/FCR/HSD's own Cursor Select never deselects — this is the dedicated removal path
+            // for those three pages. A plain one-shot MapAction, same shape as tgt-datalink/zoom-in:
+            // no native/server-side effect of its own, just a named trigger the focused page's own
+            // JS decides what to do with (map.js's deselectAt, rdr.js/hsd.js's padDeselect, each
+            // hit-testing against the PAD cursor's own current position). No effect on TGT (already
+            // has its own dedicated deselect path via row tap / focused-lock Select,
+            // docs/tgt-cycle-focus.md).
             _cursorDeselect = DefFree(config, "cursor-deselect", cursor, "CursorDeselect", "Cursor Deselect", edge: true,
-                "On FCR/HSD, deselects whatever the cursor is on (Cursor Select there only ever adds a lock, never removes one). No effect elsewhere.",
+                "On MAP/FCR/HSD, deselects whatever the cursor is on (Cursor Select there only ever adds a lock, never removes one). No effect elsewhere.",
                 () => TelemetryServer.MapAction("cursor-deselect"));
             // Analog alternative to the four direction keys above — a HOTAS mini-stick/hat gives full
             // diagonal control the keys can't (only one axis can be held "active" at a time on a
