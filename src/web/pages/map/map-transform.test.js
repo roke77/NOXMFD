@@ -115,7 +115,7 @@ const near = (a, b, eps, msg) => assert.ok(Math.abs(a - b) < eps, `${msg}: ${a} 
   eqPan(T.clampPan(g2, 10, -10), 10, -10, 'a pan inside the limit should pass through');
 
   // Not asserted: zoom < 1. The slack goes negative there and the clamp inverts, but map.js pins
-  // zoom to MIN_ZOOM=1..MAX_ZOOM=8 (including when reading the persisted view), so that input
+  // zoom to MIN_ZOOM=1..maxZoom (including when reading the persisted view), so that input
   // cannot occur. Pinning behaviour for it would freeze an accident rather than a contract — the
   // precondition is noted on clampPan instead.
 
@@ -134,6 +134,19 @@ const near = (a, b, eps, msg) => assert.ok(Math.abs(a - b) < eps, `${msg}: ${a} 
     const g = base({ meta });
     assert.strictEqual(T.worldToOverlay(g, 0, 0), null, `worldToOverlay should decline meta ${JSON.stringify(meta)}`);
     assert.strictEqual(T.overlayToWorld(g, 0, 0), null, `overlayToWorld should decline meta ${JSON.stringify(meta)}`);
+  }
+}
+
+// ── Zoom ceiling (issue #96) ─────────────────────────────────────────────────────────────
+// The game's 40x draws 81,920 m / 40 across its panel; this view's ceiling must land on the same
+// span for any map size, with the larger axis setting the fit and 1 as the floor.
+{
+  assert.strictEqual(T.maxZoom({ w: 81920, h: 81920 }), 40, 'an 81,920 m map should match the game 1:1');
+  near(T.maxZoom({ w: 100000, h: 100000 }), 40 * 100000 / 81920, 1e-9, 'a larger map scales the ceiling up');
+  near(T.maxZoom({ w: 40960, h: 20480 }), 20, 1e-9, 'the larger axis sets the ceiling');
+  assert.strictEqual(T.maxZoom({ w: 1000, h: 1000 }), 1, 'a tiny map must not drop the ceiling below 1');
+  for (const meta of [null, undefined, { w: 0, h: 0 }]) {
+    assert.strictEqual(T.maxZoom(meta), 40, `no map yet should fall back to the game's 40 (${JSON.stringify(meta)})`);
   }
 }
 

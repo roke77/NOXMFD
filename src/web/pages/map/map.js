@@ -37,7 +37,9 @@ let   hitTargets = [];         // [{cx, cy, r, label, detail}] rebuilt every dra
 // hitTargets, by drawWaypoints()/drawSteerPoints().
 let   navHitTargets = [];       // [{cx, cy, r, kind: 'waypoint'|'steerpoint', index|id}]
 let   view = { zoom: 1, panX: 0, panY: 0 };   // map view: pan in screen px, zoom about canvas centre
-const MIN_ZOOM = 1, MAX_ZOOM = 8;
+const MIN_ZOOM = 1;
+// The ceiling matches the in-game map's closest zoom for the loaded map (MapTransform.maxZoom).
+function clampZoom(z) { return Math.max(MIN_ZOOM, Math.min(MapTransform.maxZoom(mapMeta), z)); }
 // How far past the map image's own edge pan/cursor may reach, as a fraction of the image's dw/dh
 // (see MapTransform.clampPan) — issue #65: a mission's real reachable extent (mapMeta.rw/rh, the
 // server's MapReachW/H) can run past the square the minimap IMAGE covers (mapMeta.w/h), so a zero
@@ -47,8 +49,8 @@ const MIN_ZOOM = 1, MAX_ZOOM = 8;
 function edgeMarginFrac(w, reach) {
   return (reach && w > 0 && reach > w) ? (reach - w) / (2 * w) : 0;
 }
-// Icons grow once the map is zoomed in to 4x or more (zoom range is MIN..MAX = 1..8): zoom
-// 1–3 uses the small OUT sizes, 4–8 the larger IN sizes.
+// Icons grow once the map is zoomed in to 4x or more: below 4 uses the small OUT sizes, 4 and up
+// the larger IN sizes.
 const ICON_ZOOM_THRESHOLD = 4;
 function zoomedIn()     { return view.zoom >= ICON_ZOOM_THRESHOLD; }
 function iconBase()     { return zoomedIn() ? ICON_BASE_IN : ICON_BASE_OUT; }
@@ -111,13 +113,13 @@ const CURSOR_HIT_PAD = 16;   // extra reach around an icon — coarser than a mo
 // enough for follow to bite (it only re-centres while view.zoom > MIN_ZOOM).
 const VIEW_STORE_KEY = 'noxmfd.map.view';
 const DEFAULT_FOLLOW = true;
-const DEFAULT_ZOOM   = 4;     // medium point of the MIN_ZOOM..MAX_ZOOM (1..8) range — tune here
+const DEFAULT_ZOOM   = 4;     // close enough for follow to bite, still wide enough to see the area — tune here
 const DEFAULT_GRID   = false; // coordinate grid overlay (issue #41) — off by default, toggleable
 function loadPersistedView() {
   let saved = null;
   try { saved = JSON.parse(sessionStorage.getItem(VIEW_STORE_KEY) || 'null'); } catch (_) {}
   const z = saved && typeof saved.zoom === 'number' ? saved.zoom : DEFAULT_ZOOM;
-  view.zoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, z));
+  view.zoom = clampZoom(z);
   followPlayer = saved && typeof saved.follow === 'boolean' ? saved.follow : DEFAULT_FOLLOW;
   gridOn = saved && typeof saved.grid === 'boolean' ? saved.grid : DEFAULT_GRID;
 }
@@ -1173,7 +1175,7 @@ overlay.addEventListener('wheel', function(e) {
   e.preventDefault();
   const rect = overlay.getBoundingClientRect();
   const sx = e.clientX - rect.left, sy = e.clientY - rect.top;   // cursor in canvas px
-  const z1 = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, view.zoom * Math.exp(-e.deltaY * 0.0015)));
+  const z1 = clampZoom(view.zoom * Math.exp(-e.deltaY * 0.0015));
   zoomAbout(z1, sx, sy);
 }, { passive: false });
 
@@ -1209,7 +1211,7 @@ overlay.addEventListener('pointermove', function(e) {
     e.preventDefault();
     if (pinchStartDist <= 0) return;
     const g = pinchGeom();
-    const z1 = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, pinchStartZoom * (g.dist / pinchStartDist)));
+    const z1 = clampZoom(pinchStartZoom * (g.dist / pinchStartDist));
     const rect = overlay.getBoundingClientRect();
     zoomAbout(z1, g.mx - rect.left, g.my - rect.top);
     return;
@@ -1342,7 +1344,7 @@ overlay.addEventListener('click', function(e) {
 // cursor to anchor on.
 function zoomStep(factor) {
   if (!mapMeta) return;
-  const z1 = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, view.zoom * factor));
+  const z1 = clampZoom(view.zoom * factor);
   const p = cursor.getPos();
   const ox = overlay.width / 2, oy = overlay.height / 2;
   zoomAbout(z1, p ? p.x : ox, p ? p.y : oy);

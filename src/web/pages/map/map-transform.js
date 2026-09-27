@@ -91,7 +91,20 @@
              panY: Math.max(-maxY, Math.min(maxY, panY)) };
   }
 
-  const api = { imgRect, viewTransform, worldToBase, worldToOverlay, overlayToWorld, clampPan };
+  // The in-game map's zoom ceiling on this view's scale (issue #96). DynamicMap clamps its zoom to
+  // 1..40, and its 1 draws a fixed 81,920 m across the 900-unit maximized panel whatever the map's
+  // size (LoadMapImage sizes the image by MapSize / 81920). This view's 1 fits the whole map, so
+  // matching the game's closest metres-per-panel takes 40 × MapSize / 81920. No meta yet (pre-
+  // mission) returns the game's own 40, and map.js re-clamps once the first map frame lands.
+  // ponytail: treats the maximized panel as the image's 900 units; its real width is a prefab value
+  // (DynamicMap.mapScaleMaximized) that one in-game reading would pin down.
+  const GAME_MAX_ZOOM = 40, GAME_FULL_SPAN_M = 81920;
+  function maxZoom(meta) {
+    if (!meta || meta.w <= 0 || meta.h <= 0) return GAME_MAX_ZOOM;
+    return Math.max(1, GAME_MAX_ZOOM * Math.max(meta.w, meta.h) / GAME_FULL_SPAN_M);
+  }
+
+  const api = { imgRect, viewTransform, worldToBase, worldToOverlay, overlayToWorld, clampPan, maxZoom };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.MapTransform = api;
 })(typeof self !== 'undefined' ? self : this);
