@@ -15,7 +15,8 @@ contact; off by default.
   wherever you last panned it.
 - **CFG** — open [MAP's own settings page](mapcfg.md) (telemetry refresh rate, pilot name labels).
 - **GRID** — toggle a coordinate grid overlay on the map. Off by default.
-- **Z+ / Z−** — zoom in / out.
+- **Z+ / Z−** — zoom in / out, from the whole map down to the in-game map's closest zoom. Pinch,
+  the mouse wheel, and the Cursor Zoom keybinds cover the same range.
 - **WPT** — open the [route and steer-point editor](wpt.md).
 - **R+ / R−** — switch the active waypoint route to the next / previous one you've saved.
 - **W+ / W−** — with a route active, manually step to its next / previous waypoint. Hold W− to
