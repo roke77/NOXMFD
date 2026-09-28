@@ -927,7 +927,8 @@ namespace NOXMFD
 
         // F-35 master-strip status icons — toggles the same systems the AVN annunciators already
         // read. gear/radar/eng go through the game's own networked Cmd calls, the same path the
-        // immersion keybinds use; guns/assist/lights/turret are local, client-only toggles; nvg is a
+        // immersion keybinds use (gear through DriveGear, so it keeps the stock airborne/locked
+        // guard); guns/assist/lights/turret are local, client-only toggles; nvg is a
         // player-camera setting, not per-aircraft, but still gated on a live aircraft so the icon
         // only works in flight, matching the row it lives in. Each game-side call already self-guards
         // on the airframe's own capability, so this just fires it — no capability check duplicated.
@@ -938,7 +939,7 @@ namespace NOXMFD
 
             switch (env.group)
             {
-                case "gear":   ac.SetGear(!ac.gearDeployed); break;
+                case "gear":   Keybinds.DriveGear(ac, up: true, down: true); break;
                 case "radar":  ac.CmdToggleRadar(); break;
                 case "guns":   ac.weaponManager?.ToggleGunsLinked(); break;
                 case "eng":    ac.CmdToggleIgnition(); break;

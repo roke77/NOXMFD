@@ -546,12 +546,12 @@ namespace NOXMFD
         }
 
         // WeaponManager.gunsLinked is private; cache the FieldInfo and read it via reflection.
-        // "Linked" is only meaningful with multiple guns, so a single-gun airframe reports false
-        // (which the AVN tile renders as its dim/off state).
+        // Reported as-is on every airframe: the game's Link Guns bind flips and announces it even
+        // with a single gun, so gating on HasMultipleGuns would leave the tile dark after a toggle.
         private static FieldInfo? _gunsLinkedField;
         private static bool GetGunsLinked(WeaponManager? wm)
         {
-            if (wm == null || !wm.HasMultipleGuns()) return false;
+            if (wm == null) return false;
             if (_gunsLinkedField == null)
                 _gunsLinkedField = typeof(WeaponManager).GetField("gunsLinked", BindingFlags.NonPublic | BindingFlags.Instance);
             if (_gunsLinkedField == null) return false;
