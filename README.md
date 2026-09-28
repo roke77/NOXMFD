@@ -155,6 +155,7 @@ Known extensions:
 - **[Vanilla Icons Plus](https://github.com/roke77/NOXMFD-Extension-Vanilla-Icons-Plus)** — mirrors NO-VanillaIconsPLUS's unit colors onto NOXMFD's MAP page.
 - **[ATC](https://github.com/roke77/NOXMFD-Extension-ATC)** — ATC traffic management / flight-progress display for NOXMFD.
 - **[NOAutopilot](https://github.com/roke77/NOXMFD-Extension-NOAutopilot)** — an Auto pilot page for NOXMFD that controls the NOAutopilot mod.
+- **[SRS](https://github.com/roke77/NOXMFD-Extension-SRS)** — an SRS radio page for NOXMFD that shows and tunes your SRS radios.
 
 ## Security & privacy
 
