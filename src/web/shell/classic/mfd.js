@@ -2590,9 +2590,9 @@ function mfdButton(el) {
       paneTgpPage[paneIdx] = Math.max(0, Math.min(2, paneTgpPage[paneIdx] + (act === 'tgp-nav-next' ? 1 : -1)));
       renderSplitLabels();
     } else if (act === 'tgp-zoom-in' || act === 'tgp-zoom-out') {
-      // Handled entirely by the pointerdown/pointerup zoom-step wiring (isTgpZoomKey) further
-      // down — this is just the click that follows pointerup, a no-op here so it doesn't fall
-      // through to paneNavigate and warn about an unknown split page.
+      // One level per call. A pointer press steps (and repeats) on pointerdown instead, and the
+      // click listener skips these keys, so this only runs for a SOI Nav Select.
+      stepTgpZoom(act === 'tgp-zoom-in' ? 1 : -1);
     } else if (act === 'lyt') {
       // LYT is a whole-document layout switch, not per-pane content (no PAGE_URL entry) — leaving
       // split is the only sensible destination, same as the 'unsplit' case below but landing on LYT
@@ -2691,6 +2691,9 @@ function mfdButton(el) {
     case 'tgp-mark-steerpoint': sendCommand('tgp.mark-steerpoint').catch(function() {}); break;
     case 'tgp-point-track':     sendCommand('tgp.point-track').catch(function() {}); break;
     case 'tgp-manual-reset':    sendCommand('tgp.manual-reset').catch(function() {}); break;
+    // Z+/Z- — SOI Nav Select only; a pointer press steps on pointerdown (isTgpZoomKey below).
+    case 'tgp-zoom-in':  stepTgpZoom(1);  break;
+    case 'tgp-zoom-out': stepTgpZoom(-1); break;
     // EXT (docs/extensions-api.md) always lands on the EXT hub itself — NAV.ext (ext-nav.js)
     // lists MAIN plus one entry per installed extension, rendered as ordinary full-view keys by
     // the generic NAV sweep in showPage. Picking one of THOSE is handled by the `default` case
@@ -2943,6 +2946,7 @@ document.querySelector('.mfd').addEventListener('click', function(e) {
   // tap behavior (a browser fires click after pointerup regardless of press duration).
   if (isCombatModeKey(k) && combatModeHoldFired) { combatModeHoldFired = false; return; }
   if (isWptPrevKey(k) && wptPrevHoldFired) { wptPrevHoldFired = false; return; }
+  if (isTgpZoomKey(k)) return;   // pointerdown already stepped
   mfdButton(k);
 });
 

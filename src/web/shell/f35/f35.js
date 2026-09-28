@@ -875,6 +875,9 @@
           b.addEventListener('pointerup', stop);
           b.addEventListener('pointercancel', stop);
           b.addEventListener('pointerleave', stop);
+          // A click with no pointer behind it (detail 0: SOI Nav Select's .click(), keyboard
+          // activation) had no pointerdown to step, so it steps once here.
+          b.addEventListener('click', function (e) { if (e.detail === 0) stepZoom(); });
         } else if (wired) {
           b.addEventListener('click', function () { dispatch(item.action); });
         } else {
