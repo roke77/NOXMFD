@@ -778,6 +778,10 @@ wrapping. A no-op while `ManualMode` is off (a real/auto lock): `TgpManualContro
   `TGP_ZOOM_STEP_REPEAT_MS` = 150) until pointerup/pointercancel/pointerleave clears the timer.
   Classic shell tracks the held pointer by its `pointerId` (not by re-checking which key is under
   the pointer at release), so dragging off the key before lifting still stops the repeat.
+- A SOI Nav Select clicks the cursored key with no pointer behind it, so it steps exactly one
+  level: classic routes it through `mfdButton` (whose click listener skips Z+/Z- so a pointer
+  press doesn't step twice); F-35 steps on a click whose `detail` is 0, which also covers
+  keyboard activation.
 
 **STP (built) — mark whatever the TGP camera is currently showing as a new steer point**
 (`docs/steer-points.md`), a single one-shot bezel/glass button plus a matching `Mark Steer Point`

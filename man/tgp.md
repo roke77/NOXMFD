@@ -99,7 +99,7 @@ Manual control reuses the same PAD Cursor every other display already uses (see
   pointing, it just stops listening for input until SOI comes back to it.
 - **Z+ / Z−** on this page's own nav row jump the zoom to the next fixed magnification level
   (roughly doubling each press: 0.5x, 1x, 2x, 4x, 8x, 16x, 32x, 40x) — no SOI needed. Press and
-  hold to keep stepping through levels until you let go. See [Zoom during a real
+  hold to keep stepping through levels until you let go. **Nav Select** on either steps one level. See [Zoom during a real
   lock](#zoom-during-a-real-lock) for what they do outside manual control.
 - A **joystick** in the bottom-right corner of the picture, for a mouse or touch screen: press and
   drag it, and the camera pans and tilts toward the direction you dragged, the further the faster.
