@@ -94,7 +94,7 @@
   transform: translate(-50%, -50%);
   border-radius: 50%;
   background: var(--no-white);
-  box-shadow: 0 0 2px #000;
+  opacity: 0.8;   /* see-through, so the target shows behind it; same alpha as the in-game dots */
 }
 .tgp-panel.tgp-point-track .tgp-ch-dot { display: block; }
 

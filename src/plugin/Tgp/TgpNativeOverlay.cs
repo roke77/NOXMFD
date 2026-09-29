@@ -10,6 +10,7 @@ namespace NOXMFD
     {
         private static GameObject? _crosshairRoot;
         private static GameObject? _pointTrackDot;
+        internal static readonly Color PointTrackDotColor = new Color(1f, 1f, 1f, 0.8f);
         private static GameObject? _soiLabel;
         private static Canvas? _crosshairCanvas;
         private static float _overlayDiagLastLog;
@@ -53,6 +54,7 @@ namespace NOXMFD
                 const float dotHalf = 0.007f;
                 CreateBar(rootRt, "PointTrackDot", new Vector2(0.5f - dotHalf, 0.5f - dotHalf), new Vector2(0.5f + dotHalf, 0.5f + dotHalf));
                 _pointTrackDot = rootRt.Find("PointTrackDot").gameObject;
+                _pointTrackDot.GetComponent<Image>().color = PointTrackDotColor;   // see-through, so the target shows behind it
 
                 // "SOI" tag (docs/tgp-manual-control.md's PAD Cursor consolidation plan) — centered
                 // horizontally, vertically centered between the bottom of the camera feed (y=0) and

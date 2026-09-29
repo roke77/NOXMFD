@@ -460,6 +460,7 @@ namespace NOXMFD
             const float dotHalf = 0.007f;
             CreateBar(_crosshair, "PointTrackDot", new Vector2(0.5f - dotHalf, 0.5f - dotHalf), new Vector2(0.5f + dotHalf, 0.5f + dotHalf));
             _pointTrackDot = _crosshair.Find("PointTrackDot").gameObject;
+            _pointTrackDot.GetComponent<Image>().color = TgpNativeOverlay.PointTrackDotColor;
         }
 
         private static void CreateBar(Transform parent, string name, Vector2 anchorMin, Vector2 anchorMax)
