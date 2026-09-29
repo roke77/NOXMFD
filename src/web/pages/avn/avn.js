@@ -84,6 +84,9 @@ function paintAvnStatus() {
   setAvnTile(avnTileNvg,    'nvg',    avnData.nvg);
   setAvnTile(avnTileLights, 'lights', avnData.navLights);
   setAvnTile(avnTileTurret, 'turret', avnData.turret);
+  // DIAG98 (issue 98, temporary): report what the icons were painted with to the BepInEx log.
+  sendCommand('diag.log', { group: 'classic AVN painted gear=' + avnData.gearDown + ' (' + avnTileGear.className +
+    ') guns=' + avnData.guns + ' (' + avnTileGuns.className + ') nvg=' + avnData.nvg + ' (' + avnTileNvg.className + ')' }).catch(function() {});
 }
 
 // The vertical band .avn-content centres itself in: full uses the shell-forwarded bezel geometry

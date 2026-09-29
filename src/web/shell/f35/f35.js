@@ -1357,6 +1357,10 @@
       el.classList.remove('on', 'off', 'gear-down');
       el.classList.add(AvnStatusPolicy.tileClass(el.dataset.kind, !!m[el.dataset.field]));
     });
+    // DIAG98 (issue 98, temporary): report what the strip was painted with to the BepInEx log.
+    sendCommand('diag.log', { group: 'f35 strip painted ' + stripFlags.filter(function (el) {
+      return el.dataset.kind === 'gear' || el.dataset.kind === 'guns' || el.dataset.kind === 'nvg';
+    }).map(function (el) { return el.dataset.kind + '=' + m[el.dataset.field] + ' (' + el.className + ')'; }).join(' ') }).catch(function () {});
   }
 
   // THRL + FUEL, off the same 'avn' slice as the flags — fuel and throttle were already in it, so

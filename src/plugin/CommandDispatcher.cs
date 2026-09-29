@@ -112,6 +112,7 @@ namespace NOXMFD
                 { "declutter.set",   DeclutterSet },
                 { "avn.toggle",      AvnToggle },
                 { "avn.set",         AvnSet },
+                { "diag.log",        DiagLog },   // DIAG98
                 // MAP CFG's and TGP CFG's controls. The old tgpQuality group remains a resolution
                 // alias so an older page can still switch between native and the mirror feed.
                 { "rates.set",       e => {
@@ -389,7 +390,7 @@ namespace NOXMFD
                 if (_handlers.TryGetValue(env.cmd ?? string.Empty, out Action<CommandEnvelope> handler))
                 {
                     try { handler(env); }
-                    catch (Exception ex) { Plugin.Log?.LogWarning($"[NOXMFD] command '{env.cmd}' threw: {ex.Message}"); }
+                    catch (Exception ex) { Plugin.Log?.LogWarning($"[NOXMFD] command '{env.cmd}' (group '{env.group}') threw: {ex}"); }
                 }
                 else
                 {
@@ -953,7 +954,12 @@ namespace NOXMFD
         private static void AvnToggle(CommandEnvelope env)
         {
             GameManager.GetLocalAircraft(out Aircraft ac);
-            if (ac == null || ac.disabled) return;
+            if (ac == null || ac.disabled)
+            {
+                Plugin.Log?.LogInfo($"[NOXMFD] DIAG98 avn.toggle {env.group}: no live aircraft (null={ac == null}) — ignored.");
+                return;
+            }
+            Plugin.Log?.LogInfo($"[NOXMFD] DIAG98 avn.toggle {env.group} before: radarAlt={ac.radarAlt:0.00} {TelemetryReader.Diag98State(ac)}");
 
             switch (env.group)
             {
@@ -970,6 +976,19 @@ namespace NOXMFD
                     return;
             }
             Plugin.Log?.LogInfo($"[NOXMFD] avn.toggle {env.group}.");
+            // NVG only applies on NightVision's next Update, so its after-state shows in the reader's
+            // DIAG98 state line instead.
+            Plugin.Log?.LogInfo($"[NOXMFD] DIAG98 avn.toggle {env.group} after: {TelemetryReader.Diag98State(ac)}");
+        }
+
+        // DIAG98 (issue 98, temporary): what a browser's GEAR/GUNS/NVG icons received and painted,
+        // so one BepInEx log covers game → telemetry → icon. Remove with the other DIAG98 lines.
+        // The text comes from any LAN client, so it is capped before it reaches the log.
+        private static void DiagLog(CommandEnvelope env)
+        {
+            string text = env.group ?? "";
+            if (text.Length > 200) text = text.Substring(0, 200);
+            Plugin.Log?.LogInfo($"[NOXMFD] DIAG98 web: {text}");
         }
 
         private static void AvnSet(CommandEnvelope env)

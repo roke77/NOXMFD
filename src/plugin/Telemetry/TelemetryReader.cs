@@ -582,6 +582,33 @@ namespace NOXMFD
             catch { return false; }
         }
 
+        // DIAG98 (issue 98, temporary): raw game state behind the GEAR/GUNS/NVG tiles, read the same
+        // way the snapshot reads it. Remove with the other DIAG98 lines.
+        private static FieldInfo? _nvgSelectedField;
+        private static string? _diag98Last;
+        internal static string Diag98State(Aircraft ac)
+        {
+            try
+            {
+                WeaponManager? wm = ac.weaponManager;
+                NightVision nv = NightVision.i;
+                if (_nvgActiveField == null)
+                    _nvgActiveField = typeof(NightVision).GetField("nightVisActive", BindingFlags.NonPublic | BindingFlags.Instance);
+                if (_nvgSelectedField == null)
+                    _nvgSelectedField = typeof(NightVision).GetField("nightVisSelected", BindingFlags.NonPublic | BindingFlags.Instance);
+                if (_gunsLinkedField == null)
+                    _gunsLinkedField = typeof(WeaponManager).GetField("gunsLinked", BindingFlags.NonPublic | BindingFlags.Instance);
+                string guns = wm == null ? "wm=null"
+                    : _gunsLinkedField == null ? "gunsLinked=FIELD-MISSING"
+                    : $"gunsLinked={_gunsLinkedField.GetValue(wm)} multiGuns={wm.HasMultipleGuns()}";
+                string nvg = nv == null ? "nvg=NO-INSTANCE"
+                    : $"nvgSelected={(_nvgSelectedField == null ? "FIELD-MISSING" : _nvgSelectedField.GetValue(nv))} " +
+                      $"nvgActive={(_nvgActiveField == null ? "FIELD-MISSING" : _nvgActiveField.GetValue(nv))} nvgId={nv.GetInstanceID()}";
+                return $"gearDeployed={ac.gearDeployed} gearState={ac.gearState} {guns} {nvg} cursor={CursorManager.GetFlags()}";
+            }
+            catch (Exception ex) { return "diag threw: " + ex; }
+        }
+
         // Nav-light state is Aircraft.navLights (private) -> NavLights.isOn (private); reflect both
         // (cached). Nav lights auto-follow the gear plus a manual force-on toggle, so isOn is the
         // authoritative "are they lit" flag.
@@ -845,6 +872,10 @@ namespace NOXMFD
             bool tgtOk = tgtSel != null;
 
             var factionOverride = IconColorRegistry.FactionOverride;
+
+            // DIAG98: log the tiles' game state and the values sent, whenever either changes.
+            string diag98 = $"state {Diag98State(aircraft)} | sent gear={aircraft.gearDeployed} guns={GetGunsLinked(wm)} nvg={GetNightVisionActive()}";
+            if (diag98 != _diag98Last) { _diag98Last = diag98; Plugin.Log?.LogInfo("[NOXMFD] DIAG98 " + diag98); }
 
             TelemetryServer.Push(new TelemetrySnapshot
             {
