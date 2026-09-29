@@ -93,8 +93,9 @@
   // NAV.map's own item order for SPLIT pagination (mfd.js's mapSplitItems/mapNavPaneSlice) —
   // deliberately not NAV.map's own full-view order, chosen to mirror the bezel's own full-view
   // grouping: MAIN/GRID/FLW/Z+/Z- fill page 1, then CFG/R+/R-/WPT/W+/W- fill pages 2-3 —
-  // mainPageSizes' generic even-fill of this 11-item list lands as 5/4/2, with mapcfg placed to
-  // keep page 1 exactly the original 5 (see its own comment below for why). An action-name list,
+  // mainPageSizes' generic even-fill of this 12-item list lands as 5/4/3, with mapcfg placed to
+  // keep page 1 exactly the original 5 (see its own comment below for why). SLEW trails the list,
+  // so it lands last on page 3 and no decorator pair moves. An action-name list,
   // not NAV items directly — this module holds no reference to NAV (nav-model.js), so mfd.js maps
   // these onto the real NAV.map items; split-slots.test.js checks the resulting pairing against
   // NAV.map directly, so an edit to NAV.map that breaks the pairing fails there instead of
@@ -108,22 +109,22 @@
   // check).
   // mapcfg sits between the ROUTE pair and WPT, not right after FLW (its full-view position,
   // MAP_FULL_LEFT below) or right after the ZOOM pair — mainPageSizes' generic even-fill pages
-  // this 11-item list as 5/4/2, and page 2 only has 4 physical slots (items0-3 of listPaneLayout's
+  // this list as 5/4/3, and page 2 only has 4 physical slots (items0-3 of listPaneLayout's
   // 'h' branch: left+1/left+2/right+0/right+1) split 2-and-2 across the bank boundary. Leading
   // page 2 with R+/R- (as before) keeps them on items0-1 (both left) so they stay adjacent;
   // inserting mapcfg ahead of them instead would push R- onto items1 and R+ onto... no, would push
   // R+/R- onto items1/items2, straddling left/right and breaking the ROUTE decorator entirely
   // (split-slots.test.js's assertAdjacentPair catches exactly this). Page 1 (MAIN/GRID/FLW/Z+/Z-)
   // and page 3 (W+/W-) are untouched either way, since mapcfg lands inside page 2.
-  const MAP_SPLIT_ORDER = ['main', 'grid', 'flw', 'zin', 'zout', 'rt-next', 'rt-prev', 'mapcfg', 'wpt', 'wpt-next', 'wpt-prev'];
+  const MAP_SPLIT_ORDER = ['main', 'grid', 'flw', 'zin', 'zout', 'rt-next', 'rt-prev', 'mapcfg', 'wpt', 'wpt-next', 'wpt-prev', 'slew'];
 
   // A 'v'/'vw' split has no bank split — listPaneLayout's non-'h' branch keeps every item slot on
   // the same side, so no pair can straddle a boundary. WPT leads here, reading as "the page, then
   // its controls" instead of splitting the controls around it.
-  // mapcfg trails WPT rather than leading page 2 — same 5/4/2 pagination as the 'h' order above,
+  // mapcfg trails WPT rather than leading page 2 — same 5/4/3 pagination as the 'h' order above,
   // just placed to keep "WPT leads page 2" intact (the whole reason this V order exists) instead
   // of mapcfg displacing it.
-  const MAP_SPLIT_ORDER_V = ['main', 'grid', 'flw', 'zin', 'zout', 'wpt', 'mapcfg', 'rt-next', 'rt-prev', 'wpt-next', 'wpt-prev'];
+  const MAP_SPLIT_ORDER_V = ['main', 'grid', 'flw', 'zin', 'zout', 'wpt', 'mapcfg', 'rt-next', 'rt-prev', 'wpt-next', 'wpt-prev', 'slew'];
 
   // R+/R- stay useful while any saved route can be selected. The navigation pair is W+/W- while a
   // route is active and S+/S- while steer points are in control; it only disappears when neither
@@ -150,7 +151,7 @@
   // right, or which filter drops which pair. The fixed actions always show; route and navigation
   // actions are filtered from the live WPT store state.
   const MAP_FULL_LEFT  = ['main', 'grid', 'flw', 'mapcfg', 'zin', 'zout'];
-  const MAP_FULL_RIGHT = ['wpt', 'rt-next', 'rt-prev', 'wpt-next', 'wpt-prev'];
+  const MAP_FULL_RIGHT = ['wpt', 'rt-next', 'rt-prev', 'wpt-next', 'wpt-prev', 'slew'];
   function mapFullRight(hasRoutes, hasActiveRoute, hasSteerPoints) {
     return filterMapRouteActions(MAP_FULL_RIGHT, hasRoutes, hasActiveRoute, hasSteerPoints);
   }

@@ -45,6 +45,8 @@ on the focused display:
 - **Follow**
 - **Next Route**, **Previous Route** — stay usable to switch INTO a route as long as one is saved,
   even with none currently active.
+- **TGP Slew to Cursor** — point the TGP at the ground under the PAD cursor on the focused MAP.
+- **TGP Slew Grid Entry** — open the MAP grid keypad; ENTER slews to the typed square. See [TGP slew](map.md#tgp-slew).
 - **Next Waypoint / Steer Point**, **Previous Waypoint / Steer Point** — step route progress while
   a route is active; otherwise cycle the selected steer point. Hold **Previous Waypoint / Steer
   Point** to jump the active route straight back to its first waypoint — no effect with no active

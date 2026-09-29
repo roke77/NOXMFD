@@ -69,6 +69,8 @@ namespace NOXMFD
         // a few meters away, often behind or into the airframe, which is exactly what read as
         // "Point Track snaps to face backward into the aircraft."
         private const int WorldGeometryLayerMask = 64;
+        // SlewTo's ground probe starts this far above sea level; taller than any terrain.
+        private const float SlewProbeHeightM = 10000f;
         // Bigger than ReadAxis's own 0.03 deadzone (Keybinds.cs) — that one's tuned for a
         // self-centering cursor stick, not for gating something as expensive/disruptive as a
         // redesignate raycast. A physical axis resting a few percent off dead center will still
@@ -160,7 +162,9 @@ namespace NOXMFD
         // null when the axis isn't bound, so Tick() falls back to the in/out held buttons above.
         internal static void SetZoomAxis(float? normalized) => _zoomAxisValue = normalized;
 
-        internal static void Toggle()
+        // claimSoi false leaves SOI where it is: a map slew is driven from MAP, and stealing focus onto
+        // the camera would turn the next PAD cursor move into a camera pan and drop the next slew keybind.
+        internal static void Toggle(bool claimSoi = true)
         {
             if (ManualMode)
             {
@@ -185,7 +189,7 @@ namespace NOXMFD
                 Plugin.Log?.LogWarning("[NOXMFD] TGP manual control: could not locate TargetCam fields — feature disabled.");
                 return;
             }
-            Engage(tc, aircraft);
+            Engage(tc, aircraft, claimSoi);
         }
 
         internal static void Reset()
@@ -283,17 +287,56 @@ namespace NOXMFD
 
             if (Physics.Raycast(mount.position, _panDir, out RaycastHit hit, PointTrackRayDistance, WorldGeometryLayerMask))
             {
-                _trackedPoint = hit.point.ToGlobalPosition();
-                _pointTrackActive = true;
-                _pointTrackBaseline = _panDir;
-                _pointTrackOffsetAz = _pointTrackOffsetEl = 0f;
-                _wasNudgingPointTrack = false;
+                LockPointTrack(hit.point, _panDir);
                 Plugin.Log?.LogInfo($"[NOXMFD] TGP manual control: Point Track locked at {hit.distance:0}m.");
             }
             else
             {
                 Plugin.Log?.LogInfo("[NOXMFD] TGP manual control: Point Track found nothing to lock onto — ignored.");
             }
+        }
+
+        // Starts Point Track on a local-space point, aimed along dir until the next Tick recomputes the
+        // baseline toward it. Shared by the aim-ray lock (TogglePointTrack) and the map slew (SlewTo).
+        private static void LockPointTrack(Vector3 localPoint, Vector3 dir)
+        {
+            _trackedPoint = localPoint.ToGlobalPosition();
+            _pointTrackActive = true;
+            _pointTrackBaseline = dir;
+            _pointTrackOffsetAz = _pointTrackOffsetEl = 0f;
+            _wasNudgingPointTrack = false;
+        }
+
+        // Map/grid slew (issue #103): engage manual control if needed and lock Point Track on the
+        // ground at world (wx, wz). Ground height comes from a downward raycast; where no terrain
+        // collider answers (streamed out, or beyond the loaded area) the point sits at sea level,
+        // which still gives the right bearing for a coarse slew. Aim limits are not enforced in
+        // manual mode, so the pod always reaches the point.
+        internal static void SlewTo(float wx, float wz)
+        {
+            if (!float.IsFinite(wx) || !float.IsFinite(wz))
+            {
+                Plugin.Log?.LogWarning($"[NOXMFD] TGP slew: ignored non-finite target ({wx}, {wz}).");
+                return;
+            }
+            if (!ManualMode) Toggle(claimSoi: false);
+            if (!ManualMode) return;
+            GameManager.GetLocalAircraft(out Aircraft ac);
+            TargetCam? tc = ac != null ? ac.targetCam : null;
+            if (tc == null || !TgpManualTargetCamAccess.Ensure()) return;
+            Transform? mount = TgpManualTargetCamAccess.GetMount(tc);
+            if (mount == null) return;
+
+            Vector3 top = new Vector3(wx, 0f, wz) + Datum.originPosition;
+            top.y = Datum.LocalSeaY + SlewProbeHeightM;
+            bool onTerrain = Physics.Raycast(top, Vector3.down, out RaycastHit hit, SlewProbeHeightM * 2f, WorldGeometryLayerMask);
+            Vector3 ground = onTerrain ? hit.point : new Vector3(top.x, Datum.LocalSeaY, top.z);
+            Vector3 toPoint = ground - mount.position;
+            if (toPoint.sqrMagnitude < 1f) return;
+
+            _panDir = toPoint.normalized;
+            LockPointTrack(ground, _panDir);
+            Plugin.Log?.LogInfo($"[NOXMFD] TGP manual control: slewed to ({wx:0}, {wz:0}), {toPoint.magnitude:0}m{(onTerrain ? "" : ", no terrain collider — sea level")}.");
         }
 
         // PAD Cursor Select handoff: resolve the current ground look point from either Point Track's
@@ -571,7 +614,7 @@ namespace NOXMFD
         // Ordering matters: ManualMode must already be true before tc.SetTargetCam() is called,
         // or its own tail call to AimCamera() runs un-gated and snaps the mount toward whatever
         // an empty target list computes (docs/tgp-manual-control.md's reflection-surface note).
-        private static void Engage(TargetCam tc, Aircraft aircraft)
+        private static void Engage(TargetCam tc, Aircraft aircraft, bool claimSoi)
         {
             ManualMode = true;
 
@@ -607,7 +650,7 @@ namespace NOXMFD
             // PAD Cursor consolidation (docs/tgp-manual-control.md) — the camera is now a cyclable
             // SOI target; engaging steals focus onto it immediately rather than making the pilot Tab
             // to the newly-added ring entry by hand.
-            TelemetryServer.ClaimNativeTgpSoi();
+            if (claimSoi) TelemetryServer.ClaimNativeTgpSoi();
 
             Plugin.Log?.LogInfo("[NOXMFD] TGP manual control: ON (centered, minimum zoom).");
         }

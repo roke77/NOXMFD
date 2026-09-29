@@ -42,12 +42,39 @@ locked target's kinematics — the label adds stacked heading, speed, and altitu
 without needing to lock it first. A datalink-stale contact, or any non-aircraft contact, just shows
 the type with no extra lines.
 
+## TGP slew
+
+Points the [TGP](tgp.md) at a spot on the map. The pod turns manual control on if needed and locks
+[Point Track](tgp.md#area-track-and-point-track) on that ground point.
+
+- **TGP Slew to Cursor** (keybind) slews to the PAD cursor at once.
+- **SLEW** (bezel key) arms the map: the label flashes between its normal colour and bordered amber, and the next click, tap or
+  Cursor Select slews. Tap SLEW again to cancel.
+- **Hold SLEW**, or press **TGP Slew Grid Entry** (keybind), to open a keypad. Enter a grid
+  reference such as `Ig69` (two letters, then two digits) and press ENTER to look at the centre of
+  that square. The keypad shows the letters your map actually has, then A-J, then digits, and BACKSPACE
+  steps back. An incomplete or off-map entry turns red and leaves the pod where it is. It takes the
+  PAD cursor, mouse, touch or the keyboard, and pressing the keybind again while it is open changes nothing.
+
+Slewing leaves focus on the MAP, so the PAD cursor keeps moving the map cursor and you can slew again
+with the same keybind.
+
+A grid square is large, so treat a grid slew as coarse and fine-tune with the PAD cursor. The pod
+does not check line of sight: a spot behind a hill slews the same as a clear one.
+
 ## Nuclear exclusion zones
 
 When a nuclear weapon is launched at a target, the map draws the same orange **exclusion zone**
 ring the in-game map shows — a translucent orange disc around the target's position at launch,
 sized to the weapon's blast. It stays up until the weapon detonates or is shot down. Like the
 in-game map, you only see zones launched by your own side.
+
+## One cursor at a time
+
+The MAP shows either your mouse pointer or the keybind-driven PAD cursor, never both: whichever you used last.
+Moving the mouse hides the PAD cursor, and every cursor keybind (Cursor Select, Cursor Deselect, zoom, TGP Slew to
+Cursor) then acts where the mouse is. Pressing a cursor movement key brings the PAD cursor back and hides the
+mouse pointer. Until the mouse moves over the MAP, the PAD cursor is the one shown.
 
 ## Status row
 

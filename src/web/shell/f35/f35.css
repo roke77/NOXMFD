@@ -758,3 +758,9 @@ html, body {
   cursor: default;
 }
 .nav-item.pending:active { opacity: 1; }   /* no press feedback either — it isn't a button */
+
+/* SLEW armed (issue #103): the label alternates between its normal colour and amber with a border
+   until the map is pressed or SLEW is pressed again. Reduced motion holds the amber state. */
+@keyframes slew-blink { 50% { color: var(--no-amber); outline-color: var(--no-amber); } }
+.nav-item.blink { outline: 1px solid transparent; animation: slew-blink 1s steps(1, end) infinite; }
+@media (prefers-reduced-motion: reduce) { .nav-item.blink { animation: none; color: var(--no-amber); outline-color: var(--no-amber); } }

@@ -71,6 +71,8 @@
       case 'map-route-prev':    return { cmd: 'map.action', args: { wname: 'route-prev' } };
       case 'map-waypoint-next': return { cmd: 'map.action', args: { wname: 'waypoint-next' } };
       case 'map-waypoint-prev': return { cmd: 'map.action', args: { wname: 'waypoint-prev' } };
+      case 'map-slew':          return { cmd: 'map.action', args: { wname: 'slew-cursor' } };
+      case 'map-slew-grid':     return { cmd: 'map.action', args: { wname: 'slew-keypad' } };
       case 'tgt-next':     return { cmd: 'map.action', args: { wname: 'tgt-next' } };
       case 'tgt-prev':     return { cmd: 'map.action', args: { wname: 'tgt-prev' } };
       case 'tgt-datalink': return { cmd: 'map.action', args: { wname: 'tgt-datalink' } };

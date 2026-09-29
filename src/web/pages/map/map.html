@@ -57,6 +57,22 @@
       <div id="grid-bar" class="mfd-chip empty">GRID: &mdash;</div>
       <div id="route-bar" class="mfd-chip empty">ROUTE: &mdash;</div>
     </div>
+    <!-- TGP slew keypad (issue #103): a grid reference entry (e.g. Ig69) for slewing the TGP to the
+         centre of a square, styled like NOAutopilot's target keypad. Opened by the SLEW bezel key's
+         hold or the TGP Slew Grid Entry keybind; the tiles are built in map.js. It covers the map,
+         so unlike the chips above it takes pointer events. -->
+    <div id="slew-pad" tabindex="-1" hidden>
+      <div class="kp" role="dialog" aria-labelledby="kp-title">
+        <div class="kp-title" id="kp-title">TGP SLEW &middot; GRID</div>
+        <div class="kp-display" id="slew-disp"></div>
+        <div class="kp-error" id="slew-err"></div>
+        <div class="kp-grid" id="slew-keys"></div>
+        <div class="kp-actions">
+          <button type="button" class="kp-key" id="slew-cancel">CANCEL</button>
+          <button type="button" class="kp-key kp-enter" id="slew-enter">ENTER</button>
+        </div>
+      </div>
+    </div>
     <div id="unit-label"></div>
   </div>
 </main>

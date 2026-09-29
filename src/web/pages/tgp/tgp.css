@@ -52,15 +52,14 @@
    panel's center regardless of letterbox bars, so plain 50/50% positioning already lines up with
    the image.
 
-   gap/armLength/thickness mirror TgpNativeOverlay.SyncCrosshair's own constants (box side = 2*gap,
-   arm length = 4*gap = 2x the box side) as fractions of the panel's HEIGHT — the master reference
+   gap/armLength/thickness mirror TgpNativeOverlay.SyncCrosshair's own constants (a 2*gap gap at
+   the centre, arm length = 4*gap) as fractions of the panel's HEIGHT — the master reference
    axis, chosen because .tgp-panel's own aspect-ratio: 3/2 means width is always 1.5x height, so a
    quantity meant to read as the same PHYSICAL size on both axes can't reuse one percentage number
    for both: 0.5% of a 1.5x-wider width is a 1.5x-bigger length than 0.5% of height. Left/right arms
-   and the box's horizontal edges/span are the WIDTH-relative counterparts of the same physical
+   are the WIDTH-relative counterparts of the same physical
    sizes, so each is the height-based number divided by 1.5 (multiplied by 2/3) — that's what makes
-   the vertical and horizontal arms the same girth, and the box an actual square instead of a
-   1.5x-wide rectangle whose four independent bars don't quite meet at the corners. If .tgp-panel's
+   the vertical and horizontal arms the same girth. If .tgp-panel's
    aspect-ratio ever changes, these two families of numbers need re-deriving together, not just one. */
 .tgp-crosshair {
   display: none;
@@ -81,27 +80,22 @@
 .tgp-ch-left   { top: 49.75%; height: 0.5%; left: 40.625%; width: 7.5%; }
 .tgp-ch-right  { top: 49.75%; height: 0.5%; left: 51.875%; width: 7.5%; }
 
-/* Point Track marker — a small hollow square at center whose edges sit exactly at the crosshair
-   arms' inner tips (box side = 2*gap, matching TgpNativeOverlay's hand-built box exactly, not the
-   native game's own targetLockBox sprite — that one's border stayed visually thin no matter how
-   big the box was resized, so both surfaces build their own box from plain bars instead). Only
-   shown while Point Track is actually locked, via .tgp-point-track on the panel (tgp.js). Each edge
-   bar is centered exactly ON the box's conceptual edge line (half-thickness each side of it), the
-   same way a picture frame's corners are mitered — that's what keeps adjacent bars overlapping
-   cleanly into a single corner instead of reading as two independent lines that stop short of
-   each other. Width-relative numbers (left/right edges' span and top/bottom edges' thickness) are
-   the height-relative ones divided by 1.5, same reasoning as the crosshair arms above. */
-.tgp-ch-box { display: none; }
-.tgp-panel.tgp-point-track .tgp-ch-box { display: block; }
-.tgp-ch-box-edge {
+/* Point Track marker: a small round dot at the centre, shown only while Point Track is locked via
+   .tgp-point-track on the panel (tgp.js). Width-relative size with aspect-ratio keeps it circular
+   on the panel's non-square box. */
+.tgp-ch-dot {
+  display: none;
   position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 1%;
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
   background: var(--no-white);
-  box-shadow: 0 0 2px #000;
+  opacity: 0.8;   /* see-through, so the target shows behind it; same alpha as the in-game dots */
 }
-.tgp-ch-box-top    { left: 48.125%;   width: 3.75%;   top: 46.9375%; height: 0.5%; }
-.tgp-ch-box-bottom { left: 48.125%;   width: 3.75%;   top: 52.5625%; height: 0.5%; }
-.tgp-ch-box-left   { top: 47.1875%;   height: 5.625%; left: 47.9583%; width: 0.3333%; }
-.tgp-ch-box-right  { top: 47.1875%;   height: 5.625%; left: 51.7083%; width: 0.3333%; }
+.tgp-panel.tgp-point-track .tgp-ch-dot { display: block; }
 
 /* Stat overlay — two distinct sources feed the same corner-group layout (tgp.js's applyOverlay),
    both shown only in HQ quality: Native's captured video already bakes this in for both cases (see

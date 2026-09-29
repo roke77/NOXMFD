@@ -35,7 +35,7 @@ for (const [page, items] of Object.entries(NAV)) {
 // A layout renderer places by INDEX (bezel full view: item i → left key i; bezel split:
 // SPLIT_SLOTS[i] places NAV[i]). So order is meaningful and reordering is a behaviour change.
 assert.deepStrictEqual(NAV.main.map(i => i.label), ['AVN', 'MAP', 'RWR', 'TGP', 'TGT', 'WPN', 'EXT']);
-assert.deepStrictEqual(NAV.map.map(i => i.label), ['MAIN', 'GRID', 'FLW', 'CFG', 'WPT', 'R+', 'R-', 'W+', 'W-', 'Z+', 'Z-']);
+assert.deepStrictEqual(NAV.map.map(i => i.label), ['MAIN', 'GRID', 'FLW', 'CFG', 'WPT', 'R+', 'R-', 'W+', 'W-', 'Z+', 'Z-', 'SLEW']);
 assert.deepStrictEqual(NAV.rdr, [
   { label: 'MAIN', action: 'main' },
   { label: 'FCR',  action: 'rdr', mark: true },

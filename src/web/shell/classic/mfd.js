@@ -406,6 +406,7 @@ function applySplitMode() {
     unloadIfStreaming(currentPage);
     paneFollowOn = [false, false];   // fresh panes; follow restarts off, re-reported on load
     paneGridOn = [false, false];     // fresh panes; grid guessed off (its default), re-reported on load
+    paneSlewOn = [false, false];     // fresh panes start disarmed
     paneIframes[0].src = paneUrl(panePages[0]);
     paneIframes[1].src = paneUrl(panePages[1]);
     renderSplitLabels();
@@ -727,6 +728,7 @@ function renderSplitLabels() {
   renderSoiCursor();         // same reason: the labels this just rebuilt carry the cursor mark
   markFollowLabels();        // ...and the FLW label carries the follow state
   markGridLabels();          // ...and the GRID label carries the grid-overlay state
+  markSlewLabels();          // ...and the SLEW label carries the armed state
   syncCursorFocus();         // a pane may have paged onto/off MAP under the focused surface
 }
 
@@ -1499,6 +1501,9 @@ let paneFollowOn  = [false, false];
 // the grid defaults off.
 let gridOn        = false;
 let paneGridOn    = [false, false];
+// TGP SLEW armed state (issue #103), mirrored the same way — the SLEW label flashes while armed.
+let slewOn        = false;
+let paneSlewOn    = [false, false];
 let indicatorOrder = [];   // ['pinned'] — kept a list, since the stack is built to hold more
 // Last non-pinned page we left to jump to pinnedPage via SWAP. Lets the second SWAP
 // press return there. Cleared whenever the pin itself changes (re-pin or unpin) since
@@ -1587,6 +1592,18 @@ function markGridLabels() {
     });
   });
 }
+// SLEW's twin of markGridLabels: lit amber while armed, and blinking so the pilot sees the map is
+// waiting for a click.
+function markSlewLabels() {
+  ['left', 'right'].forEach(function(side) {
+    (keyBanks[side] || []).forEach(function(k) {
+      if (k.dataset.action !== 'slew') return;
+      const on = splitMode ? !!paneSlewOn[k.dataset.pane === 'bot' ? 1 : 0] : slewOn;
+      const el = overlayEl.querySelector('.overlay-item[data-key="' + k.dataset.pos + '"]');
+      if (el) el.classList.toggle('blink', on);
+    });
+  });
+}
 // Paint a "PAGE x/y" chip in the bottom-right of each pane showing MAIN with more than one page
 // (mainPageSizes) — the split twin of WPN's #page-ind, but drawn on the shared overlay rather than
 // inside the /main iframe: MAIN's pagination is bezel/shell state, not anything the page itself
@@ -1605,6 +1622,7 @@ function renderPaneMainPageInd() {
 function refreshFollowIndicator() {
   markFollowLabels();
   markGridLabels();
+  markSlewLabels();
   renderIndicators();
   renderPaneMainPageInd();
 }
@@ -2039,7 +2057,7 @@ window.addEventListener('message', function(e) {
   // comes from TD's own iframe (#page-frame or a pane), never mapFrame, for the same reason.
   // 'doc-view' (issue #82 follow-up) comes from DOC's own iframe, same reasoning again — it's
   // page-internal UI state (index vs image) with no game-telemetry equivalent to ride in on.
-  if (m.type !== 'follow' && m.type !== 'grid' && m.type !== 'wpt-routes-request' && m.type !== 'td-designated' && m.type !== 'doc-view' && e.source !== mapFrame.contentWindow) return;
+  if (m.type !== 'follow' && m.type !== 'grid' && m.type !== 'slew' && m.type !== 'wpt-routes-request' && m.type !== 'td-designated' && m.type !== 'doc-view' && e.source !== mapFrame.contentWindow) return;
   if (m.type === 'status') {
     lastStatusCls  = m.cls;
     lastStatusText = m.text;
@@ -2193,6 +2211,14 @@ window.addEventListener('message', function(e) {
     if      (e.source === mapFrame.contentWindow)       gridOn = on;
     else if (e.source === paneIframes[0].contentWindow) paneGridOn[0] = on;
     else if (e.source === paneIframes[1].contentWindow) paneGridOn[1] = on;
+    else return;
+    refreshFollowIndicator();
+  } else if (m.type === 'slew') {
+    // MAP's TGP SLEW armed state, routed by source like 'grid' above.
+    const on = !!m.on;
+    if      (e.source === mapFrame.contentWindow)       slewOn = on;
+    else if (e.source === paneIframes[0].contentWindow) paneSlewOn[0] = on;
+    else if (e.source === paneIframes[1].contentWindow) paneSlewOn[1] = on;
     else return;
     refreshFollowIndicator();
   } else if (m.type === 'td-designated') {
@@ -2601,11 +2627,11 @@ function mfdButton(el) {
       currentPage = 'lyt';
       applySplitMode();
     } else if (act === 'flw' || act === 'zin' || act === 'zout' || act === 'grid' || act === 'rt-next' || act === 'rt-prev'
-        || act === 'wpt-next' || act === 'wpt-prev') {
+        || act === 'wpt-next' || act === 'wpt-prev' || act === 'slew') {
       // MAP controls act on the pane's own map iframe — they don't navigate it away.
       paneMapSend(paneIdx, act === 'flw' ? 'toggle-follow' : act === 'zin' ? 'zoom-in' : act === 'zout' ? 'zoom-out'
         : act === 'grid' ? 'toggle-grid' : act === 'rt-next' ? 'route-next' : act === 'rt-prev' ? 'route-prev'
-        : act === 'wpt-next' ? 'waypoint-next' : 'waypoint-prev');
+        : act === 'wpt-next' ? 'waypoint-next' : act === 'slew' ? 'slew-toggle' : 'waypoint-prev');
     } else if (act === 'rng-in' || act === 'rng-out') {
       // RDR's range rocker acts on the pane's own iframe, same as MAP's zoom above — paneMapSend
       // just posts to whichever iframe is in this pane, not MAP-specific despite the name. Reuses
@@ -2752,6 +2778,7 @@ function mfdButton(el) {
     case 'rt-prev': mapSend('route-prev'); break;
     case 'wpt-next': mapSend('waypoint-next'); break;   // route step or steer-point cycle
     case 'wpt-prev': mapSend('waypoint-prev'); break;
+    case 'slew': mapSend('slew-toggle'); break;   // arm; the hold below opens the grid keypad
     // RDR's range rocker — mapSend() targets mapFrame specifically, wrong for RDR (a #page-frame
     // page), so this posts to frameWin() instead. Same 'zoom-in'/'zoom-out' action names as MAP's
     // zin/zout above: reused, not new, so SOI's Zoom In/Out keybind (which sends the same names —
@@ -2904,6 +2931,31 @@ document.querySelector('.mfd').addEventListener('pointerup', clearWptPrevHold);
 document.querySelector('.mfd').addEventListener('pointercancel', clearWptPrevHold);
 document.querySelector('.mfd').addEventListener('pointerleave', clearWptPrevHold);
 
+// SLEW bezel key (issue #103): a tap arms the map (mfdButton's slew-toggle), press-and-HOLD opens
+// the grid keypad instead. Same shape as the W- hold above; the tap's click is swallowed once the
+// hold fired.
+let slewHoldTimer = null;
+let slewHoldFired = false;
+function isSlewKey(el) { return !!el && el.dataset.action === 'slew'; }
+function clearSlewHold() {
+  if (slewHoldTimer) { clearTimeout(slewHoldTimer); slewHoldTimer = null; }
+}
+document.querySelector('.mfd').addEventListener('pointerdown', function(e) {
+  const k = e.target.closest('.key');
+  if (!isSlewKey(k)) return;
+  slewHoldFired = false;
+  slewHoldTimer = setTimeout(function() {
+    slewHoldFired = true;
+    k.classList.add('lit');
+    setTimeout(function() { k.classList.remove('lit'); }, 150);
+    if (splitMode && k.dataset.pane) paneMapSend(k.dataset.pane === 'top' ? 0 : 1, 'slew-keypad');
+    else mapSend('slew-keypad');
+  }, COMBAT_MODE_HOLD_MS);
+});
+document.querySelector('.mfd').addEventListener('pointerup', clearSlewHold);
+document.querySelector('.mfd').addEventListener('pointercancel', clearSlewHold);
+document.querySelector('.mfd').addEventListener('pointerleave', clearSlewHold);
+
 // TGP page's Z+/Z- bezel keys: discrete magnification LEVELS (tgp.zoom.step,
 // TgpManualControl.StepZoom) rather than the physical Cursor Zoom In/Out keybind's own
 // continuous rate — dialing through every intermediate magnification decimal-by-decimal was slow
@@ -2946,6 +2998,7 @@ document.querySelector('.mfd').addEventListener('click', function(e) {
   // tap behavior (a browser fires click after pointerup regardless of press duration).
   if (isCombatModeKey(k) && combatModeHoldFired) { combatModeHoldFired = false; return; }
   if (isWptPrevKey(k) && wptPrevHoldFired) { wptPrevHoldFired = false; return; }
+  if (isSlewKey(k) && slewHoldFired) { slewHoldFired = false; return; }
   if (isTgpZoomKey(k)) return;   // pointerdown already stepped
   mfdButton(k);
 });

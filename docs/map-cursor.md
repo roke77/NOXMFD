@@ -251,3 +251,12 @@ No per-layout cursor code — just the same "is my focused surface a MAP? then f
   each get one runnable self-check (`src/web/services/pad-cursor.test.js`: integrate a vector
   over dt and assert clamp-to-rect; `src/web/pages/map/map-select.test.js`: select hit-tests the
   nearest unselected contact).
+
+## One pointer at a time (issue #103 follow-up)
+
+A keyboard-and-mouse player has two pointers on MAP: the OS mouse and the PAD crosshair. `map.js` keeps
+one: `padMode` flips to the mouse on a real `mousemove` (non-zero `movementX/Y`; the browser also re-fires
+`mousemove` in place when the canvas changes under a still mouse) and back to the PAD cursor on any non-zero
+`cursor` vector. The inactive one is hidden (`cursor.setHidden`, or `#map-panel.pad-mode` hiding the mouse
+pointer), and every keybind action resolves its point through `activePos()`, so Cursor Select/Deselect, zoom
+and TGP Slew to Cursor land under the visible pointer. Before the mouse first moves the PAD cursor is the default.

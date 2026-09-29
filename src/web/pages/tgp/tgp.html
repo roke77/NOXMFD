@@ -27,7 +27,7 @@
                on top. manual:
                TgpManualControl.ManualMode — shows the crosshair when a feed is present AND
                resolution is MID/HIGH (.show-overlay, gated the same way as the stat block above); the
-               Point Track box additionally needs data.pointTrack (tgp.js toggles
+               Point Track dot additionally needs data.pointTrack (tgp.js toggles
                .tgp-point-track from inside applyOverlay, since that's only known once 'data'
                arrives, not from the top-level flag alone).
     'orient' : app-wide orientation (kept for parity).
@@ -63,12 +63,7 @@ html:not(.tgp-config-open), html:not(.tgp-config-open) body { overflow: hidden; 
       <span class="tgp-ch-arm tgp-ch-bottom"></span>
       <span class="tgp-ch-arm tgp-ch-left"></span>
       <span class="tgp-ch-arm tgp-ch-right"></span>
-      <div class="tgp-ch-box" id="tgp-ch-box">
-        <span class="tgp-ch-box-edge tgp-ch-box-top"></span>
-        <span class="tgp-ch-box-edge tgp-ch-box-bottom"></span>
-        <span class="tgp-ch-box-edge tgp-ch-box-left"></span>
-        <span class="tgp-ch-box-edge tgp-ch-box-right"></span>
-      </div>
+      <span class="tgp-ch-dot"></span>
     </div>
     <div class="tgp-overlay" id="tgp-overlay">
       <div class="tgp-ov-stack tgp-ov-tl">

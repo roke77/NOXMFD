@@ -80,7 +80,7 @@ Two ways the camera aims while in manual control:
 - **Point Track** — locks the aim onto a fixed point in the world instead, holding steady on that
   spot as your aircraft moves around it. Press **Point Track** (or the **TRK** button on this
   page's own nav row) to lock onto whatever the camera is currently pointed at; press it again to
-  release back to Area Track. While locked, Pan/Tilt nudges the locked point itself rather than a
+  release back to Area Track. While locked, a small dot marks the centre of the picture, and Pan/Tilt nudges the locked point itself rather than a
   free direction, and re-locks onto the new point once you stop nudging.
 
 ## Pointing the camera
@@ -108,6 +108,11 @@ Manual control reuses the same PAD Cursor every other display already uses (see
   the manual camera. It also gets out of the way on its own the moment you use the physical PAD
   Cursor keys or axis to point the camera instead — tap the picture to bring it back, or leave and
   reopen the page.
+
+## Slewing from the map
+
+The [MAP](map.md#tgp-slew) page's TGP SLEW button aims the pod at a clicked spot or a typed grid
+reference, using Point Track.
 
 ## In-game HUD cue
 

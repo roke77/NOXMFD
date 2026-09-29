@@ -2,7 +2,7 @@
 // interactions. The telemetry transport + the derive-and-broadcast "provider" role live in
 // TelemetrySource (telemetry-source.js); this file instantiates it and renders the frames it
 // hands back. See src/web/README.md for why MAP is the telemetry tap.
-import { TelemetrySource, gridLabel } from '/assets/services/telemetry-source.js';
+import { TelemetrySource, gridLabel, gridToWorld, gridEntryRange } from '/assets/services/telemetry-source.js';
 import { createPadCursor } from '/assets/services/pad-cursor.js';
 
 let viewActive = true;
@@ -177,6 +177,10 @@ const oc       = overlay.getContext('2d');
 const gridBar   = document.getElementById('grid-bar');
 const cursorBar = document.getElementById('cursor-bar');
 const routeBar  = document.getElementById('route-bar');
+const slewPad   = document.getElementById('slew-pad');
+const slewDisp  = document.getElementById('slew-disp');
+const slewErr   = document.getElementById('slew-err');
+const slewKeys  = document.getElementById('slew-keys');
 const jamBar    = document.getElementById('jam-bar');
 const unitLabel = document.getElementById('unit-label');
 const cursorEl  = document.getElementById('soi-cursor');   // SOI crosshair — see pad-cursor.js
@@ -187,13 +191,32 @@ const cursorEl  = document.getElementById('soi-cursor');   // SOI crosshair — 
 const cursor = createPadCursor({
   el: cursorEl,
   clampRect: imgRect,
-  onSelect: (x, y) => selectAt(x, y, CURSOR_HIT_PAD),
+  // Every keybind action goes through activePos(), so it lands under whichever pointer is in use.
+  onSelect: () => {
+    const p = activePos();
+    if (p && !padPress(p.x, p.y) && !slewAt(p.x, p.y)) selectAt(p.x, p.y, CURSOR_HIT_PAD);
+  },
   // Cursor Select held past holdMs = waypoint placement, or removal if held over an existing one
   // (issue #38).
-  onHold: (x, y) => placeNavigationPointAt(x, y, CURSOR_HIT_PAD),
+  onHold: () => { const p = activePos(); if (p) placeNavigationPointAt(p.x, p.y, CURSOR_HIT_PAD); },
   onEdge: onCursorEdge,
-  onMove: updateCursorChip,   // CURSOR chip tracks the PAD cursor too, not just the mouse
+  onMove: function(x, y) {
+    updateCursorChip(x, y);   // CURSOR chip tracks the PAD cursor too, not just the mouse
+    document.getElementById('map-panel').classList.toggle('pad-mode', x != null);   // one pointer on screen
+  },
 });
+
+// One pointer at a time: the mouse or the keybind-driven PAD cursor, whichever was used last. The
+// other is hidden and ignored, so a keyboard-and-mouse player never sees two crosshairs and the
+// slew keybind lands where the visible one is. The PAD cursor is the default until the mouse moves.
+let padMode = true;
+let mousePos = null;   // the mouse in overlay px while it is over the map, else null
+function setPadMode(on) {
+  if (on === padMode) return;
+  padMode = on;
+  cursor.setHidden(!on);
+}
+function activePos() { return padMode ? cursor.getPos() : mousePos; }
 
 // Edge-panning (docs/page-cursor.md #3): the cursor lives in screen space and never leaves
 // imgRect(), so pushing it against a border while more map exists past it (zoomed in) instead
@@ -1261,6 +1284,10 @@ mapPanel.addEventListener('mousemove', function(e) {
   // Touch has no hover: a tap emits a synthetic mousemove but never a mouseleave, so the label
   // would stick forever (even after the unit dies). Touch taps are select-only — mouse hovers label.
   if (lastPointerType === 'touch') { unitLabel.style.display = 'none'; updateCursorChip(null); return; }
+  // Only a real movement counts: the browser also re-fires mousemove in place when the page changes under a still mouse.
+  if (e.movementX || e.movementY) setPadMode(false);
+  const box = overlay.getBoundingClientRect();
+  mousePos = { x: e.clientX - box.left, y: e.clientY - box.top };
   if (panId !== null) { unitLabel.style.display = 'none'; updateCursorChip(null); return; }   // don't flicker while panning
   const rect = overlay.getBoundingClientRect();
   const mx = e.clientX - rect.left, my = e.clientY - rect.top;
@@ -1281,7 +1308,7 @@ mapPanel.addEventListener('mousemove', function(e) {
     unitLabel.style.display = 'none';
   }
 });
-mapPanel.addEventListener('mouseleave', function() { unitLabel.style.display = 'none'; updateCursorChip(null); });
+mapPanel.addEventListener('mouseleave', function() { mousePos = null; unitLabel.style.display = 'none'; updateCursorChip(null); });
 
 // ── Tap-to-select (POC write path) ──────────────────────────────────────────────────
 // A tap on a contact POSTs its id to /select; the mod targets it in-game. A tap only ever ADDS
@@ -1344,6 +1371,121 @@ function deselectAt(px, py, pad) {
   sendCommand('target.deselect', { id: hit.id }).catch(function() {});
 }
 
+// ── TGP slew (issue #103) ───────────────────────────────────────────────────────────
+// Three ways to point the TGP at the map: the TGP Slew to Cursor keybind (slew-cursor, immediate),
+// the SLEW bezel key (slew-toggle arms the map so the next click/tap/Cursor Select slews), and a
+// grid keypad (slew-keypad — the key's hold or the TGP Slew Grid Entry keybind) that slews to the
+// centre of a typed square. The shell lights SLEW while armed, off the 'slew' message.
+let slewArmed = false;
+function setSlewArmed(on) {
+  if (on === slewArmed) return;
+  slewArmed = on;
+  source.emitSlew(on);
+}
+function slewTo(w) {
+  sendCommand('tgp.slew', { wx: w.x, wz: w.z }).catch(function() {});
+  setSlewArmed(false);
+}
+// Consumes a map press while armed. Returns true when it did.
+function slewAt(sx, sy) {
+  if (!slewArmed) return false;
+  const w = overlayToWorld(sx, sy);
+  if (w) slewTo(w);
+  return true;
+}
+function slewToCursor() {
+  const p = activePos();
+  const w = p && overlayToWorld(p.x, p.y);
+  if (w) slewTo(w);
+}
+
+// Keypad. The entry is two letters then two digits ("Ig69") and shows one tile set at a time: the
+// map's own major letters, then A-J (the minor letter), then digits, so a tile that can't extend
+// the entry into something on the map is never offered. The buffer is always a valid prefix.
+let slewBuf = '';
+function slewText() { return slewBuf.slice(0, 1).toUpperCase() + slewBuf.slice(1, 2).toLowerCase() + slewBuf.slice(2); }
+function slewTile(label, key, disabled) {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'kp-key';
+  b.textContent = label;
+  b.disabled = !!disabled;
+  b.addEventListener('click', function() { slewPadKey(key); });
+  return b;
+}
+function renderSlewPad(err) {
+  const range = gridEntryRange(mapMeta);
+  slewDisp.textContent = (slewText() + '____').slice(0, 4).split('').join(' ');
+  slewDisp.classList.toggle('bad', !!err);
+  slewErr.textContent = err || '';
+  slewKeys.textContent = '';
+  const step = slewBuf.length;
+  const back = slewTile('⌫', 'BK', step === 0);
+  if (step < 2) {
+    const first = step === 0 ? range.z[0] : 0, last = step === 0 ? range.z[1] : 9;
+    slewKeys.style.gridTemplateColumns = 'repeat(' + (last - first + 1 > 10 ? 7 : 5) + ', 1fr)';
+    for (let i = first; i <= last; i++) slewKeys.appendChild(slewTile(String.fromCharCode(65 + i), String.fromCharCode(65 + i)));
+    slewKeys.appendChild(back);
+  } else {
+    slewKeys.style.gridTemplateColumns = 'repeat(3, 1fr)';
+    ['7', '8', '9', '4', '5', '6', '1', '2', '3'].forEach(function(d) { slewKeys.appendChild(slewTile(d, d, !slewDigitOk(d))); });
+    slewKeys.appendChild(document.createElement('span'));
+    slewKeys.appendChild(slewTile('0', '0', !slewDigitOk('0')));
+    slewKeys.appendChild(back);
+  }
+  document.getElementById('slew-enter').disabled = step < 4;
+}
+// The first digit is bounded by the map's width; the last is free.
+function slewDigitOk(d) {
+  if (slewBuf.length !== 2) return true;
+  const range = gridEntryRange(mapMeta);
+  return Number(d) >= range.x[0] && Number(d) <= range.x[1];
+}
+function slewPadOpen() { return !slewPad.hidden; }
+// A second open while the keypad is up is a no-op, so a repeated keybind press keeps the entry.
+function openSlewPad() {
+  if (slewPadOpen()) return;
+  setSlewArmed(false);
+  slewBuf = '';
+  renderSlewPad();
+  slewPad.hidden = false;
+  slewPad.focus();
+}
+function closeSlewPad() { slewPad.hidden = true; }
+function slewPadKey(k) {
+  if (k === 'X') { closeSlewPad(); return; }
+  if (k === 'BK') { slewBuf = slewBuf.slice(0, -1); renderSlewPad(); return; }
+  if (k === 'ENT') {
+    const w = gridToWorld(slewBuf, mapMeta);
+    if (w) { closeSlewPad(); slewTo(w); } else renderSlewPad(slewBuf.length < 4 ? 'INCOMPLETE' : 'OFF MAP');
+    return;
+  }
+  const range = gridEntryRange(mapMeta), step = slewBuf.length;
+  const letter = k.charCodeAt(0) - 65;
+  const ok = step === 0 ? letter >= range.z[0] && letter <= range.z[1]
+           : step === 1 ? letter >= 0 && letter <= 9
+           : step < 4 && /^\d$/.test(k) && slewDigitOk(k);
+  if (ok) { slewBuf += k; renderSlewPad(); }
+}
+document.getElementById('slew-cancel').addEventListener('click', function() { slewPadKey('X'); });
+document.getElementById('slew-enter').addEventListener('click', function() { slewPadKey('ENT'); });
+slewPad.addEventListener('keydown', function(e) {
+  e.stopPropagation();   // typing a grid must not fire the page's keybinds
+  if (e.key === 'Escape') slewPadKey('X');
+  else if (e.key === 'Enter') slewPadKey('ENT');
+  else if (e.key === 'Backspace') slewPadKey('BK');
+  else if (e.key.length === 1) slewPadKey(e.key.toUpperCase());
+});
+// Cursor Select while the keypad is open presses the tile under the PAD cursor. Returns true when
+// it consumed the press.
+function padPress(x, y) {
+  if (!slewPadOpen()) return false;
+  const r = overlay.getBoundingClientRect();
+  const el = document.elementFromPoint(r.left + x, r.top + y);
+  if (el && slewPad.contains(el) && el.tagName === 'BUTTON') el.click();
+  return true;
+}
+
 // Right-click deselects (mouse only). auxclick, not contextmenu: a touch long-press also raises
 // contextmenu, and on MAP that gesture places a waypoint.
 overlay.addEventListener('auxclick', function(e) {
@@ -1357,6 +1499,7 @@ overlay.addEventListener('click', function(e) {
   if (gestureMoved) return;   // that was a pan/pinch, not a select
   const rect = overlay.getBoundingClientRect();
   const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+  if (slewAt(mx, my)) return;
   // Touch taps reach past the icon (fat finger); a mouse stays precise.
   const pad = lastPointerType === 'touch' ? TOUCH_HIT_PAD : 0;
   selectAt(mx, my, pad);
@@ -1373,7 +1516,7 @@ overlay.addEventListener('click', function(e) {
 function zoomStep(factor) {
   if (!mapMeta) return;
   const z1 = clampZoom(view.zoom * factor);
-  const p = cursor.getPos();
+  const p = activePos();
   const ox = overlay.width / 2, oy = overlay.height / 2;
   zoomAbout(z1, p ? p.x : ox, p ? p.y : oy);
 }
@@ -1397,6 +1540,9 @@ window.addEventListener('message', function(e) {
   switch (m.action) {
     case 'toggle-follow': if (mapMeta) setFollow(!followPlayer); break;
     case 'toggle-grid':   setGrid(!gridOn); break;
+    case 'slew-toggle':   setSlewArmed(!slewArmed); break;
+    case 'slew-keypad':   if (mapMeta) openSlewPad(); break;
+    case 'slew-cursor':   slewToCursor(); break;
     case 'zoom-in':       zoomStep(1.5);   break;
     case 'zoom-out':      zoomStep(1 / 1.5); break;
     case 'status-request': source.rebroadcastStatus(); break;   // shell asked for the current status
@@ -1415,14 +1561,14 @@ window.addEventListener('message', function(e) {
     // PAD cursor (docs/page-cursor.md, docs/map-cursor.md) — the shell only ever sends these while
     // THIS map is the SOI's focused surface, so no further gating is needed here.
     case 'cursor-focus':  cursor.setFocus(!!m.on, overlay.width / 2, overlay.height / 2); break;
-    case 'cursor':        cursor.setVector(m.x, m.y); break;
+    case 'cursor':        if (m.x || m.y) setPadMode(true); cursor.setVector(m.x, m.y); break;
     // MAP registers onHold (waypoint placement), so it needs the LIVE held state, not the plain
     // edge-driven 'cursor-select' every other page uses — that fires onSelect() straight away and
     // would make Cursor Select's hold arbitration (pad-cursor.js's setSelectHeld) unreachable, same
     // as a mouse click short-circuiting tgt.js's own long-press timer.
     case 'cursor-held':   cursor.setSelectHeld(!!m.held); break;
     // Cursor Deselect (a dedicated keybind): hit-tests at the cursor, same reach as Cursor Select.
-    case 'cursor-deselect': { const p = cursor.getPos(); if (p) deselectAt(p.x, p.y, CURSOR_HIT_PAD); } break;
+    case 'cursor-deselect': { const p = activePos(); if (p) deselectAt(p.x, p.y, CURSOR_HIT_PAD); } break;
   }
 });
 

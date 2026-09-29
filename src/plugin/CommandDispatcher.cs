@@ -81,8 +81,8 @@ namespace NOXMFD
                                 // sqd.create / sqd.set-callsign : the squadron's chosen callsign
         public string type;    // sqd.send : payload type ("wpt.route", ...)
         public string payload; // sqd.send : the payload itself (small text only)
-        public float  wx;      // wpt.add-waypoint / wpt.add-navigation-point / wpt.add-steerpoint : floating-origin-corrected X
-        public float  wz;      // wpt.add-waypoint / wpt.add-navigation-point / wpt.add-steerpoint : floating-origin-corrected Z
+        public float  wx;      // wpt.add-waypoint / wpt.add-navigation-point / wpt.add-steerpoint / tgp.slew : floating-origin-corrected X
+        public float  wz;      // wpt.add-waypoint / wpt.add-navigation-point / wpt.add-steerpoint / tgp.slew : floating-origin-corrected Z
         public string? text;   // wpt.import* portable JSON, layout.save's DataJson blob, td.designate's payload
     }
 #pragma warning restore CS0649
@@ -196,6 +196,8 @@ namespace NOXMFD
                 // Control Reset keybinds, just reachable from the page directly.
                 { "tgp.point-track",  e => TgpManualControl.TogglePointTrack() },
                 { "tgp.manual-reset", e => TgpManualControl.Reset() },
+                // MAP map/grid slew (issue #103): wx/wz is the ground point to look at.
+                { "tgp.slew",         e => TgpManualControl.SlewTo(e.wx, e.wz) },
                 // TGP page's own Z+/Z- bezel buttons — discrete magnification LEVELS, one jump per
                 // command, not the physical Cursor Zoom In/Out keybind's own continuous held rate
                 // (tgp.zoom.set below is still that rate, kept for the keybind). The page itself

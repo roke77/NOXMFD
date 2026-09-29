@@ -15,6 +15,7 @@
 // View → source:  new TelemetrySource({ onFrame, onNoMission, onStatus }).connect()
 //                 .emitFollow(on)        — the view's FLW toggle, mirrored up
 //                 .emitGrid(on)          — the view's GRID toggle, mirrored up
+//                 .emitSlew(on)          — MAP's TGP SLEW armed state, mirrored up
 //                 .rebroadcastStatus()   — answer the shell's status-request
 // Source → view (callbacks):
 //   onFrame(d)          a real telemetry frame arrived — render it
@@ -33,6 +34,27 @@ export function gridLabel(wx, wz, meta) {
   if (majX < 0 || majZ < 0) return '—';
   const vert = String.fromCharCode(65 + majZ) + String.fromCharCode(97 + minZ);
   return vert + `${majX}${minX}`;
+}
+
+// Inverse of gridLabel: the world centre {x, z} of a grid square like "Ig69" (case-insensitive), or
+// null when the text isn't a grid reference or the square lies outside the map.
+export function gridToWorld(text, meta) {
+  const m = meta && /^([a-z])([a-z])(\d)(\d)$/i.exec(String(text).trim());
+  if (!m) return null;
+  const vz = ((m[1].toUpperCase().charCodeAt(0) - 65) * 10 + (m[2].toLowerCase().charCodeAt(0) - 97)) * 1000 + 500;
+  const vx = (Number(m[3]) * 10 + Number(m[4])) * 1000 + 500;
+  const x = vx - meta.ox, z = meta.oy - vz;
+  return Math.abs(x) <= meta.w / 2 && Math.abs(z) <= meta.h / 2 ? { x, z } : null;
+}
+
+// The major grid indices a map spans, {z: [min, max], x: [min, max]} — z is the first letter of a
+// grid reference (A = 0, capped at Z), x its first digit. Bounds the keypad's first two tiles sets.
+export function gridEntryRange(meta) {
+  if (!meta) return null;
+  const idx = (lo, hi) => [Math.max(0, Math.floor(lo / 10000)), Math.floor((hi - 1) / 10000)];
+  const z = idx(meta.oy - meta.h / 2, meta.oy + meta.h / 2), x = idx(meta.ox - meta.w / 2, meta.ox + meta.w / 2);
+  z[1] = Math.min(z[1], 25);
+  return { z, x };
 }
 
 // AKF advanced kill feed (docs/akf-page.md) default/reset shape — shared by the mission-present
@@ -163,6 +185,7 @@ export class TelemetrySource {
   // has no _emitEmpties reset: there's nothing wrong with the grid staying on/off across a
   // no-mission gap.
   emitGrid(on) { this._postUp({ type: 'grid', on: !!on }); }
+  emitSlew(on) { this._postUp({ type: 'slew', on: !!on }); }
 
   _postUp(msg) {
     if (window.parent !== window) window.parent.postMessage(Object.assign({ mfd: true }, msg), '*');
