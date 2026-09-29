@@ -4,13 +4,13 @@
 const assert = require('assert');
 const { buildTgtNavPlan } = require('./td-nav.js');
 
-// No squad: NAV.tgt stays exactly its static baseline, no TD entry.
+// Not a squad leader (no squad, or a member): NAV.tgt stays exactly its static baseline, no TD entry.
 {
   const plan = buildTgtNavPlan([{ label: 'MAIN', action: 'main' }], false);
   assert.deepStrictEqual(plan, [{ label: 'MAIN', action: 'main' }]);
 }
 
-// In a squad (leader or member — poll() itself only checks role !== 'none'): TD appended after MAIN.
+// Squad leader (apply() passes role === 'leader'): TD appended after MAIN.
 {
   const plan = buildTgtNavPlan([{ label: 'MAIN', action: 'main' }], true);
   assert.deepStrictEqual(plan, [

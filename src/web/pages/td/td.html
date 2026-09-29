@@ -4,30 +4,28 @@
 <meta charset="utf-8">
 <title>NO XMFD — TD</title>
 <!--
-  Target Designator page (issue #47, docs/target-designator.md), served at /td. Reached from TGT's
-  own nav row (nav-model.js's NAV.tgt, appended at runtime by td-nav.js only while in a squad — see
-  its own header comment), not MAIN.
+  Target Designator page (issue #47, docs/target-designator.md), served at /td. Squad leader only:
+  reached from TGT's own nav row (nav-model.js's NAV.tgt, appended at runtime by td-nav.js only
+  while leading a squad — see its own header comment), not MAIN. Members never come here — a
+  designation reaches them as the dock on their own TGT page (tgt.js).
 
-  Leader view: the same target list TGT itself shows (mirrored via the shell's 'tgt-targets'
-  message), with an independent selection/assignment overlay on top — row click toggles selection,
-  a squad button assigns every selected target to that slot (toggle, per slot, per target), and
-  DESIGNATE pushes each member their assigned set over the squad transport. Unlike TGT, this table
-  is deliberately static: it only refreshes on a real select/deselect in-game, or when REFRESH is
-  pressed (td.js's applyLiveTargets) — a live-updating table fights with clicking it (see
-  target-designator.md). A squad button is itself a tap-vs-long-press control (issue #47 follow-up,
-  same LONG_MS pattern as TGT's own filter cells): a tap assigns and clears the selection as always;
-  a long-press assigns and keeps the selection lit, so the leader can designate the same selection
-  to several slots in a row without re-selecting between each one. Member view: a read-only table of
-  whatever the leader last DESIGNATEd, with AQUIRE selecting everything at once in-game and jumping
-  to TGT right after (that's where the pilot actually uses the locked targets); REFRESH here is a
-  manual fallback re-pull of /squad and /td-state — the table already updates on its own via the
-  SSE-pushed 'td-state-push'.
+  An assignment matrix: one row per target on the leader's TGT list, one column per squad slot
+  (1 = the leader's own marker, never sent). Every control acts on what it names, with no selection
+  step: a cell gives that target to that slot (or takes it back), a target's name gives it to every
+  slot, and a column head gives every target to that slot — row and column fill the gaps, or empty
+  when already full (td-matrix.js). Each column head shows how many targets that slot has and
+  whether its list is SENT, CHANGED since the last send, or UNSENT. DESIGNATE sends every waiting
+  list over the squad transport, replacing what each member had, then returns to TGT.
+
+  The table is deliberately static: it only redraws its rows on a real select/deselect in-game, a
+  Metric/Imperial flip, a roster change, or REFRESH (td.js) — a live-updating table fights with
+  clicking it (see target-designator.md). Rows stretch to fill the panel and scroll past the point
+  where they'd drop below a comfortable tap height.
 
   All state round-trips through the plugin: GET /squad (role/roster, same as SQD) and GET /td-state
-  (selection/assignment overlay + the member's designated-target snapshot — TdStore.cs), POST
-  /command (td.select / td.assign / td.clear / td.designate / td.acquire-all / td.member-clear).
-  Unlike SQD, TD has NO automatic polling at all (td.js's own header) — both GETs above fire only
-  once when this page loads, and again whenever REFRESH is pressed.
+  (assignments + what each slot was last sent — TdStore.cs) once on load, then the shell's
+  SSE-relayed 'sqd-state'/'td-state-push'. POST /command: td.cell / td.row / td.column / td.clear /
+  td.designate.
 -->
 <link rel="stylesheet" href="/assets/shared/font.css">
 <link rel="stylesheet" href="/assets/shared/theme.css">
@@ -36,59 +34,34 @@
 <body>
 
 <div class="td-panel" id="td-panel">
-  <!-- Same header as TGT's .tgt-head: title left, the squad-button tap/hold legend right. -->
   <div class="td-head">
     <a class="td-back" href="/tgt">&lt; TGT</a>
     <span class="td-title">TARGET DESIGNATOR</span>
-    <span class="td-hint">tap&nbsp;=&nbsp;assign&nbsp;·&nbsp;hold&nbsp;=&nbsp;keep&nbsp;selection</span>
+    <span class="td-summary" id="td-summary"></span>
   </div>
 
   <!-- PAD cursor (docs/page-cursor.md) — same fixed-position crosshair SQD/WPT use. -->
   <div id="pad-cursor" class="pad-cursor"></div>
 
-  <div class="td-unavailable" id="td-unavailable" style="display:none;">
-    Target Designator requires an active squad. Join or create one on the SQD page first.
-  </div>
+  <div class="td-unavailable" id="td-unavailable" style="display:none;"></div>
 
-  <!-- Leader: own live TGT list + squad-slot assignment overlay. -->
   <div class="td-section" id="td-leader-section" style="display:none;">
-    <!-- "<CALLSIGN> ALL" sits in its own column right of the member grid, so it stays beside the
-         members however many rows they wrap to. -->
-    <div class="td-squad-row">
-      <div class="td-squad-buttons" id="td-squad-buttons"></div>
-      <div class="td-squad-all" id="td-squad-all"></div>
+    <!-- The column heads live inside the scroller as a sticky row, so they always line up with the
+         cells whatever width the scrollbar takes. -->
+    <div class="td-list" id="td-list">
+      <div class="td-grid-row td-matrix-head" id="td-matrix-head">
+        <span class="td-head-label"><span>TARGET · TAP FOR ALL SLOTS</span><span>RNG</span></span>
+      </div>
+      <div class="td-rows" id="td-rows"></div>
+      <div class="td-empty" id="td-empty">&mdash; NO TARGETS SELECTED &mdash;</div>
     </div>
 
-    <div class="td-list">
-      <div class="td-list-head">
-        <span>NAME</span><span>GRID</span><span>RNG</span><span>TO</span>
-      </div>
-      <div id="td-leader-rows"></div>
-      <div class="td-empty" id="td-leader-empty">&mdash; NO TARGETS &mdash;</div>
-    </div>
+    <span class="td-flash" id="td-flash"></span>
 
     <div class="td-actions">
-      <button class="td-btn td-designate-btn pad-hoverable" id="td-designate">DESIGNATE</button>
+      <button class="td-btn td-designate-btn pad-hoverable" id="td-designate"><span class="td-designate-t">DESIGNATE</span><span class="td-designate-sub" id="td-designate-sub"></span></button>
       <button class="td-btn td-btn-ghost pad-hoverable" id="td-refresh">REFRESH</button>
-      <button class="td-btn td-btn-ghost pad-hoverable" id="td-select-all">ALL</button>
-      <button class="td-btn td-btn-ghost pad-hoverable" id="td-leader-clear">CLEAR</button>
-    </div>
-  </div>
-
-  <!-- Member: read-only, leader-designated targets only. -->
-  <div class="td-section" id="td-member-section" style="display:none;">
-    <div class="td-list">
-      <div class="td-list-head">
-        <span>NAME</span><span>GRID</span><span>RNG</span>
-      </div>
-      <div id="td-member-rows"></div>
-      <div class="td-empty" id="td-member-empty">&mdash; NOTHING DESIGNATED &mdash;</div>
-    </div>
-
-    <div class="td-actions">
-      <button class="td-btn td-designate-btn pad-hoverable" id="td-acquire">AQUIRE</button>
-      <button class="td-btn td-btn-ghost pad-hoverable" id="td-member-refresh">REFRESH</button>
-      <button class="td-btn td-btn-ghost pad-hoverable" id="td-member-clear">CLEAR</button>
+      <button class="td-btn td-btn-ghost pad-hoverable" id="td-clear">CLEAR</button>
     </div>
   </div>
 </div>

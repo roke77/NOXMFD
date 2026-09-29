@@ -4,7 +4,7 @@ Def()/DefFree()/DefKeyOnly()/AddAxis() call in Keybinds.cs's Bind(), same as alw
 nothing second to remember to update.
 
 Not a general C# parser — just enough to recover the four call shapes Keybinds.cs uses, its
-`const string` section names, its three numbered-loop bind groups (TD assign, HUD/TGT presets),
+`const string` section names, its numbered-loop bind groups (HUD/TGT/layout presets),
 and the SectionTitle/SectionNote switch expressions. If Keybinds.cs's style ever changes in a way
 this can't follow, KeybindsParseError says exactly where and why, rather than silently returning a
 wrong or incomplete list — a stale-but-plausible preview is the whole bug this module exists to
@@ -306,10 +306,6 @@ def self_check(repo_root):
     check(by_id["internal-mfd-poc-toggle"]["label"] == "Internal MFD POC Toggle", "internal-mfd-poc-toggle label")
     check("weapon-release-single" in by_id, "weapon-release-single must be present")
 
-    td_ids = [f"td-assign-{n}" for n in range(1, 10)]
-    check(all(i in by_id for i in td_ids), "all 9 td-assign-N binds must be present")
-    check("squad slot 3" in by_id["td-assign-3"]["description"], "td-assign-3 description substitutes its slot number")
-
     check(all(f"hud-preset-{n}" in by_id for n in range(1, 6)), "all 5 hud-preset-N binds must be present")
     check(all(f"tgt-preset-{n}" in by_id for n in range(1, 6)), "all 5 tgt-preset-N binds must be present")
     check(all(f"layout-preset-{n}" in by_id for n in range(1, 6)), "all 5 layout-preset-N binds must be present")
@@ -317,7 +313,7 @@ def self_check(repo_root):
     check("axis" in by_id["cursor-axis-h"] and "key" not in by_id["cursor-axis-h"], "cursor-axis-h is axis-only")
     check("key" in by_id["layout-save"] and "joyButton" not in by_id["layout-save"], "layout-save is key-only")
 
-    check("TD" in notes, "TD section note must come through (it was missing from the old hand-written mock)")
+    check("TGT" in notes, "TGT section note must come through")
 
 
 if __name__ == "__main__":

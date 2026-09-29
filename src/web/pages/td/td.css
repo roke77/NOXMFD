@@ -1,5 +1,5 @@
 /* TD (Target Designator, issue #47, docs/target-designator.md) page styles. Same full-panel layout
-   as TGT (tgt.css): a full-height flex column whose target list scrolls on its own, with the action
+   as TGT (tgt.css): a full-height flex column whose matrix scrolls on its own, with the action
    buttons pinned under it, and the same side inset that clears the shell's vertical bezel label. */
 
 * { box-sizing: border-box; }
@@ -23,7 +23,7 @@
   padding-bottom: clamp(2px, 0.8vh, 6px);
 }
 .td-title { font-size: clamp(13px, 2.6vmin, 22px); letter-spacing: 0.08em; color: var(--no-green); margin-right: auto; }
-.td-hint  { font-size: clamp(8px, 1.4vmin, 12px); color: var(--no-green-dim); }
+.td-summary { font-size: clamp(9px, 1.5vmin, 14px); letter-spacing: 0.1em; color: var(--no-green-dim); white-space: nowrap; }
 /* Standalone-only (td.js removes it inside the shell's frame). */
 .td-back {
   font-size: clamp(9px, 1.4vmin, 12px);
@@ -42,7 +42,6 @@
   text-align: center;
 }
 
-/* Leader/member section: fills the panel under the header; only the list scrolls. */
 .td-section {
   flex: 1 1 auto;
   min-height: 0;
@@ -50,44 +49,16 @@
   gap: clamp(4px, 1.4vh, 12px);
 }
 
-/* Squad-slot buttons — 4 columns per issue #47's scope, including a dedicated leader/self button. */
-.td-squad-row {
-  display: flex;
-  gap: clamp(4px, 1vw, 10px);
-}
-.td-squad-buttons {
-  flex: 1;
-  min-width: 0;
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: clamp(4px, 1vw, 10px);
-}
-.td-squad-all { flex: 0 0 auto; display: flex; flex-direction: column; }
-.td-squad-all .td-squad-btn { padding-left: clamp(8px, 1.6vw, 18px); padding-right: clamp(8px, 1.6vw, 18px); }
-.td-squad-btn {
-  padding: clamp(6px, 1.4vh, 12px) 4px;
-  border: 1.5px solid var(--no-squad);
-  border-radius: 3px;
-  background: var(--no-panel-bg);
-  color: var(--no-squad);
-  font-family: var(--no-font);
-  font-size: clamp(10px, 1.8vmin, 16px);
-  letter-spacing: 0.08em;
-  cursor: pointer;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.td-squad-btn:hover { background: var(--no-squad); color: var(--no-ink); }
-
-/* The list: fills the section and scrolls on its own; the header row sticks. Same thin scrollbar
-   TGT's .tgt-list-scroll draws. */
+/* The matrix scroller. scrollbar-gutter keeps the lane on the right reserved whether or not the
+   scrollbar shows, so the columns never jump; the right padding is the gap between cells and bar.
+   Same thin grey scrollbar every other NOXMFD list draws (tgt.css, page-chrome.css). */
 .td-list {
   flex: 1 1 auto;
   min-height: 0;
-  overflow: auto;
-  border-top: 1px solid var(--no-green-dark);
-  padding-top: clamp(3px, 0.8vh, 7px);
+  display: flex; flex-direction: column;
+  overflow-y: auto; overflow-x: hidden;
+  scrollbar-gutter: stable;
+  padding-right: clamp(6px, 1.4vw, 14px);
   scrollbar-width: thin;
   scrollbar-color: var(--no-gray) transparent;
 }
@@ -95,68 +66,141 @@
 .td-list::-webkit-scrollbar-track { background: transparent; }
 .td-list::-webkit-scrollbar-thumb { background: var(--no-gray); border-radius: 3px; }
 
-/* [name grows] [grid] [range] [to] — TGT's own column widths. */
-.td-list-head, .td-row-item {
+/* [target name + range] [one track per squad slot] — td.js sets --td-cols from the slot count,
+   since the number of columns follows the live roster. */
+.td-grid-row {
   display: grid;
-  grid-template-columns: minmax(90px, 1fr) clamp(46px, 7vw, 76px) clamp(60px, 9vw, 96px) clamp(60px, 10vw, 120px);
-  gap: clamp(6px, 1.4vw, 14px);
-  align-items: center;
+  grid-template-columns: var(--td-cols, minmax(0, 1fr));
+  gap: clamp(4px, 0.9vw, 8px);
 }
-/* Member view has no TO column — 3 tracks instead of 4. */
-#td-member-rows .td-row-item, #td-member-section .td-list-head {
-  grid-template-columns: minmax(90px, 1fr) clamp(46px, 7vw, 76px) clamp(60px, 9vw, 96px);
-}
-.td-list-head {
-  position: sticky;
-  top: 0;
+
+.td-matrix-head {
+  flex: 0 0 auto;
+  position: sticky; top: 0; z-index: 1;
   background: var(--no-bg);
-  padding: 0 clamp(4px, 1vw, 10px) clamp(2px, 0.6vh, 5px);
-  color: var(--no-green-dim);
-  font-size: clamp(9px, 1.4vmin, 13px);
-  letter-spacing: 0.06em;
-  border-bottom: 1px solid var(--no-green-dark);
+  padding-bottom: clamp(4px, 1vh, 8px);
+  align-items: end;
 }
-.td-row-item {
-  padding: clamp(4px, 1vh, 9px) clamp(4px, 1vw, 10px);
-  border-bottom: 1px solid rgba(var(--no-green-rgb),0.10);
-  font-size: clamp(11px, 1.9vmin, 18px);
-  cursor: pointer;
+.td-head-label {
+  display: flex; gap: 12px;
+  padding: 0 clamp(8px, 1.6vw, 16px) clamp(4px, 1vh, 8px);
+  font-size: clamp(8px, 1.3vmin, 11px); letter-spacing: 0.14em; color: var(--no-green-dim);
 }
-.td-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.td-grid, .td-dist { color: var(--no-green-dim); font-variant-numeric: tabular-nums; white-space: nowrap; }
-/* Faction tint on the name, same convention TGT uses. */
-.td-row-item.f-friendly .td-name { color: #4aa3ff; }
-.td-row-item.f-neutral  .td-name { color: var(--no-label); }
-.td-row-item.f-enemy    .td-name { color: var(--no-red); }
+.td-head-label span:first-child { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-/* Currently selected on the leader's own table (about to be assigned to a squad slot). */
-.td-row-item.selected { background: rgba(var(--no-amber-rgb),0.12); outline: 1px solid var(--no-amber); outline-offset: -1px; }
-
-/* Which squad slot(s) a row is currently assigned to. */
-.td-tags { color: var(--no-squad); font-size: 0.85em; letter-spacing: 0.04em; white-space: nowrap; }
-
-.td-empty {
-  font-size: clamp(10px, 1.6vmin, 14px);
-  letter-spacing: 0.06em;
-  color: var(--no-gray);
-  text-align: center;
-  padding: clamp(8px, 2vh, 16px) 0;
-}
-#td-leader-rows:not(:empty) + .td-empty, #td-member-rows:not(:empty) + .td-empty { display: none; }
-
-.td-actions { display: flex; gap: clamp(4px, 1vw, 10px); }
-.td-btn {
-  flex: 1;
-  padding: clamp(6px, 1.4vh, 12px);
-  border: 1.5px solid var(--no-green);
-  border-radius: 3px;
-  background: var(--no-panel-bg);
-  color: var(--no-green);
+/* Column head: lamp (status), callsign or YOU, slot number, "N · STATUS". Tapping it fills or
+   empties the whole column. */
+.td-col {
+  position: relative;
+  height: clamp(56px, 9vh, 80px);
+  padding: 0;
+  border: 1px solid var(--no-white-dark);
+  border-radius: 4px 4px 0 0;
+  background: var(--no-ink);
   font-family: var(--no-font);
-  font-size: clamp(10px, 1.8vmin, 16px);
-  letter-spacing: 0.08em;
+  cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: clamp(1px, 0.4vh, 3px);
+  overflow: hidden;
+}
+.td-col-lamp {
+  position: absolute; left: 10%; right: 10%; top: 6px; height: 4px; border-radius: 1px;
+  background: var(--no-green-dark);
+}
+.td-col-lamp.sent    { background: var(--no-green); box-shadow: 0 0 8px var(--no-green), 0 0 2px var(--no-green); }
+.td-col-lamp.waiting { background: var(--no-amber); box-shadow: 0 0 8px var(--no-amber), 0 0 2px var(--no-amber); }
+.td-col-lamp.marker  { background: var(--no-squad); box-shadow: 0 0 8px var(--no-squad), 0 0 2px var(--no-squad); }
+.td-col-top { margin-top: 6px; font-size: clamp(8px, 1.3vmin, 11px); letter-spacing: 0.2em; color: var(--no-white-dim); }
+.td-col-num { font-size: clamp(13px, 2.4vmin, 20px); line-height: 1; color: var(--no-squad); }
+.td-col-st  { font-size: clamp(8px, 1.2vmin, 11px); letter-spacing: 0.06em; color: var(--no-gray); white-space: nowrap; }
+.td-col-st.some    { color: var(--no-white-dim); }
+.td-col-st.waiting { color: var(--no-amber); }
+
+/* Rows stretch to share the panel's height (up to a comfortable maximum), and stop shrinking at a
+   tap-sized minimum — past that the scroller above takes over. */
+.td-rows {
+  flex: 1 0 auto;
+  display: flex; flex-direction: column;
+  gap: clamp(4px, 0.9vh, 8px);
+}
+.td-row {
+  flex: 1 1 0;
+  min-height: clamp(36px, 5.4vh, 48px);
+  max-height: 88px;
+}
+.td-name-btn, .td-cell {
+  font-family: var(--no-font);
+  border-radius: 3px;
+  background: var(--no-ink);
   cursor: pointer;
 }
-.td-btn:hover { background: var(--no-green); color: var(--no-ink); }
-.td-btn-ghost { border-color: var(--no-green-dim); color: var(--no-green-dim); }
-.td-btn-ghost:hover { background: var(--no-green-dim); color: var(--no-ink); }
+.td-name-btn {
+  min-width: 0;
+  padding: 0 clamp(8px, 1.8vw, 18px);
+  border: 1px solid var(--no-panel-border);
+  display: flex; align-items: center; gap: 12px;
+  text-align: left;
+}
+.td-name-btn.full { border-color: rgba(var(--no-squad-rgb), 0.35); }
+.td-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: clamp(11px, 2vmin, 20px); letter-spacing: 0.05em; }
+.td-dist { flex: 0 0 auto; font-size: clamp(10px, 1.7vmin, 17px); color: var(--no-green-dim); font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* Faction tint on the name, same convention TGT uses. */
+.td-row.f-friendly .td-name { color: #4aa3ff; }
+.td-row.f-neutral  .td-name { color: var(--no-label); }
+.td-row.f-enemy    .td-name { color: var(--no-red); }
+
+.td-cell {
+  border: 1px solid var(--no-panel-border);
+  border-radius: 0;
+  color: var(--no-squad);
+  font-size: clamp(14px, 2.6vmin, 26px);
+}
+.td-cell.on {
+  border-color: var(--no-squad);
+  background: rgba(var(--no-squad-rgb), 0.16);
+  box-shadow: inset 0 0 10px rgba(var(--no-squad-rgb), 0.3);
+}
+
+/* Same empty state as TGT's .tgt-list-empty: centred in whatever the matrix area has left. An empty
+   .td-rows stops growing so this note, not the rows container, takes that space. */
+.td-rows:empty { flex: 0 0 auto; }
+.td-empty {
+  flex: 1 1 auto;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--no-green-dark);
+  font-size: clamp(11px, 1.8vmin, 16px); letter-spacing: 0.08em;
+}
+.td-rows:not(:empty) + .td-empty { display: none; }
+
+/* One line of feedback: the last action's result, or the controls legend while idle. */
+.td-flash { font-size: clamp(9px, 1.4vmin, 13px); letter-spacing: 0.06em; color: var(--no-white-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.td-actions {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: clamp(4px, 1vw, 10px);
+}
+.td-btn {
+  min-height: clamp(40px, 8vh, 72px);
+  padding: clamp(4px, 1vh, 10px);
+  border: 1.5px solid var(--no-green-deep);
+  border-radius: 4px;
+  background: var(--no-ink);
+  color: var(--no-green-dim);
+  font-family: var(--no-font);
+  font-size: clamp(10px, 1.7vmin, 15px);
+  letter-spacing: 0.2em;
+  cursor: pointer;
+}
+.td-btn:hover { border-color: var(--no-green-dim); }
+.td-designate-btn {
+  grid-column: span 2;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+  border-color: var(--no-green-dark);
+  color: var(--no-green-deep);
+}
+.td-designate-t { font-size: clamp(12px, 2.2vmin, 20px); letter-spacing: 0.2em; }
+.td-designate-sub { font-size: clamp(8px, 1.2vmin, 11px); letter-spacing: 0.15em; color: var(--no-green-dim); }
+/* Something is waiting to be sent: the button lights, its count turns amber. */
+.td-designate-btn.waiting { border-color: var(--no-green); color: var(--no-green); background: rgba(var(--no-green-rgb), 0.06); box-shadow: 0 0 10px rgba(var(--no-green-rgb), 0.3); }
+.td-designate-btn.waiting .td-designate-sub { color: var(--no-amber); }

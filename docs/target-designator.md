@@ -206,3 +206,72 @@ Full `*.test.js` suite green, including `td-nav.test.js` and the updated `nav-mo
 `split-slots.test.js` coverage for the new `td` page. The disband-while-open reaction was verified
 live in the harness: disbanding via a direct `/command` POST while TD sat open flipped it to
 "requires an active squad" within the poll window, with no manual refresh or navigation.
+
+## Rework: assignment matrix and the TGT dock (feature/target-designation-rework)
+
+Player feedback: TD "is still a bit janky sometimes and the operation isn't intuitive." Two causes
+stood out. The leader's flow had a hidden selection step (tap rows, then a squad button, with a
+tap-vs-hold rule deciding whether the selection survived). And a member had to open their own TD
+page, review, and press AQUIRE before anything reached their cockpit. The designs chosen (TD D ·
+Direct Matrix for the leader, TGT C · Dock for the member) live in
+`_scratch/claude_designs/TD D direct matrix.*`.
+
+**Leader: a matrix with no selection step.** Targets down the side, squad slots across the top.
+A cell toggles one target/slot pair; a target's name toggles that row across every slot; a column
+head toggles that slot across every target on the table. Row and column are all-or-nothing (fill
+the gaps, or empty when full), the same rule the old `<CALLSIGN> ALL` button had. Wire commands:
+`td.cell {id, index}`, `td.row {id}` (slots from `Squad.AllSlots()`), `td.column {index, text}`
+(`text` = the table's id list as JSON, since the table lives in the browser). `td.select`,
+`td.assign` and `td.assign-all` are gone, along with the selection overlay, SELECT ALL, and the
+long-press "keep selection" rule.
+
+**Per-slot send status.** `TdStore` keeps what each slot was last sent (`sent`, recorded by
+`TdStore.MarkSent` after a successful `td.designate`, which now carries the slot in `index`). The
+page compares it with the current matrix (`td-matrix.js`'s `slotStatus`): SENT, CHANGED, UNSENT,
+EMPTY, or MARKER for the leader's own column. DESIGNATE sends only the waiting (CHANGED/UNSENT)
+slots, including an emptied list, which withdraws that member's pending designation. `ClearSlot` and
+`SwapSlots` carry `sent` with the member, so a reorder doesn't flip an untouched list to CHANGED;
+CLEAR keeps `sent`, so cleared slots read CHANGED until the next DESIGNATE.
+
+**Leader only.** `td-nav.js` adds the TD nav item only for `role === 'leader'`; the page itself
+shows a notice to anyone else. The member view (table, AQUIRE, member REFRESH/CLEAR) is removed.
+
+**Member: the TGT dock.** A pending designation (`TdStore.designated`) shows as an amber bar
+absolutely positioned at the bottom of `.tgt-list`, layered over rows, sticky header and scrollbar
+(`z-index`), until answered. While it's up, `.tgt-list-rows` gets bottom padding equal to the bar,
+so every row can still scroll clear of it. The label opens a drawer of names above the bar;
+targets already selected are dimmed LISTED, and ADD's count excludes them. `td.accept {on}` selects
+the designated units in-game through `TrySelectTarget` (so TGT filters still apply), after a
+`DeselectAll` when `on` (REPLACE); then `TdStore.AcceptDesignated` clears the pending list and
+remembers its ids in `accepted`, which TGT uses to tag those rows TD. `td.dismiss` clears the
+pending list with nothing selected. `td.acquire-all` and `td.member-clear` are gone.
+
+**Keybinds.** The 9 `td-assign-N` binds assigned the old selection, which no longer exists; they
+were removed (Keybinds.cs, the remote-keybind map, the harness parser's self-check). An existing
+`.cfg` keeps its orphaned `[TD Keybinds]` entries, harmlessly.
+
+**Leader's TD column on TGT.** A row tap now assigns every slot at once, which overflowed the old
+column width; the column is wider, sorts its slot numbers, and clips with an ellipsis.
+
+### Verification
+
+`tools/ci-check.ps1` green: Release build, all `*.test.js` (new `td-matrix.test.js`), 428 C# tests
+(`TdStoreTests` rewritten for the matrix, sent-status and accept paths). In the `serve_web.py`
+harness, whose TD mock now loops a DESIGNATE back to the same browser: cell/row/column taps match the
+mock's state exactly, statuses move UNSENT → SENT → CHANGED, the TGT dock appears with the right
+ADD count and LISTED marks, the drawer and bar sit over a scrolling 17-row list, and ADD closes the
+dock and tags the accepted rows. Rendering the manual screenshots as a member caught a class
+clash: the dock's label reused `.tgt-td-head`, TGT's existing leader-only TD column header class, so
+it was hidden for everyone but the leader; the dock's label is `.tgt-td-label` now.
+
+Still needs an in-game check with two players:
+
+- A member receives a DESIGNATE and the dock appears on their TGT without opening anything.
+- ADD selects only the new targets; REPLACE deselects everything first; DISMISS selects nothing.
+- A designated target the member's TGT filters exclude is skipped by ADD/REPLACE.
+- A second DESIGNATE while the dock is up replaces it; an emptied list withdraws it.
+- Column status after a member leaves or is reordered (CHANGED/SENT stay attached to the member).
+- The dock and matrix at in-game MFD sizes, including split panes and the F-35 layout.
+- The manual screenshots (`TD_SQD_LEADER.png`, `TGT_TD_DOCK.png`, `TGT_TD_DOCK_OPEN.png`) are the real
+  pages rendered in the harness with sample data, framed in the classic bezel — retake them in-game
+  if they drift from what a live squad shows.

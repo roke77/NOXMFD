@@ -49,7 +49,6 @@ assert.deepStrictEqual(commandForBind('cursor-deselect'), {
   cmd: 'map.action',
   args: { wname: 'cursor-deselect' }
 });
-assert.deepStrictEqual(commandForBind('td-assign-7'), { cmd: 'td.assign', args: { index: 7, on: false } });
 assert.strictEqual(commandForBind('cursor-zoom-in'), null, 'held zoom state uses fire.set, not one-shot mapping');
 assert.deepStrictEqual(commandForBind('tgp-manual-toggle'), { cmd: 'tgp.manual-toggle' });
 assert.deepStrictEqual(commandForBind('tgp-manual-reset'), { cmd: 'tgp.manual-reset' });

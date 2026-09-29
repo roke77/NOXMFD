@@ -605,72 +605,75 @@ def _squad_command(env):
 
 
 # Stateful mock of the plugin's /td-state + td.* commands (issue #47, docs/target-designator.md).
-# _SQD's default role is "leader" with 3 members (see its own comment), so this mock only
-# meaningfully exercises the LEADER view — there's no second real client here to receive a
-# designation or act as a member, so td.designate/td.member-clear/td.acquire-all/
-# td.receive-designation are accepted and dropped, same as sqd.send has no real peer to reach.
-# Flip _SQD["role"] to "member" and seed _TD["designated"] by hand to eyeball the member view.
-_TD = {"selected": set(), "assignments": {}, "designated": []}
+# _SQD's default role is "leader" with 3 members (see its own comment), so TD shows the leader's
+# matrix. There's no second client to receive a designation, so the mock loops every td.designate
+# back to this same browser as a pending one — the TGT page's dock then shows it, and ADD /
+# REPLACE / DISMISS can be exercised here too (the leader never receives one in the real plugin).
+# With several member lists sent at once, the last one wins, same as a repeat DESIGNATE replacing
+# the previous one. ADD/REPLACE only record the ids as accepted: nothing is selected in-game here.
+_TD = {"assignments": {}, "sent": {}, "accepted": [], "designated": []}
 
 
 def _td_state():
-    return json.dumps({"ready": True, "state": {
-        "selected": sorted(_TD["selected"]),
-        "assignments": _TD["assignments"],
-        "designated": _TD["designated"],
-    }}).encode("utf-8")
+    return json.dumps({"ready": True, "state": _TD}).encode("utf-8")
+
+
+def _td_set(tid, slot, on):
+    # Mirrors TdStore.Set: an emptied target drops out entirely.
+    key = str(tid)
+    slots = [s for s in _TD["assignments"].get(key, []) if s != slot]
+    if on:
+        slots.append(slot)
+    if slots:
+        _TD["assignments"][key] = slots
+    else:
+        _TD["assignments"].pop(key, None)
+
+
+def _td_has(tid, slot):
+    return slot in _TD["assignments"].get(str(tid), [])
 
 
 def _td_command(env):
     cmd = env.get("cmd") or ""
     if not cmd.startswith("td."):
         return
-    if cmd == "td.select":
-        try:
-            tid = int(env.get("id"))
-        except (TypeError, ValueError):
-            return
-        if tid in _TD["selected"]:
-            _TD["selected"].discard(tid)
-        else:
-            _TD["selected"].add(tid)
-    elif cmd == "td.assign":
-        try:
-            slot = int(env.get("index"))
-        except (TypeError, ValueError):
-            return
-        # Mirrors TdStore.Assign(): toggle slot membership for every currently-selected id, then
-        # clear the selection — unless `on` (a long-press) asks to keep it.
-        for tid in _TD["selected"]:
-            key = str(tid)
-            slots = _TD["assignments"].setdefault(key, [])
-            if slot in slots:
-                slots.remove(slot)
-                if not slots:
-                    del _TD["assignments"][key]
-            else:
-                slots.append(slot)
-        if not env.get("on"):
-            _TD["selected"].clear()
-    elif cmd == "td.assign-all":
-        # Mirrors TdStore.AssignAll(): every squad slot (leader = 1), all-or-nothing.
+    try:
+        tid = int(env.get("id") or 0)
+        slot = int(env.get("index") or 0)
+    except (TypeError, ValueError):
+        return
+    if cmd == "td.cell" and tid and slot > 0:
+        _td_set(tid, slot, not _td_has(tid, slot))
+    elif cmd == "td.row" and tid:
+        # Mirrors TdStore.ToggleRow: every squad slot (leader = 1), all-or-nothing.
         every = [1] + [m["slot"] for m in _SQD["members"]]
-        sel = [str(t) for t in _TD["selected"]]
-        remove = all(set(every) <= set(_TD["assignments"].get(k, [])) for k in sel)
-        for key in sel:
-            slots = set(_TD["assignments"].get(key, []))
-            slots = slots - set(every) if remove else slots | set(every)
-            if slots:
-                _TD["assignments"][key] = sorted(slots)
-            else:
-                _TD["assignments"].pop(key, None)
-        if not env.get("on"):
-            _TD["selected"].clear()
+        full = all(_td_has(tid, s) for s in every)
+        for s in every:
+            _td_set(tid, s, not full)
+    elif cmd == "td.column" and slot > 0:
+        # Mirrors TdStore.ToggleColumn over the page's own id list.
+        try:
+            ids = [int(i) for i in json.loads(env.get("text") or "[]")]
+        except (TypeError, ValueError):
+            return
+        full = all(_td_has(i, slot) for i in ids)
+        for i in ids:
+            _td_set(i, slot, not full)
     elif cmd == "td.clear":
-        _TD["selected"].clear()
         _TD["assignments"] = {}
-    # td.designate / td.receive-designation / td.member-clear / td.acquire-all: no real peer to
-    # simulate here — accepted and dropped, same as sqd.send.
+    elif cmd == "td.designate" and slot > 0:
+        try:
+            rows = json.loads(env.get("text") or "[]")
+        except ValueError:
+            return
+        _TD["sent"][str(slot)] = sorted(r["id"] for r in rows if isinstance(r, dict) and "id" in r)
+        _TD["designated"] = rows
+    elif cmd == "td.accept":
+        _TD["accepted"] = sorted(set(_TD["accepted"]) | {r["id"] for r in _TD["designated"]})
+        _TD["designated"] = []
+    elif cmd == "td.dismiss":
+        _TD["designated"] = []
 
 
 # WPT showcase route (issue #38) — a real route drawn by hand in this harness (6 waypoints, a loop

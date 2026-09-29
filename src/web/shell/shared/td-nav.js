@@ -1,20 +1,22 @@
 // TD nav discovery (issue #47, docs/target-designator.md) — appends/removes NAV.tgt's TD entry at
-// runtime based on live squad membership, the same shape ext-nav.js already uses for "a NAV entry
-// whose PRESENCE is discovered at runtime, not authored" (NAV.tgt's static baseline, nav-model.js,
-// is just the MAIN back-link). Unlike EXT, whose install set never changes after BepInEx boots, a
-// squad can be joined/left at any time, so this reacts to the live squad-state push
+// runtime based on live squad leadership: only a squad leader designates, and members answer a
+// designation on TGT itself (tgt.js's dock), so a member has no TD page to reach. Same shape
+// ext-nav.js already uses for "a NAV entry whose PRESENCE is discovered at runtime, not authored"
+// (NAV.tgt's static baseline, nav-model.js, is just the MAIN back-link). Unlike EXT, whose install
+// set never changes after BepInEx boots, squad leadership can change at any time, so this reacts to
+// the live squad-state push
 // (docs/sse-push-refactor.md) instead of scanning once. Like ext-nav.js's own documented limitation
 // (a newly-registered extension needs a later EXT click to appear), a freshly (dis)banded squad's
 // TD entry shows up the next time NAV.tgt is read (i.e. the next visit to TGT), not necessarily the
-// instant it changes.
+// instant it changes. The TD page itself also refuses a non-leader (td.js), so a stale entry is harmless.
 //
 // Both layouts load this before their own shell script (mfd.html/f35.html) and call
 // TdNav.start(NAV) once at boot.
 (function (root) {
-  // Pure: given NAV.tgt's current (static) baseline and whether a squad exists, returns the
-  // finished NAV.tgt array. No I/O, no mutation of its arguments.
-  function buildTgtNavPlan(baseTgtNav, inSquad) {
-    return inSquad ? baseTgtNav.concat([{ label: 'TD', action: 'td' }]) : baseTgtNav.slice();
+  // Pure: given NAV.tgt's current (static) baseline and whether this pilot leads a squad, returns
+  // the finished NAV.tgt array. No I/O, no mutation of its arguments.
+  function buildTgtNavPlan(baseTgtNav, isLeader) {
+    return isLeader ? baseTgtNav.concat([{ label: 'TD', action: 'td' }]) : baseTgtNav.slice();
   }
 
   // NAV.tgt's pristine static baseline, snapshotted the first time start() runs — BEFORE anything
@@ -28,8 +30,8 @@
   // while it's open, so this only needs to keep NAV.tgt's TD entry in sync, nothing more.
   function apply(NAV, s) {
     if (!tgtBase) tgtBase = NAV.tgt.slice();
-    const inSquad = !!(s && s.ready && s.state && s.state.role !== 'none');
-    NAV.tgt = buildTgtNavPlan(tgtBase, inSquad);
+    const isLeader = !!(s && s.ready && s.state && s.state.role === 'leader');
+    NAV.tgt = buildTgtNavPlan(tgtBase, isLeader);
   }
 
   function start(NAV) {

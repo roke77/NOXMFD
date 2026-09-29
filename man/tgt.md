@@ -31,6 +31,9 @@ Every target you currently have selected, one row per target:
   target to on the [Target Designator page](td.md) (blank if none). Only you see this column — it's
   your own in-progress/sent designation work, not visible to anyone else, and it doesn't appear at
   all unless you're currently the squad leader.
+
+A small teal **TD** after a target's name marks one that came from your squad leader's designation
+(see [Squad designations](#squad-designations) below).
 - **SRC** — where the lock is coming from: **SENSOR** (your own live sensors), **DATALINK**
   (relayed by your faction, still trustworthy), or **STALE** (relayed, but the game no longer
   trusts the position — the same check behind the TGP page's own "?" marker).
@@ -123,6 +126,29 @@ both.
 
 ## Hand off to squad members
 
-While you're in a [squad](sqd.md), a **TD** nav item appears here — open the
-[Target Designator page](td.md) to assign your targets to specific members. As the leader,
-pressing DESIGNATE there brings you straight back to this page.
+While you lead a [squad](sqd.md), a **TD** nav item appears here — open the
+[Target Designator page](td.md) to assign your targets to specific members. Pressing DESIGNATE
+there brings you straight back to this page.
+
+## Squad designations
+
+When your squad leader designates targets to you, an amber bar pops up at the bottom of the target
+list, over the rows, and stays until you answer it:
+
+![A leader's designation waiting at the bottom of TGT](images/TGT_TD_DOCK.png)
+
+- **`TALON 1-1 DESIGNATED 3`** says who sent it and how many targets. Tap it (**SHOW ▴**) to list
+  their names, ranges and grid squares above the bar; tap again (**HIDE ▾**) to fold them away.
+  Targets you already have are dimmed and marked **LISTED**.
+
+  ![The designation's targets listed above the bar](images/TGT_TD_DOCK_OPEN.png)
+
+- **ADD** selects the designated targets you don't already have, keeping your own. Its number is
+  how many that is.
+- **REPLACE** drops every target you currently have and selects the leader's instead.
+- **DISMISS** closes the bar without selecting anything.
+
+Designated targets still go through your own filters — one your filters leave out isn't selected.
+A new designation from your leader replaces one you haven't answered yet. While the bar is up, the
+list keeps room below its last row, so you can still scroll every target clear of it. The
+[PAD cursor](keybinds.md#pad-cursor) can press everything on the bar.

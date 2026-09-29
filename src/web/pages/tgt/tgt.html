@@ -26,6 +26,7 @@
     RESET FILTER        → tgt.reset   (all filters back on)
     CLEAR TARGETS       → tgt.clear   (deselect every target)
     tap a target's row  → deselect it (target.deselect {id}) — anywhere on the row, no checkbox
+    designation dock    → ADD / REPLACE (td.accept {on}) or DISMISS (td.dismiss) — see the dock's own comment
 
   SRC column: SENSOR (live), DATALINK (relayed, still trustworthy), or STALE (relayed, no longer
   trustworthy — the same drift-past-threshold check that pops the "?" on the game's own TGP;
@@ -135,7 +136,9 @@
          meaningless blanks.
          SPD / ALT / HDG (issue #88): flight data, hidden by default (COMPACT) and revealed by the
          DETAILED/COMPACT toggle below — tgt.css's .has-flight-col, same show/hide mechanics as
-         .has-td-col above, driven by tgt.js's own client-local toggle rather than squad state. -->
+         .has-td-col above, driven by tgt.js's own client-local toggle rather than squad state.
+         A row that arrived through an accepted squad designation carries a small TD tag after its
+         name, so a member can tell the leader's targets from their own. -->
     <div class="tgt-list" id="tgt-list">
       <div class="tgt-list-scroll">
         <div class="tgt-list-head">
@@ -148,6 +151,23 @@
         </div>
         <div class="tgt-list-rows" id="tgt-list-rows"></div>
         <div class="tgt-list-empty" id="tgt-list-empty">&mdash; NO TARGETS SELECTED &mdash;</div>
+      </div>
+
+      <!-- Squad leader's designation (docs/target-designator.md): floats over the bottom of the
+           target list — above any rows and the scrollbar — until ADD, REPLACE or DISMISS answers
+           it. ADD selects the designated targets you don't already have, REPLACE drops every
+           current lock for the leader's list, DISMISS closes it with nothing selected. The bar's
+           label opens the names above it. Shown whenever /td-state carries a pending designation,
+           whatever this pilot's role (only a member ever receives one). tgt.js's renderDock. -->
+      <div class="tgt-td-dock" id="tgt-td-dock" role="region" aria-label="Designation from your squad leader" hidden>
+        <div class="tgt-td-drawer" id="tgt-td-drawer" hidden></div>
+        <div class="tgt-td-bar">
+          <span class="tgt-td-lamp"></span>
+          <button type="button" class="tgt-td-toggle pad-hoverable" id="tgt-td-toggle" aria-expanded="false"><span class="tgt-td-label" id="tgt-td-label"></span><span class="tgt-td-show" id="tgt-td-show"></span></button>
+          <button type="button" class="tgt-td-btn add pad-hoverable" id="tgt-td-add"></button>
+          <button type="button" class="tgt-td-btn replace pad-hoverable" id="tgt-td-replace" aria-label="Replace your targets with the leader's">REPLACE</button>
+          <button type="button" class="tgt-td-btn dismiss pad-hoverable" id="tgt-td-dismiss" aria-label="Dismiss the designation">DISMISS</button>
+        </div>
       </div>
     </div>
 

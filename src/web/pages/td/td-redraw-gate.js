@@ -6,14 +6,11 @@ export function idsKey(list) {
   return (list || []).map(function (t) { return t.id; }).sort(function (a, b) { return a - b; }).join(',');
 }
 
-// The member view has no id-set gate of its own (renderMember rebuilds wholesale on every
-// 'td-state-push' already), so its redraw is metric-only — a role/element check stays in td.js.
 export function tgtTargetsRedraw(nextTargets, lastIdsKey, nextMetric, lastMetric) {
   const nextIdsKey = idsKey(nextTargets);
   const metricChanged = nextMetric !== lastMetric;
   return {
     idsKey: nextIdsKey,
     leaderShouldRedraw: nextIdsKey !== lastIdsKey || metricChanged,
-    memberShouldRedraw: metricChanged,
   };
 }

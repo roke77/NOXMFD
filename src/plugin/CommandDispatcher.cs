@@ -53,10 +53,7 @@ namespace NOXMFD
                                 // tgp.ir.set : desired IR state (true = IR, false = COLOR)
                                 // tgp.view.set : desired view state (true = STV, false = WTV)
                                 // tgp.zoom.set : held state — true on press, false on release
-                                // td.assign : true when the squad button was long-pressed (issue #47
-                                // follow-up, td.js's own tap-vs-hold gesture) — skips clearing the
-                                // leader's TD selection after this assign, so the same selection can
-                                // be designated to several slots in a row
+                                // td.accept : true = REPLACE (drop every current lock first), false = ADD
                                 // soi.include : desired included state (true = back in the SOI ring)
                                 // hsd.set-view : desired mode (true = DEP, false = CEN)
         public string? bind;   // keybind.* : BindDef id ("flares", "gear-up", ...)
@@ -145,18 +142,19 @@ namespace NOXMFD
                 { "sqd.send",       e => Squad.SendData(e.type, e.payload) },
                 // Target Designator (issue #47, docs/target-designator.md) — reuses existing
                 // envelope fields rather than adding new ones: `id` (target.select's own field) for
-                // a row toggle, `index` (preset.load's own "slot number" field) for a squad slot,
-                // `peer`+`text` (sqd.invite's peer, wpt.import's text) for one member's designation.
+                // a target, `index` (preset.load's own "slot number" field) for a squad slot,
+                // `peer`+`text` (sqd.invite's peer, wpt.import's text) for one member's designation,
+                // `text` alone for a column's JSON id list, `on` for REPLACE vs ADD.
                 // Leader-only actions gated here (Squad.IsLeader), same trust-boundary reasoning the
                 // sqd.* group's own header comment gives for parsing peer ids at this layer rather
                 // than inside Squad/TdStore themselves.
-                { "td.select",              e => { if (Squad.IsLeader) TdStore.ToggleSelect(unchecked((uint)e.id)); } },
-                { "td.assign",              e => { if (Squad.IsLeader) TdStore.Assign(e.index, e.on); } },
-                { "td.assign-all",          e => { if (Squad.IsLeader) TdStore.AssignAll(Squad.AllSlots(), e.on); } },
+                { "td.cell",                e => { if (Squad.IsLeader) TdStore.ToggleCell(unchecked((uint)e.id), e.index); } },
+                { "td.row",                 e => { if (Squad.IsLeader) TdStore.ToggleRow(unchecked((uint)e.id), Squad.AllSlots()); } },
+                { "td.column",              e => { if (Squad.IsLeader) TdStore.ToggleColumn(e.index, ParseIds(e.text)); } },
                 { "td.clear",               e => { if (Squad.IsLeader) TdStore.ClearOwn(); } },
                 { "td.designate",           TdDesignate },
-                { "td.member-clear",        e => TdStore.ClearDesignated() },
-                { "td.acquire-all",         e => TdAcquireAll() },
+                { "td.accept",              e => TdAccept(replace: e.on) },
+                { "td.dismiss",             e => TdStore.ClearDesignated() },
                 // TGP page's CLR/IR button pair (docs/tgp-manual-control.md's NAV additions) —
                 // explicit-state twin of the tgp-manual-ir-toggle keybind, same "set" shape as
                 // master-arms.set above rather than a blind flip. MAN (the page's own manual-mode
@@ -632,12 +630,6 @@ namespace NOXMFD
             else if (act == "tgt-prev") Keybinds.CycleTargetFocus(-1);
             else if (act == "tgt-datalink") ClearDatalinkTargets();
             else if (act == "tgt-stale") ClearStaleTargets();
-            // TD's 9 squad-slot binds (issue #47) reach the remote/WSO path the same way — real
-            // effect fires here too, same as tgt-datalink/tgt-stale above, since a remote press
-            // never runs through Keybinds.cs's own poll loop (docs/tgt-keybind-nav.md).
-            else if (act.StartsWith("td-assign-", StringComparison.Ordinal) &&
-                     int.TryParse(act.Substring("td-assign-".Length), out int slot) && Squad.IsLeader)
-                TdStore.Assign(slot);
         }
 
         private static float ClampUnit(float value)
@@ -784,22 +776,42 @@ namespace NOXMFD
         internal static void ClearDatalinkTargets() => TgtClearBy("tgt.clear-datalink", IsDatalinkOnly);
         internal static void ClearStaleTargets()    => TgtClearBy("tgt.clear-stale", IsStale);
 
-        // Target Designator's AQUIRE (issue #47) — selects every currently-designated target
-        // in-game, all at once. Reuses the same lookup/selection path target.select goes through
-        // (TrySelectTarget) so cockpit marker/beep/DynamicMap sync all come along for free; lives
-        // here rather than in TdStore.cs because it needs Unit/UnitRegistry, which that file
+        // ADD / REPLACE on the member's TGT dock (issue #47) — selects every pending designated
+        // target in-game, all at once; REPLACE deselects everything first, so the leader's list
+        // becomes the whole selection. Reuses the same lookup/selection path target.select goes
+        // through (TrySelectTarget) so cockpit marker/beep/DynamicMap sync all come along for free;
+        // lives here rather than in TdStore.cs because it needs Unit/UnitRegistry, which that file
         // deliberately has no dependency on (see its own header comment).
-        internal static void TdAcquireAll()
+        private static void TdAccept(bool replace)
         {
+            if (TdStore.Designated.Count == 0) { Plugin.Log?.LogInfo("[NOXMFD] td.accept: nothing pending — ignored."); return; }
+            if (replace)
+            {
+                TargetListSelector sel = SceneSingleton<TargetListSelector>.i;
+                if (sel == null) { Plugin.Log?.LogInfo("[NOXMFD] td.accept: TargetListSelector absent — ignored."); return; }
+                sel.DeselectAll();
+            }
             int acquired = 0;
             foreach (TdStore.Row row in TdStore.Designated)
             {
                 if (UnitRegistry.TryGetUnit(new PersistentID { Id = row.Id }, out Unit unit) && unit != null && !unit.disabled)
                 {
-                    if (TrySelectTarget(unit, "td.acquire-all")) acquired++;
+                    if (TrySelectTarget(unit, "td.accept")) acquired++;
                 }
             }
-            Plugin.Log?.LogInfo($"[NOXMFD] td.acquire-all — selected {acquired} target(s).");
+            TdStore.AcceptDesignated();
+            Plugin.Log?.LogInfo($"[NOXMFD] td.accept ({(replace ? "replace" : "add")}) — selected {acquired} target(s).");
+        }
+
+        // td.column's id list, sent as a JSON array in `text` — the leader's table lives in the
+        // browser (TdStore.cs's header), so the column's extent has to come from the page.
+        private static List<uint> ParseIds(string? json)
+        {
+            var ids = new List<uint>();
+            if (JsonLite.Parse(json ?? "[]") is List<object?> list)
+                foreach (object? v in list)
+                    if (v is double d && d > 0) ids.Add(unchecked((uint)d));
+            return ids;
         }
 
         // Logs every outcome of a DESIGNATE push — a real report ("leader clicked DESIGNATE, member
@@ -813,10 +825,16 @@ namespace NOXMFD
         {
             if (!Squad.IsLeader) { Plugin.Log?.LogInfo("[NOXMFD] td.designate: not the squad leader — ignored."); return; }
             if (!TryPeer(e.peer, out ulong p)) { Plugin.Log?.LogInfo("[NOXMFD] td.designate: missing/unparsed peer — ignored."); return; }
-            int count = JsonLite.Parse(e.text ?? "[]") is List<object?> list ? list.Count : 0;
+            var ids = new List<uint>();
+            if (JsonLite.Parse(e.text ?? "[]") is List<object?> list)
+                foreach (object? item in list)
+                    if (item is Dictionary<string, object?> d && d.TryGetValue("id", out object? idv) && idv is double idd)
+                        ids.Add(unchecked((uint)idd));
             bool sent = Squad.SendDataTo(p, "td.designate", e.text ?? "[]");
+            // `index` is the member's slot, so the matrix can show that slot as SENT from now on.
+            if (sent) TdStore.MarkSent(e.index, ids);
             Plugin.Log?.LogInfo(sent
-                ? $"[NOXMFD] td.designate → {p}: sent {count} target(s)."
+                ? $"[NOXMFD] td.designate → {p} (slot {e.index}): sent {ids.Count} target(s)."
                 : $"[NOXMFD] td.designate → {p}: not sent — not a current squad member, or the Steam send itself failed.");
         }
 

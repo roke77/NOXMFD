@@ -19,11 +19,9 @@ for (const m of keybindsSrc.matchAll(/\b(?:Def|DefFree|DefKeyOnly)\(\s*config,\s
   ids.add(m[1]);
 assert.ok(ids.size > 30, `found too few Keybinds.cs bind ids (${ids.size}) — regex probably broke`);
 
-// td-assign-N and hud-preset-N are registered in a loop ("td-assign-" + slot), so the regex above
-// can't see the individual ids the way it does every other bind — list them explicitly instead.
-// Update these two loops if either range in Keybinds.cs ever changes: the squad-slot loop
-// (`for (int slot = 1; slot <= 9; slot++)`) or HudPresetStore.SlotCount.
-for (let s = 1; s <= 9; s++) ids.add('td-assign-' + s);
+// hud-preset-N is registered in a loop ("hud-preset-" + slot), so the regex above can't see the
+// individual ids the way it does every other bind — list them explicitly instead. Update this loop
+// if HudPresetStore.SlotCount ever changes.
 for (let p = 1; p <= 5; p++) ids.add('hud-preset-' + p);
 
 // docs/remote-keybinds.md's "Binds that stay unrelayed, on purpose": SAVE/LOAD LAYOUT pop a

@@ -5,7 +5,7 @@ namespace NOXMFD
     // Issue #49 — HUD marks (Hud/HudSquadTargetMark.cs) showing which units the rest of the squad is
     // currently targeting. This class is the live-game glue: reading the local weapon target list and
     // driving the actual Squad.cs outbound calls, the same split TdStore.cs/CommandDispatcher's
-    // TdAcquireAll already keep between pure data (SquadTargetsStore.cs) and Unit/UnitRegistry access.
+    // TdAccept already keep between pure data (SquadTargetsStore.cs) and Unit/UnitRegistry access.
     internal static class SquadTargets
     {
         private static readonly HashSet<uint> _scratch = new HashSet<uint>();

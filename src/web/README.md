@@ -48,13 +48,16 @@ src/web/
     sqd/    sqd.html  sqd.css  sqd.js     # squad membership over Steam P2P (docs/squadron-transport.md) —
                                            # squad state and the match roster both ride the shell's relayed
                                            # SSE pushes (docs/sse-push-refactor.md), no polling of its own
-    td/     td.html  td.css  td.js        # Target Designator (issue #47, docs/target-designator.md) — role-
-                                           # branched leader/member view, no polling of its own by design: one
+    td/     td.html  td.css  td.js        # Target Designator (issue #47, docs/target-designator.md) — the
+                                           # squad leader's assignment matrix (members answer a designation
+                                           # on TGT's dock instead), no polling of its own by design: one
                                            # bootstrap fetch on load, then the shell's relayed 'sqd-state'/
                                            # 'td-state-push' SSE pushes (docs/sse-push-refactor.md), plus the
                                            # shell's own 'tgt-targets' mirror for the leader's live rows
             td-redraw-gate.js  .test.js   # pure "did the id set or the metric preference change"
                                            # decision behind that mirror's redraw gate (issue #84)
+            td-matrix.js       .test.js   # pure matrix rules: cell/row/column toggles and each slot's
+                                           # SENT/CHANGED/UNSENT status
     wpn/  tgt/  tgp/  avn/  afm/  rwr/  rdr/  hsd/  hud/  bdf/  mis/  obj/  akf/  mapcfg/  tgpcfg/
     doc/                                       # reactive MFD pages, one folder each (bdf.js doubles as PAL, ?pal;
                                                # akf = kill feed/session stats docs/akf-page.md; mapcfg/tgpcfg =
