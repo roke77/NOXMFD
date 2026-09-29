@@ -619,3 +619,10 @@ Once the exploit is closed, decide whether to keep strict suppression or reprodu
 picture. Any fidelity design must operate before serialization and resist recovering an accurate
 position by averaging successive frames. Purely cosmetic client-side jitter is not an acceptable
 security fix.
+
+**Update (0.61.1, player report on balance):** the manual TGP handoff above is no longer exempt from
+the detection rule. Seeing a unit on the pod is not detecting it, and locking whatever the pod finds
+lets a standoff orbit spot and lock contacts the game never disclosed. `TryLockTrackedUnit` now skips
+any unit that fails `CommandDispatcher.IsDetectedByPlayer` (the same `TargetSelectionPolicy` gate as
+`target.select`) and logs when an undetected unit was the one under the aim point. The lock stays
+inside `TrySelectTarget`, which still holds no detection check of its own.

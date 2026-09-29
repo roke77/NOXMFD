@@ -364,6 +364,7 @@ namespace NOXMFD
             TargetListSelector tgtSel = SceneSingleton<TargetListSelector>.i;
             Unit? nearest = null;
             float nearestDistance = float.MaxValue;
+            bool undetectedInRange = false;
 
             foreach (Unit unit in UnitRegistry.allUnits)
             {
@@ -375,7 +376,16 @@ namespace NOXMFD
                 float distance = (unit.GlobalPosition() - lookPoint).magnitude;
                 float unitLength = unit.definition != null ? unit.definition.length : 0f;
                 float lockRadius = Mathf.Max(UnitLockMinRadiusM, unitLength);
-                if (distance <= lockRadius && distance < nearestDistance)
+                if (distance > lockRadius) continue;
+                // Seeing a unit on the pod is not detecting it: only units the game has already shown
+                // the player (MAP/FCR contacts) can be locked, or a standoff orbit could spot and lock
+                // anything for free.
+                if (ac.NetworkHQ == null || !CommandDispatcher.IsDetectedByPlayer(ac, unit))
+                {
+                    undetectedInRange = true;
+                    continue;
+                }
+                if (distance < nearestDistance)
                 {
                     nearest = unit;
                     nearestDistance = distance;
@@ -384,7 +394,7 @@ namespace NOXMFD
 
             if (nearest == null)
             {
-                Plugin.Log?.LogInfo($"[NOXMFD] TGP unit lock: no selectable unit near {trackMode} aim — ignored.");
+                Plugin.Log?.LogInfo($"[NOXMFD] TGP unit lock: {(undetectedInRange ? "unit near " + trackMode + " aim is not detected yet" : "no selectable unit near " + trackMode + " aim")} — ignored.");
                 return;
             }
 

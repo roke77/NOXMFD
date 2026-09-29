@@ -134,7 +134,8 @@ track it — here, aimed down at a vehicle in the field below rather than straig
 **Cursor Select** — from either Area Track or Point Track — checks for a real, selectable unit
 near wherever the camera is currently looking. If one's close enough, it's put under a normal
 target lock and manual control hands off to the game's own camera immediately; otherwise nothing
-happens.
+happens. Only units the game has already detected for you (the ones showing on [MAP](map.md) or your radar) can be
+locked this way. Spotting a unit on the pod is not enough, so a contact you haven't detected yet stays unlockable.
 
 ![Cursor Select just promoted the tracked unit to a real lock — the amber TGP marker is gone, replaced by the game's own target reticle](images/TGP_HUD_OVERLAY_TARGET.jpg)
 

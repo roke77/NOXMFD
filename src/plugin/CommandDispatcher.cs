@@ -422,14 +422,29 @@ namespace NOXMFD
             // telemetry, but a direct POST can carry any id — persistentIDs are a plain sequential
             // counter, so enumerating 1..N reaches every live unit regardless of fog of war
             // (confirmed live, docs/jamming-contact-telemetry-hardening.md F3). Gate here rather
-            // than in TrySelectTarget, which the manual TGP also calls after its own line-of-sight
-            // acquisition — that path must stay unaffected.
+            // than in TrySelectTarget, whose other caller is the manual TGP handoff, which gates
+            // on the same IsDetectedByPlayer itself.
             GameManager.GetLocalAircraft(out Aircraft ac);
             if (ac == null || ac.NetworkHQ == null)
             {
                 Plugin.Log?.LogInfo($"[NOXMFD] target.select id={id}: no local aircraft/HQ — ignored.");
                 return;
             }
+            if (!IsDetectedByPlayer(ac, unit))
+            {
+                Plugin.Log?.LogInfo($"[NOXMFD] target.select id={id}: not visible to player — ignored.");
+                return;
+            }
+
+            TrySelectTarget(unit, "target.select");
+        }
+
+        // Whether the player's side has actually detected this unit: the same faction-known / own-radar
+        // gate MAP and FCR disclose contacts through (TargetSelectionPolicy). Anything that can lock a
+        // unit the player picked by other means (an id, a TGP look point) has to pass it, or the
+        // player could find and lock what the game hasn't shown them.
+        internal static bool IsDetectedByPlayer(Aircraft ac, Unit unit)
+        {
             bool factionKnown     = ac.NetworkHQ.TryGetKnownPosition(unit, out _);
             bool ownRadarDetected = ac.radar is Radar radar && radar.detectedTargets.Contains(unit);
             // F1: while the native picture is jammed, a plain faction-known/datalink track is no
@@ -437,13 +452,7 @@ namespace NOXMFD
             // (a separate mechanic from picture jamming) keeps it eligible.
             CombatHUD? hud = SceneSingleton<CombatHUD>.i;
             bool pictureJamActive = hud != null && hud.jamAccumulation > 0f;
-            if (!TargetSelectionPolicy.IsSelectable(factionKnown, ownRadarDetected, pictureJamActive))
-            {
-                Plugin.Log?.LogInfo($"[NOXMFD] target.select id={id}: not visible to player — ignored.");
-                return;
-            }
-
-            TrySelectTarget(unit, "target.select");
+            return TargetSelectionPolicy.IsSelectable(factionKnown, ownRadarDetected, pictureJamActive);
         }
 
         // Shared by command-driven MAP/RDR selection and the manual TGP's point-track handoff.
