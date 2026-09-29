@@ -1501,7 +1501,7 @@ let paneFollowOn  = [false, false];
 // the grid defaults off.
 let gridOn        = false;
 let paneGridOn    = [false, false];
-// TGP SLEW armed state (issue #103), mirrored the same way — the SLEW label lights amber and blinks.
+// TGP SLEW armed state (issue #103), mirrored the same way — the SLEW label flashes while armed.
 let slewOn        = false;
 let paneSlewOn    = [false, false];
 let indicatorOrder = [];   // ['pinned'] — kept a list, since the stack is built to hold more
@@ -1600,7 +1600,7 @@ function markSlewLabels() {
       if (k.dataset.action !== 'slew') return;
       const on = splitMode ? !!paneSlewOn[k.dataset.pane === 'bot' ? 1 : 0] : slewOn;
       const el = overlayEl.querySelector('.overlay-item[data-key="' + k.dataset.pos + '"]');
-      if (el) { el.classList.toggle('on', on); el.classList.toggle('blink', on); }
+      if (el) el.classList.toggle('blink', on);
     });
   });
 }

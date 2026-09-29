@@ -48,7 +48,7 @@ Points the [TGP](tgp.md) at a spot on the map. The pod turns manual control on i
 [Point Track](tgp.md#area-track-and-point-track) on that ground point.
 
 - **TGP Slew to Cursor** (keybind) slews to the PAD cursor at once.
-- **SLEW** (bezel key) arms the map: the label turns amber and blinks, and the next click, tap or
+- **SLEW** (bezel key) arms the map: the label flashes between its normal colour and bordered amber, and the next click, tap or
   Cursor Select slews. Tap SLEW again to cancel.
 - **Hold SLEW**, or press **TGP Slew Grid Entry** (keybind), to open a keypad. Enter a grid
   reference such as `Ig69` (two letters, then two digits) and press ENTER to look at the centre of

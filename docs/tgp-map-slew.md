@@ -21,7 +21,7 @@ clicked spot (map slew), or the centre of a typed grid square (grid slew).
 | Control | Effect |
 |---|---|
 | Keybind **TGP Slew to Cursor** (`map-slew`) | `MapAction("slew-cursor")`; MAP slews to the PAD cursor at once |
-| Bezel **SLEW** tap | `slew-toggle`; arms the map (amber, blinking); the next click, tap or Cursor Select slews |
+| Bezel **SLEW** tap | `slew-toggle`; arms the map (label alternates between its normal colour and bordered amber); the next click, tap or Cursor Select slews |
 | Bezel **SLEW** hold, keybind **TGP Slew Grid Entry** (`map-slew-grid`) | `slew-keypad`; opens the grid keypad |
 
 The armed state is MAP's; it reports it up as the `slew` message, routed by source like `grid`

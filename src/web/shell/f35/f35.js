@@ -641,7 +641,7 @@
     function setSlew(on) { slewOn = on; markSlew(); }
     function markSlew() {
       const b = grid.querySelector('.nav-item[data-action="slew"]');
-      if (b) { b.classList.toggle('on', slewOn); b.classList.toggle('blink', slewOn); }
+      if (b) b.classList.toggle('blink', slewOn);
     }
     // DOC's INDX/PREV/NEXT (issue #82 follow-up) only exist in the item set while an image is
     // open, unlike FLW/GRID above (same item, different state) — a full renderNav() is needed to
