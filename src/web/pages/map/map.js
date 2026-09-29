@@ -191,13 +191,32 @@ const cursorEl  = document.getElementById('soi-cursor');   // SOI crosshair — 
 const cursor = createPadCursor({
   el: cursorEl,
   clampRect: imgRect,
-  onSelect: (x, y) => { if (!padPress(x, y) && !slewAt(x, y)) selectAt(x, y, CURSOR_HIT_PAD); },
+  // Every keybind action goes through activePos(), so it lands under whichever pointer is in use.
+  onSelect: () => {
+    const p = activePos();
+    if (p && !padPress(p.x, p.y) && !slewAt(p.x, p.y)) selectAt(p.x, p.y, CURSOR_HIT_PAD);
+  },
   // Cursor Select held past holdMs = waypoint placement, or removal if held over an existing one
   // (issue #38).
-  onHold: (x, y) => placeNavigationPointAt(x, y, CURSOR_HIT_PAD),
+  onHold: () => { const p = activePos(); if (p) placeNavigationPointAt(p.x, p.y, CURSOR_HIT_PAD); },
   onEdge: onCursorEdge,
-  onMove: updateCursorChip,   // CURSOR chip tracks the PAD cursor too, not just the mouse
+  onMove: function(x, y) {
+    updateCursorChip(x, y);   // CURSOR chip tracks the PAD cursor too, not just the mouse
+    document.getElementById('map-panel').classList.toggle('pad-mode', x != null);   // one pointer on screen
+  },
 });
+
+// One pointer at a time: the mouse or the keybind-driven PAD cursor, whichever was used last. The
+// other is hidden and ignored, so a keyboard-and-mouse player never sees two crosshairs and the
+// slew keybind lands where the visible one is. The PAD cursor is the default until the mouse moves.
+let padMode = true;
+let mousePos = null;   // the mouse in overlay px while it is over the map, else null
+function setPadMode(on) {
+  if (on === padMode) return;
+  padMode = on;
+  cursor.setHidden(!on);
+}
+function activePos() { return padMode ? cursor.getPos() : mousePos; }
 
 // Edge-panning (docs/page-cursor.md #3): the cursor lives in screen space and never leaves
 // imgRect(), so pushing it against a border while more map exists past it (zoomed in) instead
@@ -1265,6 +1284,10 @@ mapPanel.addEventListener('mousemove', function(e) {
   // Touch has no hover: a tap emits a synthetic mousemove but never a mouseleave, so the label
   // would stick forever (even after the unit dies). Touch taps are select-only — mouse hovers label.
   if (lastPointerType === 'touch') { unitLabel.style.display = 'none'; updateCursorChip(null); return; }
+  // Only a real movement counts: the browser also re-fires mousemove in place when the page changes under a still mouse.
+  if (e.movementX || e.movementY) setPadMode(false);
+  const box = overlay.getBoundingClientRect();
+  mousePos = { x: e.clientX - box.left, y: e.clientY - box.top };
   if (panId !== null) { unitLabel.style.display = 'none'; updateCursorChip(null); return; }   // don't flicker while panning
   const rect = overlay.getBoundingClientRect();
   const mx = e.clientX - rect.left, my = e.clientY - rect.top;
@@ -1285,7 +1308,7 @@ mapPanel.addEventListener('mousemove', function(e) {
     unitLabel.style.display = 'none';
   }
 });
-mapPanel.addEventListener('mouseleave', function() { unitLabel.style.display = 'none'; updateCursorChip(null); });
+mapPanel.addEventListener('mouseleave', function() { mousePos = null; unitLabel.style.display = 'none'; updateCursorChip(null); });
 
 // ── Tap-to-select (POC write path) ──────────────────────────────────────────────────
 // A tap on a contact POSTs its id to /select; the mod targets it in-game. A tap only ever ADDS
@@ -1371,7 +1394,7 @@ function slewAt(sx, sy) {
   return true;
 }
 function slewToCursor() {
-  const p = cursor.getPos();
+  const p = activePos();
   const w = p && overlayToWorld(p.x, p.y);
   if (w) slewTo(w);
 }
@@ -1493,7 +1516,7 @@ overlay.addEventListener('click', function(e) {
 function zoomStep(factor) {
   if (!mapMeta) return;
   const z1 = clampZoom(view.zoom * factor);
-  const p = cursor.getPos();
+  const p = activePos();
   const ox = overlay.width / 2, oy = overlay.height / 2;
   zoomAbout(z1, p ? p.x : ox, p ? p.y : oy);
 }
@@ -1538,14 +1561,14 @@ window.addEventListener('message', function(e) {
     // PAD cursor (docs/page-cursor.md, docs/map-cursor.md) — the shell only ever sends these while
     // THIS map is the SOI's focused surface, so no further gating is needed here.
     case 'cursor-focus':  cursor.setFocus(!!m.on, overlay.width / 2, overlay.height / 2); break;
-    case 'cursor':        cursor.setVector(m.x, m.y); break;
+    case 'cursor':        if (m.x || m.y) setPadMode(true); cursor.setVector(m.x, m.y); break;
     // MAP registers onHold (waypoint placement), so it needs the LIVE held state, not the plain
     // edge-driven 'cursor-select' every other page uses — that fires onSelect() straight away and
     // would make Cursor Select's hold arbitration (pad-cursor.js's setSelectHeld) unreachable, same
     // as a mouse click short-circuiting tgt.js's own long-press timer.
     case 'cursor-held':   cursor.setSelectHeld(!!m.held); break;
     // Cursor Deselect (a dedicated keybind): hit-tests at the cursor, same reach as Cursor Select.
-    case 'cursor-deselect': { const p = cursor.getPos(); if (p) deselectAt(p.x, p.y, CURSOR_HIT_PAD); } break;
+    case 'cursor-deselect': { const p = activePos(); if (p) deselectAt(p.x, p.y, CURSOR_HIT_PAD); } break;
   }
 });
 

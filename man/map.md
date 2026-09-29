@@ -69,6 +69,13 @@ ring the in-game map shows — a translucent orange disc around the target's pos
 sized to the weapon's blast. It stays up until the weapon detonates or is shot down. Like the
 in-game map, you only see zones launched by your own side.
 
+## One cursor at a time
+
+The MAP shows either your mouse pointer or the keybind-driven PAD cursor, never both: whichever you used last.
+Moving the mouse hides the PAD cursor, and every cursor keybind (Cursor Select, Cursor Deselect, zoom, TGP Slew to
+Cursor) then acts where the mouse is. Pressing a cursor movement key brings the PAD cursor back and hides the
+mouse pointer. Until the mouse moves over the MAP, the PAD cursor is the one shown.
+
 ## Status row
 
 A row in the bottom-right corner, each item shown only while it applies:

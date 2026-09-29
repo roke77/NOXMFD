@@ -32,6 +32,8 @@ main { flex: 1; display: flex; overflow: hidden; }
    map.html). Moving it never touches the map canvas: a full drawOverlay per frame to shift 24px
    was making the crosshair the most expensive thing on the page, and the first casualty when the
    browser throttles. */
+/* While the PAD cursor is showing, the mouse pointer is hidden so only one crosshair is on screen. */
+#map-panel.pad-mode, #map-panel.pad-mode #overlay { cursor: none; }
 #map-panel.has-map { background: var(--no-bg); }
 /* The map is blitted into #overlay so it shares the icons' transform; this stays the source sprite. */
 #map-img { display: none; }
