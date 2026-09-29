@@ -47,6 +47,16 @@ export function gridToWorld(text, meta) {
   return Math.abs(x) <= meta.w / 2 && Math.abs(z) <= meta.h / 2 ? { x, z } : null;
 }
 
+// The major grid indices a map spans, {z: [min, max], x: [min, max]} — z is the first letter of a
+// grid reference (A = 0, capped at Z), x its first digit. Bounds the keypad's first two tiles sets.
+export function gridEntryRange(meta) {
+  if (!meta) return null;
+  const idx = (lo, hi) => [Math.max(0, Math.floor(lo / 10000)), Math.floor((hi - 1) / 10000)];
+  const z = idx(meta.oy - meta.h / 2, meta.oy + meta.h / 2), x = idx(meta.ox - meta.w / 2, meta.ox + meta.w / 2);
+  z[1] = Math.min(z[1], 25);
+  return { z, x };
+}
+
 // AKF advanced kill feed (docs/akf-page.md) default/reset shape — shared by the mission-present
 // fallback below and _emitEmpties, so the two can't drift out of sync with each other.
 const AKF_EMPTY = { all: [], player: [], kills: { aircraft: 0, ship: 0, vehicle: 0, building: 0 },

@@ -2,7 +2,7 @@
 // interactions. The telemetry transport + the derive-and-broadcast "provider" role live in
 // TelemetrySource (telemetry-source.js); this file instantiates it and renders the frames it
 // hands back. See src/web/README.md for why MAP is the telemetry tap.
-import { TelemetrySource, gridLabel, gridToWorld } from '/assets/services/telemetry-source.js';
+import { TelemetrySource, gridLabel, gridToWorld, gridEntryRange } from '/assets/services/telemetry-source.js';
 import { createPadCursor } from '/assets/services/pad-cursor.js';
 
 let viewActive = true;
@@ -179,6 +179,8 @@ const cursorBar = document.getElementById('cursor-bar');
 const routeBar  = document.getElementById('route-bar');
 const slewPad   = document.getElementById('slew-pad');
 const slewDisp  = document.getElementById('slew-disp');
+const slewErr   = document.getElementById('slew-err');
+const slewKeys  = document.getElementById('slew-keys');
 const jamBar    = document.getElementById('jam-bar');
 const unitLabel = document.getElementById('unit-label');
 const cursorEl  = document.getElementById('soi-cursor');   // SOI crosshair — see pad-cursor.js
@@ -1374,51 +1376,81 @@ function slewToCursor() {
   if (w) slewTo(w);
 }
 
-// Keypad. The entry is two letters then two digits ("Ig69"); a tile that doesn't fit the next
-// position is ignored, so the buffer is always a prefix of a valid reference.
+// Keypad. The entry is two letters then two digits ("Ig69") and shows one tile set at a time: the
+// map's own major letters, then A-J (the minor letter), then digits, so a tile that can't extend
+// the entry into something on the map is never offered. The buffer is always a valid prefix.
 let slewBuf = '';
 function slewText() { return slewBuf.slice(0, 1).toUpperCase() + slewBuf.slice(1, 2).toLowerCase() + slewBuf.slice(2); }
-function renderSlewDisp(bad) {
+function slewTile(label, key, disabled) {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'kp-key';
+  b.textContent = label;
+  b.disabled = !!disabled;
+  b.addEventListener('click', function() { slewPadKey(key); });
+  return b;
+}
+function renderSlewPad(err) {
+  const range = gridEntryRange(mapMeta);
   slewDisp.textContent = (slewText() + '____').slice(0, 4).split('').join(' ');
-  slewDisp.classList.toggle('bad', !!bad);
+  slewDisp.classList.toggle('bad', !!err);
+  slewErr.textContent = err || '';
+  slewKeys.textContent = '';
+  const step = slewBuf.length;
+  const back = slewTile('⌫', 'BK', step === 0);
+  if (step < 2) {
+    const first = step === 0 ? range.z[0] : 0, last = step === 0 ? range.z[1] : 9;
+    slewKeys.style.gridTemplateColumns = 'repeat(' + (last - first + 1 > 10 ? 7 : 5) + ', 1fr)';
+    for (let i = first; i <= last; i++) slewKeys.appendChild(slewTile(String.fromCharCode(65 + i), String.fromCharCode(65 + i)));
+    slewKeys.appendChild(back);
+  } else {
+    slewKeys.style.gridTemplateColumns = 'repeat(3, 1fr)';
+    ['7', '8', '9', '4', '5', '6', '1', '2', '3'].forEach(function(d) { slewKeys.appendChild(slewTile(d, d, !slewDigitOk(d))); });
+    slewKeys.appendChild(document.createElement('span'));
+    slewKeys.appendChild(slewTile('0', '0', !slewDigitOk('0')));
+    slewKeys.appendChild(back);
+  }
+  document.getElementById('slew-enter').disabled = step < 4;
+}
+// The first digit is bounded by the map's width; the last is free.
+function slewDigitOk(d) {
+  if (slewBuf.length !== 2) return true;
+  const range = gridEntryRange(mapMeta);
+  return Number(d) >= range.x[0] && Number(d) <= range.x[1];
 }
 function slewPadOpen() { return !slewPad.hidden; }
+// A second open while the keypad is up is a no-op, so a repeated keybind press keeps the entry.
 function openSlewPad() {
+  if (slewPadOpen()) return;
   setSlewArmed(false);
   slewBuf = '';
-  renderSlewDisp(false);
+  renderSlewPad();
   slewPad.hidden = false;
   slewPad.focus();
 }
 function closeSlewPad() { slewPad.hidden = true; }
 function slewPadKey(k) {
   if (k === 'X') { closeSlewPad(); return; }
-  if (k === 'CLR') { slewBuf = ''; renderSlewDisp(false); return; }
+  if (k === 'BK') { slewBuf = slewBuf.slice(0, -1); renderSlewPad(); return; }
   if (k === 'ENT') {
     const w = gridToWorld(slewBuf, mapMeta);
-    if (w) { closeSlewPad(); slewTo(w); } else renderSlewDisp(true);
+    if (w) { closeSlewPad(); slewTo(w); } else renderSlewPad(slewBuf.length < 4 ? 'INCOMPLETE' : 'OFF MAP');
     return;
   }
-  const ok = slewBuf.length < 2 ? /^[A-J]$/i.test(k) : slewBuf.length < 4 && /^\d$/.test(k);
-  if (ok) { slewBuf += k; renderSlewDisp(false); }
+  const range = gridEntryRange(mapMeta), step = slewBuf.length;
+  const letter = k.charCodeAt(0) - 65;
+  const ok = step === 0 ? letter >= range.z[0] && letter <= range.z[1]
+           : step === 1 ? letter >= 0 && letter <= 9
+           : step < 4 && /^\d$/.test(k) && slewDigitOk(k);
+  if (ok) { slewBuf += k; renderSlewPad(); }
 }
-// ponytail: a fixed A-J / 0-9 tile set matches maps up to 100 km; a bigger map needs more letters.
-(function buildSlewKeys() {
-  const host = document.getElementById('slew-keys');
-  'ABCDEFGHIJ1234567890'.split('').concat(['CLR', 'ENT', 'X']).forEach(function(k) {
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.textContent = k === 'ENT' ? 'ENTER' : k === 'X' ? '✕' : k;
-    if (k === 'ENT') b.className = 'wide';
-    b.addEventListener('click', function() { slewPadKey(k); });
-    host.appendChild(b);
-  });
-})();
+document.getElementById('slew-cancel').addEventListener('click', function() { slewPadKey('X'); });
+document.getElementById('slew-enter').addEventListener('click', function() { slewPadKey('ENT'); });
 slewPad.addEventListener('keydown', function(e) {
   e.stopPropagation();   // typing a grid must not fire the page's keybinds
   if (e.key === 'Escape') slewPadKey('X');
   else if (e.key === 'Enter') slewPadKey('ENT');
-  else if (e.key === 'Backspace') slewPadKey('CLR');
+  else if (e.key === 'Backspace') slewPadKey('BK');
   else if (e.key.length === 1) slewPadKey(e.key.toUpperCase());
 });
 // Cursor Select while the keypad is open presses the tile under the PAD cursor. Returns true when

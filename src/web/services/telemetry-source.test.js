@@ -17,7 +17,7 @@
 const assert = require('assert');
 
 (async () => {
-  const { TelemetrySource, gridLabel, gridToWorld } = await import('./telemetry-source.js');
+  const { TelemetrySource, gridLabel, gridToWorld, gridEntryRange } = await import('./telemetry-source.js');
 
   // ── gridLabel ───────────────────────────────────────────────────────────────────────
   // Reproduces the game's own grid label from world coords, and is read in two places (the MAP
@@ -55,6 +55,13 @@ const assert = require('assert');
     assert.strictEqual(gridToWorld('Ka00', meta), null, 'a square past the map edge should decline');
     assert.strictEqual(gridToWorld('Ig6', meta), null, 'a malformed reference should decline');
     assert.strictEqual(gridToWorld('Ig69', null), null, 'no map metadata should decline');
+
+    // The keypad offers exactly the majors the map spans: a 100 km map is A-J by 0-9, a taller one
+    // reaches letters past K (the case a fixed A-J tile set could not enter).
+    assert.deepStrictEqual(gridEntryRange(meta), { z: [0, 9], x: [0, 9] }, '100 km map is A-J by 0-9');
+    assert.deepStrictEqual(gridEntryRange({ w: 100000, h: 300000, ox: 50000, oy: 150000 }).z, [0, 25],
+      'letters cap at Z');
+    assert.strictEqual(gridEntryRange(null), null);
 
     // The label range this scheme supports: majZ indexes from 'A', so it stays alphabetic while the
     // map is under ~260km tall. Pinned so a bigger map fails here rather than rendering '[c87'

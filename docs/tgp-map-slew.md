@@ -27,7 +27,9 @@ clicked spot (map slew), or the centre of a typed grid square (grid slew).
 The armed state is MAP's; it reports it up as the `slew` message, routed by source like `grid`
 (one state per map context), and both shells light the label.
 
-The grid keypad is a MAP overlay (A-J, 0-9, CLR, ENTER, cancel). Cursor Select while it is open
+The grid keypad is a MAP overlay in NOAutopilot's keypad style: it shows one tile set per step (the
+map's own major letters via `gridEntryRange`, then A-J, then digits), BACKSPACE, CANCEL and ENTER.
+Opening it while it is open is a no-op. Cursor Select while it is open
 presses the tile under the PAD cursor. `gridToWorld` (telemetry-source.js) is the inverse of
 `gridLabel` and returns the square's centre, or null for a malformed or off-map reference.
 
@@ -35,6 +37,10 @@ SLEW is the last item of MAP's nav list: last on the right bank in full view, la
 page in a split pane.
 
 ## Decisions
+
+- A slew engages manual control without claiming SOI (`Toggle(claimSoi: false)`). Claiming it moved
+  focus to the camera, so the PAD cursor started panning the pod and the next slew keybind reached no
+  MAP window.
 
 - Two keybinds rather than one tap/hold pair: `PollTapHold` fires the tap on press, so a hold
   would slew first and then open the keypad.

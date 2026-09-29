@@ -52,8 +52,12 @@ Points the [TGP](tgp.md) at a spot on the map. The pod turns manual control on i
   Cursor Select slews. Tap SLEW again to cancel.
 - **Hold SLEW**, or press **TGP Slew Grid Entry** (keybind), to open a keypad. Enter a grid
   reference such as `Ig69` (two letters, then two digits) and press ENTER to look at the centre of
-  that square. A bad or incomplete entry turns red and leaves the pod where it is. The keypad takes
-  the PAD cursor, mouse, touch or the keyboard.
+  that square. The keypad shows the letters your map actually has, then A-J, then digits, and BACKSPACE
+  steps back. An incomplete or off-map entry turns red and leaves the pod where it is. It takes the
+  PAD cursor, mouse, touch or the keyboard, and pressing the keybind again while it is open changes nothing.
+
+Slewing leaves focus on the MAP, so the PAD cursor keeps moving the map cursor and you can slew again
+with the same keybind.
 
 A grid square is large, so treat a grid slew as coarse and fine-tune with the PAD cursor. The pod
 does not check line of sight: a spot behind a hill slews the same as a clear one.

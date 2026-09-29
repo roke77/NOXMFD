@@ -162,7 +162,9 @@ namespace NOXMFD
         // null when the axis isn't bound, so Tick() falls back to the in/out held buttons above.
         internal static void SetZoomAxis(float? normalized) => _zoomAxisValue = normalized;
 
-        internal static void Toggle()
+        // claimSoi false leaves SOI where it is: a map slew is driven from MAP, and stealing focus onto
+        // the camera would turn the next PAD cursor move into a camera pan and drop the next slew keybind.
+        internal static void Toggle(bool claimSoi = true)
         {
             if (ManualMode)
             {
@@ -187,7 +189,7 @@ namespace NOXMFD
                 Plugin.Log?.LogWarning("[NOXMFD] TGP manual control: could not locate TargetCam fields — feature disabled.");
                 return;
             }
-            Engage(tc, aircraft);
+            Engage(tc, aircraft, claimSoi);
         }
 
         internal static void Reset()
@@ -317,7 +319,7 @@ namespace NOXMFD
                 Plugin.Log?.LogWarning($"[NOXMFD] TGP slew: ignored non-finite target ({wx}, {wz}).");
                 return;
             }
-            if (!ManualMode) Toggle();
+            if (!ManualMode) Toggle(claimSoi: false);
             if (!ManualMode) return;
             GameManager.GetLocalAircraft(out Aircraft ac);
             TargetCam? tc = ac != null ? ac.targetCam : null;
@@ -612,7 +614,7 @@ namespace NOXMFD
         // Ordering matters: ManualMode must already be true before tc.SetTargetCam() is called,
         // or its own tail call to AimCamera() runs un-gated and snaps the mount toward whatever
         // an empty target list computes (docs/tgp-manual-control.md's reflection-surface note).
-        private static void Engage(TargetCam tc, Aircraft aircraft)
+        private static void Engage(TargetCam tc, Aircraft aircraft, bool claimSoi)
         {
             ManualMode = true;
 
@@ -648,7 +650,7 @@ namespace NOXMFD
             // PAD Cursor consolidation (docs/tgp-manual-control.md) — the camera is now a cyclable
             // SOI target; engaging steals focus onto it immediately rather than making the pilot Tab
             // to the newly-added ring entry by hand.
-            TelemetryServer.ClaimNativeTgpSoi();
+            if (claimSoi) TelemetryServer.ClaimNativeTgpSoi();
 
             Plugin.Log?.LogInfo("[NOXMFD] TGP manual control: ON (centered, minimum zoom).");
         }

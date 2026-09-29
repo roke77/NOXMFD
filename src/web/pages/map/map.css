@@ -63,41 +63,65 @@ main { flex: 1; display: flex; overflow: hidden; }
 /* FOLLOW is shown by the MFD shell's own indicator (stacked alongside PINNED), not here —
    MAP just mirrors its follow state up via source.emitFollow(). */
 
+/* TGP slew keypad (issue #103) - NOAutopilot's keypad design: dim scrim, bordered dialog, amber
+   display, white-legend keys, amber ENTER. Sizes follow the pane height so it fits a split pane. */
 #slew-pad {
+  --kp-key: clamp(28px, 7.5vh, 52px);
   position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
+  inset: 0;
   z-index: 40;
-  background: var(--no-panel-bg);
-  border: 1px solid var(--no-panel-border);
-  padding: 8px;
+  background: rgba(0, 0, 0, 0.72);
+  display: flex;
+  align-items: center;
+  justify-content: center;
   outline: none;
 }
 #slew-pad[hidden] { display: none; }
-#slew-disp {
-  font-size: 18px;
-  letter-spacing: 4px;
-  text-align: center;
-  color: var(--no-green);
-  padding: 4px 0 8px;
-  min-height: 1.2em;
+.kp {
+  width: min(360px, 92%);
+  padding: clamp(8px, 2.4vh, 20px);
+  background: var(--no-bg);
+  border: 1px solid var(--no-green-dark);
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(4px, 1.4vh, 12px);
 }
-#slew-disp.bad { color: var(--no-red); }
-#slew-keys {
-  display: grid;
-  grid-template-columns: repeat(5, 2.4em);
-  gap: 4px;
+.kp-title { font-size: 13px; letter-spacing: 3px; color: var(--no-green-dim); }
+.kp-display {
+  height: calc(var(--kp-key) * 1.15);
+  padding: 0 14px;
+  border: 1px solid var(--no-amber);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  font-size: calc(var(--kp-key) * 0.6);
+  letter-spacing: 6px;
+  color: var(--no-amber);
 }
-#slew-keys button {
-  background: var(--no-panel-bg);
-  border: 1px solid var(--no-panel-border);
-  color: var(--no-green-dim);
+.kp-display.bad { border-color: var(--no-red); color: var(--no-red); }
+.kp-error { height: 14px; font-size: 12px; letter-spacing: 1px; color: var(--no-red); }
+.kp-grid { display: grid; gap: clamp(4px, 1vh, 10px); }
+.kp-key {
+  height: var(--kp-key);
+  border: 1px solid var(--no-white-dark);
+  border-radius: 4px;
+  color: var(--no-white);
+  background: none;
   font: inherit;
-  font-size: 12px;
-  padding: 6px 0;
+  font-size: calc(var(--kp-key) * 0.42);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-tap-highlight-color: transparent;
 }
-#slew-keys button.wide { grid-column: span 2; }
+.kp-key:not(:disabled):active { background-color: rgba(var(--no-green-rgb), 0.18); }
+.kp-key:disabled { color: var(--no-white-dark); cursor: not-allowed; }
+.kp-actions { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(4px, 1vh, 10px); }
+.kp-actions .kp-key { font-size: 15px; letter-spacing: 3px; }
+.kp-enter { border-color: var(--no-amber); color: var(--no-amber); }
 
 #unit-label {
   position: absolute;
