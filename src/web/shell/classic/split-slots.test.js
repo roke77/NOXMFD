@@ -198,11 +198,11 @@ for (const [page, slots] of Object.entries(SPLIT_SLOTS)) {
   }
 
   // No routes saved at all: R+/R-/W+/W- both filter out entirely (mfd.js's showPage 'map' branch
-  // drops them from full view for the same reason) — this pins the resulting 7-item list down
-  // exactly: MAIN/GRID/FLW/Z+/Z- then CFG/WPT, in whichever order each variant leads with (H
+  // drops them from full view for the same reason) — this pins the resulting 8-item list down
+  // exactly: MAIN/GRID/FLW/Z+/Z- then CFG/WPT/SLEW, in whichever order each variant leads with (H
   // trails CFG then WPT since CFG sat ahead of WPT in MAP_SPLIT_ORDER's page 2; V leads WPT then
-  // CFG per MAP_SPLIT_ORDER_V's "WPT leads" design). Unlike before mapcfg existed, 7 items no
-  // longer fits a split pane's 6-key budget in one page — this now spills a lone item onto a
+  // CFG per MAP_SPLIT_ORDER_V's "WPT leads" design). Unlike before mapcfg existed, 8 items no
+  // longer fit a split pane's 6-key budget in one page — this now spills onto a
   // second (PREV-only) page, same as any other list that crosses the boundary.
   for (const variants of VARIANT_GROUPS) {
     const order = mapSplitOrder(variants[0], false, false);
