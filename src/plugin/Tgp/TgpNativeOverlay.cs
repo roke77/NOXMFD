@@ -9,12 +9,12 @@ namespace NOXMFD
     internal static class TgpNativeOverlay
     {
         private static GameObject? _crosshairRoot;
-        private static GameObject? _pointTrackBox;
+        private static GameObject? _pointTrackDot;
         private static GameObject? _soiLabel;
         private static Canvas? _crosshairCanvas;
         private static float _overlayDiagLastLog;
 
-        // Boresight crosshair + Point Track marker for the in-cockpit feed. Built from anchor-
+        // Boresight crosshair + Point Track dot for the in-cockpit feed. Built from anchor-
         // stretched Image bars so it stays proportional on whatever display canvas the game uses.
         internal static void SyncCrosshair(Canvas displayCanvas, bool visible, bool pointTrackActive, bool isTgpSoi)
         {
@@ -23,13 +23,13 @@ namespace NOXMFD
             {
                 UnityEngine.Object.Destroy(_crosshairRoot);
                 _crosshairRoot = null;
-                _pointTrackBox = null;
+                _pointTrackDot = null;
                 _soiLabel = null;
                 _crosshairCanvas = null;
             }
             if (_crosshairRoot == null)
             {
-                // Box side length = 2 * gap. Arm length is exactly 2x that box side.
+                // Arm length is 4 * gap.
                 const float gap = 0.028125f;
                 const float armLength = 4f * gap;
                 const float armEnd = 0.5f + gap + armLength;
@@ -49,17 +49,10 @@ namespace NOXMFD
                 CreateBar(rootRt, "Left",   new Vector2(1f - armEnd, 0.5f - half), new Vector2(0.5f - gap, 0.5f + half));
                 CreateBar(rootRt, "Right",  new Vector2(0.5f + gap, 0.5f - half),  new Vector2(armEnd, 0.5f + half));
 
-                _pointTrackBox = new GameObject("PointTrackBox", typeof(RectTransform));
-                _pointTrackBox.transform.SetParent(rootRt, false);
-                var boxRt = (RectTransform)_pointTrackBox.transform;
-                boxRt.anchorMin = Vector2.zero;
-                boxRt.anchorMax = Vector2.one;
-                boxRt.offsetMin = boxRt.offsetMax = Vector2.zero;
-
-                CreateBar(boxRt, "BoxTop",    new Vector2(0.5f - gap, 0.5f + gap - half), new Vector2(0.5f + gap, 0.5f + gap + half));
-                CreateBar(boxRt, "BoxBottom", new Vector2(0.5f - gap, 0.5f - gap - half), new Vector2(0.5f + gap, 0.5f - gap + half));
-                CreateBar(boxRt, "BoxLeft",   new Vector2(0.5f - gap - half, 0.5f - gap), new Vector2(0.5f - gap + half, 0.5f + gap));
-                CreateBar(boxRt, "BoxRight",  new Vector2(0.5f + gap - half, 0.5f - gap), new Vector2(0.5f + gap + half, 0.5f + gap));
+                // Point Track marker: a small centred dot, drawn from the same plain Image bar as the arms.
+                const float dotHalf = 0.007f;
+                CreateBar(rootRt, "PointTrackDot", new Vector2(0.5f - dotHalf, 0.5f - dotHalf), new Vector2(0.5f + dotHalf, 0.5f + dotHalf));
+                _pointTrackDot = rootRt.Find("PointTrackDot").gameObject;
 
                 // "SOI" tag (docs/tgp-manual-control.md's PAD Cursor consolidation plan) — centered
                 // horizontally, vertically centered between the bottom of the camera feed (y=0) and
@@ -107,7 +100,7 @@ namespace NOXMFD
             }
 
             _crosshairRoot.SetActive(visible);
-            if (_pointTrackBox != null) _pointTrackBox.SetActive(visible && pointTrackActive);
+            if (_pointTrackDot != null) _pointTrackDot.SetActive(visible && pointTrackActive);
             if (_soiLabel != null) _soiLabel.SetActive(visible && isTgpSoi);
         }
 

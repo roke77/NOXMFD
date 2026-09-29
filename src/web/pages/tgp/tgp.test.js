@@ -86,7 +86,7 @@ const nativeManualData = {
 };
 listeners.message({ data: { mfd: true, type: 'tgp', active: true, quality: 'native', manual: true, data: nativeManualData } });
 assert.ok(!elements['tgp-panel'].classList.contains('show-overlay'), 'manual data must NOT show the client overlay in native quality (already baked into the video)');
-assert.ok(!elements['tgp-panel'].classList.contains('tgp-point-track'), 'no client overlay in native quality means no client Point Track box either');
+assert.ok(!elements['tgp-panel'].classList.contains('tgp-point-track'), 'no client overlay in native quality means no client Point Track dot either');
 
 // Manual-mode overlay data (docs/tgp-manual-control.md's "In-cockpit overlay" / web parity) draws
 // at MID or HIGH resolution, same corner-group elements as the locked-target case but a different

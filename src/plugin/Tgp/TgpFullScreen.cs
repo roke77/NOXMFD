@@ -64,7 +64,7 @@ namespace NOXMFD
         private static RawImage? _feedImage;
         private static GameObject? _hudGroup;
         private static RectTransform? _crosshair;
-        private static GameObject? _pointTrackBox;
+        private static GameObject? _pointTrackDot;
 
         // Top-left: title (+ status tag), pilot, RNG/ALT/SPD.
         private static TextMeshProUGUI? _typeText;
@@ -156,7 +156,7 @@ namespace NOXMFD
             // (TgpNativeOverlay.SyncCrosshair): only meaningful while manual mode owns the camera,
             // not over a real lock (the lock box, not drawn here yet, is that case's own reference).
             if (_crosshair != null) _crosshair.gameObject.SetActive(manual);
-            if (_pointTrackBox != null) _pointTrackBox.SetActive(manual && Overlay.PointTrackActive);
+            if (_pointTrackDot != null) _pointTrackDot.SetActive(manual && Overlay.PointTrackActive);
 
             if (_typeText == null) return;
 
@@ -427,7 +427,7 @@ namespace NOXMFD
             return text;
         }
 
-        // Boresight crosshair + Point Track box for manual mode — same bar layout/proportions as
+        // Boresight crosshair + Point Track dot for manual mode — same bar layout/proportions as
         // TgpNativeOverlay.SyncCrosshair's own in-cockpit version, built independently rather than
         // shared: that class keeps a single static instance meant for one active consumer (the
         // native screen) at a time, and full screen + manual mode can both be active together.
@@ -457,14 +457,9 @@ namespace NOXMFD
             CreateBar(_crosshair, "Left",   new Vector2(1f - armEnd, 0.5f - half), new Vector2(0.5f - gap, 0.5f + half));
             CreateBar(_crosshair, "Right",  new Vector2(0.5f + gap, 0.5f - half),  new Vector2(armEnd, 0.5f + half));
 
-            _pointTrackBox = new GameObject("PointTrackBox", typeof(RectTransform));
-            _pointTrackBox.transform.SetParent(_crosshair, false);
-            var boxRt = (RectTransform)_pointTrackBox.transform;
-            Stretch(boxRt);
-            CreateBar(boxRt, "BoxTop",    new Vector2(0.5f - gap, 0.5f + gap - half), new Vector2(0.5f + gap, 0.5f + gap + half));
-            CreateBar(boxRt, "BoxBottom", new Vector2(0.5f - gap, 0.5f - gap - half), new Vector2(0.5f + gap, 0.5f - gap + half));
-            CreateBar(boxRt, "BoxLeft",   new Vector2(0.5f - gap - half, 0.5f - gap), new Vector2(0.5f - gap + half, 0.5f + gap));
-            CreateBar(boxRt, "BoxRight",  new Vector2(0.5f + gap - half, 0.5f - gap), new Vector2(0.5f + gap + half, 0.5f + gap));
+            const float dotHalf = 0.007f;
+            CreateBar(_crosshair, "PointTrackDot", new Vector2(0.5f - dotHalf, 0.5f - dotHalf), new Vector2(0.5f + dotHalf, 0.5f + dotHalf));
+            _pointTrackDot = _crosshair.Find("PointTrackDot").gameObject;
         }
 
         private static void CreateBar(Transform parent, string name, Vector2 anchorMin, Vector2 anchorMax)

@@ -81,27 +81,22 @@
 .tgp-ch-left   { top: 49.75%; height: 0.5%; left: 40.625%; width: 7.5%; }
 .tgp-ch-right  { top: 49.75%; height: 0.5%; left: 51.875%; width: 7.5%; }
 
-/* Point Track marker — a small hollow square at center whose edges sit exactly at the crosshair
-   arms' inner tips (box side = 2*gap, matching TgpNativeOverlay's hand-built box exactly, not the
-   native game's own targetLockBox sprite — that one's border stayed visually thin no matter how
-   big the box was resized, so both surfaces build their own box from plain bars instead). Only
-   shown while Point Track is actually locked, via .tgp-point-track on the panel (tgp.js). Each edge
-   bar is centered exactly ON the box's conceptual edge line (half-thickness each side of it), the
-   same way a picture frame's corners are mitered — that's what keeps adjacent bars overlapping
-   cleanly into a single corner instead of reading as two independent lines that stop short of
-   each other. Width-relative numbers (left/right edges' span and top/bottom edges' thickness) are
-   the height-relative ones divided by 1.5, same reasoning as the crosshair arms above. */
-.tgp-ch-box { display: none; }
-.tgp-panel.tgp-point-track .tgp-ch-box { display: block; }
-.tgp-ch-box-edge {
+/* Point Track marker: a small round dot at the centre, shown only while Point Track is locked via
+   .tgp-point-track on the panel (tgp.js). Width-relative size with aspect-ratio keeps it circular
+   on the panel's non-square box. */
+.tgp-ch-dot {
+  display: none;
   position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 1%;
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
   background: var(--no-white);
   box-shadow: 0 0 2px #000;
 }
-.tgp-ch-box-top    { left: 48.125%;   width: 3.75%;   top: 46.9375%; height: 0.5%; }
-.tgp-ch-box-bottom { left: 48.125%;   width: 3.75%;   top: 52.5625%; height: 0.5%; }
-.tgp-ch-box-left   { top: 47.1875%;   height: 5.625%; left: 47.9583%; width: 0.3333%; }
-.tgp-ch-box-right  { top: 47.1875%;   height: 5.625%; left: 51.7083%; width: 0.3333%; }
+.tgp-panel.tgp-point-track .tgp-ch-dot { display: block; }
 
 /* Stat overlay — two distinct sources feed the same corner-group layout (tgp.js's applyOverlay),
    both shown only in HQ quality: Native's captured video already bakes this in for both cases (see
