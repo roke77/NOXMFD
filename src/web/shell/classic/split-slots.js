@@ -115,7 +115,7 @@
   // R+/R- onto items1/items2, straddling left/right and breaking the ROUTE decorator entirely
   // (split-slots.test.js's assertAdjacentPair catches exactly this). Page 1 (MAIN/GRID/FLW/Z+/Z-)
   // and page 3 (W+/W-) are untouched either way, since mapcfg lands inside page 2.
-  const MAP_SPLIT_ORDER = ['main', 'grid', 'flw', 'zin', 'zout', 'rt-next', 'rt-prev', 'mapcfg', 'wpt', 'wpt-next', 'wpt-prev'];
+  const MAP_SPLIT_ORDER = ['main', 'grid', 'flw', 'zin', 'zout', 'rt-next', 'rt-prev', 'mapcfg', 'wpt', 'wpt-next', 'wpt-prev', 'slew'];
 
   // A 'v'/'vw' split has no bank split — listPaneLayout's non-'h' branch keeps every item slot on
   // the same side, so no pair can straddle a boundary. WPT leads here, reading as "the page, then
@@ -123,7 +123,7 @@
   // mapcfg trails WPT rather than leading page 2 — same 5/4/2 pagination as the 'h' order above,
   // just placed to keep "WPT leads page 2" intact (the whole reason this V order exists) instead
   // of mapcfg displacing it.
-  const MAP_SPLIT_ORDER_V = ['main', 'grid', 'flw', 'zin', 'zout', 'wpt', 'mapcfg', 'rt-next', 'rt-prev', 'wpt-next', 'wpt-prev'];
+  const MAP_SPLIT_ORDER_V = ['main', 'grid', 'flw', 'zin', 'zout', 'wpt', 'mapcfg', 'rt-next', 'rt-prev', 'wpt-next', 'wpt-prev', 'slew'];
 
   // R+/R- stay useful while any saved route can be selected. The navigation pair is W+/W- while a
   // route is active and S+/S- while steer points are in control; it only disappears when neither
@@ -150,7 +150,7 @@
   // right, or which filter drops which pair. The fixed actions always show; route and navigation
   // actions are filtered from the live WPT store state.
   const MAP_FULL_LEFT  = ['main', 'grid', 'flw', 'mapcfg', 'zin', 'zout'];
-  const MAP_FULL_RIGHT = ['wpt', 'rt-next', 'rt-prev', 'wpt-next', 'wpt-prev'];
+  const MAP_FULL_RIGHT = ['wpt', 'rt-next', 'rt-prev', 'wpt-next', 'wpt-prev', 'slew'];
   function mapFullRight(hasRoutes, hasActiveRoute, hasSteerPoints) {
     return filterMapRouteActions(MAP_FULL_RIGHT, hasRoutes, hasActiveRoute, hasSteerPoints);
   }

@@ -45,6 +45,8 @@ assert.deepStrictEqual(commandForBind('hud-preset-5'), {
 });
 assert.deepStrictEqual(commandForBind('power-on'), { cmd: 'power.set', args: { on: true } });
 assert.deepStrictEqual(commandForBind('power-off'), { cmd: 'power.set', args: { on: false } });
+assert.deepStrictEqual(commandForBind('map-slew'), { cmd: 'map.action', args: { wname: 'slew-cursor' } });
+assert.deepStrictEqual(commandForBind('map-slew-grid'), { cmd: 'map.action', args: { wname: 'slew-keypad' } });
 assert.deepStrictEqual(commandForBind('cursor-deselect'), {
   cmd: 'map.action',
   args: { wname: 'cursor-deselect' }

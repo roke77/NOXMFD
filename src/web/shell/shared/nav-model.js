@@ -29,6 +29,7 @@
       { label: 'W-',   action: 'wpt-prev' },
       { label: 'Z+',   action: 'zin'  },
       { label: 'Z-',   action: 'zout' },
+      { label: 'SLEW', action: 'slew' },   // TGP slew (issue #103): tap arms, hold opens the grid keypad
     ],
     main: [
       { label: 'AVN', action: 'avn' },

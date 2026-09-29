@@ -177,8 +177,8 @@ const oc       = overlay.getContext('2d');
 const gridBar   = document.getElementById('grid-bar');
 const cursorBar = document.getElementById('cursor-bar');
 const routeBar  = document.getElementById('route-bar');
-const slewPanel = document.getElementById('slew-panel');
-const slewGrid  = document.getElementById('slew-grid');
+const slewPad   = document.getElementById('slew-pad');
+const slewDisp  = document.getElementById('slew-disp');
 const jamBar    = document.getElementById('jam-bar');
 const unitLabel = document.getElementById('unit-label');
 const cursorEl  = document.getElementById('soi-cursor');   // SOI crosshair — see pad-cursor.js
@@ -189,7 +189,7 @@ const cursorEl  = document.getElementById('soi-cursor');   // SOI crosshair — 
 const cursor = createPadCursor({
   el: cursorEl,
   clampRect: imgRect,
-  onSelect: (x, y) => { if (!slewAt(x, y)) selectAt(x, y, CURSOR_HIT_PAD); },
+  onSelect: (x, y) => { if (!padPress(x, y) && !slewAt(x, y)) selectAt(x, y, CURSOR_HIT_PAD); },
   // Cursor Select held past holdMs = waypoint placement, or removal if held over an existing one
   // (issue #38).
   onHold: (x, y) => placeNavigationPointAt(x, y, CURSOR_HIT_PAD),
@@ -1347,35 +1347,89 @@ function deselectAt(px, py, pad) {
 }
 
 // ── TGP slew (issue #103) ───────────────────────────────────────────────────────────
-// SLEW arms the map: the next click/tap/Cursor Select points the TGP at that ground spot instead
-// of selecting a contact, then disarms. The grid entry (shown while armed) slews to a square's
-// centre on Enter.
+// Three ways to point the TGP at the map: the TGP Slew to Cursor keybind (slew-cursor, immediate),
+// the SLEW bezel key (slew-toggle arms the map so the next click/tap/Cursor Select slews), and a
+// grid keypad (slew-keypad — the key's hold or the TGP Slew Grid Entry keybind) that slews to the
+// centre of a typed square. The shell lights SLEW while armed, off the 'slew' message.
+let slewArmed = false;
 function setSlewArmed(on) {
-  slewPanel.classList.toggle('armed', on);
-  slewGrid.classList.remove('bad');
-  if (on) slewGrid.focus(); else slewGrid.blur();
+  if (on === slewArmed) return;
+  slewArmed = on;
+  source.emitSlew(on);
 }
 function slewTo(w) {
   sendCommand('tgp.slew', { wx: w.x, wz: w.z }).catch(function() {});
   setSlewArmed(false);
 }
-// Returns true when the press was consumed as a slew.
+// Consumes a map press while armed. Returns true when it did.
 function slewAt(sx, sy) {
-  if (!slewPanel.classList.contains('armed')) return false;
+  if (!slewArmed) return false;
   const w = overlayToWorld(sx, sy);
   if (w) slewTo(w);
   return true;
 }
-document.getElementById('slew-btn').addEventListener('click', function() {
-  setSlewArmed(!slewPanel.classList.contains('armed'));
-});
-slewGrid.addEventListener('keydown', function(e) {
+function slewToCursor() {
+  const p = cursor.getPos();
+  const w = p && overlayToWorld(p.x, p.y);
+  if (w) slewTo(w);
+}
+
+// Keypad. The entry is two letters then two digits ("Ig69"); a tile that doesn't fit the next
+// position is ignored, so the buffer is always a prefix of a valid reference.
+let slewBuf = '';
+function slewText() { return slewBuf.slice(0, 1).toUpperCase() + slewBuf.slice(1, 2).toLowerCase() + slewBuf.slice(2); }
+function renderSlewDisp(bad) {
+  slewDisp.textContent = (slewText() + '____').slice(0, 4).split('').join(' ');
+  slewDisp.classList.toggle('bad', !!bad);
+}
+function slewPadOpen() { return !slewPad.hidden; }
+function openSlewPad() {
+  setSlewArmed(false);
+  slewBuf = '';
+  renderSlewDisp(false);
+  slewPad.hidden = false;
+  slewPad.focus();
+}
+function closeSlewPad() { slewPad.hidden = true; }
+function slewPadKey(k) {
+  if (k === 'X') { closeSlewPad(); return; }
+  if (k === 'CLR') { slewBuf = ''; renderSlewDisp(false); return; }
+  if (k === 'ENT') {
+    const w = gridToWorld(slewBuf, mapMeta);
+    if (w) { closeSlewPad(); slewTo(w); } else renderSlewDisp(true);
+    return;
+  }
+  const ok = slewBuf.length < 2 ? /^[A-J]$/i.test(k) : slewBuf.length < 4 && /^\d$/.test(k);
+  if (ok) { slewBuf += k; renderSlewDisp(false); }
+}
+// ponytail: a fixed A-J / 0-9 tile set matches maps up to 100 km; a bigger map needs more letters.
+(function buildSlewKeys() {
+  const host = document.getElementById('slew-keys');
+  'ABCDEFGHIJ1234567890'.split('').concat(['CLR', 'ENT', 'X']).forEach(function(k) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = k === 'ENT' ? 'ENTER' : k === 'X' ? '✕' : k;
+    if (k === 'ENT') b.className = 'wide';
+    b.addEventListener('click', function() { slewPadKey(k); });
+    host.appendChild(b);
+  });
+})();
+slewPad.addEventListener('keydown', function(e) {
   e.stopPropagation();   // typing a grid must not fire the page's keybinds
-  if (e.key === 'Escape') { setSlewArmed(false); return; }
-  if (e.key !== 'Enter') { slewGrid.classList.remove('bad'); return; }
-  const w = gridToWorld(slewGrid.value, mapMeta);
-  if (w) { slewGrid.value = ''; slewTo(w); } else slewGrid.classList.add('bad');
+  if (e.key === 'Escape') slewPadKey('X');
+  else if (e.key === 'Enter') slewPadKey('ENT');
+  else if (e.key === 'Backspace') slewPadKey('CLR');
+  else if (e.key.length === 1) slewPadKey(e.key.toUpperCase());
 });
+// Cursor Select while the keypad is open presses the tile under the PAD cursor. Returns true when
+// it consumed the press.
+function padPress(x, y) {
+  if (!slewPadOpen()) return false;
+  const r = overlay.getBoundingClientRect();
+  const el = document.elementFromPoint(r.left + x, r.top + y);
+  if (el && slewPad.contains(el) && el.tagName === 'BUTTON') el.click();
+  return true;
+}
 
 // Right-click deselects (mouse only). auxclick, not contextmenu: a touch long-press also raises
 // contextmenu, and on MAP that gesture places a waypoint.
@@ -1431,6 +1485,9 @@ window.addEventListener('message', function(e) {
   switch (m.action) {
     case 'toggle-follow': if (mapMeta) setFollow(!followPlayer); break;
     case 'toggle-grid':   setGrid(!gridOn); break;
+    case 'slew-toggle':   setSlewArmed(!slewArmed); break;
+    case 'slew-keypad':   if (mapMeta) openSlewPad(); break;
+    case 'slew-cursor':   slewToCursor(); break;
     case 'zoom-in':       zoomStep(1.5);   break;
     case 'zoom-out':      zoomStep(1 / 1.5); break;
     case 'status-request': source.rebroadcastStatus(); break;   // shell asked for the current status

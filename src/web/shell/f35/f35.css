@@ -758,3 +758,8 @@ html, body {
   cursor: default;
 }
 .nav-item.pending:active { opacity: 1; }   /* no press feedback either — it isn't a button */
+
+/* SLEW armed (issue #103): the amber .on state, blinking so the pilot sees the map is waiting for a click. */
+@keyframes slew-blink { 50% { opacity: 0.35; } }
+.nav-item.blink { animation: slew-blink 1s steps(1, end) infinite; }
+@media (prefers-reduced-motion: reduce) { .nav-item.blink, .overlay-item.blink { animation: none; } }

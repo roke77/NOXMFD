@@ -63,28 +63,41 @@ main { flex: 1; display: flex; overflow: hidden; }
 /* FOLLOW is shown by the MFD shell's own indicator (stacked alongside PINNED), not here —
    MAP just mirrors its follow state up via source.emitFollow(). */
 
-#slew-panel {
+#slew-pad {
   position: absolute;
-  left: 8px;
-  bottom: 8px;
-  display: flex;
-  gap: 4px;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
   z-index: 40;
+  background: var(--no-panel-bg);
+  border: 1px solid var(--no-panel-border);
+  padding: 8px;
+  outline: none;
 }
-#slew-panel button, #slew-panel input {
+#slew-pad[hidden] { display: none; }
+#slew-disp {
+  font-size: 18px;
+  letter-spacing: 4px;
+  text-align: center;
+  color: var(--no-green);
+  padding: 4px 0 8px;
+  min-height: 1.2em;
+}
+#slew-disp.bad { color: var(--no-red); }
+#slew-keys {
+  display: grid;
+  grid-template-columns: repeat(5, 2.4em);
+  gap: 4px;
+}
+#slew-keys button {
   background: var(--no-panel-bg);
   border: 1px solid var(--no-panel-border);
   color: var(--no-green-dim);
   font: inherit;
-  font-size: 11px;
-  letter-spacing: 1px;
-  padding: 5px 9px;
+  font-size: 12px;
+  padding: 6px 0;
 }
-#slew-panel input { width: 5em; display: none; text-transform: none; }
-#slew-panel.armed button { color: var(--no-green); border-color: var(--no-green); }
-#slew-panel.armed input { display: block; }
-#slew-panel input.bad { border-color: var(--no-red); }
-html.nochrome #slew-panel { display: none; }
+#slew-keys button.wide { grid-column: span 2; }
 
 #unit-label {
   position: absolute;

@@ -231,6 +231,15 @@ namespace NOXMFD
                 "Step the active route to its previous waypoint (W-), or select the previous steer point (S-) when no route is active. Hold to reset the active route back to its first waypoint — no-op with no active route.",
                 () => { });
 
+            // TGP map/grid slew (issue #103) — the keybind twins of MAP's SLEW bezel key: slew the pod
+            // to the PAD cursor at once, or open the grid keypad.
+            DefFree(config, "map-slew", map, "MapSlew", "TGP Slew to Cursor", edge: true,
+                "On the focused MAP display, point the TGP at the ground under the PAD cursor (turns on manual TGP control if needed).",
+                () => TelemetryServer.MapAction("slew-cursor"));
+            DefFree(config, "map-slew-grid", map, "MapSlewGrid", "TGP Slew Grid Entry", edge: true,
+                "On the focused MAP display, open the grid keypad; ENTER points the TGP at the centre of the typed grid square.",
+                () => TelemetryServer.MapAction("slew-keypad"));
+
             // TGT binds are DefFree like MAP above because they drive mod displays, not the aircraft.
             // Next/Previous move the shared focused lock everywhere, and the SOI-focused TGT display
             // also treats the press as a handoff from PAD-cursor hit-testing to direct row Select.

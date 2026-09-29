@@ -15,6 +15,7 @@
 // View → source:  new TelemetrySource({ onFrame, onNoMission, onStatus }).connect()
 //                 .emitFollow(on)        — the view's FLW toggle, mirrored up
 //                 .emitGrid(on)          — the view's GRID toggle, mirrored up
+//                 .emitSlew(on)          — MAP's TGP SLEW armed state, mirrored up
 //                 .rebroadcastStatus()   — answer the shell's status-request
 // Source → view (callbacks):
 //   onFrame(d)          a real telemetry frame arrived — render it
@@ -174,6 +175,7 @@ export class TelemetrySource {
   // has no _emitEmpties reset: there's nothing wrong with the grid staying on/off across a
   // no-mission gap.
   emitGrid(on) { this._postUp({ type: 'grid', on: !!on }); }
+  emitSlew(on) { this._postUp({ type: 'slew', on: !!on }); }
 
   _postUp(msg) {
     if (window.parent !== window) window.parent.postMessage(Object.assign({ mfd: true }, msg), '*');

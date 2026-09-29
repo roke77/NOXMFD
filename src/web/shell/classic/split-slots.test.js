@@ -83,7 +83,7 @@ for (const [page, slots] of Object.entries(SPLIT_SLOTS)) {
     'MAP_SPLIT_ORDER must contain exactly NAV.map\'s actions — a NAV.map item added/removed here has no matching update');
   assert.deepStrictEqual(MAP_SPLIT_ORDER_V.slice().sort(), NAV.map.map(i => i.action).sort(),
     'MAP_SPLIT_ORDER_V must contain exactly NAV.map\'s actions — a NAV.map item added/removed here has no matching update');
-  assert.deepStrictEqual(MAP_SPLIT_ORDER_V, ['main', 'grid', 'flw', 'zin', 'zout', 'wpt', 'mapcfg', 'rt-next', 'rt-prev', 'wpt-next', 'wpt-prev'],
+  assert.deepStrictEqual(MAP_SPLIT_ORDER_V, ['main', 'grid', 'flw', 'zin', 'zout', 'wpt', 'mapcfg', 'rt-next', 'rt-prev', 'wpt-next', 'wpt-prev', 'slew'],
     'MAP_SPLIT_ORDER_V should lead page 2 with WPT ahead of CFG/R+/R-/W+/W- (v/vw split has no bank boundary to straddle)');
 
   const byAction = {};
@@ -145,10 +145,10 @@ for (const [page, slots] of Object.entries(SPLIT_SLOTS)) {
   {
     const orderH = mapSplitOrder('h', true, false, true);
     assert.deepStrictEqual(orderH,
-      ['main', 'grid', 'flw', 'zin', 'zout', 'rt-next', 'rt-prev', 'mapcfg', 'wpt', 'wpt-next', 'wpt-prev']);
+      ['main', 'grid', 'flw', 'zin', 'zout', 'rt-next', 'rt-prev', 'mapcfg', 'wpt', 'wpt-next', 'wpt-prev', 'slew']);
     const orderV = mapSplitOrder('v', false, false, true);
     assert.deepStrictEqual(orderV,
-      ['main', 'grid', 'flw', 'zin', 'zout', 'wpt', 'mapcfg', 'wpt-next', 'wpt-prev']);
+      ['main', 'grid', 'flw', 'zin', 'zout', 'wpt', 'mapcfg', 'wpt-next', 'wpt-prev', 'slew']);
   }
 
   // mapSplitOrder is variant-aware now (WPT-leads-in-v-split follow-up): 'h' gets MAP_SPLIT_ORDER
@@ -177,10 +177,10 @@ for (const [page, slots] of Object.entries(SPLIT_SLOTS)) {
   // (nothing active to step) — the deactivate-follow-up case, in both variant groups.
   {
     const orderH = mapSplitOrder('h', true, false);
-    assert.deepStrictEqual(orderH, ['main', 'grid', 'flw', 'zin', 'zout', 'rt-next', 'rt-prev', 'mapcfg', 'wpt'],
+    assert.deepStrictEqual(orderH, ['main', 'grid', 'flw', 'zin', 'zout', 'rt-next', 'rt-prev', 'mapcfg', 'wpt', 'slew'],
       "mapSplitOrder('h', true, false) should keep R+/R- but drop W+/W- — a route is saved but none is active");
     const orderV = mapSplitOrder('v', true, false);
-    assert.deepStrictEqual(orderV, ['main', 'grid', 'flw', 'zin', 'zout', 'wpt', 'mapcfg', 'rt-next', 'rt-prev'],
+    assert.deepStrictEqual(orderV, ['main', 'grid', 'flw', 'zin', 'zout', 'wpt', 'mapcfg', 'rt-next', 'rt-prev', 'slew'],
       "mapSplitOrder('v', true, false) should lead with WPT, keep R+/R-, drop W+/W-");
     for (const [order, variants] of [[orderH, ['h']], [orderV, ['v', 'vw', 'vwr']]]) {
       for (const action of order)
@@ -207,10 +207,10 @@ for (const [page, slots] of Object.entries(SPLIT_SLOTS)) {
   for (const variants of VARIANT_GROUPS) {
     const order = mapSplitOrder(variants[0], false, false);
     const expected = variants[0] === 'h'
-      ? ['main', 'grid', 'flw', 'zin', 'zout', 'mapcfg', 'wpt']
-      : ['main', 'grid', 'flw', 'zin', 'zout', 'wpt', 'mapcfg'];
+      ? ['main', 'grid', 'flw', 'zin', 'zout', 'mapcfg', 'wpt', 'slew']
+      : ['main', 'grid', 'flw', 'zin', 'zout', 'wpt', 'mapcfg', 'slew'];
     assert.deepStrictEqual(order, expected,
-      `mapSplitOrder('${variants[0]}', false, false) should be MAIN/GRID/FLW/Z+/Z- then CFG/WPT (order per variant) — every route-dependent action filtered out`);
+      `mapSplitOrder('${variants[0]}', false, false) should be MAIN/GRID/FLW/Z+/Z- then CFG/WPT and SLEW (order per variant) — every route-dependent action filtered out`);
     for (const action of order) {
       assert.ok(!MAP_ROUTE_ACTIONS.has(action), `mapSplitOrder(false, false) should never include route action '${action}'`);
       assert.ok(!MAP_WAYPOINT_ACTIONS.has(action), `mapSplitOrder(false, false) should never include waypoint action '${action}'`);
@@ -235,8 +235,8 @@ for (const [page, slots] of Object.entries(SPLIT_SLOTS)) {
 {
   assert.deepStrictEqual(MAP_FULL_LEFT, ['main', 'grid', 'flw', 'mapcfg', 'zin', 'zout'],
     'MAP_FULL_LEFT should be MAIN/GRID/FLW/CFG/Z+/Z- — mfd.js full view and f35.js both place this column verbatim');
-  assert.deepStrictEqual(MAP_FULL_RIGHT, ['wpt', 'rt-next', 'rt-prev', 'wpt-next', 'wpt-prev'],
-    'MAP_FULL_RIGHT should be WPT/R+/R-/W+/W- — mfd.js full view and f35.js both place this column (filtered by mapFullRight) verbatim');
+  assert.deepStrictEqual(MAP_FULL_RIGHT, ['wpt', 'rt-next', 'rt-prev', 'wpt-next', 'wpt-prev', 'slew'],
+    'MAP_FULL_RIGHT should be WPT/R+/R-/W+/W-/SLEW — mfd.js full view and f35.js both place this column (filtered by mapFullRight) verbatim');
 
   // Together they must name exactly NAV.map's actions — same completeness guarantee MAP_SPLIT_ORDER
   // gets above, so a NAV.map item added/removed here has no matching update either.
@@ -245,11 +245,11 @@ for (const [page, slots] of Object.entries(SPLIT_SLOTS)) {
 
   assert.deepStrictEqual(mapFullRight(true, true), MAP_FULL_RIGHT,
     'mapFullRight(true, true) should be the full WPT/R+/R-/W+/W- column — nothing filtered while a route is active');
-  assert.deepStrictEqual(mapFullRight(true, false), ['wpt', 'rt-next', 'rt-prev'],
+  assert.deepStrictEqual(mapFullRight(true, false), ['wpt', 'rt-next', 'rt-prev', 'slew'],
     'mapFullRight(true, false) should keep WPT/R+/R- but drop W+/W- — a route is saved but none is active');
-  assert.deepStrictEqual(mapFullRight(false, false), ['wpt'],
-    'mapFullRight(false, false) should collapse to WPT alone — no routes saved at all means R+/R-/W+/W- are all dead keys');
-  assert.deepStrictEqual(mapFullRight(false, false, true), ['wpt', 'wpt-next', 'wpt-prev'],
+  assert.deepStrictEqual(mapFullRight(false, false), ['wpt', 'slew'],
+    'mapFullRight(false, false) should collapse to WPT and SLEW — no routes saved at all means R+/R-/W+/W- are all dead keys');
+  assert.deepStrictEqual(mapFullRight(false, false, true), ['wpt', 'wpt-next', 'wpt-prev', 'slew'],
     'mapFullRight(false, false, true) should keep the navigation pair for steer-point cycling');
   assert.deepStrictEqual(mapFullRight(true, false, true), MAP_FULL_RIGHT,
     'mapFullRight(true, false, true) should keep route cycling and steer-point cycling together');

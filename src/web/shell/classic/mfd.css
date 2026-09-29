@@ -765,3 +765,8 @@
   .screw.tr { top: 13px; right: 13px; transform: rotate(28deg); }
   .screw.bl { bottom: 13px; left: 13px;  transform: rotate(52deg); }
   .screw.br { bottom: 13px; right: 13px; transform: rotate(-37deg); }
+
+/* SLEW armed (issue #103): the amber .on state, blinking so the pilot sees the map is waiting for a click. */
+@keyframes slew-blink { 50% { opacity: 0.35; } }
+.overlay-item.blink { animation: slew-blink 1s steps(1, end) infinite; }
+@media (prefers-reduced-motion: reduce) { .nav-item.blink, .overlay-item.blink { animation: none; } }

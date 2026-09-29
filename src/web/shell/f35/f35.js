@@ -158,7 +158,7 @@
   // rng-in/rng-out (RDR hub range rocker) reuse the same zoom-in/zoom-out action names MAP's
   // zin/zout send — mapSend() here already targets frameWin() generically (unlike the classic
   // shell's mapFrame-specific version), so FCR/HSD need nothing beyond this mapping.
-  const MAP_ACTIONS = { flw: 'toggle-follow', zin: 'zoom-in', zout: 'zoom-out', grid: 'toggle-grid',
+  const MAP_ACTIONS = { flw: 'toggle-follow', zin: 'zoom-in', zout: 'zoom-out', grid: 'toggle-grid', slew: 'slew-toggle',
                          'rng-in': 'zoom-in', 'rng-out': 'zoom-out',
                          'rt-next': 'route-next', 'rt-prev': 'route-prev',
                          'wpt-next': 'waypoint-next', 'wpt-prev': 'waypoint-prev',
@@ -375,6 +375,7 @@
     let wpnSelSeen  = null; // last selWeapon this portal followed; guards the page jump below
     let followOn    = false;
     let gridOn      = false;   // corrected as soon as the map reports its real (persisted) state
+    let slewOn      = false;   // TGP SLEW armed (issue #103), reported by the map
     // DOC's own index-vs-image view state (issue #82 follow-up), per portal — page-internal UI
     // state with no game-telemetry equivalent, reported up by doc.js's own 'doc-view' messages
     // (routed to whichever portal's frame sent it, setDocView below), same reasoning as followOn/
@@ -636,6 +637,12 @@
       const b = grid.querySelector('.nav-item[data-action="grid"]');
       if (b) b.classList.toggle('on', gridOn);
     }
+    // SLEW's twin: lit amber and blinking while the map is armed for a TGP slew.
+    function setSlew(on) { slewOn = on; markSlew(); }
+    function markSlew() {
+      const b = grid.querySelector('.nav-item[data-action="slew"]');
+      if (b) { b.classList.toggle('on', slewOn); b.classList.toggle('blink', slewOn); }
+    }
     // DOC's INDX/PREV/NEXT (issue #82 follow-up) only exist in the item set while an image is
     // open, unlike FLW/GRID above (same item, different state) — a full renderNav() is needed to
     // add or remove them, not just re-mark an existing label.
@@ -852,6 +859,23 @@
           b.addEventListener('pointercancel', clearHold);
           b.addEventListener('pointerleave', clearHold);
           b.addEventListener('click', function () { if (!holdFired) dispatch(item.action); });
+        } else if (wired && item.action === 'slew') {
+          // Tap arms the map (MAP_ACTIONS.slew); press-and-HOLD opens the grid keypad instead —
+          // same shape as the wpt-prev hold above.
+          let holdTimer = null, holdFired = false;
+          const clearHold = trackHold(function () { if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; } });
+          b.addEventListener('pointerdown', function () {
+            holdFired = false;
+            pendingNavHoldClear = clearHold;
+            holdTimer = setTimeout(function () {
+              holdFired = true;
+              mapSend('slew-keypad');
+            }, COMBAT_MODE_HOLD_MS);
+          });
+          b.addEventListener('pointerup', clearHold);
+          b.addEventListener('pointercancel', clearHold);
+          b.addEventListener('pointerleave', clearHold);
+          b.addEventListener('click', function () { if (!holdFired) dispatch(item.action); });
         } else if (wired && item.action in TGP_ZOOM_ACTIONS) {
           // Discrete magnification LEVELS (tgp.zoom.step, TgpManualControl.StepZoom) — one jump
           // per press. Holding repeats the step at a fixed interval (typematic — once
@@ -900,6 +924,7 @@
       if (currentPage === 'rdr' || currentPage === 'hsd') placeWpnDecorator('rng-out', 'rng-in', 'RANGE');
       markFollow();   // the labels were just rebuilt; re-apply the state to the new FLW
       markGrid();     // ...and the state to the new GRID
+      markSlew();     // ...and to the new SLEW
       // The grid was just rebuilt, so an SOI cursor mark on one of its items is gone — let the shell
       // re-apply it if this is the focused portal (the F-35 twin of mfd.js's post-rebuild renderSoiCursor).
       if (onNavRendered) onNavRendered(api);
@@ -927,6 +952,7 @@
       isMapWin: isMapWin,
       setFollow: setFollow,
       setGrid: setGrid,
+      setSlew: setSlew,
       setDocView: setDocView,
       setGrips: setGrips,
       // For the SOI cursor: the page this portal shows (to tell a navigating SELECT from an
@@ -1188,6 +1214,12 @@
     // 'grid' routes the same way, for the same reason.
     if (m.type === 'grid') {
       livePortals().forEach(function (p) { if (p.isMapWin(e.source)) p.setGrid(!!m.on); });
+      return;
+    }
+
+    // 'slew' (TGP SLEW armed state, issue #103) routes the same way.
+    if (m.type === 'slew') {
+      livePortals().forEach(function (p) { if (p.isMapWin(e.source)) p.setSlew(!!m.on); });
       return;
     }
 
