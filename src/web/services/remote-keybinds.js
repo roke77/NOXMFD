@@ -96,21 +96,6 @@
       case 'hud-preset-3': return { cmd: 'preset.load', args: { index: 3 } };
       case 'hud-preset-4': return { cmd: 'preset.load', args: { index: 4 } };
       case 'hud-preset-5': return { cmd: 'preset.load', args: { index: 5 } };
-      // TD's 9 Assign binds (issue #47, squad-leader-only): the physical keybind is tap-vs-hold
-      // (tap assigns and clears the leader's selection, hold assigns and retains it for chaining
-      // onto another slot — TdStore.Assign's `retain` param, confusingly carried over `/command`'s
-      // `on` field). A remote keydown has no hold-vs-tap distinction here (same limitation as
-      // Combat Mode A/A · A/G below only remoting their tap outcome), so this always sends the tap
-      // (non-retaining) behavior. A no-op server-side unless the sender is the squad leader.
-      case 'td-assign-1': return { cmd: 'td.assign', args: { index: 1, on: false } };
-      case 'td-assign-2': return { cmd: 'td.assign', args: { index: 2, on: false } };
-      case 'td-assign-3': return { cmd: 'td.assign', args: { index: 3, on: false } };
-      case 'td-assign-4': return { cmd: 'td.assign', args: { index: 4, on: false } };
-      case 'td-assign-5': return { cmd: 'td.assign', args: { index: 5, on: false } };
-      case 'td-assign-6': return { cmd: 'td.assign', args: { index: 6, on: false } };
-      case 'td-assign-7': return { cmd: 'td.assign', args: { index: 7, on: false } };
-      case 'td-assign-8': return { cmd: 'td.assign', args: { index: 8, on: false } };
-      case 'td-assign-9': return { cmd: 'td.assign', args: { index: 9, on: false } };
       // TGP Keybinds (docs/tgp-manual-control.md) — one-shot toggles/actions on the manual TGP
       // camera and full-screen view, same shape as the Immersion Options row above. Point Track,
       // Manual Control Reset, and Mark Steer Point reuse the exact `/command` names the TGP page's

@@ -3,160 +3,140 @@ using NOXMFD;
 namespace NOXMFD.Tests
 {
     // A fresh TdStoreTests instance is constructed before every [Fact] (xUnit's default) — the
-    // reset here keeps TdStore's static overlay from leaking between tests, same shape
+    // reset here keeps TdStore's static state from leaking between tests, same shape
     // RouteStoreTests uses for RouteStore.
     public class TdStoreTests
     {
+        private static readonly List<int> Slots = new List<int> { 1, 2, 3 };
+        private const string Empty = "{\"assignments\":{},\"sent\":{},\"accepted\":[],\"designated\":[]}";
+
         public TdStoreTests()
         {
             TdStore.ResetForTests();
         }
 
         [Fact]
-        public void ToggleSelect_adds_then_removes_on_a_repeat_call()
+        public void ToggleCell_assigns_then_a_second_tap_unassigns()
         {
-            Assert.True(TdStore.ToggleSelect(7));
-            Assert.Contains("\"selected\":[7]", TdStore.StateJson);
-            TdStore.ToggleSelect(7);
-            Assert.Contains("\"selected\":[]", TdStore.StateJson);
-        }
-
-        [Fact]
-        public void ToggleSelect_rejects_id_zero()
-        {
-            Assert.False(TdStore.ToggleSelect(0));
-        }
-
-        [Fact]
-        public void Assign_toggles_slot_membership_and_clears_selection()
-        {
-            TdStore.ToggleSelect(1);
-            TdStore.ToggleSelect(2);
-            Assert.True(TdStore.Assign(3));
-            Assert.Contains("\"selected\":[]", TdStore.StateJson);   // selection cleared after assign
-            Assert.Contains("\"1\":[3]", TdStore.StateJson);
-            Assert.Contains("\"2\":[3]", TdStore.StateJson);
-        }
-
-        // "<CALLSIGN> ALL": all-or-nothing, not a per-slot toggle — a target that already has some
-        // of the slots gains the rest rather than losing the ones it had.
-        [Fact]
-        public void AssignAll_adds_every_slot_then_a_second_press_removes_them_all()
-        {
-            var slots = new List<int> { 1, 2, 3 };
-            TdStore.ToggleSelect(1);
-            TdStore.Assign(2);                        // target 1 already has slot 2
-            TdStore.ToggleSelect(1);
-            TdStore.ToggleSelect(2);
-            Assert.True(TdStore.AssignAll(slots, retain: true));
-            Assert.Contains("\"1\":[2,1,3]", TdStore.StateJson);
-            Assert.Contains("\"2\":[1,2,3]", TdStore.StateJson);
-
-            Assert.True(TdStore.AssignAll(slots));    // everyone already on both -> clear them all
+            Assert.True(TdStore.ToggleCell(7, 2));
+            Assert.Contains("\"7\":[2]", TdStore.StateJson);
+            TdStore.ToggleCell(7, 2);
             Assert.Contains("\"assignments\":{}", TdStore.StateJson);
-            Assert.Contains("\"selected\":[]", TdStore.StateJson);
         }
 
         [Fact]
-        public void Assign_a_second_time_for_the_same_slot_unassigns_it()
+        public void ToggleCell_rejects_id_zero_and_slot_zero()
         {
-            TdStore.ToggleSelect(5);
-            TdStore.Assign(2);
-            TdStore.ToggleSelect(5);   // re-select the same target
-            TdStore.Assign(2);         // toggle the same slot off
-            Assert.DoesNotContain("\"5\":", TdStore.StateJson);
+            Assert.False(TdStore.ToggleCell(0, 2));
+            Assert.False(TdStore.ToggleCell(7, 0));
+            Assert.Equal(Empty, TdStore.StateJson);
         }
 
         [Fact]
-        public void Assign_allows_the_same_target_on_multiple_slots()
+        public void ToggleCell_allows_the_same_target_on_several_slots()
         {
-            TdStore.ToggleSelect(9);
-            TdStore.Assign(2);
-            TdStore.ToggleSelect(9);
-            TdStore.Assign(3);
+            TdStore.ToggleCell(9, 2);
+            TdStore.ToggleCell(9, 3);
             Assert.Contains("\"9\":[2,3]", TdStore.StateJson);
         }
 
+        // A name tap is all-or-nothing, not a per-slot flip: a partly-assigned target gains the
+        // missing slots rather than losing the one it had, and a full row empties.
         [Fact]
-        public void Assign_with_nothing_selected_is_a_no_op()
+        public void ToggleRow_fills_the_gaps_then_a_second_tap_empties_the_row()
         {
-            Assert.False(TdStore.Assign(1));
+            TdStore.ToggleCell(1, 2);
+            Assert.True(TdStore.ToggleRow(1, Slots));
+            Assert.Contains("\"1\":[2,1,3]", TdStore.StateJson);
+
+            TdStore.ToggleRow(1, Slots);
+            Assert.Contains("\"assignments\":{}", TdStore.StateJson);
         }
 
         [Fact]
-        public void Assign_retain_true_keeps_selection_for_a_second_assign()
+        public void ToggleColumn_fills_the_gaps_then_a_second_tap_empties_the_column()
         {
-            // issue #47 follow-up: long-pressing a squad button while assigning lets a leader
-            // designate the same selection to multiple slots in a row without re-selecting.
-            TdStore.ToggleSelect(1);
-            TdStore.ToggleSelect(2);
-            Assert.True(TdStore.Assign(3, retain: true));
-            Assert.Contains("\"selected\":[1,2]", TdStore.StateJson);   // NOT cleared, unlike the default
-            TdStore.Assign(4);   // retain defaults false — this one clears
-            Assert.Contains("\"selected\":[]", TdStore.StateJson);
-            Assert.Contains("\"1\":[3,4]", TdStore.StateJson);
-            Assert.Contains("\"2\":[3,4]", TdStore.StateJson);
+            var ids = new List<uint> { 1, 2 };
+            TdStore.ToggleCell(1, 3);
+            TdStore.ToggleCell(2, 2);   // another slot on the same target is left alone
+            Assert.True(TdStore.ToggleColumn(3, ids));
+            Assert.Contains("\"1\":[3]", TdStore.StateJson);
+            Assert.Contains("\"2\":[2,3]", TdStore.StateJson);
+
+            TdStore.ToggleColumn(3, ids);
+            Assert.DoesNotContain("\"1\":", TdStore.StateJson);
+            Assert.Contains("\"2\":[2]", TdStore.StateJson);
+        }
+
+        [Fact]
+        public void ToggleColumn_with_no_targets_is_a_no_op()
+        {
+            Assert.False(TdStore.ToggleColumn(2, new List<uint>()));
+        }
+
+        [Fact]
+        public void MarkSent_records_each_slot_sorted_and_a_resend_replaces_it()
+        {
+            TdStore.MarkSent(2, new uint[] { 5, 1 });
+            Assert.Contains("\"sent\":{\"2\":[1,5]}", TdStore.StateJson);
+            TdStore.MarkSent(2, new uint[0]);
+            Assert.Contains("\"sent\":{\"2\":[]}", TdStore.StateJson);
         }
 
         [Fact]
         public void ClearSlot_drops_only_the_departed_slot_and_shifts_nobody()
         {
             // A departure leaves a hole: slot 3's assignments go, slots 2 and 4 keep theirs.
-            TdStore.ToggleSelect(1);
-            TdStore.Assign(2);        // target 1 -> slot 2
-            TdStore.ToggleSelect(2);
-            TdStore.Assign(3);        // target 2 -> slot 3 (the departing member — dropped)
-            TdStore.ToggleSelect(3);
-            TdStore.Assign(4);        // target 3 -> slot 4 (stays 4)
-            TdStore.ToggleSelect(4);
-            TdStore.Assign(3);        // target 4 -> slot 3 (Assign clears the selection afterward...
-            TdStore.ToggleSelect(4);  // ...so target 4 needs re-selecting for the second assign)
-            TdStore.Assign(4);        // target 4 -> slots {3,4}
+            TdStore.ToggleCell(1, 2);
+            TdStore.ToggleCell(2, 3);   // only slot 3 — dropped entirely
+            TdStore.ToggleCell(3, 4);
+            TdStore.ToggleCell(4, 3);
+            TdStore.ToggleCell(4, 4);
+            TdStore.MarkSent(3, new uint[] { 2 });
 
             TdStore.ClearSlot(3);
 
             Assert.Contains("\"1\":[2]", TdStore.StateJson);
-            Assert.DoesNotContain("\"2\":", TdStore.StateJson);  // was ONLY slot 3 — dropped entirely
+            Assert.DoesNotContain("\"2\":", TdStore.StateJson);
             Assert.Contains("\"3\":[4]", TdStore.StateJson);
-            Assert.Contains("\"4\":[4]", TdStore.StateJson);     // slot 3 dropped, slot 4 kept
+            Assert.Contains("\"4\":[4]", TdStore.StateJson);
+            Assert.Contains("\"sent\":{}", TdStore.StateJson);
         }
 
         [Fact]
-        public void SwapSlots_moves_each_assignment_with_its_member()
+        public void SwapSlots_moves_each_assignment_and_sent_list_with_its_member()
         {
-            TdStore.ToggleSelect(1);
-            TdStore.Assign(2);        // target 1 -> slot 2
-            TdStore.ToggleSelect(2);
-            TdStore.Assign(3);        // target 2 -> slot 3
-            TdStore.ToggleSelect(3);
-            TdStore.Assign(4);        // target 3 -> slot 4 (not part of the swap)
+            TdStore.ToggleCell(1, 2);
+            TdStore.ToggleCell(2, 3);
+            TdStore.ToggleCell(3, 4);   // not part of the swap
+            TdStore.MarkSent(2, new uint[] { 1 });
 
             TdStore.SwapSlots(2, 3);
 
             Assert.Contains("\"1\":[3]", TdStore.StateJson);
             Assert.Contains("\"2\":[2]", TdStore.StateJson);
             Assert.Contains("\"3\":[4]", TdStore.StateJson);
+            Assert.Contains("\"sent\":{\"3\":[1]}", TdStore.StateJson);
         }
 
         [Fact]
         public void ClearSlot_is_a_safe_no_op_with_nothing_to_clear()
         {
-            Assert.Equal("{\"selected\":[],\"assignments\":{},\"designated\":[]}", TdStore.StateJson);
             TdStore.ClearSlot(0);    // invalid slot
             TdStore.ClearSlot(3);    // no assignments at all yet
-            Assert.Equal("{\"selected\":[],\"assignments\":{},\"designated\":[]}", TdStore.StateJson);
+            Assert.Equal(Empty, TdStore.StateJson);
         }
 
+        // CLEAR discards the matrix but not what members already have, so those slots read CHANGED.
         [Fact]
-        public void ClearOwn_wipes_selection_and_assignments()
+        public void ClearOwn_wipes_assignments_but_keeps_what_was_sent()
         {
-            TdStore.ToggleSelect(1);
-            TdStore.Assign(2);
-            TdStore.ToggleSelect(3);   // still selected, not yet assigned
+            TdStore.ToggleCell(1, 2);
+            TdStore.MarkSent(2, new uint[] { 1 });
 
             Assert.True(TdStore.ClearOwn());
-            Assert.Contains("\"selected\":[]", TdStore.StateJson);
             Assert.Contains("\"assignments\":{}", TdStore.StateJson);
+            Assert.Contains("\"sent\":{\"2\":[1]}", TdStore.StateJson);
         }
 
         [Fact]
@@ -178,24 +158,36 @@ namespace NOXMFD.Tests
         }
 
         [Fact]
-        public void ClearDesignated_empties_the_member_table()
+        public void ClearDesignated_dismisses_without_accepting()
         {
             TdStore.ReceiveDesignation("[{\"id\":1,\"n\":\"A\",\"g\":\"G1\",\"r\":1.0,\"f\":2,\"dl\":false}]");
             Assert.True(TdStore.ClearDesignated());
             Assert.Empty(TdStore.Designated);
+            Assert.Contains("\"accepted\":[]", TdStore.StateJson);
         }
 
         [Fact]
-        public void OnSquadEnded_clears_selection_assignments_and_designated_rows()
+        public void AcceptDesignated_closes_the_designation_and_remembers_its_ids()
         {
-            TdStore.ToggleSelect(1);
-            TdStore.Assign(2);
+            TdStore.ReceiveDesignation("[{\"id\":4,\"n\":\"A\",\"g\":\"G1\",\"r\":1.0,\"f\":2,\"dl\":false}]");
+            Assert.True(TdStore.AcceptDesignated());
+            Assert.Empty(TdStore.Designated);
+            Assert.Contains("\"accepted\":[4]", TdStore.StateJson);
+            Assert.False(TdStore.AcceptDesignated());   // nothing pending any more
+        }
+
+        [Fact]
+        public void OnSquadEnded_clears_everything()
+        {
+            TdStore.ToggleCell(1, 2);
+            TdStore.MarkSent(2, new uint[] { 1 });
             TdStore.ReceiveDesignation("[{\"id\":9,\"n\":\"X\",\"g\":\"G\",\"r\":1.0,\"f\":0,\"dl\":false}]");
+            TdStore.AcceptDesignated();
+            TdStore.ReceiveDesignation("[{\"id\":8,\"n\":\"Y\",\"g\":\"G\",\"r\":1.0,\"f\":0,\"dl\":false}]");
 
             TdStore.OnSquadEnded();
 
-            Assert.Contains("\"selected\":[]", TdStore.StateJson);
-            Assert.Contains("\"assignments\":{}", TdStore.StateJson);
+            Assert.Equal(Empty, TdStore.StateJson);
             Assert.Empty(TdStore.Designated);
         }
     }

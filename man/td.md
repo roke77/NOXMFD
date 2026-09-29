@@ -1,53 +1,56 @@
 # TD — Target Designator
 
-Hand off targets from your own [TGT](tgt.md) list to specific squad members. Only visible on TGT's
-nav row while you're in a [squad](sqd.md); its own content depends on whether you're the leader or
-a member.
-
-## As the leader
-
-The table mirrors your TGT target list, but unlike TGT it's deliberately static rather than
-live-updating — see **REFRESH** below for why. It's a separate view from TGT itself: selecting or
-assigning here never changes what's selected on TGT.
+Hand off targets from your own [TGT](tgt.md) list to specific squad members. Only for the squad
+leader: TD appears on TGT's nav row while you lead a [squad](sqd.md). Members don't use this page —
+what you designate reaches them on their own TGT page, where they add or dismiss it (see
+[TGT](tgt.md#squad-designations)).
 
 ![TD leader view](images/TD_SQD_LEADER.png)
 
-- **Tap a row** to select it (highlighted amber). Multiple rows can be selected at once.
-- **Squad buttons** above the table, one per squad slot including yourself, labeled with each
-  pilot's callsign designation (e.g. `TALON 1-1` is you, `TALON 1-2` and up your members — the
-  same numbers as the [SQD](sqd.md) roster, with no button for an open slot). With one or more rows selected:
-  - **Tap** a squad button to assign them to that slot — the row's highlight clears and a small
-    tag (the plain slot number, not the full designation) shows who has it.
-  - **Long-press** a squad button instead to assign without clearing the highlight, so you can
-    designate the same selection to several slots in a row without re-selecting each time.
+## The assignment matrix
 
-  - **`<CALLSIGN> ALL`** (e.g. `TALON ALL`), right of the squad buttons, assigns every slot at
-    once, yourself included — same tap/long-press behaviour. If every selected target already has
-    every slot, it removes them all instead; otherwise it fills in whichever slots are missing.
+Your targets run down the left, one row each, with their range. Your squad runs across the top, one
+column per slot: **YOU 1-1** (a personal marker, never sent) and one column per member, labeled with
+the squad callsign over the member number (`TALON` over `1-2`), the same numbers as the
+[SQD](sqd.md) roster.
 
-  A target can go to more than one slot; assigning again for an already-assigned target/slot pair
-  un-assigns it. Assigning to your own button is just a personal marker — it's never actually sent
-  anywhere.
-- **DESIGNATE** sends each member their current assigned set, then returns you to TGT — where the
-  new **TD** column shows the same slot numbers you just assigned. Sending again to a member who
-  already has a pending designation replaces it entirely, rather than adding to it.
-- **REFRESH** pulls in the current TGT list and re-applies it to the table. The table only updates
-  on its own when a target is actually selected or deselected in-game (not on every range/grid
-  tick) — REFRESH is the manual way to bring grid/range up to date, or to pick up a target that
-  changed without a fresh select/deselect.
-- **ALL** selects every row currently in the table, same as tapping each one individually.
-- **CLEAR** discards your own in-progress selection/assignment work without touching anything
-  already sent.
+Every control does exactly what it names, with nothing to select first:
 
-## As a member
+- **Tap a cell** to give that target to that member. Tap it again to take it back.
+- **Tap a target's name** to give it to every column at once. If it already has every column, the
+  tap clears the row instead.
+- **Tap a column head** to give that member every target on the table. If they already have them
+  all, the tap empties the column instead.
 
-A read-only table of whatever the leader last designated to you — never your own TGT selections.
+A target can go to as many members as you like.
 
-![TD member view](images/TD_SQD_MEMBER.png)
+## Column status
 
-- **Tap a row** to select that target in-game immediately.
-- **AQUIRE** selects everything currently listed, all at once, then returns you to TGT.
-- **CLEAR** empties your own table. This doesn't notify the leader.
+Each column head shows how many targets that member has, and whether they've got them yet:
+
+- **SENT** (green lamp) — the member has exactly this list.
+- **CHANGED** (amber) — you've changed the list since the last send.
+- **UNSENT** (amber) — never sent yet.
+- **EMPTY** — nothing assigned, nothing sent.
+- **MARKER** — your own column.
+
+## Buttons
+
+- **DESIGNATE** sends every amber column, then returns you to TGT — where the **TD** column shows
+  the member numbers you just assigned. It lights up when something is waiting and counts the
+  lists that will go (`2 LISTS WAITING`); `ALL SENT` means there's nothing new. Each send replaces
+  that member's whole list, and a list you emptied is sent too, so it withdraws what they had
+  pending.
+- **REFRESH** pulls in the current TGT list. The table only updates on its own when a target is
+  actually selected or deselected in-game (not on every range tick), so it never shifts under your
+  finger — REFRESH is the manual way to bring ranges up to date.
+- **CLEAR** discards your assignments. Nothing already sent changes; those columns turn CHANGED.
+
+The line above the buttons shows what your last tap did, or a reminder of the three tap targets.
+
+With more targets than fit, the rows stop shrinking at a comfortable tap size and the table
+scrolls. **Cursor Zoom In/Out** scrolls it from the HOTAS, and the [PAD cursor](keybinds.md#pad-cursor)
+can tap any cell, name, column head or button.
 
 ## HUD marks
 
@@ -63,10 +66,3 @@ rest of the squad is doing at a glance, separate from your own local target lock
 Marks update live and clear automatically once the squad ends.
 
 ![Squad target marks on the in-game HUD](images/TD_SQUAD_HUD_TARGET.png)
-
-## Keybinds
-
-Up to 9 keybinds (**Assign 1**-**Assign 9**, see [KEY](keybinds.md)) mirror the leader's squad
-buttons exactly, tap and hold both: a tap assigns your current selection and clears it, a hold
-assigns without clearing so you can designate the same selection to several slots in a row. Only
-meaningful while your own TD display holds SOI.

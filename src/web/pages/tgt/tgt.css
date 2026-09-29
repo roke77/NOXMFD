@@ -127,6 +127,7 @@ html, body {
 
 /* ── Selected-target list (below the filters) ─────────────────────────────────────────── */
 .tgt-list {
+  position: relative;                  /* anchors the squad designation dock (.tgt-td-dock) */
   flex: 1 1 auto;
   min-height: 0;                       /* let the rows area scroll inside the flex column */
   display: flex; flex-direction: column;
@@ -193,10 +194,10 @@ html, body {
 .tgt-panel.has-flight-col .tl-hdg { display: block; }
 .tgt-panel.has-td-col.has-flight-col .tgt-list-head,
 .tgt-panel.has-td-col.has-flight-col .tl-row {
-  grid-template-columns: minmax(90px, 1fr) clamp(30px, 5vw, 48px) clamp(52px, 8vw, 86px) clamp(60px, 9vw, 96px) clamp(46px, 7vw, 76px)
+  grid-template-columns: minmax(90px, 1fr) clamp(36px, 8vw, 80px) clamp(52px, 8vw, 86px) clamp(60px, 9vw, 96px) clamp(46px, 7vw, 76px)
                           clamp(56px, 8vw, 80px) clamp(60px, 9vw, 86px) clamp(48px, 7vw, 66px);
   /* has-td-col's own floor sum (302) + the 3 new columns' floors + 3 more gap floors. */
-  min-width: 484px;
+  min-width: 490px;
 }
 .tgt-list-head {
   position: sticky;
@@ -240,13 +241,13 @@ html, body {
    excluded from track sizing entirely, so simply revealing it without the wider track here would
    just squeeze the existing four columns instead of adding a fifth. */
 .tgt-td-head, .tl-td { display: none; }
-.tl-td { color: var(--no-squad); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tl-td { color: var(--no-squad); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tgt-panel.has-td-col .tgt-list-head,
 .tgt-panel.has-td-col .tl-row {
-  grid-template-columns: minmax(90px, 1fr) clamp(30px, 5vw, 48px) clamp(52px, 8vw, 86px) clamp(60px, 9vw, 96px) clamp(46px, 7vw, 76px);
+  grid-template-columns: minmax(90px, 1fr) clamp(36px, 8vw, 80px) clamp(52px, 8vw, 86px) clamp(60px, 9vw, 96px) clamp(46px, 7vw, 76px);
   /* Same floor-sum reasoning as the base rule above, with the TD column + its extra gap added
-     (90+30+52+60+46 + 4*6). */
-  min-width: 302px;
+     (90+36+52+60+46 + 4*6). */
+  min-width: 308px;
 }
 .tgt-panel.has-td-col .tgt-td-head,
 .tgt-panel.has-td-col .tl-td { display: block; }
@@ -417,3 +418,79 @@ html, body {
 .tgt-unavailable { display: none; }
 body.unavailable .tgt-panel { display: none; }
 body.unavailable .tgt-unavailable { display: block; }
+
+/* Squad designation dock (docs/target-designator.md): pinned to the bottom of the target list and
+   layered over it — rows, sticky header and scrollbar alike — until answered. While it's up the
+   rows get the same height as bottom padding, so the last rows can still scroll out from under it.
+   Amber is the theme's "waiting on you" colour; ADD green, REPLACE amber, DISMISS neutral grey. */
+.tgt-panel { --tgt-td-dock-h: clamp(44px, 7.4vh, 64px); }
+.tgt-td-dock[hidden], .tgt-td-drawer[hidden] { display: none; }
+.tgt-td-dock {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  z-index: 3;
+}
+.tgt-panel.has-td-dock .tgt-list-rows { padding-bottom: calc(var(--tgt-td-dock-h) + 8px); }
+.tgt-td-bar {
+  height: var(--tgt-td-dock-h);
+  display: flex; align-items: center; gap: clamp(6px, 1.2vw, 10px);
+  padding: 0 clamp(4px, 1vw, 8px) 0 clamp(6px, 1.2vw, 10px);
+  border: 1.5px solid var(--no-amber);
+  border-radius: 3px;
+  /* Opaque, so rows scrolling underneath never show through the bar. */
+  background: linear-gradient(rgba(var(--no-amber-rgb), 0.08), rgba(var(--no-amber-rgb), 0.08)), var(--no-bg);
+}
+.tgt-td-lamp {
+  flex: none; width: 6px; height: 56%;
+  background: var(--no-amber); box-shadow: 0 0 10px rgba(var(--no-amber-rgb), 0.7);
+}
+.tgt-td-toggle, .tgt-td-btn {
+  font-family: var(--no-font);
+  height: 76%;
+  cursor: pointer;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+.tgt-td-toggle {
+  flex: 1 1 auto; min-width: 0;
+  display: flex; align-items: center; gap: 10px;
+  border: 0; background: none; padding: 0;
+  color: var(--no-amber);
+  font-size: clamp(10px, 1.8vmin, 16px);
+  text-align: left;
+}
+.tgt-td-label { overflow: hidden; text-overflow: ellipsis; }
+.tgt-td-show { flex: none; font-size: 0.75em; color: var(--no-label); }
+.tgt-td-btn {
+  flex: none;
+  padding: 0 clamp(8px, 1.6vw, 16px);
+  border: 1.5px solid var(--no-white-dark);
+  border-radius: 3px;
+  background: var(--no-bg);
+  color: var(--no-white-dim);
+  font-size: clamp(9px, 1.7vmin, 15px);
+}
+.tgt-td-btn.add     { border-color: var(--no-green); color: var(--no-green); }
+.tgt-td-btn.replace { border-color: var(--no-amber); color: var(--no-amber); }
+.tgt-td-btn:active  { background: rgba(var(--no-green-rgb), 0.08); }
+/* The designated names, opened from the bar's label, stacked just above it. */
+.tgt-td-drawer {
+  position: absolute; left: 0; right: 0; bottom: calc(var(--tgt-td-dock-h) + 6px);
+  max-height: 50vh; overflow-y: auto;
+  display: flex; flex-direction: column; gap: clamp(4px, 0.8vh, 8px);
+  padding: clamp(6px, 1.2vh, 10px) clamp(8px, 1.4vw, 12px);
+  border: 1.5px solid var(--no-amber);
+  border-radius: 3px;
+  background: var(--no-bg);
+}
+.tgt-td-item { display: flex; align-items: baseline; gap: 12px; font-size: clamp(11px, 1.8vmin, 17px); }
+.tgt-td-item .n { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tgt-td-item .r, .tgt-td-item .g { color: var(--no-green-dim); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tgt-td-item .g { width: 4.5em; }
+.tgt-td-item.f-friendly .n { color: var(--tgt-blue); }
+.tgt-td-item.f-neutral  .n { color: var(--no-label); }
+.tgt-td-item.f-enemy    .n { color: var(--no-red); }
+/* Already in this pilot's list: ADD skips it, so it reads dimmed and says so. */
+.tgt-td-item.listed { opacity: 0.5; }
+.tgt-td-listed { font-size: 0.7em; letter-spacing: 0.06em; color: var(--no-white-dim); margin-left: 8px; }
+/* A row that came from an accepted designation. */
+.tl-td-tag { flex: 0 0 auto; font-size: 0.7em; letter-spacing: 0.04em; color: var(--no-squad); }

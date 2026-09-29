@@ -45,20 +45,78 @@ densityToggleEl.addEventListener('click', function () {
   panel.classList.toggle('has-flight-col', !compact);
 });
 
-// TD column (issue #47 follow-up) — leader-only, so this page needs to know squad role, which
-// nothing else here tracks. Rides the shell's relayed 'sqd-state'/'td-state-push' pushes
+// Squad state (issue #47): the leader-only TD column needs the squad role, and the designation dock
+// below needs the leader's callsign plus TdStore's pending/accepted lists — nothing else here tracks
+// either. Rides the shell's relayed 'sqd-state'/'td-state-push' pushes
 // (docs/sse-push-refactor.md) instead of its own poll — one bootstrap GET each on load for the
 // brief gap before the first push (and for standalone/preview contexts with no shell), then just
 // message listeners. assignments maps target id (string) -> [slot, ...].
 let squadRole = 'none';
+let squadState = null;
 let tdAssignments = {};
 function applySquad(s) {
-  squadRole = (s && s.state && s.state.role) || 'none';
+  squadState = (s && s.state) || null;
+  squadRole = (squadState && squadState.role) || 'none';
   panel.classList.toggle('has-td-col', squadRole === 'leader');
+  renderDock();
 }
 function applyTdState(s) {
-  tdAssignments = (s && s.state && s.state.assignments) || {};
+  const st = (s && s.state) || {};
+  tdAssignments = st.assignments || {};
+  tdDesignated = st.designated || [];
+  tdAccepted = new Set(st.accepted || []);
+  renderDock();
+  renderTargets();
 }
+
+// ── Squad designation dock (docs/target-designator.md) ─────────────────────────────────
+// The leader's DESIGNATE lands here as TdStore's pending `designated` list; the dock floats over
+// the bottom of the target list until ADD / REPLACE / DISMISS answers it (the plugin then clears
+// `designated`, and the next td-state push hides it). `accepted` holds the ids that came in through
+// an answered designation, so their rows carry a TD tag. The drawer's open/closed state is local.
+let tdDesignated = [];
+let tdAccepted = new Set();
+let dockOpen = false;
+const dockEl = document.getElementById('tgt-td-dock');
+const dockDrawer = document.getElementById('tgt-td-drawer');
+const dockToggle = document.getElementById('tgt-td-toggle');
+const dockHead = document.getElementById('tgt-td-label');
+const dockShow = document.getElementById('tgt-td-show');
+const dockAdd = document.getElementById('tgt-td-add');
+function renderDock() {
+  const pending = tdDesignated.length > 0;
+  dockEl.hidden = !pending;
+  panel.classList.toggle('has-td-dock', pending);
+  if (!pending) { dockOpen = false; return; }
+  const listed = new Set(targets.map(function (t) { return t.id; }));
+  const fresh = tdDesignated.filter(function (t) { return !listed.has(t.id); }).length;
+  const leader = squadState ? (squadState.callsign || 'SQD') + ' ' + (squadState.flight || 1) + '-1' : 'LEADER';
+  dockHead.textContent = leader + ' DESIGNATED ' + tdDesignated.length;
+  dockShow.textContent = dockOpen ? 'HIDE ▾' : 'SHOW ▴';
+  dockToggle.setAttribute('aria-expanded', dockOpen ? 'true' : 'false');
+  dockAdd.textContent = 'ADD ' + fresh;
+  dockAdd.setAttribute('aria-label', 'Add ' + fresh + ' new target' + (fresh === 1 ? '' : 's') + ' to yours');
+  dockDrawer.hidden = !dockOpen;
+  if (!dockOpen) return;
+  dockDrawer.innerHTML = '';
+  tdDesignated.forEach(function (t) {
+    const item = document.createElement('div');
+    item.className = 'tgt-td-item ' + factionClass(t.f) + (listed.has(t.id) ? ' listed' : '');
+    const n = document.createElement('span'); n.className = 'n'; n.textContent = t.n || '—';
+    if (listed.has(t.id)) {
+      const tag = document.createElement('span'); tag.className = 'tgt-td-listed'; tag.textContent = 'LISTED';
+      n.appendChild(tag);
+    }
+    const r = document.createElement('span'); r.className = 'r'; r.textContent = fmtRng(t.r, targetsMetric);
+    const g = document.createElement('span'); g.className = 'g'; g.textContent = t.g != null ? String(t.g) : '—';
+    item.appendChild(n); item.appendChild(r); item.appendChild(g);
+    dockDrawer.appendChild(item);
+  });
+}
+dockToggle.addEventListener('click', function () { dockOpen = !dockOpen; renderDock(); });
+dockAdd.addEventListener('click', function () { send('td.accept', { on: false }); });
+document.getElementById('tgt-td-replace').addEventListener('click', function () { send('td.accept', { on: true }); });
+document.getElementById('tgt-td-dismiss').addEventListener('click', function () { send('td.dismiss'); });
 fetch('/squad').then(function (r) { return r.ok ? r.json() : null; }).then(applySquad).catch(function () {});
 fetch('/td-state').then(function (r) { return r.ok ? r.json() : null; }).then(applyTdState).catch(function () {});
 window.addEventListener('message', function (e) {
@@ -82,6 +140,7 @@ let crosshairActive = true;
 const builtKey = { faction: '', category: '', vehicle: '' };
 
 function label(n) { return (n || '').replace(/_/g, ' '); }
+function factionClass(f) { return f === 1 ? 'f-friendly' : f === 0 ? 'f-neutral' : 'f-enemy'; }
 
 function send(cmd, args) {
   if (typeof sendCommand !== 'function') return Promise.resolve();
@@ -214,7 +273,7 @@ function renderTargets() {
     listRows.innerHTML = '';
     list.forEach(function (t) {
       const row = document.createElement('div');
-      row.className = 'tl-row pad-hoverable ' + (t.f === 1 ? 'f-friendly' : t.f === 0 ? 'f-neutral' : 'f-enemy');
+      row.className = 'tl-row pad-hoverable ' + factionClass(t.f);
       row.dataset.id = t.id;
       row.setAttribute('role', 'checkbox'); row.setAttribute('aria-checked', 'true');
       row.setAttribute('aria-label', 'deselect'); row.tabIndex = 0;
@@ -223,7 +282,8 @@ function renderTargets() {
       const name = document.createElement('span'); name.className = 'tl-name';
       const nameText = document.createElement('span'); nameText.className = 'tl-name-text';
       const tti = document.createElement('span'); tti.className = 'tl-tti';
-      name.appendChild(nameText); name.appendChild(tti);
+      const tdTag = document.createElement('span'); tdTag.className = 'tl-td-tag';
+      name.appendChild(nameText); name.appendChild(tdTag); name.appendChild(tti);
       const td   = document.createElement('span'); td.className = 'tl-td';
       const src  = document.createElement('span'); src.className = 'tl-src';
       const dist = document.createElement('span'); dist.className = 'tl-dist';
@@ -243,13 +303,14 @@ function renderTargets() {
     // TTI (docs/hud-tti-estimate.md): only when this lock actually has one of the player's own
     // in-flight guided weapons tracking it (telemetry-source.js only sets t.tti in that case).
     el.querySelector('.tl-tti').textContent = typeof t.tti === 'number' ? 'TTI ' + fmtTti(t.tti) : '';
+    el.querySelector('.tl-td-tag').textContent = tdAccepted.has(t.id) ? 'TD' : '';
     el.querySelector('.tl-grid').textContent = t.g != null ? String(t.g) : '—';
     el.querySelector('.tl-dist').textContent = fmtRng(t.r, targetsMetric);
     // TD column (issue #47 follow-up) — blank when this target isn't currently assigned to anyone;
     // the column itself is hidden entirely for a non-leader (see .has-td-col in tgt.css), so an
     // empty cell here never shows for someone with no leader-side assignments to display anyway.
     const assigned = tdAssignments[String(t.id)] || [];
-    el.querySelector('.tl-td').textContent = assigned.length ? assigned.join(' ') : '';
+    el.querySelector('.tl-td').textContent = assigned.length ? assigned.slice().sort(function (a, b) { return a - b; }).join(' ') : '';
     // SPD/ALT/HDG (issue #88, only rendered while .has-flight-col is on): "—" when this target has
     // no HasDetail — a stale lock, or a non-aircraft/missile category — same gate/placeholder MAP's
     // hover tooltip already uses for the identical data.
@@ -337,7 +398,7 @@ staleBtn.addEventListener('click', function () { send('tgt.clear-stale'); });
 // Same crosshair/transport MAP uses (pad-cursor.js), driven here only while this TGT is the SOI's
 // focused surface. Clamped to the panel's own box (panel-local px, matching the crosshair's
 // positioned ancestor — see tgt.css's .tgt-panel { position: relative }).
-const CURSORABLE = '.tgt-cell, .tgt-veh, .tl-sort, .tl-row, .tgt-action, .tgt-mode, .tgt-datalink-btn, .tgt-stale-btn, .tgt-preset-btn, .tgt-density-toggle';
+const CURSORABLE = '.tgt-cell, .tgt-veh, .tl-sort, .tl-row, .tgt-action, .tgt-mode, .tgt-datalink-btn, .tgt-stale-btn, .tgt-preset-btn, .tgt-density-toggle, .tgt-td-toggle, .tgt-td-btn';
 const padCursorEl = document.getElementById('pad-cursor');
 const cursor = createPadCursor({
   el: padCursorEl,
@@ -432,6 +493,7 @@ window.addEventListener('message', function (e) {
     sortDir = m.sortDir < 0 ? -1 : 1;
     renderSort();
     renderTargets();
+    renderDock();   // ADD's count and the LISTED marks follow the live selection
   } else if (m.action === 'cursor-focus') {
     // A fresh SOI grant always starts crosshair-active, regardless of whatever mode a previous
     // grant left behind — there's no stale mode worth carrying across a focus loss.

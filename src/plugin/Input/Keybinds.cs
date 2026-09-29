@@ -137,11 +137,6 @@ namespace NOXMFD
         // directly rather than through the generic Drive/DriveFree per-frame dispatch.
         private static BindDef? _combatModeAa, _combatModeAg;
 
-        // TD's 9 Assign binds (issue #47 follow-up) — same tap-vs-hold gesture as the TD page's own
-        // squad buttons (tap assigns and clears the selection, hold assigns and keeps it lit for the
-        // next slot), so a keybind and a click behave identically. Index 0 unused — slots are 1-9.
-        private static readonly BindDef?[] _tdAssign = new BindDef?[10];
-
         // Previous Waypoint / Steer Point (W-) tap/hold, same reasoning as the pair above: tap steps
         // back one waypoint (or steer point), hold jumps the active route straight back to its first
         // waypoint — a no-op with no active route, same as every other route mutator.
@@ -256,21 +251,6 @@ namespace NOXMFD
                 "Deselect every stale lock, same as tapping STALE on a TGT display — works regardless " +
                 "of which display (if any) is focused.",
                 () => { TelemetryServer.MapAction("tgt-stale"); CommandDispatcher.ClearStaleTargets(); });
-
-            // Target Designator binds (issue #47, docs/target-designator.md) — one per squad slot
-            // (1 = leader/self, 2..9 = each member's own slot number), mirroring the TD page's own squad
-            // buttons: assigns whatever's currently selected on the leader's TD table to that slot.
-            // edge:false + PollTapHold (below), not a plain DefFree action, so a hold assigns without
-            // clearing the selection — same tap-vs-hold gesture the on-screen squad button itself uses.
-            const string td = "TD Keybinds";
-            for (int slot = 1; slot <= 9; slot++)
-            {
-                int s = slot;   // local copy — the lambda below outlives this loop iteration
-                _tdAssign[s] = DefFree(config, "td-assign-" + s, td, "TdAssign" + s, "Assign " + s, edge: false,
-                    "Assign the leader's currently-selected TD targets to squad slot " + s +
-                    ". Hold to assign without clearing your TD selection, same as the page's own squad button.",
-                    () => { });
-            }
 
             // SOI binds — they drive the mod's own displays rather than the aeroplane, so they are
             // DefFree (no aircraft needed) and work at the main menu. See docs/keybinds-page.md.
@@ -640,7 +620,6 @@ namespace NOXMFD
             "Landing Gear Keybinds"   => "GEAR",
             "MAP Keybinds"            => "MAP",
             "TGT Keybinds"            => "TGT",
-            "TD Keybinds"             => "TD",
             "SOI Keybinds"            => "SOI",
             "Cursor Keybinds"         => "CURSOR",
             "TGP Keybinds"            => "TGP",
@@ -668,10 +647,6 @@ namespace NOXMFD
                 "the crosshair and hand Cursor Select to the focused row — moving Cursor Up/Down/Left/" +
                 "Right (or its axis) hands Select back to the crosshair. Datalink/Stale deselect those " +
                 "locks everywhere, same as tapping the DATALINK/STALE buttons.",
-            "TD Keybinds" =>
-                "Only meaningful on the leader's own TD display while it holds SOI — assigns whatever's " +
-                "currently selected on that table to squad slot 1-9 (1 is yourself), same as tapping the " +
-                "matching squad button.",
             "SOI Keybinds" =>
                 "One display at a time is the sensor of interest — it rings itself in white, and these " +
                 "keys drive it. Nothing is focused until you press SOI Next or Prev; from there they " +
@@ -1048,22 +1023,6 @@ namespace NOXMFD
             // directly, whichever browser currently holds SOI reacts to the broadcast.
             PollTapHold(_mapWaypointPrev!, now, onTap:  () => TelemetryServer.MapAction("waypoint-prev"),
                                                  onHold: () => TelemetryServer.MapAction("waypoint-reset"));
-
-            // TD's 9 Assign binds — same tap/hold reasoning as the combat-mode pair above, but called
-            // directly through KeybindTapHold.Poll rather than PollTapHold: capturing the loop-local
-            // `slot` in a pair of onTap/onHold closures allocated a display class plus two delegates on
-            // every one of the 9 iterations, every single frame, even with every TD bind unbound —
-            // ~1,600 objects/sec at 60 fps (docs/plugin-efficiency-audit.md finding 01). The two
-            // outcomes differ only in TdStore.Assign's own `retain` flag (issue #47 follow-up), so
-            // there's nothing left for two separate closures to do.
-            for (int slot = 1; slot <= 9; slot++)
-            {
-                BindDef b = _tdAssign[slot]!;
-                var ev = KeybindTapHold.Poll(b.ActiveNow, now, ref b.PressStartTime, ref b.HoldFired);
-                if (ev == KeybindTapHold.Event.None) continue;
-                TelemetryServer.MapAction("td-assign-" + slot);
-                if (Squad.IsLeader) TdStore.Assign(slot, retain: ev == KeybindTapHold.Event.Hold);
-            }
 
             bool remoteGun = TelemetryServer.GetRemoteFireState("gun");
             bool remoteRelease = TelemetryServer.GetRemoteFireState("release");
