@@ -161,12 +161,14 @@
   box-shadow: inset 0 0 10px rgba(var(--no-squad-rgb), 0.3);
 }
 
+/* Same empty state as TGT's .tgt-list-empty: centred in whatever the matrix area has left. An empty
+   .td-rows stops growing so this note, not the rows container, takes that space. */
+.td-rows:empty { flex: 0 0 auto; }
 .td-empty {
-  font-size: clamp(10px, 1.6vmin, 14px);
-  letter-spacing: 0.06em;
-  color: var(--no-gray);
-  text-align: center;
-  padding: clamp(8px, 2vh, 16px) 0;
+  flex: 1 1 auto;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--no-green-dark);
+  font-size: clamp(11px, 1.8vmin, 16px); letter-spacing: 0.08em;
 }
 .td-rows:not(:empty) + .td-empty { display: none; }
 
