@@ -35,6 +35,17 @@ export function gridLabel(wx, wz, meta) {
   return vert + `${majX}${minX}`;
 }
 
+// Inverse of gridLabel: the world centre {x, z} of a grid square like "Ig69" (case-insensitive), or
+// null when the text isn't a grid reference or the square lies outside the map.
+export function gridToWorld(text, meta) {
+  const m = meta && /^([a-z])([a-z])(\d)(\d)$/i.exec(String(text).trim());
+  if (!m) return null;
+  const vz = ((m[1].toUpperCase().charCodeAt(0) - 65) * 10 + (m[2].toLowerCase().charCodeAt(0) - 97)) * 1000 + 500;
+  const vx = (Number(m[3]) * 10 + Number(m[4])) * 1000 + 500;
+  const x = vx - meta.ox, z = meta.oy - vz;
+  return Math.abs(x) <= meta.w / 2 && Math.abs(z) <= meta.h / 2 ? { x, z } : null;
+}
+
 // AKF advanced kill feed (docs/akf-page.md) default/reset shape — shared by the mission-present
 // fallback below and _emitEmpties, so the two can't drift out of sync with each other.
 const AKF_EMPTY = { all: [], player: [], kills: { aircraft: 0, ship: 0, vehicle: 0, building: 0 },

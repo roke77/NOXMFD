@@ -17,7 +17,7 @@
 const assert = require('assert');
 
 (async () => {
-  const { TelemetrySource, gridLabel } = await import('./telemetry-source.js');
+  const { TelemetrySource, gridLabel, gridToWorld } = await import('./telemetry-source.js');
 
   // ── gridLabel ───────────────────────────────────────────────────────────────────────
   // Reproduces the game's own grid label from world coords, and is read in two places (the MAP
@@ -44,6 +44,17 @@ const assert = require('assert');
     // a bogus one from a negative char code.
     assert.strictEqual(gridLabel(-60000, 50000, meta), '—', 'west of the map should decline');
     assert.strictEqual(gridLabel(-50000, 60000, meta), '—', 'north of the map should decline');
+
+    // gridToWorld is gridLabel's inverse (TGP map/grid slew, issue #103): the centre of the named
+    // square, so labelling that point must give the same name back, in any letter case.
+    for (const name of ['Aa00', 'Ig69', 'Jj99']) {
+      const w = gridToWorld(name, meta);
+      assert.strictEqual(gridLabel(w.x, w.z, meta), name, name + ' should round-trip through its centre');
+    }
+    assert.deepStrictEqual(gridToWorld('aa00', meta), { x: -49500, z: 49500 }, 'case and square centre');
+    assert.strictEqual(gridToWorld('Ka00', meta), null, 'a square past the map edge should decline');
+    assert.strictEqual(gridToWorld('Ig6', meta), null, 'a malformed reference should decline');
+    assert.strictEqual(gridToWorld('Ig69', null), null, 'no map metadata should decline');
 
     // The label range this scheme supports: majZ indexes from 'A', so it stays alphabetic while the
     // map is under ~260km tall. Pinned so a bigger map fails here rather than rendering '[c87'

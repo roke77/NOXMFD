@@ -69,6 +69,8 @@ namespace NOXMFD
         // a few meters away, often behind or into the airframe, which is exactly what read as
         // "Point Track snaps to face backward into the aircraft."
         private const int WorldGeometryLayerMask = 64;
+        // SlewTo's ground probe starts this far above sea level; taller than any terrain.
+        private const float SlewProbeHeightM = 10000f;
         // Bigger than ReadAxis's own 0.03 deadzone (Keybinds.cs) — that one's tuned for a
         // self-centering cursor stick, not for gating something as expensive/disruptive as a
         // redesignate raycast. A physical axis resting a few percent off dead center will still
@@ -294,6 +296,37 @@ namespace NOXMFD
             {
                 Plugin.Log?.LogInfo("[NOXMFD] TGP manual control: Point Track found nothing to lock onto — ignored.");
             }
+        }
+
+        // Map/grid slew (issue #103): engage manual control if needed and lock Point Track on the
+        // ground at world (wx, wz). Ground height comes from a downward raycast; where no terrain
+        // collider answers (streamed out, or beyond the loaded area) the point sits at sea level,
+        // which still gives the right bearing for a coarse slew. Aim limits are not enforced in
+        // manual mode, so the pod always reaches the point.
+        internal static void SlewTo(float wx, float wz)
+        {
+            if (!ManualMode) Toggle();
+            if (!ManualMode) return;
+            GameManager.GetLocalAircraft(out Aircraft ac);
+            TargetCam? tc = ac != null ? ac.targetCam : null;
+            if (tc == null || !TgpManualTargetCamAccess.Ensure()) return;
+            Transform? mount = TgpManualTargetCamAccess.GetMount(tc);
+            if (mount == null) return;
+
+            Vector3 top = new Vector3(wx, 0f, wz) + Datum.originPosition;
+            top.y = Datum.LocalSeaY + SlewProbeHeightM;
+            Vector3 ground = Physics.Raycast(top, Vector3.down, out RaycastHit hit, SlewProbeHeightM * 2f, WorldGeometryLayerMask)
+                ? hit.point
+                : new Vector3(top.x, Datum.LocalSeaY, top.z);
+            Vector3 toPoint = ground - mount.position;
+            if (toPoint.sqrMagnitude < 1f) return;
+
+            _trackedPoint = ground.ToGlobalPosition();
+            _pointTrackActive = true;
+            _pointTrackBaseline = _panDir = toPoint.normalized;
+            _pointTrackOffsetAz = _pointTrackOffsetEl = 0f;
+            _wasNudgingPointTrack = false;
+            Plugin.Log?.LogInfo($"[NOXMFD] TGP manual control: slewed to ({wx:0}, {wz:0}), {toPoint.magnitude:0}m.");
         }
 
         // PAD Cursor Select handoff: resolve the current ground look point from either Point Track's

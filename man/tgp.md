@@ -109,6 +109,11 @@ Manual control reuses the same PAD Cursor every other display already uses (see
   Cursor keys or axis to point the camera instead — tap the picture to bring it back, or leave and
   reopen the page.
 
+## Slewing from the map
+
+The [MAP](map.md#tgp-slew) page's TGP SLEW button aims the pod at a clicked spot or a typed grid
+reference, using Point Track.
+
 ## In-game HUD cue
 
 While manual control is on and you're looking through the cockpit, an amber **TGP** marker on the

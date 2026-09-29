@@ -42,6 +42,17 @@ locked target's kinematics — the label adds stacked heading, speed, and altitu
 without needing to lock it first. A datalink-stale contact, or any non-aircraft contact, just shows
 the type with no extra lines.
 
+## TGP slew
+
+The **TGP SLEW** button in the bottom-left corner points the [TGP](tgp.md) at a spot on the map.
+Press it, then click or tap the map (or press Cursor Select) and the pod turns manual control on if
+needed and locks [Point Track](tgp.md#area-track-and-point-track) on that ground point. Or type a
+grid reference such as `Ig69` into the box that appears and press Enter to look at the centre of
+that square. A grid square is large, so treat the result as a coarse slew and fine-tune with the
+PAD cursor. Escape, or pressing SLEW again, cancels.
+
+The pod does not check line of sight: a spot behind a hill slews the same as a clear one.
+
 ## Nuclear exclusion zones
 
 When a nuclear weapon is launched at a target, the map draws the same orange **exclusion zone**

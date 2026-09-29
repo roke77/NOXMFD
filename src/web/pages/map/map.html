@@ -57,6 +57,13 @@
       <div id="grid-bar" class="mfd-chip empty">GRID: &mdash;</div>
       <div id="route-bar" class="mfd-chip empty">ROUTE: &mdash;</div>
     </div>
+    <!-- TGP slew (issue #103): SLEW arms the map — the next click, tap or Cursor Select points the
+         TGP at that spot — and reveals a grid entry (e.g. Ig69). Unlike the chips above it takes
+         pointer events. -->
+    <div id="slew-panel">
+      <button id="slew-btn" type="button">TGP SLEW</button>
+      <input id="slew-grid" type="text" maxlength="4" placeholder="Ig69" autocomplete="off" spellcheck="false">
+    </div>
     <div id="unit-label"></div>
   </div>
 </main>

@@ -2,7 +2,7 @@
 // interactions. The telemetry transport + the derive-and-broadcast "provider" role live in
 // TelemetrySource (telemetry-source.js); this file instantiates it and renders the frames it
 // hands back. See src/web/README.md for why MAP is the telemetry tap.
-import { TelemetrySource, gridLabel } from '/assets/services/telemetry-source.js';
+import { TelemetrySource, gridLabel, gridToWorld } from '/assets/services/telemetry-source.js';
 import { createPadCursor } from '/assets/services/pad-cursor.js';
 
 let viewActive = true;
@@ -177,6 +177,8 @@ const oc       = overlay.getContext('2d');
 const gridBar   = document.getElementById('grid-bar');
 const cursorBar = document.getElementById('cursor-bar');
 const routeBar  = document.getElementById('route-bar');
+const slewPanel = document.getElementById('slew-panel');
+const slewGrid  = document.getElementById('slew-grid');
 const jamBar    = document.getElementById('jam-bar');
 const unitLabel = document.getElementById('unit-label');
 const cursorEl  = document.getElementById('soi-cursor');   // SOI crosshair — see pad-cursor.js
@@ -187,7 +189,7 @@ const cursorEl  = document.getElementById('soi-cursor');   // SOI crosshair — 
 const cursor = createPadCursor({
   el: cursorEl,
   clampRect: imgRect,
-  onSelect: (x, y) => selectAt(x, y, CURSOR_HIT_PAD),
+  onSelect: (x, y) => { if (!slewAt(x, y)) selectAt(x, y, CURSOR_HIT_PAD); },
   // Cursor Select held past holdMs = waypoint placement, or removal if held over an existing one
   // (issue #38).
   onHold: (x, y) => placeNavigationPointAt(x, y, CURSOR_HIT_PAD),
@@ -1344,6 +1346,37 @@ function deselectAt(px, py, pad) {
   sendCommand('target.deselect', { id: hit.id }).catch(function() {});
 }
 
+// ── TGP slew (issue #103) ───────────────────────────────────────────────────────────
+// SLEW arms the map: the next click/tap/Cursor Select points the TGP at that ground spot instead
+// of selecting a contact, then disarms. The grid entry (shown while armed) slews to a square's
+// centre on Enter.
+function setSlewArmed(on) {
+  slewPanel.classList.toggle('armed', on);
+  slewGrid.classList.remove('bad');
+  if (on) slewGrid.focus(); else slewGrid.blur();
+}
+function slewTo(w) {
+  sendCommand('tgp.slew', { wx: w.x, wz: w.z }).catch(function() {});
+  setSlewArmed(false);
+}
+// Returns true when the press was consumed as a slew.
+function slewAt(sx, sy) {
+  if (!slewPanel.classList.contains('armed')) return false;
+  const w = overlayToWorld(sx, sy);
+  if (w) slewTo(w);
+  return true;
+}
+document.getElementById('slew-btn').addEventListener('click', function() {
+  setSlewArmed(!slewPanel.classList.contains('armed'));
+});
+slewGrid.addEventListener('keydown', function(e) {
+  e.stopPropagation();   // typing a grid must not fire the page's keybinds
+  if (e.key === 'Escape') { setSlewArmed(false); return; }
+  if (e.key !== 'Enter') { slewGrid.classList.remove('bad'); return; }
+  const w = gridToWorld(slewGrid.value, mapMeta);
+  if (w) { slewGrid.value = ''; slewTo(w); } else slewGrid.classList.add('bad');
+});
+
 // Right-click deselects (mouse only). auxclick, not contextmenu: a touch long-press also raises
 // contextmenu, and on MAP that gesture places a waypoint.
 overlay.addEventListener('auxclick', function(e) {
@@ -1357,6 +1390,7 @@ overlay.addEventListener('click', function(e) {
   if (gestureMoved) return;   // that was a pan/pinch, not a select
   const rect = overlay.getBoundingClientRect();
   const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+  if (slewAt(mx, my)) return;
   // Touch taps reach past the icon (fat finger); a mouse stays precise.
   const pad = lastPointerType === 'touch' ? TOUCH_HIT_PAD : 0;
   selectAt(mx, my, pad);
