@@ -80,7 +80,7 @@ Two ways the camera aims while in manual control:
 - **Point Track** — locks the aim onto a fixed point in the world instead, holding steady on that
   spot as your aircraft moves around it. Press **Point Track** (or the **TRK** button on this
   page's own nav row) to lock onto whatever the camera is currently pointed at; press it again to
-  release back to Area Track. While locked, Pan/Tilt nudges the locked point itself rather than a
+  release back to Area Track. While locked, a small dot marks the centre of the picture, and Pan/Tilt nudges the locked point itself rather than a
   free direction, and re-locks onto the new point once you stop nudging.
 
 ## Pointing the camera

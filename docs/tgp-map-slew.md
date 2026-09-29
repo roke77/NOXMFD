@@ -36,6 +36,12 @@ presses the tile under the PAD cursor. `gridToWorld` (telemetry-source.js) is th
 SLEW is the last item of MAP's nav list: last on the right bank in full view, last on the final
 page in a split pane.
 
+## MAP pointer
+
+A keyboard-and-mouse player has two pointers on MAP; `map.js` shows one (`padMode`/`activePos()`, see
+docs/map-cursor.md), and TGP Slew to Cursor acts under the visible one. Under FLW the PAD cursor starts at
+the view centre, which is the aircraft, so slewing to a hidden centred crosshair aimed at ownship.
+
 ## Decisions
 
 - A slew engages manual control without claiming SOI (`Toggle(claimSoi: false)`). Claiming it moved
@@ -52,3 +58,8 @@ page in a split pane.
 - Pod holds the point as the aircraft moves; a real lock still ends manual control.
 - Both keybinds on a HOTAS; keypad presses with the PAD cursor.
 - SLEW tap/hold on the classic bezel and the F-35 glass, including split panes.
+
+## Point Track marker
+
+Point Track draws a small centred dot at 80% opacity (web, in-cockpit and full screen), replacing the square
+box; the boresight crosshair arms are unchanged. The two in-game surfaces share `TgpNativeOverlay.PointTrackDotColor`.
