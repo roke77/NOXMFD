@@ -361,6 +361,8 @@ function addSquadRow(number, name, aircraft, isLeaderRow, isSelf, memberId) {
       icon.src = '/icon?type=' + encodeURIComponent(aircraft);
       icon.alt = '';
       aircraftEl.appendChild(icon);
+    } else {
+      aircraftEl.classList.add('plain');   // no icon: keep the name aligned with rows that have one
     }
     aircraftEl.appendChild(document.createTextNode(aircraft));
   }

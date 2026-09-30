@@ -210,10 +210,20 @@ select:focus { outline: 1px solid var(--no-green-dim); }
 .sqd-invite-text { flex: 1; font-size: 13px; letter-spacing: 1px; color: var(--no-white-dim); }
 .sqd-invite-actions { display: flex; gap: 8px; }
 
-/* ── Squad roster table: designation | pilot | aircraft | trailing ── */
+/* ── Squad roster table: designation | pilot | aircraft | trailing ──
+   One grid shared by the header and every row (rows are subgrids, .sqd-rows is display:contents), so
+   the first two columns shrink to their widest content and the aircraft column takes all the rest,
+   instead of fixed widths that left the aircraft name cut off next to empty space. */
+.sqd-table {
+  display: grid;
+  grid-template-columns: fit-content(180px) fit-content(240px) minmax(0, 1fr) auto;
+  column-gap: 15px;
+}
+.sqd-rows { display: contents; }
 .sqd-cols, .sqd-squad-row {
   display: grid;
-  grid-template-columns: minmax(100px, 164px) minmax(90px, 170px) minmax(0, 1fr) auto;
+  grid-template-columns: subgrid;
+  grid-column: 1 / -1;
   align-items: center;
   column-gap: 15px;
 }
@@ -253,10 +263,12 @@ select:focus { outline: 1px solid var(--no-green-dim); }
   text-overflow: ellipsis;
 }
 .sqd-squad-row.open .sqd-row-aircraft { color: var(--no-white-dark); }
+.sqd-row-aircraft.plain { padding-left: 40px; }   /* icon width + gap */
 .sqd-row-aircraft-icon { flex: none; width: 30px; height: 20px; object-fit: contain; opacity: 0.9; }
 
 /* LEADER badge (amber) — outlined, on the leader's own row. */
 .sqd-row-mark {
+  justify-self: end;
   padding: 2px 8px;
   border: 1px solid var(--no-amber);
   font-size: 12px;
@@ -316,7 +328,10 @@ select:focus { outline: 1px solid var(--no-green-dim); }
   .sqd-squad-card.sqd-editing .sqd-btn { flex: 1 1 0; }
 
   .sqd-cols { display: none; }
+  .sqd-table { display: block; }
+  .sqd-rows { display: block; }
   .sqd-squad-row {
+    grid-column: auto;
     grid-template-columns: minmax(110px, 42%) minmax(0, 1fr) auto;
     row-gap: 2px;
     padding: 8px 8px 8px 10px;
