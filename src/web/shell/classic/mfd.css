@@ -594,6 +594,9 @@
   .overlay-item.tgp-scrim {
     background: rgba(0, 0, 0, 0.6);
     padding: 2px 6px;
+    /* The pill's side padding must not push the text off the edge anchor every other page's labels
+       sit on: the negative margin pulls the box out by the same 6px, so the text stays put. */
+    margin-inline: -6px;
     border-radius: 2px;
   }
 

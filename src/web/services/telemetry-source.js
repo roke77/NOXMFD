@@ -367,14 +367,19 @@ export class TelemetrySource {
     } else {
       targets = [];
     }
-    // Attach each row's own TTI. The parallel arrays use -1 for "nothing of the player's is
-    // tracking this lock," and preview mocks can opt in by supplying the same fields.
+    // Attach each row's own TTI and the weapon behind it (t.wpn). The parallel arrays use -1 / ""
+    // for "nothing of the player's is tracking this lock," and preview mocks can opt in by
+    // supplying the same fields.
     if (Array.isArray(d.lockedTargetIds) && Array.isArray(d.lockedTargetTti)) {
+      const wpns = Array.isArray(d.lockedTargetWpn) ? d.lockedTargetWpn : [];
       const ttiById = new Map();
-      for (let i = 0; i < d.lockedTargetIds.length; i++) ttiById.set(d.lockedTargetIds[i], d.lockedTargetTti[i]);
+      for (let i = 0; i < d.lockedTargetIds.length; i++) ttiById.set(d.lockedTargetIds[i], [d.lockedTargetTti[i], wpns[i]]);
       for (const t of targets) {
-        const v = ttiById.get(t.id);
-        if (typeof v === 'number' && v >= 0) t.tti = v;
+        const [v, w] = ttiById.get(t.id) || [];
+        if (typeof v === 'number' && v >= 0) {
+          t.tti = v;
+          if (w) t.wpn = w;
+        }
       }
     }
     this._postUp({ type: 'targets', items: targets, focusedTargetId: d.focusedTargetId || 0, metric: !!d.metric,

@@ -132,6 +132,10 @@ namespace NOXMFD
         // focused one the native HUD cue already does.
         public float[] LockedTargetTti;
 
+        // Per entry in LockedTargetIds: the unitName of the weapon behind that lock's TTI ("" when
+        // LockedTargetTti is -1). TGT's WPN column.
+        public string[] LockedTargetWpn;
+
         // TGT's shared column sort (TargetSort.cs) — "" (lock order) | "n" | "src" | "r", and
         // +1/-1. LockedTargetIds above is already in this order; TGT only draws the ▲/▼ from it.
         public string TgtSortKey;

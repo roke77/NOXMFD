@@ -7,26 +7,31 @@ targeted, and see what you currently have selected.
 
 ## Filters
 
-Rows of toggles for faction (friendly/enemy), category, and vehicle type, plus LASER and HUD mode
-buttons:
+Under a **FILTERS** heading, rows of toggles for faction (friendly/enemy), category, and vehicle
+type, plus LASER and HUD mode buttons. Each lights a small lamp above its label while it is on —
+green, or blue for FRIENDLY and red for ENEMY:
 
 - **Tap** a filter to turn it on or off.
 - **Hold** a filter to isolate it — turns everything else in its row off, leaving just that one on.
-- **RESET FILTER** turns every filter back on.
+- **RESET FILTERS** (bottom row) turns every filter back on.
 
 Units the filters leave out are drawn dimmed on the [MAP](map.md), same as on the in-game map.
 
 ## Target list
 
-The **NAME** column header reads **TARGETS (N)** — the running total in amber — handy for matching
+The first column header reads **TARGETS (N)** — the running total in amber — handy for matching
 ordnance count to target count without leaving the map to check the cockpit MFD.
 
 Every target you currently have selected, one row per target:
 
-- **NAME** — the unit's name, with a **TTI** (time-to-impact) reading beside it whenever one of
-  your own missiles or guided bombs is currently in flight and tracking that lock — the same
-  reading the in-game HUD's own [time-to-impact readout](rdr.md#in-game-hud-cue) shows for whichever
-  target is focused, just available here for every locked target at once, not only the focused one.
+- **TARGETS** — the unit's name.
+- **WPN** — the weapon of yours that is currently in flight and tracking that lock. Blank when
+  nothing is.
+- **TTI** — that weapon's time to impact as `m:ss`, the same reading the in-game HUD's own
+  [time-to-impact readout](rdr.md#in-game-hud-cue) shows for whichever target is focused, just
+  available here for every locked target at once, not only the focused one. Blank when nothing is
+  tracking the lock. With several weapons on one target, WPN and TTI both describe the one closest
+  to impact.
 - **TD** — while you're leading a [squad](sqd.md), which member number(s) you've designated this
   target to on the [Target Designator page](td.md) (blank if none). Only you see this column — it's
   your own in-progress/sent designation work, not visible to anyone else, and it doesn't appear at
@@ -51,12 +56,12 @@ still read it out), but Select now acts on whatever the cursor is pointing at in
 
 ### Sorting
 
-**Tap the NAME, SRC or RNG column header** to sort the list by that column; tap it again to
+**Tap the TARGETS, SRC or RNG column header** to sort the list by that column; tap it again to
 reverse the order. A green **▲** / **▼** beside the header shows which column is sorting and in
 which direction. **Long-press** any of the three to go back to the default order — the order the
-game itself holds your locks in. GRID and the TD/flight-data columns don't sort.
+game itself holds your locks in. WPN, TTI, GRID and the TD/flight-data columns don't sort.
 
-- NAME sorts alphabetically, SRC in the order DATALINK, SENSOR, STALE.
+- TARGETS sorts alphabetically, SRC in the order DATALINK, SENSOR, STALE.
 - RNG re-sorts live as ranges change, with any target whose range isn't known always last.
 - Targets that tie keep their default order.
 
@@ -66,7 +71,7 @@ top to bottom.
 
 ## Flight data columns
 
-A DETAILED/COMPACT toggle, bottom right of the target list footer, appends three more columns
+A DETAILED/COMPACT toggle, bottom right under the target list, appends three more columns
 after GRID:
 
 - **SPD** — the target's current speed.
@@ -75,7 +80,7 @@ after GRID:
 
 Same data the [MAP](map.md) page's own hover tooltip already shows for a unit. A target shows
 **—** in all three when that data isn't available — a stale lock, or a target that isn't an
-aircraft or missile. COMPACT (the NAME/TD/SRC/RNG/GRID columns only) is the default; the
+aircraft or missile. COMPACT (the TARGETS/WPN/TTI/TD/SRC/RNG/GRID columns only) is the default; the
 setting isn't remembered across a reload.
 
 ![TGT page in DETAILED mode](images/TGT_DETAILED.png)
@@ -97,26 +102,35 @@ cockpit view:
   exactly this target, even with others also locked — instead of the stock Weapon Release trigger's
   own behavior of firing one round at *every* locked target in sequence.
 
-## Bulk-clearing by source
+## Action buttons
 
-Two buttons below the list clear targets by *why* they're selected, without touching the rest:
+Four buttons are docked in one row at the bottom of the page, outside the scrolling list, so they
+stay reachable however long the list is:
 
-- **DATALINK** — deselects every datalink-only lock.
-- **STALE** — deselects every stale lock.
+- **RESET FILTERS** (amber) — turns every filter back on.
+- **CLEAR TARGETS** (red) — deselects everything.
+- **CLEAR DATALINK** (purple) — deselects every datalink-only lock. Shows how many that is.
+- **CLEAR STALE** (white) — deselects every stale lock. Shows how many that is.
+
+The last two clear targets by *why* they're selected, without touching the rest.
 
 ## Presets
 
-Up to 5 named presets of your own filters, saved server-side so any connected browser can save or
-load one. A bar between the header and the filter group reads **PRESET N: name** — whichever of
-the 5 is current — followed by **SAVE** and **LOAD**.
+Five preset slots for your own filters, saved server-side so any connected browser can save or
+recall one. Under a **PRESETS (hold to save)** heading, five cards sit in a row, one per slot; a
+card's position is its slot. The lit card is the current preset; a slot nobody has saved into reads
+**EMPTY** with a dashed border.
 
-- **SAVE** — opens a name prompt; submitting it captures the page's current filters (faction,
-  category, vehicle type, plus LASER and HUD mode) into the current preset under that name.
-- **LOAD** — opens a list of all 5 presets. Clicking one applies its saved filters and makes it
-  the current preset; a pencil icon renames it in place, and a **×** clears it back to empty
-  (name and data both) — the slot itself stays, only its contents are gone.
-- The 5 numbered keybinds on [KEY](keybinds.md#tgt-presets) recall a preset directly without
-  opening LOAD, and also become the current preset.
+- **Tap** a card to recall it — it applies that preset's saved filters (faction, category, vehicle
+  type, plus LASER and HUD mode) and becomes the current preset. Tapping an empty slot just makes it
+  current.
+- **Hold** a card to open its **SAVE PRESET** dialog, styled like the MAP page's TGP slew keypad: an
+  amber name entry (prefilled with the slot's existing name) over three buttons. **CANCEL** (white)
+  closes it; **CLEAR** (red) empties the slot, name and filters both, and is greyed out on a slot
+  that is already empty; **SAVE** (green) saves your current filters into that slot under that name
+  and makes it current. Enter saves and Escape cancels. Holding never also recalls.
+- The 5 numbered keybinds on [KEY](keybinds.md#tgt-presets) recall a preset directly, and also
+  become the current preset.
 
 ## Keybinds and PAD cursor
 

@@ -99,6 +99,16 @@ namespace NOXMFD
                     sb.Append(lockedTti[i].ToString("0.0", CultureInfo.InvariantCulture));
                 }
             sb.Append("],");
+            // Same index/length again: the weapon behind each lock's TTI, "" when there is none.
+            sb.Append("\"lockedTargetWpn\":[");
+            string[] lockedWpn = s.LockedTargetWpn;
+            if (lockedWpn != null)
+                for (int i = 0; i < lockedWpn.Length; i++)
+                {
+                    if (i > 0) sb.Append(',');
+                    sb.Append('"').Append(JsonLite.EscapeJson(lockedWpn[i] ?? "")).Append('"');
+                }
+            sb.Append("],");
             // TGT's shared column sort (TargetSort.cs) — lockedTargetIds above is already in this order.
             sb.Append("\"tgtSort\":\"").Append(JsonLite.EscapeJson(s.TgtSortKey ?? "")).Append("\",");
             sb.Append("\"tgtSortDir\":").Append(s.TgtSortDir < 0 ? -1 : 1).Append(',');

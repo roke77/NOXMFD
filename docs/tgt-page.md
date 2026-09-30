@@ -24,7 +24,7 @@ Controls (from `TargetListSelector.cs` + `TargetListSelector_ToggleButton.cs`):
 
 | Control | Game call | Effect |
 |---|---|---|
-| **RESET FILTER** | `ResetFilters()` | Turn every toggle back on (all pass). Does **not** re-select cleared targets. |
+| **RESET FILTERS** | `ResetFilters()` | Turn every toggle back on (all pass). Does **not** re-select cleared targets. |
 | **CLEAR TARGETS** | `DeselectAll()` | Deselect every current target. |
 | **FRIENDLY / ENEMY** | `toggleFactionItems[]` | Faction filter. |
 | **AIR / MSL / GND / BLD / SHP** | `toggleUnitTypesItems[]` | Unit-category filter (by `UnitDefinition` subtype). |

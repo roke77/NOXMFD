@@ -63,7 +63,9 @@ always comes from `NetworkHQ == this`, not the tracking database.)
 4. **TGT page rendering** ([tgt.js](../src/web/pages/tgt/tgt.js), [tgt.css](../src/web/pages/tgt/tgt.css)) —
    the target list gained a fifth column, SRC (`SENSOR` / `DATALINK`, purple-tinted when datalink),
    toggled in the existing per-row refresh loop.
-5. **DATALINK button** ([tgt.html](../src/web/pages/tgt/tgt.html)) — sits below the target list,
+5. **DATALINK button** ([tgt.html](../src/web/pages/tgt/tgt.html)) — now **CLEAR DATALINK**, the third
+   button of the docked action row (see [tgt-rework.md](tgt-rework.md)). As first built it sat below the
+   target list,
    dashed purple border (distinct from the real `TargetListSelector` filter buttons above it, which
    also gate future selection — this one doesn't): **tap** deselects just the datalink-only targets.
    A new bulk server-side command:

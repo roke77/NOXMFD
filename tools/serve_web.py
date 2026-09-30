@@ -854,6 +854,11 @@ def _tgt_preset_command(env):
         name = (env.get("wname") or "").strip()
         if not name:
             return False
+        index = env.get("index", 0)
+        if index and not 1 <= index <= 5:
+            return False
+        if index:
+            TGT_PRESET_STATE["current"] = index
         slot = TGT_PRESETS[TGT_PRESET_STATE["current"] - 1]
         slot["name"], slot["hasData"] = name, True
         return True

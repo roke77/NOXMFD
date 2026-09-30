@@ -39,6 +39,7 @@ namespace NOXMFD
         public int    index;   // tgt.set / tgt.only : toggle index within the group
                                 // wpt.* : waypoint index, or a +-1 direction (cycle-route/step-waypoint)
                                 // preset.rename / preset.delete / preset.load : slot number 1-5
+                                // tgt-preset.save : optional slot number 1-5 (absent = the current slot)
                                 // sqd.create / sqd.set-callsign : the squad's flight number 1-9
                                 // (Squadron Callsign System, docs/squadron-transport.md) — editable
                                 // later via sqd.set-callsign too, not fixed for the squad's life
@@ -326,7 +327,7 @@ namespace NOXMFD
                 // to TargetListSelector instead of HUDOptions. A distinct "tgt-preset." namespace
                 // rather than reusing "preset." disambiguates which store a save/load/rename/delete
                 // targets — the two features are otherwise unrelated.
-                { "tgt-preset.save",   e => LogTgtPreset("save",   TgtPresetStore.Save(e.wname ?? string.Empty)) },
+                { "tgt-preset.save",   e => LogTgtPreset("save",   TgtPresetStore.Save(e.wname ?? string.Empty, e.index)) },
                 { "tgt-preset.rename", e => LogTgtPreset("rename", TgtPresetStore.Rename(e.index, e.wname ?? string.Empty)) },
                 { "tgt-preset.delete", e => LogTgtPreset("delete", TgtPresetStore.Delete(e.index)) },
                 { "tgt-preset.load",   e => LogTgtPreset("load",   TgtPresetStore.LoadPreset(e.index)) },

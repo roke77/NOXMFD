@@ -28,10 +28,15 @@ namespace NOXMFD
         // one-full-scan-per-target loop (O(locked count x unit count) every contact-scan tick).
         // Resolves each missile's assigned target at most once, instead of re-checking it against
         // every locked id in turn.
-        internal static float[] ComputeAll(uint[] targetIds, uint playerId)
+        //
+        // `weapons` runs parallel to the result: the unitName of the missile whose estimate is the
+        // reported TTI for that lock ("" when nothing is tracking it), so a row's WPN and TTI always
+        // describe the same weapon.
+        internal static float[] ComputeAll(uint[] targetIds, uint playerId, out string[] weapons)
         {
             var result = new float[targetIds.Length];
-            for (int i = 0; i < result.Length; i++) result[i] = -1f;
+            weapons = new string[targetIds.Length];
+            for (int i = 0; i < result.Length; i++) { result[i] = -1f; weapons[i] = ""; }
 
             if (targetIds.Length > 0)
             {
@@ -46,7 +51,11 @@ namespace NOXMFD
                     if (!TryResolveAssignedTarget(m, targets, out (Unit unit, int index) assigned)) continue;
 
                     float t = EstimateImpactTime(m, assigned.unit);
-                    if (t >= 0f && (result[assigned.index] < 0f || t < result[assigned.index])) result[assigned.index] = t;
+                    if (t >= 0f && (result[assigned.index] < 0f || t < result[assigned.index]))
+                    {
+                        result[assigned.index] = t;
+                        weapons[assigned.index] = m.definition != null ? m.definition.unitName : m.unitName;
+                    }
                 }
             }
 
