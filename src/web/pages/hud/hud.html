@@ -7,64 +7,97 @@
   HUD page served at /hud — a clickable replica of the game's in-cockpit "HUD OPTIONS" screen
   (HUDOptions). It controls how unit overlay icons appear on the HUD: a maximized category shows
   its icons at full size, a minimized one shrinks them to a dot (enemy) or hides them (friendly).
-  See docs/hud-page.md.
+  See docs/hud-page.md and, for the lit-panel layout, docs/hud-rework.md.
 
-  Unlike the telemetry-pushed pages, this one is fetch-driven, not stream-driven: it POSTs hud.*
-  commands (send-command.js → CommandDispatcher) and polls /hud-options (TelemetryServer.
-  RefreshHudOptions) every 1.2s to read the current state back — the same loop catches a toggle
-  pressed in game instead of here, this page's own writes settling, and a new mission's state.
+  Unlike the telemetry-pushed pages, this one is fetch-driven: it POSTs hud.* commands
+  (send-command.js → CommandDispatcher), bootstraps with one GET /hud-options, then follows the
+  shell's hud-options-push relay (TelemetryServer.RefreshHudOptions) for changes made in game or on
+  another display. A command also schedules a one-shot re-read, so a rejected command settles back
+  to the game's state.
 
-  Controls (all mirror the in-game screen):
-    mode tab (NAV/GUN/A2A/A2G/EW/LOG) → hud.mode {index}  — applies that mode's saved preset
-    category MAXIMIZE                 → hud.set {group:'category', index, on}
-    vehicle / building type chip      → hud.set {group:'vehicle'|'building', index, on}
+  Sections, top to bottom (each lit-panel pushbutton is a .lit button with an indicator lamp):
+    declutter  WEAPONS / MINIMAP / FLIGHT / FEED → declutter.set {group, on} — the mod's own
+               HudDeclutter flags. The backend reports HIDE state; a lit card means SHOWN.
+    PRESETS    five cards (services/preset-cards.js) over the 5 fixed HudPresetStore slots:
+                 tap a card  → preset.load {index}
+                 hold a card → the SAVE PRESET dialog: SAVE → preset.save {wname, index}, CLEAR →
+                               preset.delete {index}; a completed hold never also recalls
+    MODE       NAV/GUN/A2A/A2G/EW/LOG → hud.mode {index} — applies that mode's saved preset
+    CATEGORIES FULL (maximized) / MIN        → hud.set {group:'category', index, on}
+    VEHICLE / BUILDING TYPES                 → hud.set {group:'vehicle'|'building', index, on}
 
-  HUD presets (issue #50 follow-up) — 5 fixed numbered slots (HudPresetStore), server-side so any
-  browser or the KEY page's own 5 recall keybinds can save/load one:
-    SAVE → opens LayoutModal.prompt for a name, then preset.save {wname} (always the CURRENT slot)
-    LOAD → opens LayoutModal.pickList over GET /hud-presets; picking an item applies it and makes
-           it current, the row's pencil/× send preset.rename/preset.delete {index, ...}
-  The preset label's current index/name rides this page's existing /hud-options poll (a `preset`
-  field), not a separate endpoint.
+  The preset cards' current slot rides this page's /hud-options snapshot (a `preset` field); the five
+  names come from GET /hud-presets, re-fetched when that pair changes.
 
   The seven category NAMES are the page's own, by index — the game exposes no per-category display
   name (see docs/hud-page.md). Vehicle/building names come from /hud-options (the Encyclopedia).
 
   PAD cursor (docs/page-cursor.md) — while this HUD is the SOI's focused surface, the shell forwards
-  the same cursor/cursor-select transport MAP uses ({mfd:true, action:'cursor'|'cursor-select'|
-  'cursor-focus'}). Zoom In/Out (map-act's 'zoom-in'/'zoom-out') are repurposed here to scroll the
-  panel instead of zooming (nothing to zoom on this page). #pad-cursor sits OUTSIDE .hud-panel
-  (which scrolls its own content) so the crosshair never drifts with a scroll — see hud.js.
+  the same cursor / cursor-held / cursor-focus transport TGT uses ({mfd:true, action:...}): a tap
+  clicks the control under the crosshair, a hold on a preset card saves. Zoom In/Out (map-act's
+  'zoom-in'/'zoom-out') are repurposed here to scroll the panel (nothing to zoom on this page).
+  #pad-cursor sits OUTSIDE .hud-panel (which scrolls its own content) so the crosshair never drifts
+  with a scroll — see hud.js.
 -->
 <link rel="stylesheet" href="/assets/shared/font.css">
 <link rel="stylesheet" href="/assets/shared/theme.css">
-<link rel="stylesheet" href="/assets/shell/shared/layout-modal.css">
+<link rel="stylesheet" href="/assets/shared/lit-panel.css">
 <link rel="stylesheet" href="/assets/pages/hud/hud.css">
 </head>
 <body>
 
 <div class="hud-panel" id="hud-panel">
-  <!-- declutter strip + mode tabs + category rows are built by hud.js from /hud-options -->
-  <!-- native-HUD declutter toggles (the mod's own HudDeclutter flags): weapon panel / minimap / boxes -->
-  <div class="hud-declutter" id="hud-declutter"></div>
-  <!-- HUD presets (issue #50 follow-up): current slot label + SAVE/LOAD, built by hud.js. Sits
-       right below the declutter strip's own separator, above the mode tabs. -->
-  <div class="hud-preset-bar" id="hud-preset-bar">
-    <span class="hud-preset-label" id="hud-preset-label"></span>
-    <button type="button" class="hud-preset-btn pad-hoverable" id="hud-preset-save">SAVE</button>
-    <button type="button" class="hud-preset-btn pad-hoverable" id="hud-preset-load">LOAD</button>
+  <div class="hud-content" id="hud-content">
+    <!-- Every control below is built by hud.js from /hud-options. -->
+    <section class="hud-declutter" id="hud-declutter" aria-label="Declutter"></section>
+
+    <section class="hud-section" aria-label="Presets">
+      <div class="hud-heading">PRESETS <span class="hud-hint" id="hud-presets-hint">(hold to save)</span></div>
+      <div class="preset-cards" id="preset-cards" aria-describedby="hud-presets-hint"></div>
+    </section>
+
+    <section class="hud-section" aria-label="Mode">
+      <div class="hud-heading">MODE</div>
+      <div class="hud-modes" id="hud-modes"></div>
+    </section>
+
+    <section class="hud-section" aria-label="Categories">
+      <div class="hud-heading">CATEGORIES</div>
+      <div class="hud-cats" id="hud-cats"></div>
+    </section>
+
+    <section class="hud-section" id="hud-vehicles-sec" aria-label="Vehicle types">
+      <div class="hud-heading">VEHICLE TYPES</div>
+      <div class="hud-types hud-vehicles" id="hud-vehicles"></div>
+    </section>
+
+    <section class="hud-section" id="hud-buildings-sec" aria-label="Building types">
+      <div class="hud-heading">BUILDING TYPES</div>
+      <div class="hud-types hud-buildings" id="hud-buildings"></div>
+    </section>
   </div>
-  <div class="hud-modes" id="hud-modes"></div>
-  <div class="hud-cats" id="hud-cats"></div>
   <!-- shown when /hud-options is empty (no mission / HUDOptions not up) -->
   <div class="hud-empty mfd-empty" id="hud-empty"><span class="mfd-empty-title">HUD</span>&mdash; UNAVAILABLE &mdash;</div>
+</div>
+
+<!-- SAVE PRESET dialog, opened by holding a preset card (shared/lit-panel.css; same markup as TGT). -->
+<div class="preset-kp-scrim" id="preset-kp" hidden>
+  <div class="preset-kp" role="dialog" aria-labelledby="preset-kp-title">
+    <div class="preset-kp-title" id="preset-kp-title"></div>
+    <input class="preset-kp-input" id="preset-kp-input" type="text" maxlength="60" placeholder="PRESET NAME" autocomplete="off" spellcheck="false">
+    <div class="preset-kp-error" id="preset-kp-error"></div>
+    <div class="preset-kp-actions">
+      <button type="button" class="preset-kp-btn pad-hoverable" id="preset-kp-cancel">CANCEL</button>
+      <button type="button" class="preset-kp-btn pad-hoverable clear" id="preset-kp-clear">CLEAR</button>
+      <button type="button" class="preset-kp-btn pad-hoverable save" id="preset-kp-save">SAVE</button>
+    </div>
+  </div>
 </div>
 <div id="pad-cursor" class="pad-cursor"></div>
 
 <script src="/assets/services/send-command.js"></script>
 <script src="/assets/pages/keybinds/keybinds-keymap.js"></script>
 <script src="/assets/services/remote-keybinds.js"></script>
-<script src="/assets/shell/shared/layout-modal.js"></script>
 <script type="module" src="/assets/pages/hud/hud.js"></script>
 </body>
 </html>

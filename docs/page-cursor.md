@@ -136,8 +136,9 @@ region today, so they're simply inert there, same as Follow already is on a non-
    cursor lives in viewport coordinates instead, because `.hud-panel` itself scrolls internally — a
    child positioned relative to a scrolling ancestor would drift with the content on every scroll,
    so `#pad-cursor` is a sibling of `.hud-panel`, not nested inside it; its `onSelect` is a plain
-   `.click()` on the nearest `.hud-dc`/`.hud-mode`/`.hud-max`/`.hud-sub` ancestor (every HUD control
-   already uses `click`, unlike TGT's press/hold cells).
+   `.click()` on the nearest `.lit`/`.hud-type` ancestor. The preset cards are the exception: HUD
+   registers `onHold` (like TGT), so Select recalls a card on a tap and saves on a hold, and the page
+   listens for `cursor-held` rather than `cursor-select`.
 4. **Zoom In/Out → scroll — built.** `mfd.js`'s `map-act` handler now routes through
    `focusedCursorWindow()` too, so it lands on whichever eligible page is focused; TGT scrolls
    `.tgt-list-rows`, HUD scrolls `.hud-panel` itself (the whole page is the scrolling region there).

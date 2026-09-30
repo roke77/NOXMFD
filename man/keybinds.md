@@ -218,8 +218,8 @@ bind that uses it.
 
 - **HUD Preset 1** through **HUD Preset 5** — five ordinary binds (keyboard and joystick/HOTAS
   both work, unlike Layout's keyboard-only pair above). Pressing one instantly recalls that
-  numbered preset's saved filters onto [HUD](hud.md#presets) and makes it the current one shown on
-  that page's own preset bar — the same thing clicking it in HUD's own LOAD list does.
+  numbered preset's saved filters onto [HUD](hud.md#presets) and makes it the current (lit) preset
+  card on that page — the same thing tapping the card does.
 
 ## TGT Presets
 
