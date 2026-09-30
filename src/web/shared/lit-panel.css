@@ -1,0 +1,126 @@
+/* Lit-panel pushbuttons shared by the HUD and TGT pages: a small lamp above the label, unlit when
+   the control is off and glowing in its --accent when on ("on" is either .on or aria-pressed=true).
+   Also the preset cards built by services/preset-cards.js and their SAVE PRESET dialog. A page
+   sets the font size and spacing of its own buttons. */
+
+:root {
+  --lit-fill: #0a0f0b;
+  --lit-off-fill: #060807;
+  --lit-off-text: #7d868d;
+  --lit-off-lamp: #1b221e;
+  --lit-border: #2c3431;
+  --lit-empty-text: #5a6066;
+}
+
+.lit {
+  --accent: var(--no-green);
+  font-family: var(--no-font);
+  font-weight: bold;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  min-width: 0;
+  background: var(--lit-off-fill);
+  color: var(--lit-off-text);
+  border: 1px solid var(--lit-border);
+  border-radius: 5px;
+  cursor: pointer;
+  text-align: center;
+  line-height: 1.05;
+}
+.lit::before {
+  content: '';
+  display: block;
+  flex: none;
+  height: 0.24em; width: var(--lamp-w, 2.3em);
+  border-radius: 2px;
+  background: var(--lit-off-lamp);
+}
+.lit.on, .lit[aria-pressed="true"] {
+  background: var(--lit-fill);
+  color: var(--no-white);
+}
+.lit.on::before, .lit[aria-pressed="true"]::before {
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent), 0 0 2px var(--accent);
+}
+.lit:active { background: rgba(var(--no-green-rgb), 0.08); }
+.lit:focus-visible { outline: 2px solid var(--no-amber); outline-offset: 2px; }
+
+/* Preset cards: five equal slots; position identifies the slot, so a card carries no number. */
+.preset-cards {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: clamp(4px, 1.3%, 12px);
+}
+.preset-card {
+  --lamp-w: 2.25em;
+  gap: clamp(3px, 0.55vmin, 6px);
+  padding: clamp(4px, 1vmin, 10px) 0.3em;
+  font-size: clamp(10px, 1.9vmin, 17px);
+  letter-spacing: 0.09em;
+  touch-action: none;   /* a long press must not turn into a scroll/pan */
+}
+.preset-name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.preset-card.empty { border-style: dashed; color: var(--lit-empty-text); }
+
+/* SAVE PRESET dialog — MAP's TGP slew keypad / NOAutopilot's keypad design: dim scrim, bordered
+   dialog, amber entry, white-legend keys with one accent each (red CLEAR, green SAVE). Sizes follow
+   the pane height so it fits a split pane. Fixed, so a scrolling page keeps it over the whole pane;
+   it takes pointer events. */
+.preset-kp-scrim {
+  --kp-key: clamp(28px, 7.5vh, 52px);
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: rgba(0, 0, 0, 0.72);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.preset-kp-scrim[hidden] { display: none; }
+.preset-kp {
+  width: min(360px, 92%);
+  padding: clamp(8px, 2.4vh, 20px);
+  background: var(--no-bg);
+  border: 1px solid var(--no-green-dark);
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(4px, 1.4vh, 12px);
+}
+.preset-kp-title { font-size: 13px; letter-spacing: 3px; color: var(--no-green-dim); }
+.preset-kp-input {
+  height: calc(var(--kp-key) * 1.15);
+  min-width: 0;
+  padding: 0 14px;
+  background: none;
+  border: 1px solid var(--no-amber);
+  border-radius: 4px;
+  outline: none;
+  font: inherit;
+  font-size: calc(var(--kp-key) * 0.5);
+  letter-spacing: 3px;
+  color: var(--no-amber);
+  caret-color: var(--no-amber);
+  -webkit-user-select: text; user-select: text;   /* html/body turn selection off for the whole page */
+}
+.preset-kp-input::placeholder { color: var(--no-white-dark); }
+.preset-kp-input::selection { background: rgba(var(--no-amber-rgb), 0.3); color: var(--no-amber); }
+.preset-kp-input.bad { border-color: var(--no-red); }
+.preset-kp-error { height: 14px; font-size: 12px; letter-spacing: 1px; color: var(--no-red); }
+.preset-kp-actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(4px, 1vh, 10px); }
+.preset-kp-btn {
+  height: var(--kp-key);
+  border: 1px solid var(--no-white-dark);
+  border-radius: 4px;
+  color: var(--no-white);
+  background: none;
+  font: inherit;
+  font-size: 15px;
+  letter-spacing: 3px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.preset-kp-btn.clear { border-color: var(--no-red); color: var(--no-red); }
+.preset-kp-btn.save { border-color: var(--no-green); color: var(--no-green); }
+.preset-kp-btn:not(:disabled):active { background-color: rgba(var(--no-green-rgb), 0.18); }
+.preset-kp-btn:disabled { border-color: var(--no-white-dark); color: var(--no-white-dark); cursor: not-allowed; }

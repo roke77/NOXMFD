@@ -1,8 +1,8 @@
-// Run: `node tgt-presets.test.js`. Covers createPresetCards: the five cards' state, tap-to-recall,
+// Run: `node preset-cards.test.js`. Covers createPresetCards: the five cards' state, tap-to-recall,
 // the SAVE PRESET dialog (SAVE / CLEAR / CANCEL / Escape / Enter, empty-name refusal, CLEAR disabled
 // on an empty slot) and that the list is refetched only when the telemetry's current slot changes.
 const assert = require('assert');
-const { createPresetCards, PRESET_SLOTS } = require('./tgt-presets.js');
+const { createPresetCards, PRESET_SLOTS } = require('./preset-cards.js');
 
 function fakeEl() {
   const classes = new Set();
@@ -31,7 +31,7 @@ function make(presetsResponse) {
   const doc = { createElement: fakeEl, addEventListener(t, fn) { this.keydown = fn; } };
   const cardsEl = fakeEl();
   const ui = createPresetCards({
-    cardsEl, dialog, doc,
+    cardsEl, dialog, doc, endpoint: '/x-presets', cmdPrefix: 'x-preset',
     send: (cmd, args) => { sent.push({ cmd, args }); return Promise.resolve(); },
     fetchFn: (url) => {
       fetched.push(url);
@@ -58,19 +58,19 @@ const tick = () => new Promise((r) => setTimeout(r, 0));
     assert.strictEqual(cards.length, PRESET_SLOTS);
     assert.deepStrictEqual(cards.map((c) => c.dataset.slot), [1, 2, 3, 4, 5]);
     ui.render();
-    assert.strictEqual(cards[0].children[1].textContent, 'EMPTY', 'unsaved slots read EMPTY');
+    assert.strictEqual(cards[0].children[0].textContent, 'EMPTY', 'unsaved slots read EMPTY');
     await ui.refresh();
-    assert.deepStrictEqual(cards.map((c) => c.children[1].textContent), ['A2A CAP', 'STRIKE', 'EMPTY', 'EMPTY', 'EMPTY']);
+    assert.deepStrictEqual(cards.map((c) => c.children[0].textContent), ['A2A CAP', 'STRIKE', 'EMPTY', 'EMPTY', 'EMPTY']);
     assert.deepStrictEqual(cards.map((c) => c.attrs['aria-pressed']), ['false', 'true', 'false', 'false', 'false']);
     assert.deepStrictEqual(cards.map((c) => c.classList.has('empty')), [false, false, true, true, true]);
     assert.strictEqual(cards[2].attrs['aria-label'], 'Preset 3: empty');
   }
 
-  // Tap recalls: lights the card at once and sends tgt-preset.load with that slot.
+  // Tap recalls: lights the card at once and sends x-preset.load with that slot.
   {
     const { ui, sent, cards } = make(RESPONSE);
     ui.recall(4);
-    assert.deepStrictEqual(sent, [{ cmd: 'tgt-preset.load', args: { index: 4 } }]);
+    assert.deepStrictEqual(sent, [{ cmd: 'x-preset.load', args: { index: 4 } }]);
     assert.strictEqual(cards[3].attrs['aria-pressed'], 'true');
   }
 
@@ -104,20 +104,20 @@ const tick = () => new Promise((r) => setTimeout(r, 0));
 
     dialog.input.value = ' SEAD ';
     dialog.save.listeners.click();
-    assert.deepStrictEqual(sent, [{ cmd: 'tgt-preset.save', args: { wname: 'SEAD', index: 3 } }]);
+    assert.deepStrictEqual(sent, [{ cmd: 'x-preset.save', args: { wname: 'SEAD', index: 3 } }]);
     assert.strictEqual(dialog.scrim.hidden, true);
-    assert.strictEqual(cards[2].children[1].textContent, 'SEAD');
+    assert.strictEqual(cards[2].children[0].textContent, 'SEAD');
     assert.strictEqual(cards[2].attrs['aria-pressed'], 'true');
   }
 
-  // CLEAR empties the slot (tgt-preset.delete) without touching the current slot.
+  // CLEAR empties the slot (x-preset.delete) without touching the current slot.
   {
     const { ui, sent, dialog, cards } = make(RESPONSE);
     await ui.refresh();
     ui.save(1);
     dialog.clear.listeners.click();
-    assert.deepStrictEqual(sent, [{ cmd: 'tgt-preset.delete', args: { index: 1 } }]);
-    assert.strictEqual(cards[0].children[1].textContent, 'EMPTY');
+    assert.deepStrictEqual(sent, [{ cmd: 'x-preset.delete', args: { index: 1 } }]);
+    assert.strictEqual(cards[0].children[0].textContent, 'EMPTY');
     assert.strictEqual(cards[1].attrs['aria-pressed'], 'true', 'slot 2 stays current');
     assert.strictEqual(dialog.scrim.hidden, true);
   }
@@ -136,8 +136,10 @@ const tick = () => new Promise((r) => setTimeout(r, 0));
     assert.strictEqual(dialog.scrim.hidden, false, 'a press inside the panel keeps it open');
     doc.keydown({ key: 'Enter', target: dialog.cancel, preventDefault() {} });
     assert.strictEqual(sent.length, 0, 'Enter on a button is not a save');
+    doc.keydown({ key: 'Enter', repeat: true, target: dialog.input, preventDefault() {} });
+    assert.strictEqual(sent.length, 0, 'a repeat from the key that opened the dialog is not a save');
     doc.keydown({ key: 'Enter', target: dialog.input, preventDefault() {} });
-    assert.deepStrictEqual(sent, [{ cmd: 'tgt-preset.save', args: { wname: 'STRIKE', index: 2 } }]);
+    assert.deepStrictEqual(sent, [{ cmd: 'x-preset.save', args: { wname: 'STRIKE', index: 2 } }]);
   }
 
   // focusEntry re-focuses the entry only while the dialog is open.
@@ -157,6 +159,7 @@ const tick = () => new Promise((r) => setTimeout(r, 0));
     ui.sync({ index: 1, name: '' });
     ui.sync({ index: 1, name: '' });
     assert.strictEqual(fetched.length, 1);
+    assert.strictEqual(fetched[0], '/x-presets', 'refetches the injected endpoint');
     ui.sync({ index: 2, name: 'STRIKE' });
     assert.strictEqual(fetched.length, 2);
   }
@@ -166,11 +169,11 @@ const tick = () => new Promise((r) => setTimeout(r, 0));
     const bad = make(null);
     bad.ui.render();
     await bad.ui.refresh();
-    assert.deepStrictEqual(bad.cards.map((c) => c.children[1].textContent), Array(PRESET_SLOTS).fill('EMPTY'));
+    assert.deepStrictEqual(bad.cards.map((c) => c.children[0].textContent), Array(PRESET_SLOTS).fill('EMPTY'));
     assert.strictEqual(bad.cards[0].attrs['aria-pressed'], 'true', 'the default current slot (1) is kept');
   }
 
   await tick();
-  console.log('tgt-presets.test.js: OK');
+  console.log('preset-cards.test.js: OK');
   process.exit(0);   // the post-command settle timers would otherwise keep node alive briefly
 })().catch((e) => { console.error(e); process.exit(1); });

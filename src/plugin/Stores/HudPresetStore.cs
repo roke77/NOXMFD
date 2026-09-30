@@ -82,7 +82,7 @@ namespace NOXMFD
             }
         }
 
-        // ── reads (the preset label + the LOAD picker) ──────────────────────────────────────
+        // ── reads (the current preset + the preset cards) ──────────────────────────────────────
 
         private static void RefreshSummary() { PresetsJson = PresetSlots.SummaryJson(_current, _slots); }
 
@@ -113,17 +113,20 @@ namespace NOXMFD
 
         // ── mutators (CommandDispatcher: preset.save / .rename / .delete / .load) ───────────
 
-        // Captures the LIVE HUDOptions state into whichever slot is current, under the given name —
-        // always targets `_current`, never an index the client picks (the client only ever supplies
-        // a name). Rejects an empty name/unavailable HUDOptions rather than silently saving a
-        // blank/stale slot.
-        public static bool Save(string? name)
+        // Captures the LIVE HUDOptions state into a slot under the given name: `index` (1-5) when the
+        // client names one — which also makes it the current slot, since a saved preset is by
+        // definition the one now in effect — otherwise whichever slot is current. The saved state is
+        // always the server's own live one, never client-supplied. Rejects an empty name, a bad index
+        // or unavailable HUDOptions rather than silently saving a blank/stale slot.
+        public static bool Save(string? name, int index = 0)
         {
             string cleanName = PresetSlots.CleanName(name);
             if (cleanName.Length == 0) return false;
+            if (index != 0 && (index < 1 || index > SlotCount)) return false;
             HUDOptions opt = SceneSingleton<HUDOptions>.i;
             if (opt == null) return false;
 
+            if (index != 0) _current = index;
             HudPreset slot = _slots[_current - 1];
             slot.Name = cleanName;
             slot.Categories = SnapshotCategories(opt);
@@ -141,8 +144,8 @@ namespace NOXMFD
         public static bool Delete(int index) => PresetSlots.Delete(_slots, index, Persist);
 
         // Applies a preset's saved filters onto the live HUD and makes it the current slot (so the
-        // preset label follows it and the next SAVE overwrites it) — the direct-recall behaviour the
-        // 5 KEY-page keybinds and the LOAD picker's onPick both drive through this one entry point.
+        // lit preset card follows it and the next SAVE overwrites it) — the direct-recall behaviour the
+        // 5 KEY-page keybinds and a tap on a preset card both drive through this one entry point.
         // An empty slot (never saved) still becomes current — nothing to apply, but selectable, so a
         // player can press "preset 3" then SAVE into it without ever having loaded data there first.
         public static bool LoadPreset(int index)

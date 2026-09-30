@@ -39,7 +39,7 @@ namespace NOXMFD
         public int    index;   // tgt.set / tgt.only : toggle index within the group
                                 // wpt.* : waypoint index, or a +-1 direction (cycle-route/step-waypoint)
                                 // preset.rename / preset.delete / preset.load : slot number 1-5
-                                // tgt-preset.save : optional slot number 1-5 (absent = the current slot)
+                                // preset.save / tgt-preset.save : optional slot number 1-5 (absent = the current slot)
                                 // sqd.create / sqd.set-callsign : the squad's flight number 1-9
                                 // (Squadron Callsign System, docs/squadron-transport.md) — editable
                                 // later via sqd.set-callsign too, not fixed for the squad's life
@@ -315,11 +315,10 @@ namespace NOXMFD
                 { "layout.rename", e => LogLayout("rename", LayoutStore.RenameLayout(e.bind ?? string.Empty, e.wname ?? string.Empty)) },
                 { "layout.delete", e => LogLayout("delete", LayoutStore.DeleteLayout(e.bind ?? string.Empty)) },
                 // HUD filter presets — 5 fixed numbered slots (HudPresetStore), not an arbitrary list
-                // like layout.* above: `index` (1-5) addresses a slot directly. save always targets
-                // whichever slot is server-side CURRENT, never a client-picked index — the client
-                // only ever supplies a name.
-                //   wname : preset name (save/rename)     index : slot number 1-5 (rename/delete/load)
-                { "preset.save",   e => LogPreset("save",   HudPresetStore.Save(e.wname ?? string.Empty)) },
+                // like layout.* above: `index` (1-5) addresses a slot directly. save takes it
+                // optionally (absent = whichever slot is server-side CURRENT) and makes that slot current.
+                //   wname : preset name (save/rename)     index : slot number 1-5 (save optional; rename/delete/load)
+                { "preset.save",   e => LogPreset("save",   HudPresetStore.Save(e.wname ?? string.Empty, e.index)) },
                 { "preset.rename", e => LogPreset("rename", HudPresetStore.Rename(e.index, e.wname ?? string.Empty)) },
                 { "preset.delete", e => LogPreset("delete", HudPresetStore.Delete(e.index)) },
                 { "preset.load",   e => LogPreset("load",   HudPresetStore.LoadPreset(e.index)) },

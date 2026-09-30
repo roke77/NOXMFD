@@ -70,9 +70,9 @@ scalar bools for laser/HUD mode.
   no-op guard) — both identical reasoning to `HudPresetStore`.
 - **The save dialog is TGT's own**, in the keypad design of MAP's TGP slew keypad — not the shared
   `LayoutModal` HUD presets use (see [tgt-rework.md](tgt-rework.md)).
-- **The SAVE/LOAD/`fetchPresetItems` wiring lives in a shared `preset-bar.js`**
-  (`src/web/shell/shared/`) for HUD's bar, taking a `getPreset`/`setPreset` pair so the page keeps
-  owning its own state shape. TGT's cards are `tgt.js`'s own, so `preset-bar.js` serves HUD alone.
+- **The cards and dialog live in a shared `preset-cards.js`** (`src/web/services/`), taking the
+  endpoint and command prefix, so [HUD presets](hud-presets.md) use the same component; the styling
+  is `src/web/shared/lit-panel.css`.
 - **Fixed-slot/summary-JSON/persistence plumbing shared with `HudPresetStore` via a small
   `PresetSlots` helper** (`src/plugin/Stores/PresetSlots.cs`) — the two stores' game-specific
   capture/apply logic stayed separate; only the identical bookkeeping around it (empty-slot
@@ -106,9 +106,9 @@ scalar bools for laser/HUD mode.
 | [`src/plugin/Http/ConfigEndpoint.cs`](../src/plugin/Http/ConfigEndpoint.cs), [`TelemetryHttpRouter.cs`](../src/plugin/Http/TelemetryHttpRouter.cs) | `GET /tgt-presets` serves the full 5-slot summary for HUD's LOAD picker and TGT's preset cards. |
 | [`src/plugin/Input/Keybinds.cs`](../src/plugin/Input/Keybinds.cs) | 5 `DefFree` binds (**TGT Preset 1**-**5**), section `TGT Preset Keybinds` → displayed as **TGT PRESETS**. |
 | [`src/plugin/Plugin.cs`](../src/plugin/Plugin.cs) | `TgtPresetStore.Load`/`.SelfCheck` wired into startup, next to `HudPresetStore`'s own. |
-| [`src/web/pages/tgt/tgt-presets.js`](../src/web/pages/tgt/tgt-presets.js), [`tgt-presets.test.js`](../src/web/pages/tgt/tgt-presets.test.js) | The five preset cards, the SAVE PRESET dialog and the `GET /tgt-presets` mirror, with the DOM, `fetch` and `send` injected; the test drives recall, SAVE / CLEAR / CANCEL and the refetch rule. |
-| [`src/web/pages/tgt/tgt.html`](../src/web/pages/tgt/tgt.html), [`tgt.js`](../src/web/pages/tgt/tgt.js), [`tgt.css`](../src/web/pages/tgt/tgt.css) | The card and dialog markup/styling, and the tap/hold arbitration that routes to `tgt-presets.js`. The PAD cursor taps a card to recall and holds it to save. |
-| [`src/web/shell/shared/preset-bar.js`](../src/web/shell/shared/preset-bar.js) | The SAVE/LOAD/`LayoutModal`/`fetchPresetItems` wiring for [HUD presets](hud-presets.md). |
+| [`src/web/services/preset-cards.js`](../src/web/services/preset-cards.js), [`preset-cards.test.js`](../src/web/services/preset-cards.test.js) | The five preset cards, the SAVE PRESET dialog and the `GET /tgt-presets` mirror, with the DOM, `fetch` and `send` injected; the test drives recall, SAVE / CLEAR / CANCEL and the refetch rule. |
+| [`src/web/pages/tgt/tgt.html`](../src/web/pages/tgt/tgt.html), [`tgt.js`](../src/web/pages/tgt/tgt.js), [`tgt.css`](../src/web/pages/tgt/tgt.css) | The card and dialog markup/styling, and the tap/hold arbitration that routes to `preset-cards.js`. The PAD cursor taps a card to recall and holds it to save. |
+| [`src/web/shared/lit-panel.css`](../src/web/shared/lit-panel.css) | The lit-panel pushbutton, the preset cards and the SAVE PRESET dialog styling, shared with the HUD page. |
 | [`tools/serve_web.py`](../tools/serve_web.py) | Stateful mock (`TGT_PRESETS`/`TGT_PRESET_STATE`), same shape as `PRESETS`/`PRESET_STATE` — the name/list/rename/delete/current-slot machinery is fully exercised; the preset label itself stays static in the harness (see below). |
 | [`tools/preview-mock.js`](../tools/preview-mock.js) | Static `preset: {index:1, name:''}` added to the `tgt` mock block, for a sensible standalone render. |
 | [`man/tgt.md`](../man/tgt.md), [`man/keybinds.md`](../man/keybinds.md) | Document the preset cards and the new **TGT PRESETS** keybind section. |

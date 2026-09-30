@@ -14,6 +14,9 @@ of the full page is the remaining check.
   expected (only the live-apply of one category was tested in game; the rest is
   the same command path, verified in the harness).
 
+The page's layout (lit-panel cards: declutter, presets, modes, categories, vehicle and building
+types) is described in [hud-rework.md](hud-rework.md).
+
 ## What it is
 
 The game already has an on-MFD **HUD OPTIONS** screen (`HUDOptions`,
@@ -189,6 +192,6 @@ clean sprite to capture. Left off rather than faked; an inline-SVG approximation
   (`HudCombatModeFilters.cs`) — from the page's point of view it is just another externally-driven
   change arriving in the next HUD-options snapshot.
 - **HUD presets** ([docs/hud-presets.md](hud-presets.md)) — a separate feature, the page's own 5
-  named save/load slots (preset bar, `preset` field on `/hud-options`, `/hud-presets` for the LOAD
-  list). Independent of the mode tabs and of the combat-mode automation above; the only touchpoint
+  named save/load slots (preset cards, `preset` field on `/hud-options`, `/hud-presets` for the
+  five names). Independent of the mode tabs and of the combat-mode automation above; the only touchpoint
   is that loading a preset counts as a player edit for that automation's own idle baseline.

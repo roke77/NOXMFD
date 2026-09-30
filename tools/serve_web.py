@@ -325,7 +325,7 @@ def _hud_options():
         "buildings": [{"n": n, "on": True} for n in bld],
         # native-HUD declutter flags (HudDeclutterConfig) — true = that widget is hidden. One hidden
         # here so the off state is visible in the harness. The write side (declutter.set) has no mock.
-        "declutter": {"weapon": False, "minimap": True, "boxes": False},
+        "declutter": {"weapon": False, "minimap": True, "boxes": False, "feed": False},
         # Current HUD preset (issue #50 follow-up) — index/name only, stateful via PRESET_STATE/
         # PRESETS below so the preset label follows a save/rename/load in the harness.
         "preset": {"index": current["index"], "name": current["name"]},
@@ -801,6 +801,11 @@ def _preset_command(env):
         name = (env.get("wname") or "").strip()
         if not name:
             return False
+        index = env.get("index", 0)
+        if index and not 1 <= index <= 5:
+            return False
+        if index:
+            PRESET_STATE["current"] = index
         slot = PRESETS[PRESET_STATE["current"] - 1]
         slot["name"], slot["hasData"] = name, True
         return True

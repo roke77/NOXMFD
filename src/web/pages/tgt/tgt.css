@@ -1,16 +1,11 @@
 /* TGT page — fully-clickable replica of the game's TARGET SELECTION panel. Green-phosphor MFD
    theme via the shared --no-* tokens; faction accents (friendly blue / enemy red) echo the game.
-   Presets and filters share one "lit panel" pushbutton look: a small lamp above the label that
-   glows in the control's accent while it is on. */
+   Presets and filters share one "lit panel" pushbutton look (shared/lit-panel.css): a small lamp
+   above the label that glows in the control's accent while it is on. */
 
 :root {
   --tgt-blue: #4aa3ff;   /* deliberately its own value, not --no-blue (a different, mod-only
      decorative accent) — FRIENDLY here specifically matches the game's own friendly-unit blue */
-  --tgt-lit-fill: #0a0f0b;
-  --tgt-off-fill: #060807;
-  --tgt-off-text: #7d868d;
-  --tgt-off-lamp: #1b221e;
-  --tgt-cell-border: #2c3431;
 }
 
 * { box-sizing: border-box; }
@@ -61,72 +56,17 @@ html, body {
 }
 .tgt-section-hint { margin-left: 1.2em; letter-spacing: 0.06em; }
 
-/* Lit-panel pushbuttons: preset cards, filter cells and the LASER/HUD modes. Off = dim label and an
-   unlit lamp; on = bright label and a glowing lamp. The lamp is the .tgt-preset-lamp element on a
-   card and the ::before on a cell. */
-.tgt-preset-card, .tgt-cell, .tgt-mode {
-  font-family: var(--no-font);
-  font-weight: bold;
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  min-width: 0;
-  background: var(--tgt-off-fill);
-  color: var(--tgt-off-text);
-  border: 1px solid var(--tgt-cell-border);
-  border-radius: 5px;
-  cursor: pointer;
-  text-align: center;
-  line-height: 1.05;
-  font-size: clamp(10px, 1.9vmin, 17px);
-}
-.tgt-cell::before, .tgt-mode::before, .tgt-preset-lamp {
-  content: '';
-  display: block;
-  height: 0.24em; width: 2.3em;
-  border-radius: 2px;
-  background: var(--tgt-off-lamp);
-}
-.tgt-cell.on, .tgt-mode.on, .tgt-preset-card[aria-pressed="true"] {
-  background: var(--tgt-lit-fill);
-  color: var(--no-white);
-}
-.tgt-cell.on::before, .tgt-mode.on::before,
-.tgt-preset-card[aria-pressed="true"] .tgt-preset-lamp {
-  background: var(--no-green);
-  box-shadow: 0 0 8px var(--no-green), 0 0 2px var(--no-green);
-}
-/* Faction lamps when ON: friendly blue, enemy red. */
-#row-faction .tgt-cell.on[data-index="0"]::before {
-  background: var(--tgt-blue); box-shadow: 0 0 8px var(--tgt-blue), 0 0 2px var(--tgt-blue);
-}
-#row-faction .tgt-cell.on[data-index="1"]::before {
-  background: var(--no-red); box-shadow: 0 0 8px var(--no-red), 0 0 2px var(--no-red);
-}
-
-.tgt-preset-card:active, .tgt-cell:active, .tgt-mode:active { background: rgba(var(--no-green-rgb), 0.08); }
-
-/* Filter cells (faction / category) and modes */
+/* Filter cells (faction / category) and the LASER/HUD modes are .lit pushbuttons
+   (shared/lit-panel.css). FRIENDLY and ENEMY light in their faction colour. */
+#row-faction .tgt-cell[data-index="0"] { --accent: var(--tgt-blue); }
+#row-faction .tgt-cell[data-index="1"] { --accent: var(--no-red); }
 .tgt-cell, .tgt-mode {
   flex: 1 1 0;
   gap: 0.5em;
   padding: 0.8em 0.2em 0.6em;
   letter-spacing: 0.14em;
+  font-size: clamp(10px, 1.9vmin, 17px);
 }
-
-/* Preset cards: five equal slots; position identifies the slot, so a card carries no number. */
-.tgt-preset-cards {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: clamp(4px, 1.3%, 12px);
-}
-.tgt-preset-card {
-  gap: clamp(3px, 0.55vmin, 6px);
-  padding: clamp(4px, 1vmin, 10px) 0.3em;
-  letter-spacing: 0.09em;
-  touch-action: none;   /* a long press must not turn into a scroll/pan */
-}
-.tgt-preset-lamp { width: 2.25em; }
-.tgt-preset-name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.tgt-preset-card.empty { border-style: dashed; color: #5a6066; }
 
 /* Filter block: faction/category rows beside the LASER/HUD column. Both columns share the row gap and
    every cell has the same height, so LASER lines up with the faction row and HUD with the category row. */
@@ -163,7 +103,7 @@ html, body {
 .tgt-veh::after {
   content: '';
   width: 1.5em; height: 3px;
-  background: var(--tgt-off-lamp);
+  background: var(--lit-off-lamp);
 }
 .tgt-veh.on { color: var(--no-green); }
 .tgt-veh.on::after { background: var(--no-green); }
@@ -411,68 +351,6 @@ html, body {
 .tgt-action.datalink:active { background: rgba(var(--no-purple-rgb), 0.12); }
 .tgt-action.stale:active    { background: rgba(var(--no-label-rgb), 0.12); }
 .tgt-action-count { font-size: 0.8em; opacity: 0.8; white-space: nowrap; }
-
-/* SAVE PRESET dialog — MAP's TGP slew keypad / NOAutopilot's keypad design: dim scrim, bordered
-   dialog, amber entry, white-legend keys with one accent each (red CLEAR, green SAVE). Sizes follow
-   the pane height so it fits a split pane. Covers the whole page, so it takes pointer events. */
-.tgt-kp-scrim {
-  --kp-key: clamp(28px, 7.5vh, 52px);
-  position: absolute;
-  inset: 0;
-  z-index: 40;
-  background: rgba(0, 0, 0, 0.72);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.tgt-kp-scrim[hidden] { display: none; }
-.tgt-kp {
-  width: min(360px, 92%);
-  padding: clamp(8px, 2.4vh, 20px);
-  background: var(--no-bg);
-  border: 1px solid var(--no-green-dark);
-  border-radius: 6px;
-  display: flex;
-  flex-direction: column;
-  gap: clamp(4px, 1.4vh, 12px);
-}
-.tgt-kp-title { font-size: 13px; letter-spacing: 3px; color: var(--no-green-dim); }
-.tgt-kp-input {
-  height: calc(var(--kp-key) * 1.15);
-  min-width: 0;
-  padding: 0 14px;
-  background: none;
-  border: 1px solid var(--no-amber);
-  border-radius: 4px;
-  outline: none;
-  font: inherit;
-  font-size: calc(var(--kp-key) * 0.5);
-  letter-spacing: 3px;
-  color: var(--no-amber);
-  caret-color: var(--no-amber);
-  -webkit-user-select: text; user-select: text;   /* html/body turn selection off for the whole page */
-}
-.tgt-kp-input::placeholder { color: var(--no-white-dark); }
-.tgt-kp-input::selection { background: rgba(var(--no-amber-rgb), 0.3); color: var(--no-amber); }
-.tgt-kp-input.bad { border-color: var(--no-red); }
-.tgt-kp-error { height: 14px; font-size: 12px; letter-spacing: 1px; color: var(--no-red); }
-.tgt-kp-actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(4px, 1vh, 10px); }
-.tgt-kp-btn {
-  height: var(--kp-key);
-  border: 1px solid var(--no-white-dark);
-  border-radius: 4px;
-  color: var(--no-white);
-  background: none;
-  font: inherit;
-  font-size: 15px;
-  letter-spacing: 3px;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-.tgt-kp-btn.clear { border-color: var(--no-red); color: var(--no-red); }
-.tgt-kp-btn.save { border-color: var(--no-green); color: var(--no-green); }
-.tgt-kp-btn:not(:disabled):active { background-color: rgba(var(--no-green-rgb), 0.18); }
-.tgt-kp-btn:disabled { border-color: var(--no-white-dark); color: var(--no-white-dark); cursor: not-allowed; }
 
 /* Unavailable state (TargetListSelector not up / no mission). display:block (not flex) so the
    shared .mfd-empty-title stacks above the text like the other pages' empty states. */

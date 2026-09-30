@@ -300,8 +300,8 @@ namespace NOXMFD
                  + ",\"faction\":"  + TgtToggleArray(s.TgtFaction)
                  + ",\"category\":" + TgtToggleArray(s.TgtCategory)
                  + ",\"vehicle\":"  + TgtToggleArray(s.TgtVehicle)
-                 // Current TGT filter preset (issue #78) — just the slot the preset label names; the
-                 // full 5-slot list for the LOAD picker is a separate on-demand fetch (/tgt-presets).
+                 // Current TGT filter preset (issue #78) — just the slot the lit preset card is; the
+                 // full 5-slot list for the preset cards is a separate on-demand fetch (/tgt-presets).
                  + ",\"preset\":{\"index\":" + s.TgtPresetIndex
                  + ",\"name\":\"" + JsonLite.EscapeJson(s.TgtPresetName ?? string.Empty) + "\"}"
                  + "}";
