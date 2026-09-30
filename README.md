@@ -17,9 +17,9 @@ any web browser, on the same PC or on another device on the same network.
 - [Requirements](#requirements)
 - [Installation](#installation)
 - [Features](#features)
+- [Extensions](#extensions)
 - [Reporting & collaboration](#reporting--collaboration)
 - [Mod compatibility](#mod-compatibility)
-- [Extensions](#extensions)
 - [Security & privacy](#security--privacy)
 - [Credits](#credits)
 - [Other mods](#other-mods)
@@ -109,6 +109,19 @@ pilot, with HOTAS-friendly keybinds to match.
   - **[TD](man/td.md)** — hand off targets to squad members (requires a squad).
 - **[WPN](man/wpn.md)** — weapon loadout.
 
+## Extensions
+
+NO XMFD supports third-party extensions that add their own MFD pages — see [man/ext.md](man/ext.md)
+for how they show up in-app, and [EXTENSIONS.md](EXTENSIONS.md) for the full guide to building one.
+
+Known extensions:
+
+- **[Remote Control Missile Camera](https://github.com/roke77/NOXMFD-Extension-Remote-Control-Missile-Camera)** — a Remote Control Missile Camera page for NOXMFD.
+- **[Vanilla Icons Plus](https://github.com/roke77/NOXMFD-Extension-Vanilla-Icons-Plus)** — mirrors NO-VanillaIconsPLUS's unit colors onto NOXMFD's MAP page.
+- **[ATC](https://github.com/roke77/NOXMFD-Extension-ATC)** — ATC traffic management / flight-progress display for NOXMFD.
+- **[NOAutopilot](https://github.com/roke77/NOXMFD-Extension-NOAutopilot)** — an Auto pilot page for NOXMFD that controls the NOAutopilot mod.
+- **[SRS](https://github.com/roke77/NOXMFD-Extension-SRS)** — an SRS radio page for NOXMFD that shows and tunes your SRS radios.
+
 ## Reporting & collaboration
 
 Found a bug, or want a feature? Open an issue on the
@@ -143,19 +156,6 @@ The main shared surfaces to check are:
 
 Temporarily disabling plugins one at a time is the fastest way to isolate which component owns a
 conflict.
-
-## Extensions
-
-NO XMFD supports third-party extensions that add their own MFD pages — see [man/ext.md](man/ext.md)
-for how they show up in-app, and [EXTENSIONS.md](EXTENSIONS.md) for the full guide to building one.
-
-Known extensions:
-
-- **[Remote Control Missile Camera](https://github.com/roke77/NOXMFD-Extension-Remote-Control-Missile-Camera)** — a Remote Control Missile Camera page for NOXMFD.
-- **[Vanilla Icons Plus](https://github.com/roke77/NOXMFD-Extension-Vanilla-Icons-Plus)** — mirrors NO-VanillaIconsPLUS's unit colors onto NOXMFD's MAP page.
-- **[ATC](https://github.com/roke77/NOXMFD-Extension-ATC)** — ATC traffic management / flight-progress display for NOXMFD.
-- **[NOAutopilot](https://github.com/roke77/NOXMFD-Extension-NOAutopilot)** — an Auto pilot page for NOXMFD that controls the NOAutopilot mod.
-- **[SRS](https://github.com/roke77/NOXMFD-Extension-SRS)** — an SRS radio page for NOXMFD that shows and tunes your SRS radios.
 
 ## Security & privacy
 

@@ -475,7 +475,7 @@ function placeSplitKey(m, label, action, paneTag, mark, pending) {
 // this same lone MAIN label (ext-nav.js), so there's no per-extension list to hardcode here the
 // way TGT/AKF/etc. are — this either clears real content (ATC's own table header, the reason this
 // was added) or costs nothing on a page with none.
-function isVmainPage(p) { return p === 'tgt' || p === 'td' || p === 'akf' || p === 'bdf' || p === 'pal' || p === 'mis' || p === 'obj' || ExtNav.isExtensionPage(p); }
+function isVmainPage(p) { return p === 'tgt' || p === 'td' || p === 'sqd' || p === 'akf' || p === 'bdf' || p === 'pal' || p === 'mis' || p === 'obj' || ExtNav.isExtensionPage(p); }
 
 // The item count on each MAIN split page. Unlike WPN, MAIN reserves no fixed back-slot: PREV anchors
 // the first key only on pages past the first, NEXT the last key only on pages before the last, and
@@ -2053,11 +2053,10 @@ window.addEventListener('message', function(e) {
   // label for that state gets stuck unlit even though its own map persisted and drew it regardless.
   // 'wpt-routes-request' (a freshly-loaded MAP/WPT pane or the full-view frame catching up on the
   // navigation library, docs/hud-waypoint-indicator.md) comes from whichever iframe just loaded, not
-  // necessarily mapFrame, same reasoning as 'follow'/'grid'. 'td-designated' (issue #47 follow-up)
-  // comes from TD's own iframe (#page-frame or a pane), never mapFrame, for the same reason.
+  // necessarily mapFrame, same reasoning as 'follow'/'grid'.
   // 'doc-view' (issue #82 follow-up) comes from DOC's own iframe, same reasoning again — it's
   // page-internal UI state (index vs image) with no game-telemetry equivalent to ride in on.
-  if (m.type !== 'follow' && m.type !== 'grid' && m.type !== 'slew' && m.type !== 'wpt-routes-request' && m.type !== 'td-designated' && m.type !== 'doc-view' && e.source !== mapFrame.contentWindow) return;
+  if (m.type !== 'follow' && m.type !== 'grid' && m.type !== 'slew' && m.type !== 'wpt-routes-request' && m.type !== 'doc-view' && e.source !== mapFrame.contentWindow) return;
   if (m.type === 'status') {
     lastStatusCls  = m.cls;
     lastStatusText = m.text;
@@ -2221,17 +2220,6 @@ window.addEventListener('message', function(e) {
     else if (e.source === paneIframes[1].contentWindow) paneSlewOn[1] = on;
     else return;
     refreshFollowIndicator();
-  } else if (m.type === 'td-designated') {
-    // TD's DESIGNATE button just fired (issue #47 follow-up) —
-    // return that display to TGT. Has to be the shell doing the navigating, not TD itself: TGT has
-    // no telemetry connection of its own, so a bare iframe location change would strand it with no
-    // data to render. Routed by source, same reasoning as 'follow'/'grid' above: TD can be the
-    // full-view page or either split pane, and only the one that actually sent this should navigate.
-    if (!splitMode && currentPage === 'td' && e.source === pageFrame.contentWindow) showPage('tgt');
-    else if (splitMode) {
-      if (panePages[0] === 'td' && e.source === paneIframes[0].contentWindow) paneNavigate(0, 'tgt');
-      else if (panePages[1] === 'td' && e.source === paneIframes[1].contentWindow) paneNavigate(1, 'tgt');
-    }
   } else if (m.type === 'doc-view') {
     // DOC's own index-vs-image view state (issue #82 follow-up) — routed by source, same reasoning
     // as follow/grid above: DOC can be the full-view page or either split pane, each tracked and

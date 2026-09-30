@@ -242,10 +242,6 @@ designateBtn.addEventListener('click', function () {
   if (!count) { flash = 'nothing new to send'; applyState(); return; }
   flash = 'sent · each member\'s list replaced';
   applyState();
-  // Return the leader to TGT (issue #47 follow-up) — DESIGNATE is the "I'm done here" action.
-  // Handled by the shell (mfd.js/f35.js), not this page directly: TD can be the full-view page or
-  // either split pane, and only the shell knows which one this iframe actually is.
-  if (window.parent !== window) window.parent.postMessage({ mfd: true, type: 'td-designated' }, '*');
 });
 clearBtn.addEventListener('click', function () {
   assignmentsOverride = {};

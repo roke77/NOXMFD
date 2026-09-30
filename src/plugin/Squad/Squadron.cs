@@ -57,6 +57,7 @@ namespace NOXMFD
         private static long _seq;
 
         private static Callback<SteamNetworkingMessagesSessionRequest_t>? _sessionRequest;
+        private static Callback<SteamNetworkingMessagesSessionFailed_t>? _sessionFailed;
         private static bool _inited;
 
         internal readonly struct Inbound
@@ -68,6 +69,48 @@ namespace NOXMFD
             internal ulong  From    { get; }
             internal string Type    { get; }
             internal string Payload { get; }
+        }
+
+        // ── Link diagnostics ─────────────────────────────────────────────────────
+        // ponytail: field diagnostics for "squadmate missing from SQD / ejected from the squad"
+        // reports, so a player can send BepInEx's LogOutput.log from the host and the affected
+        // client. Wall-clock stamped so the two logs line up. Remove with every LinkLog call once
+        // the reports settle (grep LinkLog).
+        internal static void LinkLog(string msg) =>
+            Plugin.Log?.LogInfo($"[NOXMFD squad-link {DateTime.Now:HH:mm:ss}] {msg}");
+
+        // Steam's own view of the session to `peer`, appended to a failed-send line: a session Steam
+        // closed or failed reports its state and end reason here.
+        private static string SessionInfo(ulong peer)
+        {
+            try
+            {
+                var id = Identity(peer);
+                var state = SteamNetworkingMessages.GetSessionConnectionInfo(ref id, out SteamNetConnectionInfo_t info, out _);
+                return $"[session {state}, endReason {info.m_eEndReason} '{info.m_szEndDebug}']";
+            }
+            catch (Exception ex) { return $"[session info unavailable: {ex.Message}]"; }
+        }
+
+        private static void OnSessionFailed(SteamNetworkingMessagesSessionFailed_t f) =>
+            LinkLog($"Steam reports session with {f.m_info.m_identityRemote.GetSteamID64()} failed: " +
+                    $"{f.m_info.m_eState}, endReason {f.m_info.m_eEndReason} '{f.m_info.m_szEndDebug}'");
+
+        // Consecutive failed sends per peer. Logged on the first failure, periodically while it
+        // persists and on recovery — Presence sends every 5 s, so a per-send line would flood the log.
+        private static readonly Dictionary<ulong, int> _failStreak = new Dictionary<ulong, int>();
+
+        private static void NoteSend(ulong peer, string type, EResult r)
+        {
+            if (r == EResult.k_EResultOK)
+            {
+                if (_failStreak.Remove(peer, out int n)) LinkLog($"send to {peer} recovered after {n} failed send(s)");
+                return;
+            }
+            _failStreak.TryGetValue(peer, out int streak);
+            _failStreak[peer] = ++streak;
+            if (streak == 1 || streak % 60 == 0)
+                LinkLog($"send '{type}' to {peer} failed: {r} (failure #{streak}) {SessionInfo(peer)}");
         }
 
         // ── Lifecycle ────────────────────────────────────────────────────────────
@@ -86,6 +129,7 @@ namespace NOXMFD
             {
                 if (!SteamAPI.IsSteamRunning()) return false;
                 _sessionRequest = Callback<SteamNetworkingMessagesSessionRequest_t>.Create(AcceptSession);
+                _sessionFailed  = Callback<SteamNetworkingMessagesSessionFailed_t>.Create(OnSessionFailed);
                 _inited = true;
                 Plugin.Log?.LogInfo("[NOXMFD] Squadron transport ready");
                 return true;
@@ -131,6 +175,7 @@ namespace NOXMFD
         {
             if (!Ready || steamId == 0) return;
             var id = Identity(steamId);
+            LinkLog($"closing session with {steamId}");
             try { SteamNetworkingMessages.CloseSessionWithUser(ref id); } catch { }
         }
 
@@ -144,12 +189,17 @@ namespace NOXMFD
         {
             ulong from = req.m_identityRemote.GetSteamID64();
             var id = Identity(from);
+            LinkLog($"accepting session request from {from}");
             try { SteamNetworkingMessages.AcceptSessionWithUser(ref id); } catch { }
         }
 
         // ── Send ─────────────────────────────────────────────────────────────────
 
         // Sends one typed payload to exactly one peer, reliably and in order. True on success.
+        // AutoRestartBrokenSession: without it a session that failed once (the peer still loading
+        // when the first beat went out, a relay timeout) or that the peer closed stays broken and
+        // every later send fails until this side closes it — one bad moment would silence a squadmate
+        // for the rest of the session.
         // Reliable because every squad-protocol message must arrive — an unreliable channel is only
         // interesting for the deferred datalink/video features, which is why the envelope carries a
         // type rather than assuming one kind of message.
@@ -174,14 +224,14 @@ namespace NOXMFD
                 Marshal.Copy(bytes, 0, buf, bytes.Length);
                 EResult r = SteamNetworkingMessages.SendMessageToUser(
                     ref id, buf, (uint)bytes.Length,
-                    Constants.k_nSteamNetworkingSend_Reliable, Channel);
-                if (r == EResult.k_EResultOK) return true;
-                Plugin.Log?.LogWarning($"[NOXMFD] Squadron send to {peer} failed: {r}");
-                return false;
+                    Constants.k_nSteamNetworkingSend_Reliable | Constants.k_nSteamNetworkingSend_AutoRestartBrokenSession,
+                    Channel);
+                NoteSend(peer, type, r);
+                return r == EResult.k_EResultOK;
             }
             catch (Exception ex)
             {
-                Plugin.Log?.LogWarning($"[NOXMFD] Squadron send to {peer} threw: {ex.Message}");
+                LinkLog($"send '{type}' to {peer} threw: {ex.Message}");
                 return false;
             }
             finally { Marshal.FreeHGlobal(buf); }

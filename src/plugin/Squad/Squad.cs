@@ -22,9 +22,9 @@ namespace NOXMFD
     // every invite target checks their OWN local state and rejects (with a warning to their real
     // leader) rather than the sender ever being able to see it authoritatively — see HandleInvite.
     //
-    // Leader dropout (crash, alt-F4, force-quit) is a known, accepted gap for v1: succession only
-    // fires on a graceful Leave()/RelinquishLeadership(). An abruptly-vanished leader leaves the
-    // squad stuck until members disband and re-form. No liveness/heartbeat check exists to detect it.
+    // Succession only fires on a graceful Leave()/RelinquishLeadership(). A leader or member who
+    // vanishes abruptly (crash, alt-F4, force-quit) is detected by CheckLiveness instead, from the
+    // silence of their Presence beats, and cleaned out locally.
     internal static class Squad
     {
         internal enum Role { None, Leader, Member }
@@ -400,26 +400,29 @@ namespace NOXMFD
         }
 
         // A crash or force-quit gives no chance to send sqd.leave/sqd.disband/sqd.kick — without
-        // this, the rest of the squad would keep showing that pilot as present forever (no
-        // persistence AND no notice is the worst of both). Reuses Presence's existing "who's still
-        // running NOXMFD" TTL (docs/squadron-transport.md) rather than a second liveness signal:
-        // PlayerRoster's own invite-candidate filter already requires Presence.HasNoxmfd before
-        // anyone can be invited in the first place, so by the time someone is a leader/member here,
-        // their presence has already been flowing for a while — there's no "just joined, no beat
-        // yet" false positive to guard against. Called once a second, right alongside
+        // this, the rest of the squad would keep showing that pilot as present forever. Uses
+        // Presence.IsLost, which only counts silence while beats can actually flow (both pilots in
+        // a faction) and gives a squadmate still loading a mission a longer allowance, so a mission
+        // restart doesn't eject the squad. Called once a second, right alongside
         // PlayerRoster.Refresh()/Presence.Tick() (TelemetryReader's slow tick).
         internal static void CheckLiveness()
         {
             if (_role == Role.Member)
             {
-                if (Presence.HasNoxmfd(_leaderId)) return;
+                if (!Presence.IsLost(_leaderId, out float silent)) return;
+                Squadron.LinkLog($"liveness: leader {_leaderId} silent for {silent:F0}s (inFaction={PlayerRoster.InFaction(_leaderId)}) - leaving the squad");
                 ResetToNone();
                 SetNotice("Lost contact with your squad leader — they may have crashed or disconnected.");
             }
             else if (_role == Role.Leader)
             {
                 List<Member>? gone = null;
-                foreach (var m in _members) if (!Presence.HasNoxmfd(m.Id)) (gone ??= new List<Member>()).Add(m);
+                foreach (var m in _members)
+                {
+                    if (!Presence.IsLost(m.Id, out float silent)) continue;
+                    Squadron.LinkLog($"liveness: member {m.Name} ({m.Id}) silent for {silent:F0}s (inFaction={PlayerRoster.InFaction(m.Id)}) - dropping");
+                    (gone ??= new List<Member>()).Add(m);
+                }
                 if (gone == null) return;
                 foreach (var m in gone)
                 {
@@ -934,7 +937,9 @@ namespace NOXMFD
                 firstInv = false;
                 sb.Append("{\"leaderId\":\"").Append(inv.LeaderId.ToString(CultureInfo.InvariantCulture))
                   .Append("\",\"leaderName\":\"").Append(Esc(inv.LeaderName))
-                  .Append("\",\"members\":").Append(MembersJson(inv.Members)).Append('}');
+                  .Append("\",\"callsign\":\"").Append(Esc(inv.Callsign))
+                  .Append("\",\"flight\":").Append(inv.Flight.ToString(CultureInfo.InvariantCulture))
+                  .Append(",\"members\":").Append(MembersJson(inv.Members)).Append('}');
             }
             sb.Append(']');
             sb.Append(",\"pendingSent\":[");

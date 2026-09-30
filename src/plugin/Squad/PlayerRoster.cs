@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Text;
 using NuclearOption.Networking;
+using UnityEngine;
 
 namespace NOXMFD
 {
@@ -56,6 +57,20 @@ namespace NOXMFD
         // aircraft changes/despawns — no separate invalidation path needed for either case.
         private static readonly HashSet<uint> _squadAircraftIds = new HashSet<uint>();
 
+        // SteamID -> when they entered the local faction's roster, for Presence.IsLost's grace window.
+        // Includes self and non-NOXMFD players; cleared when we leave the faction.
+        private static readonly Dictionary<ulong, float> _factionSince = new Dictionary<ulong, float>();
+        private static readonly HashSet<ulong> _seenNow = new HashSet<ulong>();
+        private static int _lastNoSteamIdCount;
+
+        internal static bool InFaction(ulong steamId) => _factionSince.ContainsKey(steamId);
+
+        internal static float FactionSince(ulong steamId, out bool inFaction)
+        {
+            inFaction = _factionSince.TryGetValue(steamId, out float t);
+            return inFaction ? t : 0f;
+        }
+
         internal static bool IsSquadAircraft(uint id) => id != 0 && _squadAircraftIds.Contains(id);
 
         // Called once per slow-scan tick from TelemetryReader.Update. Cheap: one FactionHQ lookup,
@@ -66,6 +81,8 @@ namespace NOXMFD
             if (!GameManager.GetLocalHQ(out FactionHQ hq) || hq == null)
             {
                 Json = "[]";
+                if (_factionSince.Count > 0) Squadron.LinkLog("left the faction roster (no local faction)");
+                _factionSince.Clear();
                 _aircraftBySteamId.Clear();
                 _aircraftIdBySteamId.Clear();
                 _squadAircraftIds.Clear();
@@ -73,6 +90,10 @@ namespace NOXMFD
             }
 
             ulong self = Squadron.SelfId();
+            if (_factionSince.Count == 0) Squadron.LinkLog($"entered faction '{hq.faction?.factionName}' as {self}");
+            Presence.NoteRoster();
+            _seenNow.Clear();
+            int noSteamId = 0;
             _scratch.Clear();
             _scratch.AddRange(hq.GetPlayers(sortByScore: false));
             _aircraftBySteamId.Clear();
@@ -88,7 +109,13 @@ namespace NOXMFD
             {
                 if (p == null) continue;
                 ulong id = p.SteamID;
-                if (id == 0) continue;   // no Steam id — nothing to key either dictionary on
+                if (id == 0) { noSteamId++; continue; }   // no Steam id — nothing to key either dictionary on
+                _seenNow.Add(id);
+                if (!_factionSince.ContainsKey(id))
+                {
+                    _factionSince[id] = Time.unscaledTime;
+                    if (id != self) Squadron.LinkLog($"faction roster: {id} joined (running NOXMFD: {Presence.HasNoxmfd(id)})");
+                }
 
                 _aircraftBySteamId[id] = p.Aircraft != null && p.Aircraft.definition != null
                     ? (p.Aircraft.definition.unitName ?? string.Empty) : string.Empty;
@@ -105,6 +132,18 @@ namespace NOXMFD
             }
             sb.Append(']');
             Json = sb.ToString();
+
+            // A player with SteamID 0 can never be listed or messaged — e.g. a host whose Steam client
+            // wasn't initialised when its server started.
+            if (noSteamId != _lastNoSteamIdCount)
+                Squadron.LinkLog($"faction roster: {noSteamId} player(s) with SteamID 0 excluded (was {_lastNoSteamIdCount})");
+            _lastNoSteamIdCount = noSteamId;
+
+            List<ulong>? left = null;
+            foreach (ulong id in _factionSince.Keys) if (!_seenNow.Contains(id)) (left ??= new List<ulong>()).Add(id);
+            if (left != null)
+                foreach (ulong id in left) { _factionSince.Remove(id); Squadron.LinkLog($"faction roster: {id} left"); }
+            Presence.LogTransitions();
 
             Presence.Tick(peerIds);
             // Same peer list, same 1 Hz caller — FuelBroadcast.cs (docs/atc-extension-support.md
