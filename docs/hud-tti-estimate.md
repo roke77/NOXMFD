@@ -169,10 +169,15 @@ matches cycle order"). `telemetry-source.js` zips the two arrays into a `Map` an
 each row that has a non-negative entry — rows with nothing tracking them get no `tti` field at all,
 rather than a `-1` a page would have to remember to special-case.
 
-`tgt.js` renders it as `"TTI " + fmtTti(t.tti)` (a small JS mirror of `HudTtiMath.FormatTti`) inside
-the NAME cell, at its right edge — the cell became a flex row (`.tl-name-text` + `.tl-tti`, `tgt.css`)
-so a long name still ellipsizes correctly instead of the two fighting over the same nowrap span. Same
-amber as the HUD cue, kept independent of the row's own faction tint.
+`ComputeAll` also reports which weapon produced each lock's minimum: a parallel `string[]` of the
+missile's `definition.unitName` (`""` when nothing is tracking), serialized as `lockedTargetWpn`
+beside `lockedTargetTti`. `telemetry-source.js` sets `t.wpn` on exactly the rows that get a `t.tti`,
+so a row's weapon and time always describe the same missile.
+
+`tgt.js` renders them as two columns after the target name, **WPN** (`t.wpn`) and **TTI**
+(`fmtTti(t.tti)`, a small JS mirror of `HudTtiMath.FormatTti`, `m:ss` without a `TTI` prefix), both
+blank when a row carries neither. Plain amber text, the same amber as the HUD cue, kept independent
+of the row's own faction tint.
 
 ## Batch scan (review follow-up)
 
@@ -240,7 +245,10 @@ with a non-negative `lockedTargetTti` entry. Full `tools/ci-check.ps1` green.
 live (see "Status" above); TTI counted down correctly against a real shot. Not yet tested: multiple
 simultaneous tracking weapons against the same focused target (the "smallest TTI wins" branch in
 `TargetTtiEstimator.ComputeTti` has no live confirmation yet, only the single-weapon path); TGT's own
-per-row TTI ("TGT: a TTI per row" above) has not been tested in-game at all yet.
+per-row TTI ("TGT: a TTI per row" above) has not been tested in-game at all yet, and neither has
+the WPN column: check that the name a live shot reports (`definition.unitName`, e.g. `AGM-48`)
+reads sensibly and matches the weapon that was fired, and that with two weapons on one target WPN
+follows whichever has the smaller TTI.
 
 **Status item 3's widened match (`MissileSeekerAccess`) is confirmed working in-game** (2026-09-05):
 a diagnostic log against a real bomb-drop session showed `Missile.targetID` and the reflected

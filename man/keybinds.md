@@ -64,7 +64,7 @@ below, which also drives [manual TGP camera](tgp.md#manual-camera-control) zoom.
   crosshair and makes **Cursor Select** deselect the focused row directly; moving the crosshair hands
   Select back to the cursor.
 - **Clear Datalink / Clear Stale** — the keybind equivalents of tapping [TGT](tgt.md)'s own
-  DATALINK/STALE buttons.
+  CLEAR DATALINK / CLEAR STALE buttons.
 
 ## Cursor
 

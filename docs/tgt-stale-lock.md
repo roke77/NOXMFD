@@ -37,7 +37,8 @@ just the stale locks.
 4. **TGT page rendering** ([tgt.js](../src/web/pages/tgt/tgt.js), [tgt.css](../src/web/pages/tgt/tgt.css)) —
    SRC reads `STALE` (off-white, `--no-label`) when `st`, else `DATALINK` (purple) when `dl`, else
    `SENSOR`.
-5. **STALE button** ([tgt.html](../src/web/pages/tgt/tgt.html)) — sits beside DATALINK in the footer,
+5. **STALE button** ([tgt.html](../src/web/pages/tgt/tgt.html)) — now **CLEAR STALE**, the fourth button
+   of the docked action row (see [tgt-rework.md](tgt-rework.md)). As first built it sat beside DATALINK in the footer,
    same dashed-border mod-only treatment, in `--no-label` instead of purple. **Tap** deselects just
    the stale-locked targets: **`tgt.clear-stale`** ([CommandDispatcher.cs](../src/plugin/CommandDispatcher.cs)),
    sharing `TgtClearBy(op, predicate)` with `tgt.clear-datalink` — both are now real, reachable
