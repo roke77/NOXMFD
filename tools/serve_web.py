@@ -27,6 +27,7 @@ shell on change, so an edit shows up without an alt-tab-and-refresh — see docs
 Usage:
     python tools/serve_web.py            # serve on http://127.0.0.1:8782
     python tools/serve_web.py --port N
+    python tools/serve_web.py --host 0.0.0.0   # also reachable from the LAN (needs a firewall allow)
     python tools/serve_web.py --open
 
 Run tools/capture_assets.py while in-game to populate preview/captures/<timestamp>/ with real
@@ -463,6 +464,8 @@ _SERVER_PLAYERS = [
     {"id": "76561198000000005", "name": "Widow"},
     {"id": "76561198000000006", "name": "Reaper"},
 ]
+# Aircraft for the match players, shown once one joins the squad (sample data, real captured icons).
+_SERVER_PLAYER_AIRCRAFT = {"Widow": "SAH-46 Chicane", "Reaper": "FS-20 Vortex"}
 _SQD_SELF = "76561198000000001"
 _SQD_SELF_NAME = "Falcon"   # only meaningful while role == leader — see _squad_state's selfName
 # Only meaningful while role == leader too (see _squad_state's selfAircraft). All four aircraft
@@ -500,7 +503,7 @@ def _squad_state():
             # Mirrors Squad.HandleAccept: the lowest free slot from 2 up, so a hole fills first.
             taken = {m["slot"] for m in _SQD["members"]}
             slot = next(n for n in range(2, len(taken) + 3) if n not in taken)
-            _SQD["members"].append({"id": peer, "name": name, "slot": slot, "aircraft": ""})
+            _SQD["members"].append({"id": peer, "name": name, "slot": slot, "aircraft": _SERVER_PLAYER_AIRCRAFT.get(name, "")})
             _SQD["members"].sort(key=lambda m: m["slot"])
 
     state = {
@@ -1223,6 +1226,8 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--port", type=int, default=int(os.environ.get("PORT", 8782)),
                     help="port to bind (default $PORT or 8782)")
+    ap.add_argument("--host", default="127.0.0.1",
+                    help="address to bind (default 127.0.0.1; 0.0.0.0 to serve other LAN devices)")
     ap.add_argument("--open", action="store_true", help="open the shell in a browser on start")
     ap.add_argument("--capture", default=None,
                     help="serve this one preview/captures/<name>/ folder instead of following CURRENT")
@@ -1231,9 +1236,12 @@ def main():
         raise SystemExit("ERROR: src/web/shell/classic/mfd.html missing.")
     global CAPTURE_OVERRIDE
     CAPTURE_OVERRIDE = args.capture
-    with Server(("127.0.0.1", args.port), H) as s:
+    with Server((args.host, args.port), H) as s:
         url = f"http://127.0.0.1:{args.port}/"
         print(f"serving on {url}")
+        lan_ip = _detect_lan_ip() if args.host != "127.0.0.1" else ""
+        if lan_ip:
+            print(f"LAN: http://{lan_ip}:{args.port}/")
         if args.open:
             webbrowser.open(url)
         try:
