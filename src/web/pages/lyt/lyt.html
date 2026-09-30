@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>NO XMFD — LYT</title>
+<!--
+  LYT page served at /lyt — the layout manager, hosted full-view in the CLASSIC shell's #page-frame
+  (never a split pane: a layout is the whole document's business). See docs/lyt-rework.md.
+
+  LAYOUTS: the two shells as cards. CLASSIC is the shell hosting this page; F-35 is a different
+  document, so the page asks the shell to switch ({mfd:true, type:'lyt-act', act:'classic'|'f35'}).
+
+  KEYBINDS: the SAVE LAYOUT and LOAD LAYOUT keys (the layout-save / layout-load binds, keyboard only),
+  set through LayoutKeybinds.slotBox like the slot keys below.
+
+  SAVED: the CLASSIC layouts from /layout-options, one row each. Position is the Layout 1-5 keybind
+  slot (the same boxes LOAD LAYOUT shows). LOAD asks the shell to apply the layout
+  ({act:'load', id}); delete writes through LayoutStore. The pencil opens the layout dialog (layout-edit-dialog.js, shared with the shell's SAVE LAYOUT) to edit
+  the layout's name and which panes stay in the SOI rotation (kept in the layout's data as soi:[bool,bool],
+  applied by the shell on load) through LayoutStore.update. The list refetches when the shell
+  reports the library changed ('layouts-changed').
+
+  The bezel's only label is MAIN. Shell -> page: 'keybinds-config-push' (layout-keybinds.js listens; remote-keybinds.js requests it),
+  'layouts-changed'. Saving is the keyboard shortcut.
+-->
+<link rel="stylesheet" href="/assets/shared/font.css">
+<link rel="stylesheet" href="/assets/shared/theme.css">
+<link rel="stylesheet" href="/assets/shared/preset-dialog.css">
+<link rel="stylesheet" href="/assets/shell/shared/layout-modal.css">
+<link rel="stylesheet" href="/assets/shell/shared/layout-edit-dialog.css">
+<link rel="stylesheet" href="/assets/pages/lyt/lyt-rows.css">
+<link rel="stylesheet" href="/assets/pages/lyt/lyt.css">
+</head>
+<body>
+  <div class="lyt-panel">
+    <header class="lyt-head">
+      <h1 class="lyt-title">LAYOUTS</h1>
+    </header>
+
+    <div class="lyt-shells">
+      <button type="button" class="lyt-shell" data-shell="classic" aria-pressed="true">
+        <span class="lyt-lamp" aria-hidden="true"></span>
+        <span class="lyt-shell-text">
+          <span class="lyt-shell-name">CLASSIC</span>
+          <span class="lyt-shell-desc">bezel keys, one page or two panes</span>
+        </span>
+        <!-- A bezel: key stubs down both sides of a two-pane screen. -->
+        <span class="lyt-thumb-classic" aria-hidden="true">
+          <span class="lyt-screen"><i></i><i></i></span>
+          <b class="l1"></b><b class="l2"></b><b class="l3"></b>
+          <b class="r1"></b><b class="r2"></b><b class="r3"></b>
+        </span>
+      </button>
+      <button type="button" class="lyt-shell" data-shell="f35" aria-pressed="false">
+        <span class="lyt-lamp" aria-hidden="true"></span>
+        <span class="lyt-shell-text">
+          <span class="lyt-shell-name">F-35</span>
+          <span class="lyt-shell-desc">touch portals you merge and split</span>
+        </span>
+        <!-- A glass: the master strip over three portals. -->
+        <span class="lyt-thumb-f35" aria-hidden="true">
+          <span class="lyt-strip"></span>
+          <i class="p1"></i><i class="p2"></i><i class="p3"></i>
+        </span>
+      </button>
+    </div>
+
+    <div class="lyt-section"><span class="lyt-section-name">KEYBINDS</span></div>
+    <div class="lyt-binds">
+      <div class="lyt-bind"><span class="lyt-bind-name">SAVE</span><span data-bind="save"></span></div>
+      <div class="lyt-bind"><span class="lyt-bind-name">LOAD</span><span data-bind="load"></span></div>
+    </div>
+
+    <p class="lyt-tip">To store a layout, set up the screen the way you want it (split, pages), then press the SAVE key above and give it a name.</p>
+
+    <div class="lyt-section">
+      <span class="lyt-section-name">SAVED</span>
+    </div>
+    <ol class="lyt-rows" id="lyt-rows"></ol>
+  </div>
+
+<script src="/assets/services/send-command.js"></script>
+<script src="/assets/pages/keybinds/keybinds-keymap.js"></script>
+<script src="/assets/shell/shared/layout-store.js"></script>
+<script src="/assets/shell/shared/layout-keybinds.js"></script>
+<script src="/assets/shell/shared/layout-edit-dialog.js"></script>
+<!-- Also how the key boxes get the keybind config: it asks the shell for it (or fetches it, standalone). -->
+<script src="/assets/services/remote-keybinds.js"></script>
+<script src="/assets/pages/lyt/lyt-slots.js"></script>
+<script src="/assets/pages/lyt/lyt-row.js"></script>
+<script type="module" src="/assets/pages/lyt/lyt.js"></script>
+</body>
+</html>

@@ -1,5 +1,9 @@
 # SOI include/exclude — [issue #58](https://github.com/roke77/NOXMFD/issues/58)
 
+> **On CLASSIC, the live SOI checkboxes in LOAD LAYOUT are replaced** by per-layout pane toggles
+> (docs/lyt-rework.md): each saved layout carries `soi: [bool, …]`, set in the LYT edit / save dialog and
+> applied as `soi.include` when it loads. The F-35 still uses the checkboxes described here.
+
 **Status:** shipped in 0.43.0, confirmed working in-game (checkboxes, exclude/include, and real SOI
 focus skipping an excluded pane). An external review of 0.43.0 then found a real gap the harness's
 JS model didn't cover — see "Shrink-plus-exclusion fix" below — since fixed, covered by real xUnit

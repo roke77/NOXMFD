@@ -49,32 +49,59 @@ see [MAIN's Connection status](main.md#connection-status).
 
 ![F-35 layout — 2-2 portal split](images/F-35%202-2.png)
 
+## The LYT page
+
+On CLASSIC, **LYT** (MAIN → **CFG** → **LYT**) is the layout manager. Its one bezel key, **MAIN** (top
+left), goes back to MAIN. The page has three parts:
+
+- **LAYOUTS** — the two layouts as cards. Tap one to switch to it; CLASSIC is lit while you are on it.
+- **KEYBINDS** — the **SAVE** and **LOAD** layout keys. Click a box, then press the key you want
+  (Esc cancels, Delete clears). One line under it reminds you how saving works.
+- **SAVED** — your saved layouts, one row each, in the order they were saved. A row shows its number,
+  a small picture of the split with the page in each pane, its name, and which split it is. The first
+  five rows carry a **Layout 1-5** key box, and empty slots show as dashed **EMPTY** rows. A pane the
+  layout leaves out of the SOI rotation is drawn gray in the picture. Each row also has:
+  - a **key box** — click it, then press a key *or* a joystick button; a slot holds one or the other.
+    This is the same setting as [KEY's Layout Presets](keybinds.md#layout-presets): pressing it loads
+    whichever layout is in that position;
+  - **✎** — edit the layout's name and choose which of its panes stay in the
+    [SOI](keybinds.md#sensor-of-interest-soi) rotation (one lit toggle per pane, or one for a full view);
+  - **×** — delete it (the ones below move up a slot);
+  - **LOAD** — apply it now.
+
+The **F-35** layout keeps its own picker: two cards and **SAVE**/**LOAD** buttons on the glass.
+
+![The LYT page](images/LYT.png)
+
 ## Save/Load Layout
 
 Save the current arrangement — the split (or F-35 portal arrangement) and which page each pane or
-portal shows — under a name, and load it back later. Multiple named layouts can be saved at once.
+portal shows — under a name, and load it back later. Saved layouts are kept on the game PC and
+shared by every connected browser.
+
+**CLASSIC**
+
+- **Save Layout** key — set the screen up the way you want it, then press the key. A form opens:
+  - a name;
+  - a key for the layout (a keyboard key or chord);
+  - **Include in SOI rotation** — one lit toggle per pane of the current screen (or **FULL VIEW**),
+    starting from what is selected now;
+  - the five slots. The first empty slot is selected, and the green button reads **SAVE**. Pick a
+    taken slot instead and it reads **REPLACE** — the current screen replaces that layout and keeps
+    its Layout key. When all five are taken you choose which one to replace.
+- **Load Layout** key — opens the same **SAVED** rows as the LYT page: set keys, edit, delete, or **LOAD**.
+
+![Save Layout](images/LYT_SAVE.png)
+
+![Load Layout](images/LYT_LOAD.png)
+
+**F-35**
 
 - **Save Layout** — prompts for a name, then saves.
-- **Load Layout** — lists every saved layout; pick one to apply it immediately. A pencil renames a
-  saved layout and an × deletes it, right in that list.
-- **Layout 1-5 keybinds**: the first five rows each have a keybind box. Click it, then press a key
-  or joystick button. Esc cancels and Delete clears. That key then loads whichever layout is in that
-  position, with no list to open. It's the same setting as
-  [KEY's Layout Presets](keybinds.md#layout-presets), and it's shared between CLASSIC and F-35:
-  Layout 1 is the first layout in each view's own list.
+- **Load Layout** — lists every saved layout; pick one to apply it. A pencil renames and an × deletes.
+  Above the list, one checkbox per portal ("Include portal N in SOI") removes that portal from
+  [SOI Next/Prev](keybinds.md#sensor-of-interest-soi)'s cycle on this display.
 
-Reach both from a keybind (configured on [KEY](keybinds.md), shared by every connected browser) or
-from the **SAVE**/**LOAD** buttons on this LYT page — the touch-friendly path for a tablet with no
-keyboard. **CFG** (top of the same menu) goes back to [KEY](keybinds.md) and the other CFG pages.
-
-On CLASSIC, saving while on this LYT menu remembers LYT itself as the current page — but if you
-had a page pinned, that's remembered too, so one SWAP after loading takes you straight back to it.
-
-Above the saved-layout list, **Load Layout** also shows a checkbox for each of this display's own
-panes (or F-35 portals) — "Include TOP/BOTTOM panel in SOI", "Include LEFT/RIGHT panel in SOI", or
-"Include portal N in SOI" — checked by default. Uncheck one to remove that pane or portal from
-[SOI Next/Prev](keybinds.md#sensor-of-interest-soi)'s cycle entirely, on this display only.
-
-![SAVE LAYOUT](images/SAVE.png)
-
-![LOAD LAYOUT](images/LOAD.png)
+Each view keeps its own list, and **Layout 1-5** load the 1st-5th in the list of the view the browser
+shows. Both keys are configured on the LYT page or on [KEY](keybinds.md#layout); they are keyboard-only
+and apply to every connected browser.

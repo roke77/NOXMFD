@@ -110,11 +110,8 @@ function fullViewSlot(i) { return i < 6 ? { bank: 'left', index: i } : { bank: '
 // this choice from its own master strip, so a NAV entry would put it on that layout's MAIN a second
 // time.
 //
-// LAYOUT is five left-bank labels and nothing else: CFG (the way back into the HUD/KEY/LYT/RTS
-// group, which LYT itself has no NAV entry for), the two layout choices, then SAVE/LOAD LAYOUT (a
-// touch-friendly path for a tablet with no keyboard, alongside the keyboard shortcut). It draws no
-// panel — every other page in this shell puts its items beside a physical key, and a chooser reads
-// the same way. `mark` flags the layout currently active.
+// LAYOUT is one left-bank label, MAIN: the /lyt page in #page-frame carries the shell cards and the
+// saved layouts, and SAVE/LOAD LAYOUT are the keyboard shortcuts (dialogs: layout-keydown.js).
 const BEZEL_EXTRAS = {
   // CFG, MD, RDR, AFM and SQD — the layout-owned MAIN items the six shared NAV items don't
   // cover. CFG opens the CFG group (HUD/KEY/LYT/RTS — cfg-rates experiment issue #39, HUD joined
@@ -140,14 +137,10 @@ const BEZEL_EXTRAS = {
     // EXT is NOT here — it's a real, shared NAV.main entry (docs/extensions-api.md), not a
     // layout-owned stub; a second entry here would render a duplicate "EXT" label.
   ],
-  // No MAIN back-item under lyt here — picking CLASSIC already navigates back to MAIN (this shell).
-  // CFG is still needed: it goes back to HUD/KEY/RTS, which picking CLASSIC does not reach.
+  // The /lyt page carries everything else (shell cards, saved layouts); the bezel only offers the
+  // way back to MAIN. Saving is the keyboard shortcut.
   lyt:  [
-    { label: 'CFG',     action: 'hud',         bank: 'left', index: 0 },
-    { label: 'CLASSIC', action: 'lyt-classic', bank: 'left', index: 1, mark: true },
-    { label: 'F-35',    action: 'lyt-f35',     bank: 'left', index: 2 },
-    { label: 'SAVE',    action: 'lyt-save-layout', bank: 'left', index: 3 },
-    { label: 'LOAD',    action: 'lyt-load-layout', bank: 'left', index: 4 },
+    { label: 'MAIN', action: 'main', bank: 'left', index: 0 },
   ],
 };
 
@@ -205,10 +198,9 @@ function mapFullRight(hasRoutes, hasActiveRoute, hasSteerPoints) {
   });
 }
 
-// Which pages draw an OPAQUE full-view overlay. MAIN paints a panel over the still-running map, and
-// LAYOUT is a menu with nothing of its own behind it; every other page is transparent (its content
-// is the map, or the #page-frame beneath).
-const OPAQUE_PAGES = { main: true, lyt: true };
+// Which pages draw an OPAQUE full-view overlay. MAIN paints a panel over the still-running map;
+// every other page is transparent (its content is the map, or the #page-frame beneath).
+const OPAQUE_PAGES = { main: true };
 // Frame pages that own a live streaming/network resource of their own (issue #85) — the only ones
 // that actually need #page-frame unloaded rather than just hidden when you leave them for a page
 // it doesn't host (see showPage/applySplitMode). Every other frame page (WPT, TGT, AVN, ...) has
@@ -475,7 +467,7 @@ function placeSplitKey(m, label, action, paneTag, mark, pending) {
 // this same lone MAIN label (ext-nav.js), so there's no per-extension list to hardcode here the
 // way TGT/AKF/etc. are — this either clears real content (ATC's own table header, the reason this
 // was added) or costs nothing on a page with none.
-function isVmainPage(p) { return p === 'tgt' || p === 'td' || p === 'sqd' || p === 'akf' || p === 'bdf' || p === 'pal' || p === 'mis' || p === 'obj' || ExtNav.isExtensionPage(p); }
+function isVmainPage(p) { return p === 'tgt' || p === 'td' || p === 'sqd' || p === 'akf' || p === 'bdf' || p === 'pal' || p === 'mis' || p === 'obj' || p === 'lyt' || ExtNav.isExtensionPage(p); }
 
 // The item count on each MAIN split page. Unlike WPN, MAIN reserves no fixed back-slot: PREV anchors
 // the first key only on pages past the first, NEXT the last key only on pages before the last, and
@@ -2004,6 +1996,9 @@ function showPage(name) {
   // squad-state push (SQD_STATE_PAGES below), and now also the server-players push (RELAY_MESSAGES
   // below) instead of its own 2s /server-players poll.
   if (name === 'sqd') showFramePage('sqd');
+  // LYT (docs/lyt-rework.md) — the layout manager. Fetches its own list and answers to the shell
+  // only through 'lyt-act' (message listener), so there is nothing to forward.
+  if (name === 'lyt') showFramePage('lyt');
   // Extension pages (docs/extensions-api.md) render in #page-frame too. Same shape as TGP —
   // static MAIN label, no extra nav wiring, just forward the extension's last published slice.
   if (ExtNav.isExtensionPage(name)) {
@@ -2056,7 +2051,8 @@ window.addEventListener('message', function(e) {
   // necessarily mapFrame, same reasoning as 'follow'/'grid'.
   // 'doc-view' (issue #82 follow-up) comes from DOC's own iframe, same reasoning again — it's
   // page-internal UI state (index vs image) with no game-telemetry equivalent to ride in on.
-  if (m.type !== 'follow' && m.type !== 'grid' && m.type !== 'slew' && m.type !== 'wpt-routes-request' && m.type !== 'doc-view' && e.source !== mapFrame.contentWindow) return;
+  // 'lyt-act' (the LYT page's shell switch / LOAD) comes from #page-frame, same reasoning again.
+  if (m.type !== 'follow' && m.type !== 'grid' && m.type !== 'slew' && m.type !== 'wpt-routes-request' && m.type !== 'doc-view' && m.type !== 'lyt-act' && e.source !== mapFrame.contentWindow) return;
   if (m.type === 'status') {
     lastStatusCls  = m.cls;
     lastStatusText = m.text;
@@ -2220,6 +2216,10 @@ window.addEventListener('message', function(e) {
     else if (e.source === paneIframes[1].contentWindow) paneSlewOn[1] = on;
     else return;
     refreshFollowIndicator();
+  } else if (m.type === 'lyt-act') {
+    if (e.source !== pageFrame.contentWindow || currentPage !== 'lyt' || splitMode) return;
+    if (m.act === 'classic' || m.act === 'f35') chooseShell(m.act);
+    else if (m.act === 'load' && typeof m.id === 'string') loadById(m.id);
   } else if (m.type === 'doc-view') {
     // DOC's own index-vs-image view state (issue #82 follow-up) — routed by source, same reasoning
     // as follow/grid above: DOC can be the full-view page or either split pane, each tracked and
@@ -2554,6 +2554,17 @@ function soiAct(act) {
   else setSoiCursor(((soiCursor + dir) % keys.length + keys.length) % keys.length);
 }
 
+// The LYT page's two cards land here. CLASSIC is this document, so choosing it is just leaving the
+// page for MAIN; F-35 is a different document, so it is a real navigation (that shell lands on its
+// own MAIN). Either choice is remembered (setLayout → localStorage) so a fresh load honors it — the
+// head guard in each shell's HTML redirects on that value (docs/layouts.md).
+function chooseShell(name) {
+  setLayout(name);
+  if (name === 'f35') { location.href = '/f35'; return; }
+  showPage('main');
+  mapSend('status-request');
+}
+
 function mfdButton(el) {
   if (el.dataset.pending) return;   // a stub label (EXT) — not wired to anything yet, not even feedback
   el.classList.add('lit');                                   // brief press feedback
@@ -2611,9 +2622,7 @@ function mfdButton(el) {
       // LYT is a whole-document layout switch, not per-pane content (no PAGE_URL entry) — leaving
       // split is the only sensible destination, same as the 'unsplit' case below but landing on LYT
       // instead of the top/left pane's page.
-      splitMode = false;
-      currentPage = 'lyt';
-      applySplitMode();
+      goToLyt();
     } else if (act === 'flw' || act === 'zin' || act === 'zout' || act === 'grid' || act === 'rt-next' || act === 'rt-prev'
         || act === 'wpt-next' || act === 'wpt-prev' || act === 'slew') {
       // MAP controls act on the pane's own map iframe — they don't navigate it away.
@@ -2726,19 +2735,6 @@ function mfdButton(el) {
     case 'mapcfg': showPage('mapcfg'); break;
     case 'tgpcfg': showPage('tgpcfg'); break;
     case 'lyt':   showPage('lyt');   break;
-    // The LAYOUT page's two choices. CLASSIC is this document, so choosing it is just leaving the
-    // menu — back to MAIN, where LYT was pressed, with a fresh status as MAIN's own key pulls.
-    // F-35 is a different document, so it is a real navigation; that shell lands on its own MAIN.
-    // Either choice is remembered (setLayout → localStorage) so a fresh load honors it — the head
-    // guard in each shell's HTML redirects on that value (docs/layouts.md).
-    case 'lyt-classic': setLayout('classic'); showPage('main'); mapSend('status-request'); break;
-    case 'lyt-f35':     setLayout('f35'); location.href = '/f35'; break;
-    // Touch-friendly path for SAVE/LOAD LAYOUT — same modals the keyboard shortcut opens, for a
-    // tablet with no keyboard attached. Saving from here means the layout
-    // remembers LYT itself as the current page (LYT has no per-pane content, so it's always
-    // full-view) — see applyLayoutState's pin restore below for how SWAP gets a pilot back off it.
-    case 'lyt-save-layout': openSaveLayoutModal(); break;
-    case 'lyt-load-layout': openLoadLayoutModal(); break;
     case 'avn':  showPage('avn');  break;
     case 'afm':  showPage('afm');  break;
     case 'rwr':  showPage('rwr');  break;
@@ -3054,10 +3050,9 @@ function captureLayoutState() {
   const state = splitMode
     ? { splitMode: true, splitVariant: splitVariant, pages: panePages.slice() }
     : { splitMode: false, pages: [currentPage] };
-  // The PIN — saving from LYT (SAVE has to be pressed there; LYT has no
-  // per-pane content, so it's always full-view) means the layout itself remembers LYT, not
-  // whatever page the pilot actually cares about. Carrying pinnedPage along lets a single SWAP
-  // after LOAD jump straight back to it, same as it would have before saving.
+  // The PIN — a layout saved while the LYT page is showing (it has no per-pane content, so it's
+  // always full-view) remembers LYT itself, not whatever page the pilot actually cares about.
+  // Carrying pinnedPage along lets a single SWAP after LOAD jump straight back to it.
   state.pinnedPage = pinnedPage;
   return state;
 }
@@ -3075,6 +3070,14 @@ function applyLayoutState(state) {
     applySplitMode();   // its own showPage(currentPage) lands on the restored page directly
   } else {
     showPage(pages[0] || 'main');
+  }
+  // Panes the layout keeps out of the SOI rotation (the LYT page's edit dialog writes `soi`, one
+  // entry per pane, a full view's single one included); a layout without one leaves the current
+  // membership alone.
+  if (state && Array.isArray(state.soi)) {
+    state.soi.forEach(function(on, pane) {
+      sendCommand('soi.include', { cid: myCid, n: pane, on: on !== false }).catch(function() {});
+    });
   }
   // Restore the pin last — applySplitMode (above, on any full<->split transition) already clears
   // it via clearPin(), so setting it before that point would just have it wiped again. 'main' is
@@ -3101,13 +3104,21 @@ function soiSurfaces() {
     : splitVariant === 'h'
       ? ['Include TOP panel in SOI', 'Include BOTTOM panel in SOI']
       : ['Include LEFT panel in SOI', 'Include RIGHT panel in SOI'];
-  return { cid: myCid, labels: labels };
+  const names = !splitMode ? ['FULL VIEW'] : splitVariant === 'h' ? ['TOP PANE', 'BOTTOM PANE'] : ['LEFT PANE', 'RIGHT PANE'];
+  return { cid: myCid, labels: labels, names: names };
+}
+
+// Leaves a split for the LYT page (whole-document, never a pane) or opens it from full view.
+function goToLyt() {
+  if (splitMode) { splitMode = false; currentPage = 'lyt'; applySplitMode(); }
+  else showPage('lyt');
 }
 
 // SAVE/LOAD LAYOUT keyboard wiring is shared with f35.js via src/web/shell/layout-keydown.js —
 // only captureLayoutState/applyLayoutState (this shell's own state shape) stay here.
-const { openSaveLayoutModal, openLoadLayoutModal, loadSlotAct, handleLayoutKeydown, wireLayoutKeydown } =
-  LayoutKeydown.makeLayoutKeydownHandlers('classic', captureLayoutState, applyLayoutState, soiSurfaces);
+const { openSaveLayoutModal, openLoadLayoutModal, loadSlotAct, loadById, handleLayoutKeydown, wireLayoutKeydown } =
+  LayoutKeydown.makeLayoutKeydownHandlers('classic', captureLayoutState, applyLayoutState, soiSurfaces,
+    { slots: LayoutKeybinds.SLOT_COUNT });
 window.addEventListener('keydown', handleLayoutKeydown);
 wireLayoutKeydown(mapFrame);
 wireLayoutKeydown(pageFrame);

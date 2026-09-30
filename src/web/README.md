@@ -11,7 +11,7 @@ Full design history and decisions: [`docs/src-architecture.md`](../../docs/src-a
 
 ```
 src/web/
-  shared/   font.css  theme.css  lit-panel.css  share-tech-mono.woff2   # passive cross-page assets
+  shared/   font.css  theme.css  lit-panel.css  preset-dialog.css  share-tech-mono.woff2   # passive cross-page assets
   services/ telemetry-source.js  send-command.js          # active shared code (the providers)
             preset-cards.js  .test.js                     # the 5 preset cards + SAVE PRESET dialog (HUD and TGT)
             pad-cursor.js                                 # the shared PAD crosshair (docs/page-cursor.md)
@@ -22,7 +22,8 @@ src/web/
   shell/    shared/        nav-model.js                   # NAV registry — the layout seam, BOTH shells load it
                            layout-pages.js                # where each layout mounts each NAV destination
                            layout-keydown.js               # shared SAVE/LOAD LAYOUT + Layout 1-5 keyboard wiring
-                           layout-store.js  layout-modal.js/.css  # SAVE/LOAD LAYOUT storage + dialog
+                           layout-store.js  .test.js  layout-modal.js/.css  # SAVE/LOAD LAYOUT storage + the F-35 name prompt/list picker
+                           layout-edit-dialog.js/.css  layout-load-dialog.js  # CLASSIC's SAVE (pick a slot) / LOAD popups + the LYT edit dialog (docs/lyt-rework.md)
                            layout-keybinds.js              # SAVE/LOAD LAYOUT + Layout 1-5 key matching, slot keybind box
                            boot-reveal.js                 # shared boot loading-bar + typewriter mechanics
                            wake-lock.js  wake-lock.test.js # screen wake-lock controller (docs/screen-wake-lock.md)
@@ -45,6 +46,9 @@ src/web/
             waypoints-store.js            # RouteStore (docs/steer-points.md) — one bootstrap
                                            # fetch, then the shell's relayed SSE push (docs/sse-push-refactor.md)
             wpt-route.js  wpt-route.test.js  # /wpt-options + POST /command, no local persistence
+    lyt/    lyt.html  lyt.css  lyt.js     # layout manager (docs/lyt-rework.md): shell cards, key boxes, saved layouts
+            lyt-slots.js  .test.js        # pure: saved layout data -> split name, pane rects, pages, SOI membership
+            lyt-row.js  lyt-rows.css      # the saved-layout row, shared with the shell's LOAD/SAVE popups
     sqd/    sqd.html  sqd.css  sqd.js     # squad membership over Steam P2P (docs/squadron-transport.md) —
                                            # squad state and the match roster both ride the shell's relayed
                                            # SSE pushes (docs/sse-push-refactor.md), no polling of its own
@@ -220,7 +224,7 @@ selected FCR range follows the same pattern under `noxmfd.rdr.view`; HSD keeps i
   WPT → the `wpt.*` family, including its squad-share sub-group (docs/squadron-transport.md); SQD →
   the `sqd.*` family; TD → the `td.*` family (issue #47, docs/target-designator.md))
   and from either shell (`soi.panes`, `weapon.select`, `master-arms.set`, `combat-mode.set`,
-  `layout.save`/`.rename`/`.delete` (issue #51 — LOAD itself is a client-side `GET /layout-options`
+  `layout.save`/`.update`/`.rename`/`.delete` (issue #51 — LOAD itself is a client-side `GET /layout-options`
   read, no command), and `avn.toggle` again from the F-35 master strip). Every handler is listed in
   [`src/plugin/README.md`](../plugin/README.md).
 - **Remote keybinds:** `src/web/services/remote-keybinds.js` is loaded by shells and standalone

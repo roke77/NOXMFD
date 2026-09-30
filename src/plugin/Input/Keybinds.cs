@@ -684,10 +684,11 @@ namespace NOXMFD
                 "gear/landing cam takes over.",
             "Layout Keybinds" =>
                 "Keyboard only, no joystick/HOTAS. Acts on whichever browser window has focus when " +
-                "pressed, and applies to every connected browser.",
+                "pressed, and applies to every connected browser. Also settable on the LYT page.",
             "Layout Preset Keybinds" =>
-                "Layout N loads the Nth layout in LOAD LAYOUT's list for the view (CLASSIC or F-35) " +
-                "the browser is showing; also settable from that list. A key pressed in a browser " +
+                "Layout N loads the Nth saved layout for the view (CLASSIC or F-35) the browser is " +
+                "showing; also settable on the LYT page's saved layouts (CLASSIC) or in the F-35's " +
+                "LOAD LAYOUT list. A key pressed in a browser " +
                 "loads there; a joystick button (or a key while the game window has focus) loads in " +
                 "the browser holding SOI. A key or button already used by another bind is refused.",
             "Immersion Keybinds" =>

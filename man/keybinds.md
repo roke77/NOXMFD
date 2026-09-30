@@ -148,7 +148,8 @@ is selected until you press a SOI key.
 - **Nav Up / Nav Down** — move the cursor over the selected screen's buttons.
 - **Nav Select** — press the button under the cursor.
 
-A display, pane, or F-35 portal can be excluded from SOI Next/Prev entirely — see
+A display, pane, or F-35 portal can be excluded from SOI Next/Prev entirely — on CLASSIC through
+each saved layout's pane toggles ([the LYT page](layouts.md#the-lyt-page)), on F-35 through
 [LOAD LAYOUT](layouts.md#saveload-layout)'s checkboxes.
 
 ![SOI-selected screen](images/SOI1.png)
@@ -192,27 +193,26 @@ crosshair — see [TGP](tgp.md#pointing-the-camera) for the details.
 ## Layout
 
 - **Save Layout** — save the current split/portal arrangement and which page each pane or portal
-  shows, under a name.
-- **Load Layout** — pick a saved arrangement by name and apply it immediately.
+  shows, under a name (on CLASSIC, into a slot you pick).
+- **Load Layout** — pick a saved arrangement and apply it immediately.
 
 No joystick/HOTAS for these two — whichever browser window has keyboard focus when the key is
-pressed is the one that acts, and the key you set here applies to every connected browser. The
-same two actions are also available as **SAVE**/**LOAD** buttons on [LYT](layouts.md)'s own menu,
-for a tablet with no keyboard.
+pressed is the one that acts, and the key you set here applies to every connected browser. They can
+also be set on [the LYT page](layouts.md#the-lyt-page), under KEYBINDS.
 
 ![Layout section](images/LYT_KEY.png)
 
 ## Layout Presets
 
-- **Layout 1** through **Layout 5** load the 1st-5th layout in [LOAD LAYOUT](layouts.md#saveload-layout)'s
-  list for the view the browser is showing (CLASSIC or F-35), so one key works in both views. Nothing
+- **Layout 1** through **Layout 5** load the 1st-5th [saved layout](layouts.md#the-lyt-page)
+  for the view the browser is showing (CLASSIC or F-35), so one key works in both views. Nothing
   happens if no layout is saved at that position.
 
 Keyboard and joystick/HOTAS both work. A key pressed in a browser loads the layout in that browser.
 A joystick button, or a key pressed while the game window has focus, loads it in the browser holding
-[SOI](#sensor-of-interest-soi). You can also set these from the keybind box on the first five rows of
-LOAD LAYOUT's list. A key or button already used by another bind is refused, and the cell names the
-bind that uses it.
+[SOI](#sensor-of-interest-soi). A slot holds a key or a joystick button, not both. You can also set
+these from the key box on each row of the LYT page's SAVED list (and in the Load Layout popup). A key
+or button already used by another bind is refused, and the cell names the bind that uses it.
 
 ## HUD Presets
 

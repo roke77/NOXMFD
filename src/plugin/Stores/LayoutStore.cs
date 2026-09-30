@@ -140,6 +140,20 @@ namespace NOXMFD
             return true;
         }
 
+        // The LYT page's edit dialog: a new name and a new arrangement blob in one write (for the
+        // per-pane SOI choice), keeping the layout's id and position — Layout N is the Nth in the list.
+        public static bool UpdateLayout(string? id, string? name, string? dataJson)
+        {
+            if (string.IsNullOrEmpty(name) || string.IsNullOrEmpty(dataJson)) return false;
+            if (JsonLite.Parse(dataJson) is not Dictionary<string, object?>) return false;
+            Layout? layout = _layouts.Find(l => l.Id == id);
+            if (layout == null) return false;
+            layout.Name = UniqueName(name!.Trim(), id);
+            layout.DataJson = dataJson!;
+            Save();
+            return true;
+        }
+
         public static bool RenameLayout(string? id, string? name)
         {
             if (string.IsNullOrEmpty(name)) return false;

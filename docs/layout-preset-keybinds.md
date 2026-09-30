@@ -55,6 +55,8 @@ it to put `LayoutKeybinds.slotBox(n)` on rows 1-5. The box:
   (`keybind.arm-joy`), whichever comes first wins;
 - takes Ctrl/Alt/Shift chords the same way as the KEY page (`KeybindsKeymap.captureStep`: it
   listens on keyup too, and shows `ALT+…` while only modifiers are held);
+- holds a key or a joystick button, never both: whichever lands clears the other (the box
+  clears the other half once the config push shows both set);
 - Esc cancels and a bare Delete/Backspace clears both. Its keydown listener is window capture-phase, so it
   runs before the modal's document-level Escape (which would close the modal) and before the
   shell's own keydown matcher (which would fire the key's current action);

@@ -1,0 +1,63 @@
+/* The layout dialog (layout-edit-dialog.js): the shared SAVE PRESET dialog (shared/preset-dialog.css
+   — load it too) plus the SOI toggles, a message, an optional list of saved layouts (rows styled by
+   pages/lyt/lyt-rows.css) and a two-button action row. The toggles look
+   like lit-panel.css's `.lit` pushbuttons (a lamp over the label) under their own class, because the
+   bezel shell uses `.lit` for its key press flash; the grays and near-blacks are lit-panel.css's
+   --lit-* values, which that file's :root isn't loaded here to supply. */
+
+.led-scrim { z-index: 50; }   /* above the load dialog, which opens it to edit a layout */
+
+.led-message { font-size: 13px; line-height: 1.5; letter-spacing: 1px; color: var(--no-white); }
+.led-message[hidden], .led-soi[hidden], .led-list[hidden], .led-key[hidden] { display: none; }
+
+.led-key { display: flex; align-items: center; gap: 10px; }
+.led-key .preset-kp-title { flex: 1; }
+
+.led-soi { display: flex; flex-direction: column; gap: 8px; }
+.led-toggles { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.led-toggle:only-child { grid-column: 1 / -1; }   /* a full view's single toggle spans the row */
+.led-toggle {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+  min-width: 0; padding: 10px 0.3em;
+  font: inherit; font-size: 14px; font-weight: bold; letter-spacing: 2px; line-height: 1.05;
+  color: #7d868d; background: #060807;
+  border: 1px solid #2c3431; border-radius: 5px;
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.led-toggle::before {
+  content: ''; display: block; flex: none;
+  height: 0.24em; width: 2.25em; border-radius: 2px;
+  background: #1b221e;
+}
+.led-toggle[aria-pressed="true"] { color: var(--no-white); background: #0a0f0b; }
+.led-toggle[aria-pressed="true"]::before { background: var(--no-green); box-shadow: 0 0 8px var(--no-green), 0 0 2px var(--no-green); }
+.led-toggle:focus-visible { outline: 2px solid var(--no-amber); outline-offset: 2px; }
+
+.led-actions {
+  grid-template-columns: repeat(2, 1fr);
+  padding-top: clamp(6px, 1.6vh, 14px);
+  border-top: 1px solid var(--no-green-dark);   /* separates the buttons from the fields above */
+}
+
+/* With the list of layouts to replace: wider, and scrolls on a short screen. */
+.preset-kp.led-wide { width: min(720px, 94%); max-height: 94vh; overflow-y: auto; }
+.led-list ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.led-list .lyt-row { cursor: pointer; }
+.led-list .lyt-row.picked { border-color: var(--no-green); background: #0a0f0b; }
+.led-pick {
+  flex: none; width: 22px; height: 22px; margin: 0 6px 0 auto;
+  appearance: none; -webkit-appearance: none;
+  border: 1px solid var(--no-green-deep); border-radius: 50%; background: #000;
+  display: grid; place-items: center; cursor: pointer;
+}
+.led-pick::after {
+  content: ''; width: 10px; height: 10px; border-radius: 50%;
+  background: var(--no-green); box-shadow: 0 0 8px var(--no-green), 0 0 2px var(--no-green);
+  transform: scale(0); transition: transform 0.1s;
+}
+.led-pick:checked { border-color: var(--no-green); }
+.led-pick:disabled { opacity: 0.35; cursor: not-allowed; }
+.led-list .lyt-row.inert { cursor: default; }
+.led-pick:checked::after { transform: scale(1); }
+.led-pick:focus-visible { outline: 2px solid var(--no-amber); outline-offset: 2px; }
+.led-actions.led-actions-one { grid-template-columns: 1fr; }

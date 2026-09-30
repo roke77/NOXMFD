@@ -96,6 +96,8 @@ namespace NOXMFD
                 TelemetryAssets.ServeAssetRel(ctx, "pages/hsd/hsd.html");
             else if (path == "/tgt")
                 TelemetryAssets.ServeAssetRel(ctx, "pages/tgt/tgt.html");
+            else if (path == "/lyt")
+                TelemetryAssets.ServeAssetRel(ctx, "pages/lyt/lyt.html");
             else if (path == "/akf")
                 TelemetryAssets.ServeAssetRel(ctx, "pages/akf/akf.html");
             else if (path == "/bdf")

@@ -1,5 +1,9 @@
 # Save/load shell layout
 
+> **CLASSIC's SAVE/LOAD have since been reworked** (docs/lyt-rework.md): SAVE is a slot-picking form,
+> LOAD a popup of the LYT page's SAVED rows, and the LYT page's SAVE/LOAD nav items are gone. This record
+> describes the original design, which the F-35 shell still follows.
+
 ## Status
 
 Merged to `main` and harness-verified. Real plugin persistence across a full game restart remains

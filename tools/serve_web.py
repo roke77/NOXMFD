@@ -722,18 +722,23 @@ def _wpt_seed_script():
 # arrangement's shape, so it stores/returns it as opaque text, same as wpt.import's pasted blob) —
 # the browser JSON.parses it when a picked layout is applied.
 LAYOUTS = [
-    {"id": "l_demo_classic", "name": "Classic split demo", "shell": "classic",
-     "data": json.dumps({"splitMode": True, "splitVariant": "h", "pages": ["rwr", "main"],
-                          "pinnedPage": "rwr"})},
     {"id": "l_demo_f35", "name": "F-35 demo", "shell": "f35",
      "data": json.dumps({"cells": [{"span": 2, "ate": "right"}, {"span": 1}, {"span": 1}],
                           "pages": ["wpn", "main", "map"]})},
 ] + [
-    # Five more CLASSIC layouts so LOAD's list shows the Layout Preset boxes stopping after row 5
-    # (issue #90).
-    {"id": f"l_demo_classic_{n}", "name": f"Classic full {page.upper()}", "shell": "classic",
-     "data": json.dumps({"splitMode": False, "pages": [page]})}
-    for n, page in enumerate(["map", "tgt", "hud", "wpn", "rwr"], start=2)
+    # Four CLASSIC layouts: a full view, then three splits (h / v / vwr), so the LYT page shows
+    # Layout 1-4 saved with a different thumbnail each and slot 5 empty (LOAD's list shows Layout
+    # Preset boxes on the same first five rows, issue #90). Two of them leave a pane out of the SOI
+    # rotation (`soi`, one flag per pane) so the gray panes in the thumbnails show too.
+    {"id": f"l_demo_classic_{n}", "name": name, "shell": "classic",
+     "data": json.dumps({"splitMode": variant is not None, **({"splitVariant": variant} if variant else {}),
+                          "pages": pages, **({"soi": soi} if soi else {})})}
+    for n, (name, variant, pages, soi) in enumerate([
+        ("CLASSIC FULL MAP", None, ["map"], None),
+        ("CENTER MAP TGT", "h", ["map", "tgt"], [True, False]),
+        ("LEFT RWR AVN", "v", ["rwr", "avn"], None),
+        ("RIGHT WPN", "vwr", ["hsd", "wpn"], [False, True]),
+    ], start=1)
 ]
 
 
@@ -772,6 +777,16 @@ def _layout_command(env):
         if not name:
             return False
         row["name"] = _unique_layout_name(name, bind)
+        return True
+    if cmd == "layout.update" and row is not None:
+        name, data = (env.get("wname") or "").strip(), env.get("text") or ""
+        try:
+            json.loads(data)
+        except ValueError:
+            return False
+        if not name or not data:
+            return False
+        row["name"], row["data"] = _unique_layout_name(name, bind), data
         return True
     if cmd == "layout.delete" and row is not None:
         LAYOUTS.remove(row)
@@ -920,11 +935,18 @@ def _soi_command(env):
 # deadline — no threads).
 keybinds_source.self_check(REPO)
 KEYBINDS, _KEYBIND_NOTES = keybinds_source.load_keybinds(REPO)
-# Seed one already-bound example so the preview shows what a bound row looks like.
+# Seed already-bound examples so the preview shows what a bound row looks like: a key plus a
+# joystick button, SAVE LAYOUT as a chord (stored "LeftShift+S" form), Layout 1 on a key and Layout 2
+# on a joystick button. LOAD LAYOUT stays unbound so the unset state shows too.
 for _b in KEYBINDS:
     if _b["id"] == "jammer":
         _b["key"], _b["joyButton"], _b["joyNum"] = "J", 3, 2
-        break
+    elif _b["id"] == "layout-save":
+        _b["key"] = "LeftShift+S"
+    elif _b["id"] == "layout-preset-1":
+        _b["key"] = "F1"
+    elif _b["id"] == "layout-preset-2":
+        _b["joyButton"], _b["joyNum"] = 7, 1
 KB_STATE = {"capturing": None, "capturingKind": None, "armed_at": 0.0, "bgInput": False,
             "rejected": {"seq": 0, "bind": "", "by": ""},
             "radarOnOnStart": True, "engineOnOnStart": True, "masterArmsOnOnStart": True,

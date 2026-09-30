@@ -12,16 +12,103 @@
   // is the only thing that knows whether it's a full view, an H/V split, or an F-35 portal count,
   // so it owns the exact wording ("Include TOP panel in SOI", "Include portal 2 in SOI", ...);
   // this module only knows how to fetch/set the server's included/excluded state generically.
-  function makeLayoutKeydownHandlers(shellName, captureLayoutState, applyLayoutState, getSoiSurfaces) {
+  // slotDialog (optional, CLASSIC): {slots} — SAVE opens the layout dialog and stores into the next
+  // free slot, or, with all `slots` taken, asks which saved layout to replace. Without it SAVE is
+  // the plain name prompt.
+  function makeLayoutKeydownHandlers(shellName, captureLayoutState, applyLayoutState, getSoiSurfaces, slotDialog) {
     function shellLayouts() {
       return LayoutStore.list().then(function (data) {
         return (data.layouts || []).filter(function (l) { return l.shell === shellName; });
       });
     }
 
+    // This display's current SOI-rotation membership, one flag per pane, for the save dialog's toggles.
+    function soiFlags() {
+      const s = getSoiSurfaces && getSoiSurfaces();
+      const all = s ? s.names.map(function () { return true; }) : [];
+      if (!s || !s.cid) return Promise.resolve(all);
+      return fetch('/soi-excluded?cid=' + encodeURIComponent(s.cid), { cache: 'no-store' })
+        .then(function (r) { return r.ok ? r.json() : { excluded: [] }; })
+        .then(function (d) { return s.names.map(function (_, pane) { return (d.excluded || []).indexOf(pane) === -1; }); })
+        .catch(function () { return all; });
+    }
+
+    // SAVE LAYOUT (CLASSIC): pick a slot for the current arrangement. A taken slot is REPLACEd (same
+    // id and position, so it keeps its Layout N key); the first empty slot is a SAVE (the list
+    // appends, so later empty slots can't be skipped to and are shown but not selectable). The key
+    // recorded in the form goes to the chosen slot.
+    function openSaveSlotDialog() {
+      if (LayoutEditDialog.isOpen()) return;   // a held SAVE key repeating
+      LayoutStore.list().then(function (data) {
+        if (data.failed) {
+          LayoutEditDialog.open({ title: 'SAVE LAYOUT', notice: "Can't reach the game, so saved layouts can't be read or written right now." });
+          return;
+        }
+        const items = (data.layouts || []).filter(function (l) { return l.shell === shellName; });
+        const arrangement = captureLayoutState();
+        soiFlags().then(function (flags) {
+          const rows = LytSlots.describeLayouts(items);
+          const FREE = 'free';   // the choice id of the first empty slot
+          const hasFree = items.length < slotDialog.slots;
+          LayoutEditDialog.open({
+            title: 'SAVE LAYOUT',
+            panes: getSoiSurfaces().names.map(function (label, i) { return { label: label, on: flags[i] }; }),
+            pendingKey: true,
+            message: hasFree
+              ? 'Select a slot for this layout. A taken slot is replaced.'
+              : 'All ' + slotDialog.slots + ' layout slots are taken. Select the one to replace with this layout.',
+            submitLabel: hasFree ? 'SAVE' : 'REPLACE',
+            onSubmit: function (name, soi, id, key) {
+              const data = Object.assign(arrangement, { soi: soi });
+              // The chosen layout may have been deleted from another browser meanwhile: then the
+              // update is a no-op on the plugin and there is no slot to bind.
+              const target = rows.filter(function (r) { return r.id === id; })[0];
+              const slot = id === FREE ? items.length + 1 : target && target.slot;
+              if (id === FREE) LayoutStore.save(name, shellName, data).catch(LayoutStore.warn('save'));
+              else LayoutStore.update(id, name, data).catch(LayoutStore.warn('replace'));
+              if (key && slot) LayoutKeybinds.setSlotKey(slot, key);
+            },
+            buildList: function (choose) {
+              const ol = document.createElement('ol');
+              function addRow(li, radio, id, label) {
+                radio.addEventListener('change', function () {
+                  [].forEach.call(ol.children, function (c) { c.classList.toggle('picked', c === li); });
+                  choose(id, label);
+                });
+                // The whole row is the target, not just the small radio.
+                li.addEventListener('click', function (e) { if (e.target !== radio && !radio.disabled) radio.click(); });
+                ol.appendChild(li);
+              }
+              function radioFor(text) {
+                const radio = document.createElement('input');
+                radio.type = 'radio'; radio.name = 'led-slot'; radio.className = 'led-pick';
+                radio.setAttribute('aria-label', text);
+                return radio;
+              }
+              rows.forEach(function (row) {
+                const radio = radioFor('Replace ' + row.name);
+                addRow(LytRow.build(row, [radio]), radio, row.id, 'REPLACE');
+              });
+              for (let n = items.length + 1; n <= slotDialog.slots; n++) {
+                const first = n === items.length + 1;
+                const radio = radioFor('Save in slot ' + n);
+                radio.disabled = !first;
+                const li = LytRow.buildEmpty(n, [radio]);
+                li.classList.toggle('inert', !first);
+                addRow(li, radio, FREE, 'SAVE');
+                if (first) { radio.checked = true; li.classList.add('picked'); choose(FREE, 'SAVE'); }
+              }
+              return ol;
+            },
+          });
+        });
+      });
+    }
+
     function openSaveLayoutModal() {
+      if (slotDialog) { openSaveSlotDialog(); return; }
       LayoutModal.prompt('SAVE LAYOUT', function (name) {
-        LayoutStore.save(name, shellName, captureLayoutState()).catch(function () {});
+        LayoutStore.save(name, shellName, captureLayoutState()).catch(LayoutStore.warn('save'));
         LayoutModal.close();
       });
     }
@@ -56,6 +143,8 @@
     }
 
     function openLoadLayoutModal() {
+      // CLASSIC: the LYT page's SAVED section as a popup.
+      if (slotDialog) { if (!LayoutLoadDialog.isOpen()) LayoutLoadDialog.open(loadById); return; }
       soiCheckboxes().then(function (checkboxes) {
         LayoutModal.pickList('LOAD LAYOUT', shellLayouts, {
           checkboxes: checkboxes,
@@ -72,6 +161,15 @@
     // as picking it there. No layout at that position → nothing happens.
     function loadSlot(n) {
       shellLayouts().then(function (items) { if (items[n - 1]) applyItem(items[n - 1]); });
+    }
+
+    // The LYT page's LOAD button: apply the saved layout with this id. A layout deleted in the
+    // meantime is simply not found.
+    function loadById(id) {
+      shellLayouts().then(function (items) {
+        const item = items.find(function (l) { return l.id === id; });
+        if (item) applyItem(item);
+      });
     }
 
     // The shells' map-act handler asks this first: a joystick/in-game press of Layout N arrives as
@@ -108,6 +206,7 @@
       openSaveLayoutModal: openSaveLayoutModal,
       openLoadLayoutModal: openLoadLayoutModal,
       loadSlotAct: loadSlotAct,
+      loadById: loadById,
       handleLayoutKeydown: handleLayoutKeydown,
       wireLayoutKeydown: wireLayoutKeydown,
     };

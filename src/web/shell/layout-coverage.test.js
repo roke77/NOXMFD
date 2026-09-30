@@ -70,7 +70,9 @@ assert.deepStrictEqual(onlyF35, [], `pages the F-35 can reach but the bezel cann
 
 // The bezel's own two tables must agree with each other, modulo the documented full-view absences.
 const splitOnly = Object.keys(CLASSIC_SPLIT).filter(k => !(k in CLASSIC_FULL) && !NOT_IN_FULL_VIEW.has(k)).sort();
-const fullOnly  = Object.keys(CLASSIC_FULL).filter(k => !(k in CLASSIC_SPLIT)).sort();
+// LYT is the layout manager: a whole-document page, never a pane.
+const FULL_ONLY = new Set(['lyt']);
+const fullOnly  = Object.keys(CLASSIC_FULL).filter(k => !(k in CLASSIC_SPLIT) && !FULL_ONLY.has(k)).sort();
 assert.deepStrictEqual(splitOnly, [], `bezel pages that work split but render blank in full view: ${splitOnly}`);
 assert.deepStrictEqual(fullOnly, [], `bezel pages that work in full view but not in a split pane: ${fullOnly}`);
 // Guard the exception list itself: if MAIN/MAP ever do gain a full-view entry, this should be
