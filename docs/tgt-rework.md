@@ -22,13 +22,13 @@ list is. The separators above the table and above the dock are gone; row divider
   above the label, unlit when off, glowing (`0 0 8px` + `0 0 2px`) in the control's accent when on.
   Green by default, blue for FRIENDLY, red for ENEMY. Vehicle types keep icon-over-label with the
   lamp beneath. Colours reuse the shared `--no-*` tokens where they match; the few that don't
-  (`--tgt-off-fill`, `--tgt-lit-fill`, `--tgt-off-text`, `--tgt-off-lamp`, `--tgt-cell-border`)
-  live in `tgt.css`.
-- **Preset cards** — `tgt-presets.js` (unit-tested); see [tgt-presets.md](tgt-presets.md). Tap recalls; hold opens the SAVE PRESET
+  (`--lit-fill`, `--lit-off-fill`, `--lit-off-text`, `--lit-off-lamp`, `--lit-border`) live in
+  `shared/lit-panel.css`, which the HUD page shares.
+- **Preset cards** — `services/preset-cards.js` (unit-tested); see [tgt-presets.md](tgt-presets.md). Tap recalls; hold opens the SAVE PRESET
   dialog for that slot: an amber name entry with CANCEL (white), CLEAR (red, empties the slot) and
   SAVE (green). The dialog is the page's own, in the design of MAP's TGP slew keypad and
   NOAutopilot's target keypad (scrim, bordered panel, `--no-amber` entry), not the shared
-  `LayoutModal` the layout and HUD-preset prompts still use. The five cards mirror
+  `LayoutModal` the layout prompts use; the HUD page reuses it. The five cards mirror
   `GET /tgt-presets`; the current slot's index/name already rides the `tgt` telemetry block, and a
   change to it triggers a refetch of the list. The PAD cursor taps and holds a card the same way.
 - **Action dock** — every button's `data-cmd` is its `tgt.*` command (`reset`, `clear`,
@@ -90,5 +90,4 @@ the same tracks) and TARGETS takes all the width that frees up.
 
 ## Not covered
 
-- `man/images/TGT.png`, `TGT_DETAILED.png` and the two `TGT_TD_DOCK*.png` show the previous layout.
 - The PAD cursor can press the dialog's three buttons, but typing a name still needs a keyboard.

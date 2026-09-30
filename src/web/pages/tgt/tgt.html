@@ -92,6 +92,7 @@
 -->
 <link rel="stylesheet" href="/assets/shared/font.css">
 <link rel="stylesheet" href="/assets/shared/theme.css">
+<link rel="stylesheet" href="/assets/shared/lit-panel.css">
 <link rel="stylesheet" href="/assets/pages/tgt/tgt.css">
 </head>
 <body>
@@ -105,7 +106,7 @@
          hold saves — see docs/tgt-presets.md. -->
     <section class="tgt-presets" aria-label="Filter presets">
       <div class="tgt-section-title">PRESETS <span class="tgt-section-hint" id="tgt-presets-hint">(hold to save)</span></div>
-      <div class="tgt-preset-cards" id="tgt-preset-cards" aria-describedby="tgt-presets-hint"></div>
+      <div class="preset-cards" id="preset-cards" aria-describedby="tgt-presets-hint"></div>
     </section>
 
     <section class="tgt-filter-section" aria-labelledby="tgt-filters-title">
@@ -116,8 +117,8 @@
           <div class="tgt-row" id="row-category"></div>
         </div>
         <div class="tgt-modes">
-          <button class="tgt-mode pad-hoverable" id="mode-laser" data-mode="laser">LASER</button>
-          <button class="tgt-mode pad-hoverable" id="mode-hud"   data-mode="hud">HUD</button>
+          <button class="lit tgt-mode pad-hoverable" id="mode-laser" data-mode="laser">LASER</button>
+          <button class="lit tgt-mode pad-hoverable" id="mode-hud"   data-mode="hud">HUD</button>
         </div>
       </div>
       <div class="tgt-vehicles" id="row-vehicle"></div>
@@ -196,15 +197,15 @@
     <!-- SAVE PRESET dialog, opened by holding a preset card: the same scrim / bordered panel / amber
          entry as MAP's TGP slew keypad and NOAutopilot's target keypad. CANCEL (white) closes, CLEAR (red)
          empties the slot, SAVE (green) stores the typed name. tgt.js's savePreset. -->
-    <div class="tgt-kp-scrim" id="tgt-kp" hidden>
-      <div class="tgt-kp" role="dialog" aria-labelledby="tgt-kp-title">
-        <div class="tgt-kp-title" id="tgt-kp-title"></div>
-        <input class="tgt-kp-input" id="tgt-kp-input" type="text" maxlength="60" placeholder="PRESET NAME" autocomplete="off" spellcheck="false">
-        <div class="tgt-kp-error" id="tgt-kp-error"></div>
-        <div class="tgt-kp-actions">
-          <button type="button" class="tgt-kp-btn pad-hoverable" id="tgt-kp-cancel">CANCEL</button>
-          <button type="button" class="tgt-kp-btn pad-hoverable clear" id="tgt-kp-clear">CLEAR</button>
-          <button type="button" class="tgt-kp-btn pad-hoverable save" id="tgt-kp-save">SAVE</button>
+    <div class="preset-kp-scrim" id="preset-kp" hidden>
+      <div class="preset-kp" role="dialog" aria-labelledby="preset-kp-title">
+        <div class="preset-kp-title" id="preset-kp-title"></div>
+        <input class="preset-kp-input" id="preset-kp-input" type="text" maxlength="60" placeholder="PRESET NAME" autocomplete="off" spellcheck="false">
+        <div class="preset-kp-error" id="preset-kp-error"></div>
+        <div class="preset-kp-actions">
+          <button type="button" class="preset-kp-btn pad-hoverable" id="preset-kp-cancel">CANCEL</button>
+          <button type="button" class="preset-kp-btn pad-hoverable clear" id="preset-kp-clear">CLEAR</button>
+          <button type="button" class="preset-kp-btn pad-hoverable save" id="preset-kp-save">SAVE</button>
         </div>
       </div>
     </div>

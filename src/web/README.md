@@ -11,8 +11,9 @@ Full design history and decisions: [`docs/src-architecture.md`](../../docs/src-a
 
 ```
 src/web/
-  shared/   font.css  theme.css  share-tech-mono.woff2   # passive cross-page assets
+  shared/   font.css  theme.css  lit-panel.css  share-tech-mono.woff2   # passive cross-page assets
   services/ telemetry-source.js  send-command.js          # active shared code (the providers)
+            preset-cards.js  .test.js                     # the 5 preset cards + SAVE PRESET dialog (HUD and TGT)
             pad-cursor.js                                 # the shared PAD crosshair (docs/page-cursor.md)
             cursor-zoom.js                                # FCR/HSD's cursor-anchored zoom + icon-shrink (docs/page-cursor.md)
             pending-selection.js                          # FCR/HSD's optimistic Select tracking, MAP's own shape (docs/page-cursor.md)
@@ -30,7 +31,6 @@ src/web/
                            td-nav.js                      # TD's runtime nav-visibility plan builder (issue #47) —
                                                            # same shape as ext-nav.js, gated on live squad membership
                            tgp-marks.js                   # shared TGP mark-light derivation
-                           preset-bar.js                  # HUD's "PRESET N: name" + SAVE/LOAD bar
             layout-sticky.test.js                         # the classic⇄f35 redirect handoff — belongs to neither
             layout-coverage.test.js                       # every NAV destination reachable in BOTH layouts
             classic/       mfd.html  mfd.css  mfd.js       # the classic bezel shell (host + router)

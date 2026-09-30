@@ -4,7 +4,7 @@
 // never lie even if a tap is dropped. See tgt.html for the message contract + docs/tgt-page.md.
 import { createPadCursor } from '/assets/services/pad-cursor.js';
 import { fmtRng } from '/assets/services/range-format.js';
-import { createPresetCards } from '/assets/pages/tgt/tgt-presets.js';
+import { createPresetCards } from '/assets/services/preset-cards.js';
 
 const panel = document.getElementById('tgt-panel');
 const rows = {
@@ -159,7 +159,7 @@ function buildRow(group) {
   row.innerHTML = '';
   list.forEach(function (t, i) {
     const b = document.createElement('div');
-    b.className = 'tgt-cell pad-hoverable';
+    b.className = 'lit tgt-cell pad-hoverable';
     b.dataset.group = group; b.dataset.index = i;
     b.textContent = label(t.n);
     row.appendChild(b);
@@ -214,18 +214,20 @@ function paint() {
 }
 
 // ── TGT filter presets (issue #78) ────────────────────────────────────────────────────
-// The five cards and their SAVE PRESET dialog live in tgt-presets.js; this page only routes taps and
+// The five cards and their SAVE PRESET dialog live in preset-cards.js; this page only routes taps and
 // holds to them (below) and reports the current slot from each 'tgt' frame (paint).
 const presetUi = createPresetCards({
-  cardsEl: document.getElementById('tgt-preset-cards'),
+  cardsEl: document.getElementById('preset-cards'),
+  endpoint: '/tgt-presets',
+  cmdPrefix: 'tgt-preset',
   dialog: {
-    scrim: document.getElementById('tgt-kp'),
-    title: document.getElementById('tgt-kp-title'),
-    input: document.getElementById('tgt-kp-input'),
-    error: document.getElementById('tgt-kp-error'),
-    clear: document.getElementById('tgt-kp-clear'),
-    save: document.getElementById('tgt-kp-save'),
-    cancel: document.getElementById('tgt-kp-cancel'),
+    scrim: document.getElementById('preset-kp'),
+    title: document.getElementById('preset-kp-title'),
+    input: document.getElementById('preset-kp-input'),
+    error: document.getElementById('preset-kp-error'),
+    clear: document.getElementById('preset-kp-clear'),
+    save: document.getElementById('preset-kp-save'),
+    cancel: document.getElementById('preset-kp-cancel'),
   },
   send: send,
 });
@@ -347,7 +349,7 @@ listRows.addEventListener('click', function (e) {
 const LONG_MS = 500;
 let press = null;   // { group, index, sort, slot, longFired, timer }
 
-const PRESSABLE = '.tgt-cell, .tgt-veh, .tl-sort, .tgt-preset-card';
+const PRESSABLE = '.tgt-cell, .tgt-veh, .tl-sort, .preset-card';
 
 function clearPress() { if (press) { clearTimeout(press.timer); press = null; } }
 
@@ -387,7 +389,7 @@ panel.addEventListener('click', function (e) {
   if (e.detail !== 0) return;
   const b = e.target.closest('.tl-sort');
   if (b) { tapSort(b.dataset.sort); return; }
-  const card = e.target.closest('.tgt-preset-card');
+  const card = e.target.closest('.preset-card');
   if (card) presetUi.recall(+card.dataset.slot);
 });
 
@@ -409,7 +411,7 @@ modeEls.hud.addEventListener('click', function () { send('tgt.hud', { on: !state
 // Same crosshair/transport MAP uses (pad-cursor.js), driven here only while this TGT is the SOI's
 // focused surface. Clamped to the panel's own box (panel-local px, matching the crosshair's
 // positioned ancestor — see tgt.css's .tgt-panel { position: relative }).
-const CURSORABLE = '.tgt-cell, .tgt-veh, .tl-sort, .tl-row, .tgt-action, .tgt-mode, .tgt-preset-card, .tgt-kp-btn, .tgt-density-toggle, .tgt-td-toggle, .tgt-td-btn';
+const CURSORABLE = '.tgt-cell, .tgt-veh, .tl-sort, .tl-row, .tgt-action, .tgt-mode, .preset-card, .preset-kp-btn, .tgt-density-toggle, .tgt-td-toggle, .tgt-td-btn';
 const padCursorEl = document.getElementById('pad-cursor');
 const cursor = createPadCursor({
   el: padCursorEl,
@@ -442,7 +444,7 @@ function padCursorSelectAt(px, py) {
   if (!el) return;
   if (el.classList.contains('tgt-cell') || el.classList.contains('tgt-veh')) {
     send('tgt.set', { group: el.dataset.group, index: +el.dataset.index, on: !isOn(el.dataset.group, +el.dataset.index) });
-  } else if (el.classList.contains('tgt-preset-card')) {
+  } else if (el.classList.contains('preset-card')) {
     presetUi.recall(+el.dataset.slot);   // mirrors the card's own pointer tap
   } else if (el.classList.contains('tl-sort')) {
     tapSort(el.dataset.sort);   // mirrors the header's own pointer tap
@@ -459,7 +461,7 @@ function padCursorHoldAt(px, py) {
   if (!el) return;
   if (el.classList.contains('tgt-cell') || el.classList.contains('tgt-veh')) {
     send('tgt.only', { group: el.dataset.group, index: +el.dataset.index });
-  } else if (el.classList.contains('tgt-preset-card')) {
+  } else if (el.classList.contains('preset-card')) {
     presetUi.save(+el.dataset.slot);
   } else if (el.classList.contains('tl-sort')) {
     clearSort();

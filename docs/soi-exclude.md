@@ -61,7 +61,7 @@ checkbox fires `soi.include` immediately — there's no separate save step.
   shipping every OTHER display's exclusions to a browser that has no use for them. A tiny
   fetch-on-open endpoint (mirroring `hud-presets`/`tgt-presets`'s own on-demand GET) costs nothing
   extra on the normal telemetry path and only queries per-browser data on demand, matching the
-  reasoning `preset-bar.js`'s own `fetchItems` already uses.
+  reasoning the preset cards' own `/hud-presets` and `/tgt-presets` fetches use.
 - **The wire envelope needs no new `CommandEnvelope` fields.** `soi.include` reuses `cid` (which
   instance), `n` (pane index — already `soi.page`'s meaning), and `on` (desired state) — the exact
   fields `soi.panes`/`soi.page` already established for this same "instance + surface" shape.

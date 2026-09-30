@@ -1,18 +1,20 @@
-// TGT filter-preset cards and their SAVE PRESET dialog (issue #78, docs/tgt-presets.md).
+// Preset cards and their SAVE PRESET dialog, shared by the TGT and HUD pages (TGT: issue #78,
+// docs/tgt-presets.md; HUD: docs/hud-presets.md).
 //
-// Five fixed slots as cards, mirroring GET /tgt-presets. Only the current slot's index/name rides the
-// 'tgt' telemetry block, so a change to that pair — a recall or save from any browser, or one of the
-// KEY-page recall binds — is the cue to refetch the whole list (sync); the page's own taps and holds
-// update the cards immediately and refetch shortly after to settle a rejected command.
-//   recall(slot) — tap: tgt-preset.load; an empty slot just becomes current.
+// Five fixed slots as cards, mirroring GET <endpoint> -> {current, presets:[{index,name,hasData}]}.
+// Only the current slot's index/name rides the page's own state (TGT: the 'tgt' telemetry block, HUD:
+// the /hud-options snapshot), so a change to that pair — a recall or save from any browser, or one of
+// the KEY-page recall binds — is the cue to refetch the whole list (sync); the page's own taps and
+// holds update the cards immediately and refetch shortly after to settle a rejected command.
+//   recall(slot) — tap: <cmdPrefix>.load; an empty slot just becomes current.
 //   save(slot)   — hold: opens the dialog. SAVE stores the typed name and the live filters
-//                  (tgt-preset.save {wname,index}); CLEAR empties the slot (tgt-preset.delete);
+//                  (<cmdPrefix>.save {wname,index}); CLEAR empties the slot (<cmdPrefix>.delete);
 //                  CANCEL, Escape or a click on the scrim closes it. Enter in the entry saves.
-// The DOM, fetch and send are injected so tgt-presets.test.js can drive it without a browser.
+// The DOM, fetch and send are injected so preset-cards.test.js can drive it without a browser.
 export const PRESET_SLOTS = 5;
 const SETTLE_MS = 300;   // how long after a command the list is refetched
 
-export function createPresetCards({ cardsEl, dialog, send, doc = document, fetchFn = fetch }) {
+export function createPresetCards({ cardsEl, dialog, send, endpoint, cmdPrefix, doc = document, fetchFn = fetch }) {
   let presets = Array.from({ length: PRESET_SLOTS }, function (_, i) { return { index: i + 1, name: '', hasData: false }; });
   let current = 1;
   let telemetryKey = '';
@@ -21,10 +23,9 @@ export function createPresetCards({ cardsEl, dialog, send, doc = document, fetch
   const cards = [];
   for (let i = 1; i <= PRESET_SLOTS; i++) {
     const card = doc.createElement('button');
-    card.type = 'button'; card.className = 'tgt-preset-card pad-hoverable'; card.dataset.slot = i;
-    const lamp = doc.createElement('span'); lamp.className = 'tgt-preset-lamp';
-    const name = doc.createElement('span'); name.className = 'tgt-preset-name';
-    card.appendChild(lamp); card.appendChild(name);
+    card.type = 'button'; card.className = 'lit preset-card pad-hoverable'; card.dataset.slot = i;
+    const name = doc.createElement('span'); name.className = 'preset-name';
+    card.appendChild(name);
     cardsEl.appendChild(card);
     cards.push({ card: card, name: name });
   }
@@ -40,7 +41,7 @@ export function createPresetCards({ cardsEl, dialog, send, doc = document, fetch
   }
 
   function refresh() {
-    return fetchFn('/tgt-presets', { cache: 'no-store' })
+    return fetchFn(endpoint, { cache: 'no-store' })
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (d) {
         if (!d || !Array.isArray(d.presets)) return;
@@ -60,7 +61,7 @@ export function createPresetCards({ cardsEl, dialog, send, doc = document, fetch
   function recall(slot) {
     current = slot;
     render();
-    sendPreset('tgt-preset.load', { index: slot });
+    sendPreset(cmdPrefix + '.load', { index: slot });
   }
 
   function setError(message) {
@@ -87,14 +88,14 @@ export function createPresetCards({ cardsEl, dialog, send, doc = document, fetch
     presets[dialogSlot - 1] = { index: dialogSlot, name: name, hasData: true };
     current = dialogSlot;
     render();
-    sendPreset('tgt-preset.save', { wname: name, index: dialogSlot });
+    sendPreset(cmdPrefix + '.save', { wname: name, index: dialogSlot });
     closeDialog();
   }
 
   function clearSlot() {
     presets[dialogSlot - 1] = { index: dialogSlot, name: '', hasData: false };
     render();
-    sendPreset('tgt-preset.delete', { index: dialogSlot });
+    sendPreset(cmdPrefix + '.delete', { index: dialogSlot });
     closeDialog();
   }
 
@@ -105,11 +106,13 @@ export function createPresetCards({ cardsEl, dialog, send, doc = document, fetch
   dialog.scrim.addEventListener('pointerdown', function (e) { if (e.target === dialog.scrim) closeDialog(); });
   doc.addEventListener('keydown', function (e) {
     if (!dialogSlot) return;
-    if (e.key === 'Enter' && e.target === dialog.input) { e.preventDefault(); submit(); }
+    // A key still held from the press that opened the dialog repeats into the entry; it must not save.
+    if (e.key === 'Enter' && e.target === dialog.input) { e.preventDefault(); if (!e.repeat) submit(); }
     else if (e.key === 'Escape') { e.preventDefault(); closeDialog(); }
   });
 
-  // Re-focus the entry while the dialog is open (see tgt.js: the release of the opening hold).
+  // Re-focus the entry while the dialog is open, from the release of the opening hold: only a
+  // focus() inside a user gesture raises a touch keyboard.
   function focusEntry() { if (dialogSlot) dialog.input.focus(); }
 
   // The 'tgt' frame's current slot; refetch the list only when that pair changes.
