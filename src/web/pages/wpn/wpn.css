@@ -160,11 +160,33 @@
 }
 .wp-item.left .wp-name { margin-left: -6px; }
 .wp-item.right .wp-name { margin-right: -6px; }
-.wp-ammo { font-size: clamp(12px, 5.5vh, 18px); color: var(--no-green-dim); letter-spacing: 1px; margin-top: 3px; padding: 0 6px; }
-.wp-ammo span { color: var(--no-green); font-weight: 900; }
+.wp-ammo {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 4px;
+  font-size: clamp(12px, 5.5vh, 18px); color: var(--no-green-dim); letter-spacing: 1px; margin-top: 7px; padding: 0 6px;
+}
+.wp-item.right .wp-ammo { align-items: flex-end; }
+.wp-count span { color: var(--no-green); font-weight: 900; }
 .wp-item.empty .wp-name,
 .wp-item.empty .wp-ammo,
-.wp-item.empty .wp-ammo span { color: var(--no-red); }
+.wp-item.empty .wp-count span { color: var(--no-red); }
+
+/* Ammo gauge (wpn.js renderBar): .pips = one cell per round, .fill = proportional bar. */
+.wp-bar:empty { display: none; }
+.wp-bar.pips { display: flex; gap: 3px; }
+.wp-bar.pips span {
+  width: clamp(6px, 2.6vh, 11px); height: clamp(9px, 4vh, 16px);
+  background: var(--no-green-dark);
+}
+.wp-bar.pips span.on { background: var(--no-green); }
+.wp-bar.fill {
+  width: clamp(70px, 14vw, 190px); height: clamp(6px, 2.4vh, 10px);
+  border: 1px solid var(--no-green-dark);
+  background: rgba(var(--no-green-rgb), 0.05);
+  box-sizing: border-box;
+}
+.wp-bar.fill span { display: block; height: 100%; background: var(--no-green); }
+.wp-item.empty .wp-bar.pips span { background: rgba(var(--no-red-rgb), 0.3); }
+.wp-item.empty .wp-bar.fill span { background: var(--no-red); }
 .wp-item.sel .wp-name             { background: var(--no-green); color: var(--no-ink); }
 .wp-item.empty.sel .wp-name       { background: var(--no-red); color: var(--no-ink); }
 /* weapon-keybind soft selection (see WeaponSelectors.cs): stroked twin of the .sel filled box */
@@ -196,7 +218,9 @@ body.full .wp-item {
   max-width: none;
 }
 body.full .wp-name { align-self: flex-start; max-width: 100%; font-size: 28px; }
-body.full .wp-ammo { font-size: 20px; margin-top: 2px; }
+body.full .wp-ammo { font-size: 20px; margin-top: 7px; }
+body.full .wp-bar.pips span { width: 11px; height: 16px; }
+body.full .wp-bar.fill { width: 190px; height: 10px; }
 
 /* Big icon of the currently-selected weapon, right ~45%, spanning the keys-1..5 area
    (top+height set by JS from the forwarded icon geometry). Source icons are 2:1 horizontal;

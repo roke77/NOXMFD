@@ -50,6 +50,10 @@ let wpSelIconKey = null;     // last weapon name pushed to the image src
 
 const isFull = function() { return layout === 'full'; };
 
+// Magazines up to this size draw one pip per round; larger ones (the cannon) draw a fill bar.
+// Capacity decides, not the current count, so a row keeps its shape as ammo drains.
+const PIP_MAX = 12;
+
 function slotSide(i) { return i < 2 ? 'left' : 'right'; }
 // The side a row is drawn on: the shell-forwarded per-row side when present (so V_SPLIT can put
 // every row on the pane's own column), else the default 2×2 fill.
@@ -143,9 +147,14 @@ function renderWpn() {
       item.appendChild(name);
       const ammo = document.createElement('div');
       ammo.className = 'wp-ammo';
+      const bar = document.createElement('div');
+      bar.className = 'wp-bar';
+      const count = document.createElement('div');
+      ammo.appendChild(bar);
+      ammo.appendChild(count);
       item.appendChild(ammo);
       wpnPanel.appendChild(item);
-      wpnItemEls.push({ item: item, ammo: ammo });
+      wpnItemEls.push({ item: item, bar: bar, count: count });
     });
   }
 
@@ -153,7 +162,8 @@ function renderWpn() {
     const w = list[i];
     const el = wpnItemEls[i];
     positionRow(i, el.item);
-    el.ammo.innerHTML = (w.f > 0) ? ('<span>' + w.a + '</span> / ' + w.f) : '';
+    el.count.innerHTML = (w.f > 0) ? ('<span>' + w.a + '</span> / ' + w.f) : '';
+    renderBar(el.bar, w);
     el.item.classList.toggle('sel',   w.n === wpnData.selWeapon);
     // weapon-keybind soft selections (gun + missile/bomb): outline, suppressed when the entry is
     // the actively selected weapon — the filled box already says it
@@ -164,6 +174,23 @@ function renderWpn() {
 
   renderSelIcon();
   renderMasterArms();
+}
+
+// Ammo gauge under a weapon name: a pip per round for small magazines, else a proportional fill.
+function renderBar(bar, w) {
+  const pips = w.f > 0 && w.f <= PIP_MAX;
+  bar.classList.toggle('pips', pips);
+  bar.classList.toggle('fill', w.f > PIP_MAX);
+  if (pips) {
+    while (bar.children.length < w.f) bar.appendChild(document.createElement('span'));
+    while (bar.children.length > w.f) bar.lastChild.remove();
+    for (let j = 0; j < w.f; j++) bar.children[j].classList.toggle('on', j < w.a);
+  } else if (w.f > PIP_MAX) {
+    if (bar.children.length !== 1) { bar.textContent = ''; bar.appendChild(document.createElement('span')); }
+    bar.firstChild.style.width = Math.max(0, Math.min(100, w.a / w.f * 100)) + '%';
+  } else {
+    bar.textContent = '';
+  }
 }
 
 // Master Arm OFF (docs/radar-master-arms.md) — full-screen X + SAFE label. Independent of the
