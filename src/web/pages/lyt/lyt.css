@@ -1,0 +1,119 @@
+/* LYT page (docs/lyt-rework.md): the LAYOUTS cards and the SAVED rows. The near-black panel fills
+   and the bezel/glass greys in the two thumbnails are this page's own shades — theme.css has no
+   token for them. */
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0; height: 100%;
+  background: var(--no-bg);
+  color: var(--no-green);
+  font-family: var(--no-font);
+  -webkit-user-select: none; user-select: none;
+}
+button { font-family: inherit; }
+
+/* Equal insets, the same as the other pages with a stood-up MAIN label (isVmainPage in mfd.js):
+   they clear the bezel's key column on each side, so the content takes everything between. */
+.lyt-panel {
+  min-height: 100%;
+  padding: 14px clamp(34px, 5vw, 48px) 20px;
+  display: flex; flex-direction: column; gap: 14px;
+}
+
+.lyt-head { display: flex; align-items: baseline; gap: 16px; }
+.lyt-title { margin: 0; font-size: 26px; font-weight: normal; line-height: 1; letter-spacing: 6px; color: var(--no-green); }
+
+/* ── LAYOUTS: the two shells ── */
+.lyt-shells { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.lyt-shell {
+  position: relative;
+  min-height: 156px;
+  padding: 14px 16px 14px 30px;
+  display: flex; align-items: center; gap: 12px;
+  text-align: left;
+  border: 1px solid var(--lyt-line);
+  border-radius: 6px;
+  background: var(--lyt-card);
+  cursor: pointer;
+}
+.lyt-shell[aria-pressed="true"] {
+  border-color: var(--no-green-deep);
+  background: var(--lyt-card-on);
+  box-shadow: 0 0 10px #0a3a0a;
+}
+.lyt-shell:focus-visible { outline: 2px solid var(--no-amber); outline-offset: 2px; }
+.lyt-lamp {
+  position: absolute; left: 14px; top: 14px;
+  width: 5px; height: 26px; border-radius: 1px;
+  background: var(--lit-off-lamp, #1b221e);
+}
+.lyt-shell[aria-pressed="true"] .lyt-lamp { background: var(--no-green); box-shadow: 0 0 8px var(--no-green), 0 0 2px var(--no-green); }
+.lyt-shell-text { flex: 1 1 0; min-width: 0; align-self: flex-start; display: flex; flex-direction: column; gap: 10px; }
+.lyt-shell-name { font-size: 22px; letter-spacing: 3px; color: var(--lyt-soft); }
+.lyt-shell[aria-pressed="true"] .lyt-shell-name { color: var(--no-green); }
+.lyt-shell-desc { font-size: 12px; line-height: 18px; color: var(--no-white-dim); }
+
+/* The CLASSIC thumbnail: a bezel with three key stubs a side around a two-pane screen. */
+.lyt-thumb-classic {
+  position: relative; flex: none;
+  width: 118px; height: 118px; border-radius: 8px;
+  background: #2a2d31; box-shadow: inset 0 0 0 1px #3a3e44;
+}
+.lyt-thumb-classic .lyt-screen {
+  position: absolute; left: 16px; top: 16px; width: 86px; height: 86px;
+  background: #000; box-shadow: 0 0 0 1px #17191c;
+}
+.lyt-thumb-classic .lyt-screen i {
+  position: absolute; top: 5px; height: 76px;
+  border: 1px solid var(--no-green-deep); background: #07100a;
+}
+.lyt-thumb-classic .lyt-screen i:first-child { left: 5px; width: 38px; }
+.lyt-thumb-classic .lyt-screen i:last-child { left: 45px; width: 36px; }
+.lyt-thumb-classic b { position: absolute; width: 8px; height: 10px; border-radius: 2px; background: #4a4f55; }
+.lyt-thumb-classic .l1, .lyt-thumb-classic .l2, .lyt-thumb-classic .l3 { left: 3px; }
+.lyt-thumb-classic .r1, .lyt-thumb-classic .r2, .lyt-thumb-classic .r3 { right: 3px; }
+.lyt-thumb-classic .l1, .lyt-thumb-classic .r1 { top: 24px; }
+.lyt-thumb-classic .l2, .lyt-thumb-classic .r2 { top: 54px; }
+.lyt-thumb-classic .l3, .lyt-thumb-classic .r3 { top: 84px; }
+
+/* The F-35 thumbnail: the master strip over three portals, in the F-35 layout's teal (theme.css keeps
+   --no-teal for shell/f35 only, so the page carries its own copy of the color). */
+.lyt-thumb-f35 {
+  --lyt-f35-teal: #4ec9c9;
+  position: relative; flex: none;
+  width: 150px; height: 86px; border-radius: 4px;
+  background: #000; box-shadow: inset 0 0 0 1px #3a3e44;
+}
+.lyt-thumb-f35 .lyt-strip { position: absolute; left: 4px; top: 4px; width: 142px; height: 10px; background: #0c1a1a; }
+.lyt-thumb-f35 i { position: absolute; top: 18px; height: 64px; border: 1px solid var(--lyt-f35-teal); background: #061212; }
+.lyt-thumb-f35 .p1 { left: 4px; width: 34px; }
+.lyt-thumb-f35 .p2 { left: 40px; width: 70px; }
+.lyt-thumb-f35 .p3 { left: 112px; width: 34px; }
+
+/* ── KEYBINDS: the SAVE and LOAD keys, side by side ── */
+.lyt-binds { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.lyt-bind {
+  display: flex; align-items: center; gap: 10px;
+  min-height: 50px; padding: 8px 10px;
+  border: 1px solid var(--lyt-row-line); border-radius: 4px; background: #040604;
+}
+.lyt-bind-name { font-size: 18px; letter-spacing: 2px; color: var(--lyt-soft); }
+
+/* One line of how-to between KEYBINDS and SAVED. */
+.lyt-tip { margin: 0; font-size: 12px; line-height: 1.5; letter-spacing: 1px; color: var(--no-white-dim); }
+
+/* ── SAVED ── */
+.lyt-section {
+  display: flex; align-items: center; gap: 12px;
+  padding-bottom: 6px; margin-top: 4px;
+  border-bottom: 1px solid var(--no-green-dark);
+}
+.lyt-section-name { font-size: 13px; letter-spacing: 4px; color: var(--no-green-dim); }
+
+.lyt-rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+
+/* Too narrow for the thumbnails beside the card text. */
+@media (max-width: 620px) {
+  .lyt-thumb-classic, .lyt-thumb-f35 { display: none; }
+}

@@ -312,6 +312,8 @@ namespace NOXMFD
                 { "layout.save",   e => LogLayout("save",   LayoutStore.SaveLayout(e.wname ?? string.Empty, e.group ?? string.Empty, e.text ?? string.Empty)) },
                 // LOAD's picker manages the library — id : "bind" (matches wpt.*'s own route-id
                 // reuse of the field), new name : "wname".
+                // layout.update : id "bind", new name "wname", new arrangement "text" (the LYT page's edit dialog).
+                { "layout.update", e => LogLayout("update", LayoutStore.UpdateLayout(e.bind ?? string.Empty, e.wname ?? string.Empty, e.text ?? string.Empty)) },
                 { "layout.rename", e => LogLayout("rename", LayoutStore.RenameLayout(e.bind ?? string.Empty, e.wname ?? string.Empty)) },
                 { "layout.delete", e => LogLayout("delete", LayoutStore.DeleteLayout(e.bind ?? string.Empty)) },
                 // HUD filter presets — 5 fixed numbered slots (HudPresetStore), not an arbitrary list
