@@ -1231,15 +1231,6 @@
       return;
     }
 
-    // 'td-designated' (issue #47 follow-up) — TD's DESIGNATE button
-    // just fired; return that portal to TGT. Has to be the shell doing the navigating: TGT has no
-    // telemetry connection of its own, so a bare iframe location change would strand it with no
-    // data to render. Same routes-by-source reasoning as 'follow'/'grid' above.
-    if (m.type === 'td-designated') {
-      livePortals().forEach(function (p) { if (p.page() === 'td' && p.frameWin() === e.source) p.showPage('tgt'); });
-      return;
-    }
-
     // 'doc-view' (issue #82 follow-up) — DOC's own index-vs-image view state, page-internal UI
     // state with no game-telemetry equivalent. Same routes-by-source reasoning as 'follow'/'grid'
     // above: DOC can be open in more than one portal at once, each tracked independently.

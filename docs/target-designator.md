@@ -72,20 +72,12 @@ selected targets to several squad slots in a row without re-selecting between ea
 sends this as the existing `on` `CommandEnvelope` field so the plugin's own state agrees — otherwise
 a REFRESH mid-sequence would silently wipe the highlights the leader is deliberately keeping.
 
-## DESIGNATE returns to TGT, and TGT shows the result
+## DESIGNATE stays on TD, and TGT shows the result
 
-Two small pieces close the loop back to TGT (issue #47 follow-up):
+Two small pieces close the loop with TGT (issue #47 follow-up):
 
-- **DESIGNATE (leader) and AQUIRE (member) both return to TGT** once they fire — the whole point of
-  either is to hand off/lock targets, and TGT is where the pilot uses the result. TD has no
-  shell-navigation authority of its own — both `postMessage` the same `td-designated` type up to
-  whichever shell is hosting it, which looks up which pane/frame actually sent it (TD can be the
-  full-view page or either split pane) and calls that display's own page-switch function. This has
-  to go through the shell rather than a bare `location.href`: TGT has no telemetry connection of
-  its own (it only ever renders what the shell relays), so navigating the iframe directly would
-  strand it on a standalone page with nothing to show. mfd.js keeps a canonical-source guard on its
-  message handler (only `mapFrame` may post most types) that had to be extended for this one, the
-  same way `follow`/`grid`/`wpt-routes-request` already are — TD's iframe is never `mapFrame`.
+- **DESIGNATE (leader) stays on TD.** It sends and the columns turn SENT; the leader chooses when to go back
+  to TGT. (It used to return to TGT through a `td-designated` shell message; that path is removed.)
 - **TGT gains a leader-only TD column**, second from the left, showing the same slot number(s)
   `td.js`'s own tags show. TGT has no reason to know about squad state otherwise, so `tgt.js` polls
   `GET /squad` + `GET /td-state` on its own 2s cadence (matching `td-nav.js`'s existing "is this
