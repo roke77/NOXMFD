@@ -88,7 +88,7 @@ namespace NOXMFD
 
         // {"current":N,"presets":[{"index":i,"name":"...","hasData":bool},...]} — every store's
         // summary JSON is exactly this shape; only the raw filter fields differ, and those never
-        // appear here (this is the LOAD picker's data, not gameplay state — see each store's own
+        // appear here (this is the preset cards' data, not gameplay state — see each store's own
         // SelfCheck for the "never leaks filters" assertion).
         internal static string SummaryJson<T>(int current, T[] slots) where T : IPresetSlot
         {

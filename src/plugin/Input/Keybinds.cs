@@ -416,7 +416,7 @@ namespace NOXMFD
             // HUD preset keybinds (issue #50 follow-up) — unlike layout-save/load above, these ARE
             // real DriveFree actions: pressing one directly recalls that numbered preset's saved HUD
             // filters onto the live HUD (HudPresetStore.LoadPreset), the same direct-recall behaviour
-            // the HUD page's own LOAD picker gives a clicked item — no browser-side modal to pop, so
+            // tapping a preset card on the HUD page does — no browser-side modal to pop, so
             // no reason to leave the dispatch to a keydown listener the way SAVE/LOAD LAYOUT do.
             // Works at the main menu too, same as every other HUD OPTIONS control.
             const string hudPresets = "HUD Preset Keybinds";

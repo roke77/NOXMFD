@@ -100,7 +100,7 @@ namespace NOXMFD
             }
         }
 
-        // ── reads (the preset label + the LOAD picker) ──────────────────────────────────────
+        // ── reads (the current preset + the preset cards) ──────────────────────────────────────
 
         private static void RefreshSummary() { PresetsJson = PresetSlots.SummaryJson(_current, _slots); }
 
@@ -169,8 +169,8 @@ namespace NOXMFD
         public static bool Delete(int index) => PresetSlots.Delete(_slots, index, Persist);
 
         // Applies a preset's saved filters onto the live TGT panel and makes it the current slot (so
-        // the preset label follows it and the next SAVE overwrites it) — the direct-recall behaviour
-        // the 5 KEY-page keybinds and the LOAD picker's onPick both drive through this one entry
+        // the lit preset card follows it and the next SAVE overwrites it) — the direct-recall behaviour
+        // the 5 KEY-page keybinds and a tap on a preset card both drive through this one entry
         // point. An empty slot (never saved) still becomes current — nothing to apply, but selectable,
         // so a player can press "preset 3" then SAVE into it without ever having loaded data there
         // first (mirrors HudPresetStore.LoadPreset).
