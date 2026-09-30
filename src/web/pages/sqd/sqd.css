@@ -1,24 +1,44 @@
-/* SQD (squad membership, docs/squadron-transport.md) page styles. Page chrome (.sqd-panel/
-   .sqd-back/.sqd-title, the scrollbar rules, the row/row-icon-btn pattern) lives in
-   shared/page-chrome.css now — everything below is what's actually specific to this page. */
+/* SQD (squad membership, docs/squadron-transport.md) page styles — the "Lit Roster" design: boxed
+   squad card, own row lit green. Page chrome (.sqd-panel padding/.sqd-back/
+   .sqd-title, the html scrollbar rules) comes from shared/page-chrome.css; this file overrides the
+   panel to fill the whole pane and everything below is specific to this page. */
 
-/* PAD cursor (docs/page-cursor.md): same override WPT uses (wpt.css) — this page's own body
-   scrolls rather than a fixed-size panel, so the crosshair needs position:fixed, not the shared
-   .pad-cursor's default :absolute. */
+/* PAD cursor (docs/page-cursor.md): same override WPT uses (wpt.css) — position:fixed, not the
+   shared .pad-cursor's default :absolute. */
 #pad-cursor { position: fixed; }
 
+/* Fills the pane: the panel is the page's scroller (when the fixed sections outgrow a small pane),
+   and the player list takes whatever height is left and scrolls inside it. The shell draws its MAIN
+   label upright along the left edge (isVmainPage), so the same side padding on both sides clears it
+   and keeps the content centred. */
+html, body { height: 100%; overflow: hidden; }
+.sqd-panel {
+  max-width: none;
+  height: 100%;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 14px 48px 22px;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  /* Same thin grey-thumb scrollbar as TGT's list (tgt.css .tgt-list-scroll). */
+  scrollbar-width: thin;
+  scrollbar-color: var(--no-gray) transparent;
+}
+.sqd-panel::-webkit-scrollbar, .sqd-roster-body::-webkit-scrollbar { width: 6px; height: 6px; }
+.sqd-panel::-webkit-scrollbar-track, .sqd-roster-body::-webkit-scrollbar-track { background: transparent; }
+.sqd-panel::-webkit-scrollbar-thumb, .sqd-roster-body::-webkit-scrollbar-thumb { background: var(--no-gray); border-radius: 3px; }
+.sqd-panel > * { flex: none; }
+.sqd-title { font-size: 26px; letter-spacing: 6px; text-align: left; margin: 0 0 16px; }
+
 .sqd-unavailable {
-  max-width: 552px;
-  margin: 0 auto 19px;
+  margin: 0 0 19px;
   font-size: 13px;
   line-height: 1.5;
   color: var(--no-gray);
-  text-align: center;
 }
-
 .sqd-notice {
-  margin: 0 auto 18px;
-  max-width: 552px;
+  margin: 0 0 16px;
   padding: 8px 12px;
   border: 1px solid var(--no-amber);
   color: var(--no-amber);
@@ -26,224 +46,307 @@
   text-align: center;
 }
 
-.sqd-section { margin-bottom: 28px; }
-
+.sqd-section { margin-bottom: 18px; }
 .sqd-section-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-size: 12px;
-  letter-spacing: 2px;
+  gap: 12px;
+  height: 30px;
+  font-size: 13px;
+  letter-spacing: 4px;
   color: var(--no-green-dim);
-  border-bottom: 1px solid var(--no-panel-border);
-  padding-bottom: 6px;
-  margin-bottom: 10px;
+  border-bottom: 1px solid var(--no-green-dark);
+  margin-bottom: 8px;
 }
-.sqd-section-actions { display: flex; gap: 8px; }
+.sqd-note { font-size: 11px; letter-spacing: 1px; color: var(--no-gray); flex: 1; text-align: left; }
+.sqd-spacer { flex: 1 1 auto; }
 
-/* The squad title (sqd.js) reads brighter than an ordinary .sqd-section-head — it's naming an
-   actual identity, not just labelling a list — and the callsign itself gets --no-squad (the same
-   Squadron-feature colour WPT's SQD label and this page's own LEADER mark already use), so "SQUAD"
-   stays this page's normal heading green while the chosen name stands out from it. */
-#sqd-squad-head { color: var(--no-green); }
-.sqd-squad-callsign { color: var(--no-squad); }
-
-/* CREATE SQUAD (sqd.js) — deliberately bigger/bolder than the page's other .sqd-btn instances
-   (ACCEPT, LEAVE, ...): it's the one action that starts everything else on this page, not a
-   routine list action, so it earns the emphasis. Swaps for .sqd-create-form in place, same
-   idiom as the squad section's own EDIT-to-input swap. */
-.sqd-create-prompt { text-align: center; padding: 10px 0; }
-.sqd-create-btn {
-  padding: 12px 32px;
-  font-size: 13px;
-  letter-spacing: 2px;
+.sqd-collapsible { cursor: pointer; user-select: none; }
+.sqd-collapsible > span:first-child { flex: 1; }
+/* Drawn with borders, not a glyph: the page's pixel font has no triangle characters. */
+.sqd-chevron::before {
+  content: '';
+  display: inline-block;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 7px solid currentColor;      /* expanded: points down (collapses toward the dock) */
 }
-.sqd-create-form {
+.sqd-collapsed .sqd-chevron::before {
+  border-top: 0;
+  border-bottom: 7px solid currentColor;   /* collapsed: points up (expands upward) */
+}
+
+/* The player list is docked to the bottom of the pane (margin-top:auto) and grows upward: the
+   header is the bottom-most row (column-reverse puts the first DOM child, the header, at the
+   bottom) and the body opens above it. It takes only the height its rows need, shrinking to
+   scroll internally once the squad above leaves no more room. It never reserves height it doesn't
+   need, so there is no gap between the last row and the header; the body's min-height keeps one row
+   visible, and the section's automatic minimum height stops it squashing below that — the page
+   scrolls instead when the squad above is tall. */
+.sqd-panel > .sqd-roster { flex: 0 1 auto; }
+.sqd-roster {
   display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 0;
+  flex-direction: column-reverse;
+  margin: auto 0 0;
 }
-.sqd-create-form select {
-  background: var(--no-panel-bg);
-  border: 1px solid var(--no-panel-border);
-  color: var(--no-green);
-  font-family: var(--no-font);
-  font-size: 13px;
-  padding: 8px 10px;
+.sqd-roster .sqd-section-head { flex: none; margin: 8px 0 0; border-bottom: 0; border-top: 1px solid var(--no-green-dark); }
+.sqd-collapsed .sqd-roster-body { display: none; }
+.sqd-roster-body:has(.sqd-player-row) { min-height: 46px; }
+.sqd-roster-body {
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--no-gray) transparent;
 }
-/* Callsign (issue #42's fixed picker, callsigns.js) is the wide one; flight number is a single
-   digit, so it only needs to be wide enough for "9" plus the dropdown arrow. */
-#sqd-create-callsign { width: 180px; }
-#sqd-create-flight { width: 60px; }
-.sqd-create-form select:focus { outline: 1px solid var(--no-green-dim); }
 
+/* ── Buttons ── */
 .sqd-btn {
-  padding: 5px 12px;
+  height: 38px;
+  padding: 0 14px;
   border: 1px solid var(--no-green);
+  border-radius: 3px;
   background: none;
   color: var(--no-green);
   font-family: var(--no-font);
-  font-size: 11px;
-  letter-spacing: 1px;
+  font-size: 13px;
+  letter-spacing: 2px;
   cursor: pointer;
 }
 .sqd-btn:hover { background: var(--no-green); color: var(--no-ink); }
-/* CREATE SQUAD while our own incoming invite(s) still await a decision (sqd.js) — Squad.cs's
-   CreateSquad rejects it until that's resolved, so this reads as unavailable (title carries why)
-   rather than clickable-but-silently-ignored. */
-.sqd-btn:disabled { color: var(--no-gray); border-color: var(--no-panel-border); cursor: default; }
+.sqd-btn-red { border-color: #5a2323; color: var(--no-red); }
+.sqd-btn-red:hover { background: var(--no-red); color: var(--no-ink); }
+.sqd-btn-dim { border-color: #2c3431; color: var(--no-white-dim); }
+.sqd-btn-dim:hover { background: var(--no-white-dim); color: var(--no-ink); }
+.sqd-btn-squad { border-color: var(--no-squad); color: var(--no-squad); }
+.sqd-btn-squad:hover { background: var(--no-squad); color: var(--no-ink); }
+.sqd-btn-lg { height: 46px; padding: 0 26px; font-size: 15px; letter-spacing: 3px; box-shadow: 0 0 8px #0f4a0f; }
+/* CREATE while our own incoming invite(s) await a decision: Squad.cs's CreateSquad refuses until
+   they're answered, so it reads as unavailable (the title carries why). */
+.sqd-btn:disabled { color: var(--no-gray); border-color: var(--no-panel-border); box-shadow: none; cursor: default; }
 .sqd-btn:disabled:hover { background: none; color: var(--no-gray); }
-/* Secondary but still fully functional (DECLINE/LEAVE/DISBAND) — dim, not gray. --no-gray is the
-   theme's disabled/inactive token (AVN's off annunciators, the EXT stub's dimmed MAIN label); using
-   it here would misread these as non-functional when they're one click away from doing something. */
-.sqd-btn-ghost { border-color: var(--no-green-dim); color: var(--no-green-dim); }
-.sqd-btn-ghost:hover { background: var(--no-green-dim); color: var(--no-ink); }
+.sqd-section-actions { display: flex; gap: 8px; }
 
-/* Swaps in for #sqd-squad-head (sqd.js) while EDIT is active — same flex slot in the section
-   head, so the title area becomes the input in place instead of a separate row appearing.
-   margin-right leaves a gap before CANCEL/LEAVE/DISBAND (flex:1 alone would grow this box flush
-   against them with 0px between — click SET, and CANCEL/EDIT ends up directly under a cursor
-   that never moved, picking up a real, not stuck, hover). */
-.sqd-callsign-edit {
-  flex: 1;
-  display: flex;
-  gap: 8px;
-  margin-right: 12px;
-}
-.sqd-callsign-edit select {
-  flex: 1;
-  background: var(--no-panel-bg);
-  border: 1px solid var(--no-panel-border);
-  color: var(--no-green);
-  font-family: var(--no-font);
-  font-size: 12px;
-  padding: 5px 8px;
-}
-.sqd-callsign-edit select:focus { outline: 1px solid var(--no-green-dim); }
-/* Flight is a single digit — same fixed width as CREATE's own #sqd-create-flight, overriding the
-   generic flex:1 above so it doesn't split the row evenly with the (much longer) callsign select. */
-#sqd-callsign-flight { flex: 0 0 60px; }
-
-/* One per queued invite (sqd.js's renderInviteCards) — stacked, oldest first. */
-.sqd-invite-card {
-  padding: 12px;
-  border: 1px solid var(--no-amber);
-  background: var(--no-panel-bg);
-}
-.sqd-invite-card + .sqd-invite-card { margin-top: 8px; }
-.sqd-invite-text {
-  font-size: 13px;
-  color: var(--no-green);
-  margin-bottom: 10px;
-}
-/* The inviting leader's own name — --no-squad (theme.css), the same token every other leader-
-   identity spot uses (WPT's pending-share sender, this page's own LEADER mark/callsign). */
-.sqd-invite-leader { color: var(--no-squad); }
-.sqd-invite-actions { display: flex; gap: 8px; }
-
-.sqd-empty {
-  font-size: 11px;
-  letter-spacing: 0.5px;
-  color: var(--no-gray);
-  text-align: center;
-  padding: 10px 0;
-}
-.sqd-rows:not(:empty) + .sqd-empty { display: none; }
-
-/* First table column: this pilot's chosen callsign plus the row's number (1 = leader, then join
-   order — sqd.js's addSquadRow). Fixed width so the name column lines up across rows regardless
-   of how long the callsign or number gets. --no-squad (theme.css) matches the callsign in the
-   page title above (.sqd-squad-callsign) and WPT's own SQD label — one colour for "the squadron's
-   name" everywhere it shows up, including here where it's paired with each pilot's own number.
-   Self-highlighting (bright green) stays on the NAME column only; the tag reads the same for
-   everyone regardless of who's viewing. */
-.sqd-row-tag {
-  flex: none;
-  width: 70px;
-  color: var(--no-squad);
-  font-size: 12px;
-  letter-spacing: 0.5px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.sqd-row-name {
-  flex: 1;
-  color: var(--no-green-dim);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-/* In the squad roster table specifically (not the INVITE/pending-sent rows above, which still
-   need flex:1 here to push their own trailing button to the row's right edge): fixed width, so
-   the name sits close to the aircraft column right after it instead of flex:1 stretching to
-   consume all the leftover space and shoving that column out toward the far right. The actual
-   right-edge push for LEADER/▲▼+star+kick is .sqd-row-trailing's own margin-left: auto now. */
-#sqd-squad-rows .sqd-row-name {
-  flex: none;
-  width: 130px;
-}
-/* This pilot's OWN row in the member list (sqd.js matches it by state.self) — bright green so it
-   stands out from the rest of the roster at a glance. The leader's row is already marked by the
-   LEADER badge below; it doesn't also need a brighter name. */
-.sqd-row.self .sqd-row-name { color: var(--no-green); }
-
-/* 3rd column: current aircraft (icon + unitName, sqd.js) — empty (no placeholder text/icon) when
-   that pilot has nothing to report (dead, ejected, not spawned yet). Fixed width, same reasoning
-   as .sqd-row-tag: keeps the LEADER badge / star / kick controls lined up across every row
-   regardless of how long a plane's name gets. */
-.sqd-row-aircraft {
-  flex: none;
-  width: 110px;
+/* ── Squad card (header) and its inline editor ── */
+.sqd-squad-card {
   display: flex;
   align-items: center;
-  gap: 6px;
-  color: var(--no-green-dim);
-  font-size: 12px;
+  gap: 14px;
+  min-height: 62px;
+  padding: 0 10px 0 12px;
+  box-sizing: border-box;
+  border: 1px solid #1f4a4a;
+  border-radius: 4px;
+  background: #040808;
+  margin-bottom: 14px;
+}
+.sqd-squad-card.sqd-editing { border-color: var(--no-amber); background: #0c0a04; gap: 10px; }
+.sqd-squad-title { font-size: 30px; line-height: 1; letter-spacing: 4px; color: var(--no-squad); white-space: nowrap; }
+.sqd-squad-card .sqd-note { flex: none; font-size: 13px; color: var(--no-white-dim); }
+
+select {
+  height: 40px;
+  min-width: 170px;
+  padding: 0 10px;
+  background: #060807;
+  border: 1px solid #2e7a2e;
+  border-radius: 3px;
+  color: var(--no-green);
+  font-family: var(--no-font);
+  font-size: 18px;
+  letter-spacing: 3px;
+}
+select:focus { outline: 1px solid var(--no-green-dim); }
+
+/* Flight 1-9: a row of buttons, the chosen one lit. */
+.sqd-flights { display: flex; gap: 6px; }
+.sqd-flight-btn {
+  width: 34px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid #2c3431;
+  border-radius: 3px;
+  background: #060807;
+  color: var(--no-white-dim);
+  font-family: var(--no-font);
+  font-size: 16px;
+  cursor: pointer;
+}
+.sqd-flight-btn:hover { border-color: var(--no-green-dim); color: var(--no-green); }
+.sqd-flight-btn.on { border-color: var(--no-green); background: #0a0f0b; color: var(--no-green); box-shadow: 0 0 6px var(--no-green); }
+
+/* ── CREATE SQUAD panel ── */
+.sqd-create {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px 18px;
+  border: 1px solid #2c3431;
+  border-radius: 4px;
+  background: #050806;
+}
+.sqd-create-title { font-size: 13px; letter-spacing: 4px; color: var(--no-green-dim); }
+.sqd-form-line { display: flex; align-items: center; gap: 12px; }
+.sqd-label { flex: none; width: 90px; font-size: 11px; letter-spacing: 3px; color: var(--no-white-dim); }
+.sqd-create-foot { display: flex; align-items: center; gap: 14px; margin-top: 4px; }
+.sqd-create-des { flex: 1; font-size: 14px; letter-spacing: 1px; color: var(--no-white-dim); }
+#sqd-create-des { color: var(--no-squad); }
+
+/* ── Invite cards (incoming) ── */
+.sqd-invite-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 58px;
+  padding: 0 10px 0 12px;
+  box-sizing: border-box;
+  border: 1px solid #1f4a4a;
+  border-radius: 4px;
+  background: #040808;
+}
+.sqd-invite-card + .sqd-invite-card { margin-top: 8px; }
+.sqd-invite-key { font-size: 24px; letter-spacing: 3px; color: var(--no-squad); white-space: nowrap; }
+.sqd-invite-text { flex: 1; font-size: 13px; letter-spacing: 1px; color: var(--no-white-dim); }
+.sqd-invite-actions { display: flex; gap: 8px; }
+
+/* ── Squad roster table: designation | pilot | aircraft | trailing ── */
+.sqd-cols, .sqd-squad-row {
+  display: grid;
+  grid-template-columns: minmax(100px, 164px) minmax(90px, 170px) minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 15px;
+}
+.sqd-cols {
+  padding: 0 12px 6px 10px;
+  font-size: 11px;
+  letter-spacing: 3px;
+  color: #5a6066;
+}
+.sqd-squad-row {
+  min-height: 52px;
+  margin-bottom: 6px;
+  padding: 0 8px 0 10px;
+  box-sizing: border-box;
+  border: 1px solid #15201a;
+  border-radius: 4px;
+  background: #040604;
+}
+.sqd-squad-row.self { border-color: #2e7a2e; background: #07100a; }
+.sqd-squad-row.open { border-style: dashed; border-color: #2c3431; background: transparent; }
+
+.sqd-row-tag { font-size: 16px; letter-spacing: 2px; color: var(--no-squad); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sqd-squad-row.open .sqd-row-tag { color: #2e4a4a; }
+.sqd-row-name { font-size: 20px; letter-spacing: 1px; color: var(--no-green-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sqd-squad-row.self .sqd-row-name { color: var(--no-green); }
+.sqd-squad-row.open .sqd-row-name { color: var(--no-white-dark); }
+.sqd-row-aircraft {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  font-size: 14px;
+  letter-spacing: 1px;
+  color: var(--no-white-dim);
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
 }
-.sqd-row-aircraft-icon {
-  flex: none;
-  width: 18px;
-  height: 18px;
-  object-fit: contain;
-}
+.sqd-squad-row.open .sqd-row-aircraft { color: var(--no-white-dark); }
+.sqd-row-aircraft-icon { flex: none; width: 30px; height: 20px; object-fit: contain; opacity: 0.9; }
 
-/* Explicitly pins the trailing LEADER badge / star+kick group to the row's right edge (sqd.js) —
-   every other column stays left-aligned by simply not setting text-align at all. */
-.sqd-row-trailing { margin-left: auto; }
-
-/* The LEADER mark on the squad's own leader row (sqd.js) — --no-squad (theme.css) is the
-   Squadron feature's own colour, shared with WPT's SQD label so "this is squad-related" reads
-   the same regardless of which page shows it. */
+/* LEADER badge (amber) — outlined, on the leader's own row. */
 .sqd-row-mark {
+  padding: 2px 8px;
+  border: 1px solid var(--no-amber);
   font-size: 12px;
-  letter-spacing: 1px;
-  color: var(--no-squad);
-  flex: none;
+  letter-spacing: 2px;
+  color: var(--no-amber);
 }
-
-.sqd-row-btn {
-  flex: none;
+.sqd-row-mark.you { border-color: var(--no-green); color: var(--no-green); }
+.sqd-row-ctl { display: flex; gap: 4px; }
+/* ▲/▼ renumber, ★ make leader, × kick — boxed icon buttons. */
+.sqd-row-icon-btn {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid #1f2723;
+  border-radius: 3px;
   background: none;
-  border: 1px solid var(--no-green-dim);
-  color: var(--no-green-dim);
+  color: var(--no-white-dim);
   font-family: var(--no-font);
-  font-size: 10px;
-  letter-spacing: 0.5px;
+  font-size: 12px;
   cursor: pointer;
-  padding: 3px 8px;
 }
-.sqd-row-btn:hover { background: var(--no-green-dim); color: var(--no-ink); }
-/* A slot left empty by a departure (sqd.js addOpenRow) — inactive, so --no-gray. */
-.sqd-row.open .sqd-row-name { color: var(--no-gray); }
+.sqd-row-icon-btn:hover { border-color: currentColor; }
+.sqd-row-icon-btn.star { color: var(--no-amber); font-size: 14px; }
+.sqd-row-icon-btn.kick { color: var(--no-red); font-size: 16px; }
 
-/* ▲/▼ (renumber), star (make leader) / x (kick) on each non-leader roster row (sqd.js) — plain icon buttons, no
-   border, matching WPT's own row-action icons (shared/page-chrome.css's .wpt-row-btn/
-   .sqd-row-icon-btn rule) rather than this page's pill-style .sqd-row-btn (kept for INVITE, the
-   one text-labelled row action left). */
+/* ── Player list rows (unassigned / invited) ── */
+.sqd-player-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 46px;
+  padding: 0 8px 0 10px;
+  box-sizing: border-box;
+  border-bottom: 1px solid #10201a;
+}
+.sqd-player-name { font-size: 18px; letter-spacing: 1px; color: #b8c0c6; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sqd-player-row.invited .sqd-player-name { color: var(--no-squad); }
+.sqd-player-tag { font-size: 12px; letter-spacing: 2px; color: var(--no-squad); white-space: nowrap; }
+.sqd-player-row .sqd-btn { height: 32px; font-size: 12px; margin-left: auto; }
+
+/* ── Narrow / portrait panes (F-35 columns, split panes, phones) ──
+   The wide layout needs roughly 700px. Below that the squad card and forms wrap, and each roster
+   row becomes two lines: designation and pilot on the first, aircraft and the badge or leader's
+   controls on the second. The DESIGNATION/PILOT/AIRCRAFT header is dropped since the columns no
+   longer line up under it. */
+@media (max-width: 640px) {
+  .sqd-title { font-size: 22px; letter-spacing: 5px; margin-bottom: 12px; }
+
+  .sqd-squad-card { flex-wrap: wrap; gap: 8px 12px; padding: 10px 12px; }
+  .sqd-squad-card .sqd-spacer { display: none; }
+  .sqd-squad-card .sqd-section-actions { flex: 1 1 100%; flex-wrap: wrap; }
+  .sqd-squad-card .sqd-section-actions .sqd-btn { flex: 1 1 0; padding: 0 8px; }
+  .sqd-squad-title { font-size: 24px; }
+  .sqd-squad-card.sqd-editing > * { flex: 0 1 auto; }
+  .sqd-squad-card.sqd-editing select { flex: 1 1 100%; }
+  .sqd-squad-card.sqd-editing .sqd-flights { flex: 1 1 100%; }
+  .sqd-squad-card.sqd-editing .sqd-btn { flex: 1 1 0; }
+
+  .sqd-cols { display: none; }
+  .sqd-squad-row {
+    grid-template-columns: minmax(110px, 42%) minmax(0, 1fr) auto;
+    row-gap: 2px;
+    padding: 8px 8px 8px 10px;
+  }
+  .sqd-squad-row > .sqd-row-tag { grid-column: 1; grid-row: 1; }
+  /* Right-aligned so the name lines up with the badge/controls on the line below. */
+  .sqd-squad-row > .sqd-row-name { grid-column: 2; grid-row: 1; text-align: right; }
+  .sqd-squad-row > .sqd-row-aircraft { grid-column: 1 / 3; grid-row: 2; font-size: 12px; }
+  /* The trailing badge (LEADER/YOU) or the leader's controls (▲▼★×) take the second line's right
+     end, and the pilot name keeps the rest of the first. */
+  .sqd-squad-row > .sqd-row-mark, .sqd-squad-row > .sqd-row-ctl { grid-column: 3; grid-row: 2; }
+  .sqd-squad-row:has(> .sqd-row-mark, > .sqd-row-ctl) > .sqd-row-name { grid-column: 2 / 4; }
+  .sqd-row-aircraft:empty { display: none; }
+
+  .sqd-flights { flex-wrap: wrap; }
+  .sqd-flight-btn { flex: 1 1 30px; width: auto; min-width: 30px; }
+  .sqd-create { padding: 14px; }
+  .sqd-form-line { flex-wrap: wrap; gap: 8px; }
+  .sqd-label { width: 100%; }
+  select { min-width: 0; width: 100%; }
+  .sqd-create-foot { flex-wrap: wrap; }
+  .sqd-create-des { flex: 1 1 100%; }
+  .sqd-create-foot .sqd-btn { flex: 1 1 100%; }
+
+  .sqd-invite-card { flex-wrap: wrap; gap: 8px 12px; padding: 10px 12px; }
+  .sqd-invite-key { font-size: 20px; }
+  .sqd-invite-text { flex: 1 1 100%; order: 2; }
+  .sqd-invite-actions { flex: 1 1 100%; order: 3; }
+  .sqd-invite-actions .sqd-btn { flex: 1 1 0; }
+
+  .sqd-player-name { flex: 1 1 auto; min-width: 0; }
+  .sqd-player-tag { font-size: 10px; letter-spacing: 1px; white-space: normal; text-align: right; }
+}

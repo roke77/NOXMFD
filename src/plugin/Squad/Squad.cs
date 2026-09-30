@@ -937,7 +937,9 @@ namespace NOXMFD
                 firstInv = false;
                 sb.Append("{\"leaderId\":\"").Append(inv.LeaderId.ToString(CultureInfo.InvariantCulture))
                   .Append("\",\"leaderName\":\"").Append(Esc(inv.LeaderName))
-                  .Append("\",\"members\":").Append(MembersJson(inv.Members)).Append('}');
+                  .Append("\",\"callsign\":\"").Append(Esc(inv.Callsign))
+                  .Append("\",\"flight\":").Append(inv.Flight.ToString(CultureInfo.InvariantCulture))
+                  .Append(",\"members\":").Append(MembersJson(inv.Members)).Append('}');
             }
             sb.Append(']');
             sb.Append(",\"pendingSent\":[");

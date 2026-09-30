@@ -676,6 +676,7 @@ html, body {
    rather than fixed. HUD's own CSS pads around the label's width instead of standing it up
    (hud.css). */
 .nav-grid.edge[data-page="tgt"] .nav-item,
+.nav-grid.edge[data-page="sqd"] .nav-item,
 .nav-grid.edge[data-page="akf"] .nav-item,
 .nav-grid.edge[data-page="bdf"] .nav-item,
 .nav-grid.edge[data-page="pal"] .nav-item,

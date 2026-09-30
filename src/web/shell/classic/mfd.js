@@ -475,7 +475,7 @@ function placeSplitKey(m, label, action, paneTag, mark, pending) {
 // this same lone MAIN label (ext-nav.js), so there's no per-extension list to hardcode here the
 // way TGT/AKF/etc. are — this either clears real content (ATC's own table header, the reason this
 // was added) or costs nothing on a page with none.
-function isVmainPage(p) { return p === 'tgt' || p === 'td' || p === 'akf' || p === 'bdf' || p === 'pal' || p === 'mis' || p === 'obj' || ExtNav.isExtensionPage(p); }
+function isVmainPage(p) { return p === 'tgt' || p === 'td' || p === 'sqd' || p === 'akf' || p === 'bdf' || p === 'pal' || p === 'mis' || p === 'obj' || ExtNav.isExtensionPage(p); }
 
 // The item count on each MAIN split page. Unlike WPN, MAIN reserves no fixed back-slot: PREV anchors
 // the first key only on pages past the first, NEXT the last key only on pages before the last, and
