@@ -267,10 +267,13 @@ with every member; members only ever talk to the leader, never each other):
   message if the session closes before it flushes, so the goodbye itself could go missing right
   when it matters most. Each receiving handler closes its own end once it actually gets the message.
 - `Squad.CheckLiveness()` — no protocol message at all, unlike everything above: a crash or
-  force-quit gives no chance to send one, so this instead reuses Presence's existing per-peer TTL
-  (the same 15s window `PlayerRoster`'s invite-candidate filter already trusts) to notice a
-  leader/member who's gone silent and clean them out locally. Runs once a second, alongside
-  `PlayerRoster.Refresh()`/`Presence.Tick()`.
+  force-quit gives no chance to send one, so this instead reads Presence's per-peer beats through
+  `Presence.IsLost` to notice a leader/member who's gone silent and clean them out locally. Silence
+  only counts while both pilots can exchange beats (beats are sent only to the faction roster, and
+  only while a mission runs), measured from the latest of their last beat, us entering a faction and
+  them joining the roster: 30s for a peer in the roster, 120s for one still loading, so a mission
+  restart doesn't eject the squad. Runs once a second, alongside `PlayerRoster.Refresh()`/
+  `Presence.Tick()`.
 - `sqd.set-callsign` — leader-only, renames an existing squadron AND re-numbers its flight (issue
   #47 follow-up added the flight half; the initial values both come from `CreateSquad` above);
   carried through every roster/invite envelope and a leadership handoff (`sqd.transfer`'s own
@@ -455,3 +458,27 @@ is untouched by the game. Of the rest:
   installed at all) no longer produces a dead-end invite in the first place. Invites themselves
   have no timeout of their own (see above), so a genuinely-present target can take as long as they
   want to decide.
+
+## Link reliability and the SQD page rework (`feature/squadron-page-rework`)
+
+Player reports: the host missing from SQD's list, or a squad member ejected. Two causes in the code:
+
+- **Dead sessions.** `SendTo` used only `k_nSteamNetworkingSend_Reliable`; a session that failed
+  once (the peer still loading when the first beat went out) or that the peer closed (`HandleLeave`
+  etc. call `CloseSession`) stayed broken for the whole session. Sends now add
+  `AutoRestartBrokenSession`.
+- **Liveness across mission changes.** Beats stop while pilots are between missions, but squad
+  membership persists, so the fixed 15s TTL ejected members on a mission restart. `Presence.IsLost`
+  (above) replaces it.
+
+`[NOXMFD squad-link HH:mm:ss]` log lines (`Squadron.LinkLog`) give the next report evidence:
+failed-send streaks with Steam's session state, session-failed callbacks, faction roster joins and
+leaves, SteamID-0 players, presence appear/lost transitions, and the silence behind every ejection.
+
+The SQD page follows the "SQD A · Lit Roster" design: boxed squad card, own row lit green, LEADER/YOU
+badges, an always-open create panel, invite cards carrying callsign and flight (`pendingInvites`
+now includes both). The unassigned-players list excludes squadmates, is collapsible (open with no
+squad, collapsed once leading, hidden for a plain member), docks to the bottom and grows upward. The
+roster header and rows share one grid so the aircraft column takes the free space; below 640px each
+row becomes two lines. Invited players sit in the unassigned list tagged INVITED, without a CANCEL:
+`Squad.cs` has no way to withdraw an invite.

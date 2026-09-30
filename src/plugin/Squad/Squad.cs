@@ -22,9 +22,9 @@ namespace NOXMFD
     // every invite target checks their OWN local state and rejects (with a warning to their real
     // leader) rather than the sender ever being able to see it authoritatively — see HandleInvite.
     //
-    // Leader dropout (crash, alt-F4, force-quit) is a known, accepted gap for v1: succession only
-    // fires on a graceful Leave()/RelinquishLeadership(). An abruptly-vanished leader leaves the
-    // squad stuck until members disband and re-form. No liveness/heartbeat check exists to detect it.
+    // Succession only fires on a graceful Leave()/RelinquishLeadership(). A leader or member who
+    // vanishes abruptly (crash, alt-F4, force-quit) is detected by CheckLiveness instead, from the
+    // silence of their Presence beats, and cleaned out locally.
     internal static class Squad
     {
         internal enum Role { None, Leader, Member }

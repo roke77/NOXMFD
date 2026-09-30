@@ -7,9 +7,9 @@ roster.
 
 ## Creating a squad
 
-**CREATE SQUAD** swaps in a callsign picker and a flight-number picker (1-9) — pick both and
-confirm to become the leader. Callsigns are a fixed list of real military callsigns, not free
-text. **EDIT** on an existing squad's title lets the leader change both the callsign and the
+While you have no squad the page shows a **CREATE SQUAD** panel: a callsign picker and a
+flight-number row (1-9) — pick both and press CREATE to become the leader. Callsigns are a fixed list of real military callsigns, not free
+text. **EDIT** on the squad card lets the leader change both the callsign and the
 flight number later — re-numbering the flight immediately updates every member's own designation.
 
 ## Roster
@@ -19,7 +19,7 @@ current aircraft (blank when not flying one). A designation reads `CALLSIGN FLIG
 `TALON 1-2` — where FLIGHT is the squad's current flight number and MEMBER is the pilot's number
 in the squad (the leader is always 1). The leader's row carries a LEADER badge; on every other row
 the leader sees ▲/▼ (move that pilot one number up or down, swapping with whoever has it), a star
-(promote) and an × (kick). Your own row is highlighted.
+(promote) and an × (kick). Your own row is lit green (a member's carries a YOU badge).
 
 Numbers stick. When a pilot leaves, is kicked or drops out, their number stays empty and shows as
 an OPEN row; nobody else's number changes. The next pilot to join takes the lowest open number, or
@@ -35,7 +35,13 @@ NOXMFD page. Leaving the squad brings the Steam names back. Only squad members s
 everyone else in the match still sees Steam names. The NOXMFD AKF feed adds the Steam name in
 parentheses, e.g. `TALON 1-2 (Roke) [F/A-26]`, and the SQD roster keeps both columns.
 
-**INVITE** picks from faction-mates in the current match who are also running NOXMFD.
+## Unassigned players
+
+The bar docked at the bottom, `UNASSIGNED PLAYERS (n)`, lists faction-mates in the current match who
+are also running NOXMFD and aren't in your squad. Click it to open or close it; it opens upward and
+scrolls when long. It is open while you have no squad and collapsed once you lead one. As the leader,
+**INVITE** on a row sends an invite, and the player then shows there as INVITED until they answer.
+Squad members don't see the list.
 
 ## Invites
 
@@ -51,7 +57,9 @@ hand-off-and-exit but lets you pick who takes over instead. **DISBAND** (leader 
 squad for every member at once, rather than just yourself.
 
 If a leader or member crashes or force-quits instead, the rest of the squad notices on its own
-within a few seconds and drops them, with a notice — no action needed on your end.
+within about 30 seconds and drops them, with a notice — no action needed on your end. Pilots
+still loading after a mission restart get a longer allowance, so restarting the mission doesn't
+break the squad.
 
 ## Sharing waypoint routes
 
