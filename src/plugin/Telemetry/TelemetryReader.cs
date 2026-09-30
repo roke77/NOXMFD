@@ -52,6 +52,7 @@ namespace NOXMFD
         private PitbullContact[] _cachedPitbull = Array.Empty<PitbullContact>();
         private uint[] _cachedLockedIds = Array.Empty<uint>();
         private float[] _cachedLockedTti = Array.Empty<float>();
+        private string[] _cachedLockedWpn = Array.Empty<string>();
         private bool _cachedRadarPresent;
         private float _cachedRadarRange;
         private float _cachedRadarConeDeg;
@@ -934,6 +935,7 @@ namespace NOXMFD
                 SelectedUnitTrack = SharedSelection.Track,
                 LockedTargetIds = _cachedLockedIds,
                 LockedTargetTti = _cachedLockedTti,
+                LockedTargetWpn = _cachedLockedWpn,
                 TgtSortKey     = TargetSort.Key,
                 TgtSortDir     = TargetSort.Dir,
                 ColFriendly    = factionOverride.Friendly ?? _colFriendly,
@@ -1053,7 +1055,7 @@ namespace NOXMFD
             // locked target together (TargetTtiEstimator.ComputeAll) rather than rescanning
             // UnitRegistry.allUnits once per target.
             uint playerId = aircraft.persistentID.Id;
-            _cachedLockedTti = TargetTtiEstimator.ComputeAll(_cachedLockedIds, playerId);
+            _cachedLockedTti = TargetTtiEstimator.ComputeAll(_cachedLockedIds, playerId, out _cachedLockedWpn);
         }
 
         // TGT's column sort (TargetSort.cs), keyed off the same UnitInfo rows TGT itself renders —

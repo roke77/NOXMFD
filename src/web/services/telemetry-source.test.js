@@ -234,6 +234,7 @@ const assert = require('assert');
         world: { x: 0, y: 0, z: 0 },
         lockedTargetIds: [1, 2],
         lockedTargetTti: [7.6, -1],
+        lockedTargetWpn: ['AGM-48', ''],
         contacts: [
           { id: 1, t: 'ONE', x: 10, z: 0, tg: true },
           { id: 2, t: 'TWO', x: 20, z: 0, tg: true },
@@ -241,8 +242,11 @@ const assert = require('assert');
       });
       const items = messages.find((m) => m.type === 'targets').items;
       assert.strictEqual(items.find((t) => t.id === 1).tti, 7.6, 'a tracked lock should carry its tti');
+      assert.strictEqual(items.find((t) => t.id === 1).wpn, 'AGM-48', 'a tracked lock should carry its weapon');
       assert.strictEqual(items.find((t) => t.id === 2).tti, undefined,
         'an untracked lock (-1) should not carry a tti at all');
+      assert.strictEqual(items.find((t) => t.id === 2).wpn, undefined,
+        'an untracked lock should not carry a weapon');
     } finally {
       global.window = realWindow;
     }
