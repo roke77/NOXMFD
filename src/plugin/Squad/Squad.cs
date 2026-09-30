@@ -400,26 +400,29 @@ namespace NOXMFD
         }
 
         // A crash or force-quit gives no chance to send sqd.leave/sqd.disband/sqd.kick — without
-        // this, the rest of the squad would keep showing that pilot as present forever (no
-        // persistence AND no notice is the worst of both). Reuses Presence's existing "who's still
-        // running NOXMFD" TTL (docs/squadron-transport.md) rather than a second liveness signal:
-        // PlayerRoster's own invite-candidate filter already requires Presence.HasNoxmfd before
-        // anyone can be invited in the first place, so by the time someone is a leader/member here,
-        // their presence has already been flowing for a while — there's no "just joined, no beat
-        // yet" false positive to guard against. Called once a second, right alongside
+        // this, the rest of the squad would keep showing that pilot as present forever. Uses
+        // Presence.IsLost, which only counts silence while beats can actually flow (both pilots in
+        // a faction) and gives a squadmate still loading a mission a longer allowance, so a mission
+        // restart doesn't eject the squad. Called once a second, right alongside
         // PlayerRoster.Refresh()/Presence.Tick() (TelemetryReader's slow tick).
         internal static void CheckLiveness()
         {
             if (_role == Role.Member)
             {
-                if (Presence.HasNoxmfd(_leaderId)) return;
+                if (!Presence.IsLost(_leaderId, out float silent)) return;
+                Squadron.LinkLog($"liveness: leader {_leaderId} silent for {silent:F0}s (inFaction={PlayerRoster.InFaction(_leaderId)}) - leaving the squad");
                 ResetToNone();
                 SetNotice("Lost contact with your squad leader — they may have crashed or disconnected.");
             }
             else if (_role == Role.Leader)
             {
                 List<Member>? gone = null;
-                foreach (var m in _members) if (!Presence.HasNoxmfd(m.Id)) (gone ??= new List<Member>()).Add(m);
+                foreach (var m in _members)
+                {
+                    if (!Presence.IsLost(m.Id, out float silent)) continue;
+                    Squadron.LinkLog($"liveness: member {m.Name} ({m.Id}) silent for {silent:F0}s (inFaction={PlayerRoster.InFaction(m.Id)}) - dropping");
+                    (gone ??= new List<Member>()).Add(m);
+                }
                 if (gone == null) return;
                 foreach (var m in gone)
                 {
