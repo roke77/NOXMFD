@@ -15,7 +15,9 @@
                     { present, laser, hud, faction:[{n,on}], category:[{n,on}], vehicle:[{n,on}] }.
                     present:false → the game's TargetListSelector isn't up; show UNAVAILABLE.
     'tgt-targets' : the selected-target list —
-                    { items:[{ id, n, g, r, f, hd, sp, al, h }] } → the list under the filters.
+                    { items:[{ id, n, g, r, f, tti, wpn, hd, sp, al, h }] } → the list under the filters.
+                    tti/wpn: the player's own in-flight weapon tracking that lock (seconds to impact,
+                    weapon unitName); absent when nothing is.
                     hd/sp/al/h (issue #88) are the same HasDetail/SpeedReading/AltReading/Heading
                     fields MAP's hover tooltip already reads — see the DETAILED/COMPACT note below.
     'orient'      : app-wide orientation (kept for parity).
@@ -23,7 +25,7 @@
   Interaction (touch-friendly, mirrors the game):
     tap a filter        → toggle it (tgt.set {group,index,on})
     long-press a filter → "only this" (tgt.only {group,index}) — isolate it in its group
-    RESET FILTER        → tgt.reset   (all filters back on)
+    RESET FILTERS       → tgt.reset   (all filters back on)
     CLEAR TARGETS       → tgt.clear   (deselect every target)
     tap a target's row  → deselect it (target.deselect {id}) — anywhere on the row, no checkbox
     designation dock    → ADD / REPLACE (td.accept {on}) or DISMISS (td.dismiss) — see the dock's own comment
@@ -32,19 +34,20 @@
   trustworthy — the same drift-past-threshold check that pops the "?" on the game's own TGP;
   docs/tgt-stale-lock.md). STALE implies DATALINK.
 
-  DATALINK / STALE buttons (docs/tgt-datalink-cancel.md, docs/tgt-stale-lock.md) — mod-only
-  controls, not one of the game's real TargetListSelector filters (those are
-  FRIENDLY/ENEMY/category/vehicle/LASER/HUD above):
-    tap DATALINK → tgt.clear-datalink (deselect just the datalink-only targets)
-    tap STALE    → tgt.clear-stale    (deselect just the stale-locked targets)
+  CLEAR DATALINK / CLEAR STALE buttons (docs/tgt-datalink-cancel.md, docs/tgt-stale-lock.md) —
+  mod-only controls, not one of the game's real TargetListSelector filters (those are
+  FRIENDLY/ENEMY/category/vehicle/LASER/HUD above). All four action buttons share one docked row
+  under the list; the two clears show how many rows they would drop:
+    tap CLEAR DATALINK → tgt.clear-datalink (deselect just the datalink-only targets)
+    tap CLEAR STALE    → tgt.clear-stale    (deselect just the stale-locked targets)
 
   PAD cursor (docs/page-cursor.md) — while this TGT is the SOI's focused surface, the shell forwards
   the same cursor transport MAP uses, plus Cursor Select's live held state
   ({mfd:true, action:'cursor'|'cursor-held'|'cursor-focus'}): held past the long-press threshold
-  mirrors a filter cell's own long-press "only" when the cursor's over one, releasing before that
-  mirrors the tap instead — filter toggle, tgt.clear-datalink over DATALINK, or tgt.clear-stale over
-  STALE. Every other CURSORABLE control (list row, RESET/CLEAR, LASER/HUD, DATALINK, STALE) only
-  ever has a tap outcome, since they have no hold behaviour to mirror. Hovering the crosshair over
+  mirrors a filter cell's own long-press "only" (or a preset card's save) when the cursor's over one,
+  releasing before that mirrors the tap instead — filter toggle or preset recall. Every other
+  CURSORABLE control (list row, the four action buttons, LASER/HUD) only ever has a tap outcome,
+  since they have no hold behaviour to mirror. Hovering the crosshair over
   any control highlights it (.pad-hoverable/.pad-hover, shared/theme.css) the same way a real mouse
   would. Zoom In/Out (map-act's 'zoom-in'/'zoom-out') are repurposed here to scroll the target list
   instead of zooming (nothing to zoom on this page).
@@ -70,15 +73,18 @@
   TGT filter presets (issue #78) — 5 fixed numbered slots (TgtPresetStore), server-side so any
   browser or the KEY page's own 5 recall keybinds can save/load one, same model as HUD's own
   presets (docs/hud-presets.md, docs/tgt-presets.md):
-    SAVE → opens LayoutModal.prompt for a name, then tgt-preset.save {wname} (always the CURRENT slot)
-    LOAD → opens LayoutModal.pickList over GET /tgt-presets; picking an item applies it and makes it
-           current, the row's pencil/× send tgt-preset.rename/tgt-preset.delete {index, ...}
-  The label's current index/name rides this page's existing 'tgt' telemetry block (a `preset`
-  field), not a separate endpoint.
+    tap a card  → recall that slot: tgt-preset.load {index} (an empty slot just becomes current)
+    hold a card → the SAVE PRESET dialog (below): SAVE captures the current filters into that slot
+                  under the typed name (tgt-preset.save {wname,index}), CLEAR empties the slot
+                  (tgt-preset.delete {index}); the completed hold never also recalls
+  The five cards mirror GET /tgt-presets (re-fetched when the 'tgt' block's `preset` field — the
+  current slot's index/name, riding the existing telemetry — changes); the lit card is the current
+  slot.
 
-  DETAILED/COMPACT flight-data toggle (issue #88) — bottom right, same switch component/labels as
-  AKF's own density toggle (akf.html/akf.js), but the opposite default: TGT starts COMPACT (today's
-  NAME/TD/SRC/RNG/GRID columns only). DETAILED appends SPD/ALT/HDG after GRID, using each target's
+  DETAILED/COMPACT flight-data toggle (issue #88) — bottom right of the list, same switch
+  component/labels as AKF's own density toggle (akf.html/akf.js), but the opposite default: TGT
+  starts COMPACT (the NAME/WPN/TTI/TD/SRC/RNG/GRID columns only). DETAILED appends SPD/ALT/HDG after
+  GRID, using each target's
   hd/sp/al/h fields (see the 'tgt-targets' message above) — the same HasDetail-gated data MAP's own
   hover tooltip already shows. A target with hd:false (stale lock, or a non-aircraft/missile
   category) renders "—" in all three. Purely a client-local display preference, like AKF's: not
@@ -86,49 +92,45 @@
 -->
 <link rel="stylesheet" href="/assets/shared/font.css">
 <link rel="stylesheet" href="/assets/shared/theme.css">
-<link rel="stylesheet" href="/assets/shell/shared/layout-modal.css">
 <link rel="stylesheet" href="/assets/pages/tgt/tgt.css">
 </head>
 <body>
   <div class="tgt-panel" id="tgt-panel">
     <div class="tgt-head">
       <span class="tgt-title">TARGET SELECTION</span>
-      <span class="tgt-hint">tap&nbsp;=&nbsp;toggle&nbsp;·&nbsp;hold&nbsp;=&nbsp;only</span>
     </div>
 
-    <!-- TGT filter presets (issue #78): current slot label + SAVE/LOAD, built by tgt.js. Same
-         5-fixed-slot model as HUD's own presets (docs/hud-presets.md), applied to this page's
-         faction/category/vehicle/laser/HUD filters instead — see docs/tgt-presets.md. Placed here
-         (below the header separator, above the filter group), same as HUD's own preset bar. -->
-    <div class="tgt-preset-bar" id="tgt-preset-bar">
-      <span class="tgt-preset-label" id="tgt-preset-label"></span>
-      <button type="button" class="tgt-preset-btn pad-hoverable" id="tgt-preset-save">SAVE</button>
-      <button type="button" class="tgt-preset-btn pad-hoverable" id="tgt-preset-load">LOAD</button>
-    </div>
+    <!-- TGT filter presets (issue #78): five fixed slots as cards, built by tgt.js from
+         GET /tgt-presets. Position identifies the slot; the lit card is the current one. Tap recalls,
+         hold saves — see docs/tgt-presets.md. -->
+    <section class="tgt-presets" aria-label="Filter presets">
+      <div class="tgt-section-title">PRESETS <span class="tgt-section-hint" id="tgt-presets-hint">(hold to save)</span></div>
+      <div class="tgt-preset-cards" id="tgt-preset-cards" aria-describedby="tgt-presets-hint"></div>
+    </section>
 
-    <div class="tgt-top">
-      <div class="tgt-actions">
-        <button class="tgt-action pad-hoverable reset" data-cmd="reset">RESET<br>FILTER</button>
-        <button class="tgt-action pad-hoverable clear" data-cmd="clear">CLEAR<br>TARGETS</button>
+    <section class="tgt-filter-section" aria-labelledby="tgt-filters-title">
+      <div class="tgt-section-title" id="tgt-filters-title">FILTERS <span class="tgt-section-hint">(hold to only)</span></div>
+      <div class="tgt-top">
+        <div class="tgt-filters">
+          <div class="tgt-row" id="row-faction"></div>
+          <div class="tgt-row" id="row-category"></div>
+        </div>
+        <div class="tgt-modes">
+          <button class="tgt-mode pad-hoverable" id="mode-laser" data-mode="laser">LASER</button>
+          <button class="tgt-mode pad-hoverable" id="mode-hud"   data-mode="hud">HUD</button>
+        </div>
       </div>
-      <div class="tgt-filters">
-        <div class="tgt-row" id="row-faction"></div>
-        <div class="tgt-row" id="row-category"></div>
-      </div>
-      <div class="tgt-modes">
-        <button class="tgt-mode pad-hoverable" id="mode-laser" data-mode="laser">LASER</button>
-        <button class="tgt-mode pad-hoverable" id="mode-hud"   data-mode="hud">HUD</button>
-      </div>
-    </div>
+      <div class="tgt-vehicles" id="row-vehicle"></div>
+    </section>
 
-    <div class="tgt-vehicles" id="row-vehicle"></div>
-
-    <!-- Selected-target list: NAME (header reads "TARGETS (N)", the live selected count) / [TD] /
-         SRC / RNG / GRID / [SPD / ALT / HDG] per row. The whole row is clickable and deselects that
-         target — no checkbox, the row itself already reads as "this is selected". .tgt-list-scroll
+    <!-- Selected-target list: NAME (header reads "TARGETS (N)", the live selected count) / WPN / TTI /
+         [TD] / SRC / RNG / GRID / [SPD / ALT / HDG] per row. The whole row is clickable and deselects
+         that target — no checkbox, the row itself already reads as "this is selected". .tgt-list-scroll
          scrolls both axes so a narrow panel (small-screen F-35) overflows instead of squeezing
          columns unreadably thin; .tgt-list-head is sticky within it so the header stays put
          vertically but still tracks the rows horizontally.
+         WPN / TTI (docs/hud-tti-estimate.md): the player's own in-flight guided weapon tracking that
+         lock, and its time to impact as M:SS. Both blank when nothing is tracking it.
          TD (issue #47 follow-up): a squad leader's own designations, one squad-slot number per
          member this target is assigned to (blank if none). Leader-only — hidden entirely (both this
          header cell and each row's .tl-td) via tgt.css's .has-td-col for anyone not currently
@@ -144,10 +146,10 @@
         <div class="tgt-list-head">
           <!-- NAME / SRC / RNG are sort buttons (TargetSort.cs, shared by every TGT view): tap sorts by
                that column / reverses it, long-press goes back to the game's lock order. -->
-          <!-- NAME header replaced with "TARGETS (N)" — the total selected count in amber, right in
-               the column header, so a squadron lead can match ordnance count to target count at a
+          <!-- NAME header reads "TARGETS (N)" — the total selected count in amber, right in the
+               column header, so a squadron lead can match ordnance count to target count at a
                glance without leaving the map to check the cockpit MFD. -->
-          <button class="tl-sort pad-hoverable" data-sort="n">TARGETS <span class="tgt-count-n" id="tgt-count-n"></span></button><span class="tgt-td-head">TD</span><button class="tl-sort pad-hoverable" data-sort="src">SRC</button><button class="tl-sort pad-hoverable" data-sort="r">RNG</button><span>GRID</span><span class="tgt-flight-head">SPD</span><span class="tgt-flight-head">ALT</span><span class="tgt-flight-head">HDG</span>
+          <button class="tl-sort pad-hoverable" data-sort="n">TARGETS <span class="tgt-count-n" id="tgt-count-n"></span></button><span>WPN</span><span>TTI</span><span class="tgt-td-head">TD</span><button class="tl-sort pad-hoverable" data-sort="src">SRC</button><button class="tl-sort pad-hoverable" data-sort="r">RNG</button><span>GRID</span><span class="tgt-flight-head">SPD</span><span class="tgt-flight-head">ALT</span><span class="tgt-flight-head">HDG</span>
         </div>
         <div class="tgt-list-rows" id="tgt-list-rows"></div>
         <div class="tgt-list-empty" id="tgt-list-empty">&mdash; NO TARGETS SELECTED &mdash;</div>
@@ -171,18 +173,39 @@
       </div>
     </div>
 
-    <!-- DATALINK / STALE: mod-only, not real TargetListSelector filters — see the header comment above. -->
-    <div class="tgt-footer">
-      <button class="tgt-datalink-btn pad-hoverable" id="datalink-btn">DATALINK</button>
-      <span class="tgt-datalink-desc">Deselect datalink-only</span>
-      <button class="tgt-stale-btn pad-hoverable" id="stale-btn">STALE</button>
-      <span class="tgt-stale-desc">Deselect stale locks</span>
-      <!-- DETAILED/COMPACT flight-data toggle (issue #88) — see the header comment above, akf.js for
-           the identical component this is ported from. Bottom right of the footer row. -->
+    <!-- DETAILED/COMPACT flight-data toggle (issue #88) — see the header comment above, akf.js for
+         the identical component this is ported from. Right-aligned under the list. -->
+    <div class="tgt-toolbar">
       <div class="tgt-density-toggle pad-hoverable" id="tgt-density-toggle" title="Toggle target list flight-data columns">
         <span class="tgt-density-label tgt-density-label-left">DETAILED</span>
         <span class="tgt-density-switch"><span class="tgt-density-knob"></span></span>
         <span class="tgt-density-label tgt-density-label-right">COMPACT</span>
+      </div>
+    </div>
+
+    <!-- Action dock, outside the scrolling list so it is always reachable: data-cmd is the tgt.*
+         command each button sends. CLEAR DATALINK / CLEAR STALE are mod-only, not real
+         TargetListSelector filters — see the header comment above; their counts are tgt.js's. -->
+    <div class="tgt-actions" aria-label="Target actions">
+      <button class="tgt-action pad-hoverable reset" data-cmd="reset">RESET FILTERS</button>
+      <button class="tgt-action pad-hoverable clear" data-cmd="clear">CLEAR TARGETS</button>
+      <button class="tgt-action pad-hoverable datalink" data-cmd="clear-datalink">CLEAR DATALINK <span class="tgt-action-count" id="datalink-count"></span></button>
+      <button class="tgt-action pad-hoverable stale" data-cmd="clear-stale">CLEAR STALE <span class="tgt-action-count" id="stale-count"></span></button>
+    </div>
+
+    <!-- SAVE PRESET dialog, opened by holding a preset card: the same scrim / bordered panel / amber
+         entry as MAP's TGP slew keypad and NOAutopilot's target keypad. CANCEL (white) closes, CLEAR (red)
+         empties the slot, SAVE (green) stores the typed name. tgt.js's savePreset. -->
+    <div class="tgt-kp-scrim" id="tgt-kp" hidden>
+      <div class="tgt-kp" role="dialog" aria-labelledby="tgt-kp-title">
+        <div class="tgt-kp-title" id="tgt-kp-title"></div>
+        <input class="tgt-kp-input" id="tgt-kp-input" type="text" maxlength="60" placeholder="PRESET NAME" autocomplete="off" spellcheck="false">
+        <div class="tgt-kp-error" id="tgt-kp-error"></div>
+        <div class="tgt-kp-actions">
+          <button type="button" class="tgt-kp-btn pad-hoverable" id="tgt-kp-cancel">CANCEL</button>
+          <button type="button" class="tgt-kp-btn pad-hoverable clear" id="tgt-kp-clear">CLEAR</button>
+          <button type="button" class="tgt-kp-btn pad-hoverable save" id="tgt-kp-save">SAVE</button>
+        </div>
       </div>
     </div>
 
@@ -198,7 +221,6 @@
 <script src="/assets/services/send-command.js"></script>
 <script src="/assets/pages/keybinds/keybinds-keymap.js"></script>
 <script src="/assets/services/remote-keybinds.js"></script>
-<script src="/assets/shell/shared/layout-modal.js"></script>
 <script type="module" src="/assets/pages/tgt/tgt.js"></script>
 </body>
 </html>

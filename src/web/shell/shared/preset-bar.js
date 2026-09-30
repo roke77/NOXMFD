@@ -1,8 +1,7 @@
 // Shared "PRESET N: name" bar + SAVE/LOAD wiring for a fixed 5-slot preset library shaped like
 // HudPresetStore/TgtPresetStore: GET <endpoint> -> {current, presets:[{index,name,hasData}]},
 // and <cmdPrefix>.save/.rename/.delete/.load commands (wname for a name, index for a slot).
-// Extracted from hud.js once tgt.js (issue #78) became a second, near-identical copy of the same
-// label/SAVE/LOAD/LayoutModal wiring — same reasoning as cursor-zoom.js/pending-selection.js.
+// Used by hud.js; the TGT page draws its own preset cards over the same endpoint and commands.
 export function createPresetBar({ endpoint, cmdPrefix, labelEl, saveBtn, loadBtn, send, getPreset, setPreset }) {
   function render() {
     const p = getPreset() || { index: 1, name: '' };

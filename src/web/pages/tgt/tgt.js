@@ -3,8 +3,8 @@
 // command and the next 'tgt' frame (~100 ms) reflects the game's real toggle state, so the buttons
 // never lie even if a tap is dropped. See tgt.html for the message contract + docs/tgt-page.md.
 import { createPadCursor } from '/assets/services/pad-cursor.js';
-import { createPresetBar } from '/assets/shell/shared/preset-bar.js';
 import { fmtRng } from '/assets/services/range-format.js';
+import { createPresetCards } from '/assets/pages/tgt/tgt-presets.js';
 
 const panel = document.getElementById('tgt-panel');
 const rows = {
@@ -16,11 +16,8 @@ const modeEls = { laser: document.getElementById('mode-laser'), hud: document.ge
 const listRows = document.getElementById('tgt-list-rows');
 const countNEl = document.getElementById('tgt-count-n');
 const listScroll = document.querySelector('.tgt-list-scroll');
-const datalinkBtn = document.getElementById('datalink-btn');
-const staleBtn = document.getElementById('stale-btn');
-const presetLabelEl = document.getElementById('tgt-preset-label');
-const presetSaveBtn = document.getElementById('tgt-preset-save');
-const presetLoadBtn = document.getElementById('tgt-preset-load');
+const datalinkCountEl = document.getElementById('datalink-count');
+const staleCountEl = document.getElementById('stale-count');
 const densityToggleEl = document.getElementById('tgt-density-toggle');
 
 let state = { present: false, laser: false, hud: false, faction: [], category: [], vehicle: [], preset: { index: 1, name: '' } };
@@ -213,25 +210,25 @@ function paint() {
   });
   modeEls.laser.classList.toggle('on', !!state.laser);
   modeEls.hud.classList.toggle('on', !!state.hud);
-  renderPreset();
+  presetUi.sync(state.preset);
 }
 
 // ── TGT filter presets (issue #78) ────────────────────────────────────────────────────
-// The "PRESET N: name" label rides this page's existing 'tgt' telemetry block (a `preset` field,
-// TelemetryJson.TgtBlock) rather than a second endpoint; SAVE/LOAD fetch /tgt-presets on demand,
-// only while their modal is open. Shared with HUD's identically-shaped preset bar — see
-// shell/shared/preset-bar.js.
-const presetBar = createPresetBar({
-  endpoint: '/tgt-presets',
-  cmdPrefix: 'tgt-preset',
-  labelEl: presetLabelEl,
-  saveBtn: presetSaveBtn,
-  loadBtn: presetLoadBtn,
+// The five cards and their SAVE PRESET dialog live in tgt-presets.js; this page only routes taps and
+// holds to them (below) and reports the current slot from each 'tgt' frame (paint).
+const presetUi = createPresetCards({
+  cardsEl: document.getElementById('tgt-preset-cards'),
+  dialog: {
+    scrim: document.getElementById('tgt-kp'),
+    title: document.getElementById('tgt-kp-title'),
+    input: document.getElementById('tgt-kp-input'),
+    error: document.getElementById('tgt-kp-error'),
+    clear: document.getElementById('tgt-kp-clear'),
+    save: document.getElementById('tgt-kp-save'),
+    cancel: document.getElementById('tgt-kp-cancel'),
+  },
   send: send,
-  getPreset: function () { return state.preset; },
-  setPreset: function (p) { state.preset = p; },
 });
-function renderPreset() { presetBar.render(); }
 
 // ── Selected-target list ──────────────────────────────────────────────────────────────
 
@@ -265,6 +262,12 @@ function clearSort() { send('tgt.sort', { key: '', index: 1 }); }
 function renderTargets() {
   const list = targets;
   countNEl.textContent = list.length ? '(' + list.length + ')' : '';
+  // What CLEAR DATALINK / CLEAR STALE would drop — STALE implies DATALINK, so the datalink count
+  // includes the stale rows, same as the plugin's bulk deselect.
+  const datalinkN = list.filter(function (t) { return t.dl; }).length;
+  const staleN = list.filter(function (t) { return t.st; }).length;
+  datalinkCountEl.textContent = datalinkN ? '· ' + datalinkN : '';
+  staleCountEl.textContent = staleN ? '· ' + staleN : '';
   // Rebuild the rows only when the set of target ids changes; otherwise just refresh the text
   // (name/grid/range drift as targets move) so we don't thrash the DOM at 10 Hz.
   const key = list.map(function (t) { return t.id; }).join(',');
@@ -277,13 +280,13 @@ function renderTargets() {
       row.dataset.id = t.id;
       row.setAttribute('role', 'checkbox'); row.setAttribute('aria-checked', 'true');
       row.setAttribute('aria-label', 'deselect'); row.tabIndex = 0;
-      // NAME cell holds two children so a TTI reading can sit at its right edge without disturbing
-      // the SRC/RNG/GRID grid columns after it — see .tl-name's flex layout in tgt.css.
+      // NAME cell holds the name and, after it, the TD tag — see .tl-name's flex layout in tgt.css.
       const name = document.createElement('span'); name.className = 'tl-name';
       const nameText = document.createElement('span'); nameText.className = 'tl-name-text';
-      const tti = document.createElement('span'); tti.className = 'tl-tti';
       const tdTag = document.createElement('span'); tdTag.className = 'tl-td-tag';
-      name.appendChild(nameText); name.appendChild(tdTag); name.appendChild(tti);
+      name.appendChild(nameText); name.appendChild(tdTag);
+      const wpn  = document.createElement('span'); wpn.className = 'tl-wpn';
+      const tti  = document.createElement('span'); tti.className = 'tl-tti';
       const td   = document.createElement('span'); td.className = 'tl-td';
       const src  = document.createElement('span'); src.className = 'tl-src';
       const dist = document.createElement('span'); dist.className = 'tl-dist';
@@ -291,7 +294,7 @@ function renderTargets() {
       const spd  = document.createElement('span'); spd.className = 'tl-spd';
       const alt  = document.createElement('span'); alt.className = 'tl-alt';
       const hdg  = document.createElement('span'); hdg.className = 'tl-hdg';
-      row.appendChild(name); row.appendChild(td); row.appendChild(src); row.appendChild(dist); row.appendChild(grid);
+      row.appendChild(name); row.appendChild(wpn); row.appendChild(tti); row.appendChild(td); row.appendChild(src); row.appendChild(dist); row.appendChild(grid);
       row.appendChild(spd); row.appendChild(alt); row.appendChild(hdg);
       listRows.appendChild(row);
     });
@@ -300,9 +303,10 @@ function renderTargets() {
   for (let i = 0; i < rowEls.length && i < list.length; i++) {
     const t = list[i], el = rowEls[i];
     el.querySelector('.tl-name-text').textContent = t.n || '—';
-    // TTI (docs/hud-tti-estimate.md): only when this lock actually has one of the player's own
-    // in-flight guided weapons tracking it (telemetry-source.js only sets t.tti in that case).
-    el.querySelector('.tl-tti').textContent = typeof t.tti === 'number' ? 'TTI ' + fmtTti(t.tti) : '';
+    // WPN / TTI (docs/hud-tti-estimate.md): only when this lock actually has one of the player's own
+    // in-flight guided weapons tracking it (telemetry-source.js only sets t.tti/t.wpn in that case).
+    el.querySelector('.tl-wpn').textContent = typeof t.tti === 'number' && t.wpn ? t.wpn : '';
+    el.querySelector('.tl-tti').textContent = typeof t.tti === 'number' ? fmtTti(t.tti) : '';
     el.querySelector('.tl-td-tag').textContent = tdAccepted.has(t.id) ? 'TD' : '';
     el.querySelector('.tl-grid').textContent = t.g != null ? String(t.g) : '—';
     el.querySelector('.tl-dist').textContent = fmtRng(t.r, targetsMetric);
@@ -338,28 +342,37 @@ listRows.addEventListener('click', function (e) {
 });
 
 // ── Interaction: tap = toggle, long-press = "only this" (filter cells) ────────────────
-// Sort headers share the same tap/long-press split: tap = sort, long-press = lock order.
+// Sort headers share the same tap/long-press split: tap = sort, long-press = lock order. Preset
+// cards too: tap = recall, long-press = save.
 const LONG_MS = 500;
-let press = null;   // { group, index, sort, longFired, timer }
+let press = null;   // { group, index, sort, slot, longFired, timer }
+
+const PRESSABLE = '.tgt-cell, .tgt-veh, .tl-sort, .tgt-preset-card';
 
 function clearPress() { if (press) { clearTimeout(press.timer); press = null; } }
 
 panel.addEventListener('pointerdown', function (e) {
-  const cell = e.target.closest('.tgt-cell, .tgt-veh, .tl-sort');
+  const cell = e.target.closest(PRESSABLE);
   if (!cell) return;
-  press = { group: cell.dataset.group, index: +cell.dataset.index, sort: cell.dataset.sort, longFired: false };
+  press = { group: cell.dataset.group, index: +cell.dataset.index, sort: cell.dataset.sort, slot: +cell.dataset.slot, longFired: false };
   press.timer = setTimeout(function () {
     if (!press) return;
     press.longFired = true;
-    if (press.sort) clearSort();
+    if (press.slot) presetUi.save(press.slot);
+    else if (press.sort) clearSort();
     else send('tgt.only', { group: press.group, index: press.index });   // isolate this one in its group
   }, LONG_MS);
 });
 
 panel.addEventListener('pointerup', function (e) {
   if (!press) return;
-  const cell = e.target.closest('.tgt-cell, .tgt-veh, .tl-sort');
-  if (press.sort) {
+  const cell = e.target.closest(PRESSABLE);
+  if (press.slot) {
+    // A completed hold already opened the dialog and must not also recall. Its release re-focuses
+    // the name entry: only a focus() inside a user gesture raises a touch keyboard.
+    if (press.longFired) presetUi.focusEntry();
+    else if (cell && +cell.dataset.slot === press.slot) presetUi.recall(press.slot);
+  } else if (press.sort) {
     if (cell && cell.dataset.sort === press.sort && !press.longFired) tapSort(press.sort);
   } else if (cell && cell.dataset.group === press.group && +cell.dataset.index === press.index && !press.longFired) {
     // Fire the tap only if released on the same cell and the long-press hasn't already fired.
@@ -368,37 +381,35 @@ panel.addEventListener('pointerup', function (e) {
   clearPress();
 });
 
-// Keyboard activation of a sort header (Enter/Space) — pointer taps are handled above, and a click
-// from those carries detail >= 1.
+// Keyboard activation of a sort header or preset card (Enter/Space) — pointer taps are handled above,
+// and a click from those carries detail >= 1.
 panel.addEventListener('click', function (e) {
+  if (e.detail !== 0) return;
   const b = e.target.closest('.tl-sort');
-  if (b && e.detail === 0) tapSort(b.dataset.sort);
+  if (b) { tapSort(b.dataset.sort); return; }
+  const card = e.target.closest('.tgt-preset-card');
+  if (card) presetUi.recall(+card.dataset.slot);
 });
 
 panel.addEventListener('pointercancel', clearPress);
 panel.addEventListener('pointerleave', clearPress);
 window.addEventListener('contextmenu', function (e) { e.preventDefault(); });   // long-press must not pop a menu
 
-// Action buttons + mode toggles — plain taps (no long-press).
+// Action buttons + mode toggles — plain taps (no long-press). Each action's data-cmd is its tgt.*
+// command: reset, clear, clear-datalink, clear-stale. CLEAR DATALINK / CLEAR STALE
+// (docs/tgt-datalink-cancel.md, docs/tgt-stale-lock.md) are bulk server-side deselects, no
+// client-side filtering; the PAD cursor mirrors the same tap by clicking the button.
 document.querySelectorAll('.tgt-action').forEach(function (b) {
-  b.addEventListener('click', function () { send(b.dataset.cmd === 'reset' ? 'tgt.reset' : 'tgt.clear'); });
+  b.addEventListener('click', function () { send('tgt.' + b.dataset.cmd); });
 });
 modeEls.laser.addEventListener('click', function () { send('tgt.laser', { on: !state.laser }); });
 modeEls.hud.addEventListener('click', function () { send('tgt.hud', { on: !state.hud }); });
-
-// DATALINK / STALE buttons (docs/tgt-datalink-cancel.md, docs/tgt-stale-lock.md): tap deselects the
-// datalink-only / stale-locked targets — a bulk server-side deselect, no client-side filtering. Not
-// folded into the .tgt-cell/.tgt-veh handling above, since these aren't game filter cells (no
-// group/index, no tgt.set/tgt.only) — this is the real mouse/touch path; the PAD cursor mirrors the
-// same tap below (padCursorSelectAt).
-datalinkBtn.addEventListener('click', function () { send('tgt.clear-datalink'); });
-staleBtn.addEventListener('click', function () { send('tgt.clear-stale'); });
 
 // ── PAD cursor (docs/page-cursor.md) ──────────────────────────────────────────────────
 // Same crosshair/transport MAP uses (pad-cursor.js), driven here only while this TGT is the SOI's
 // focused surface. Clamped to the panel's own box (panel-local px, matching the crosshair's
 // positioned ancestor — see tgt.css's .tgt-panel { position: relative }).
-const CURSORABLE = '.tgt-cell, .tgt-veh, .tl-sort, .tl-row, .tgt-action, .tgt-mode, .tgt-datalink-btn, .tgt-stale-btn, .tgt-preset-btn, .tgt-density-toggle, .tgt-td-toggle, .tgt-td-btn';
+const CURSORABLE = '.tgt-cell, .tgt-veh, .tl-sort, .tl-row, .tgt-action, .tgt-mode, .tgt-preset-card, .tgt-kp-btn, .tgt-density-toggle, .tgt-td-toggle, .tgt-td-btn';
 const padCursorEl = document.getElementById('pad-cursor');
 const cursor = createPadCursor({
   el: padCursorEl,
@@ -431,25 +442,25 @@ function padCursorSelectAt(px, py) {
   if (!el) return;
   if (el.classList.contains('tgt-cell') || el.classList.contains('tgt-veh')) {
     send('tgt.set', { group: el.dataset.group, index: +el.dataset.index, on: !isOn(el.dataset.group, +el.dataset.index) });
-  } else if (el.classList.contains('tgt-datalink-btn')) {
-    send('tgt.clear-datalink');   // mirrors datalinkBtn's own click outcome
-  } else if (el.classList.contains('tgt-stale-btn')) {
-    send('tgt.clear-stale');   // mirrors staleBtn's own click outcome
+  } else if (el.classList.contains('tgt-preset-card')) {
+    presetUi.recall(+el.dataset.slot);   // mirrors the card's own pointer tap
   } else if (el.classList.contains('tl-sort')) {
     tapSort(el.dataset.sort);   // mirrors the header's own pointer tap
   } else {
-    el.click();   // .tl-row / .tgt-action / .tgt-mode already have plain click handlers
+    el.click();   // .tl-row / .tgt-action / .tgt-mode / the density toggle already have plain click handlers
   }
 }
 
-// Select's HOLD outcome — filter cells (.tgt-cell/.tgt-veh: "only this") and sort headers (lock
-// order) have a long-press meaning; everything else, DATALINK included, has no hold behaviour, so
+// Select's HOLD outcome — filter cells (.tgt-cell/.tgt-veh: "only this"), sort headers (lock order)
+// and preset cards (save) have a long-press meaning; everything else has no hold behaviour, so
 // holding over it is simply a no-op (same as holding the pointer down over a plain button already is).
 function padCursorHoldAt(px, py) {
   const el = elAt(px, py);
   if (!el) return;
   if (el.classList.contains('tgt-cell') || el.classList.contains('tgt-veh')) {
     send('tgt.only', { group: el.dataset.group, index: +el.dataset.index });
+  } else if (el.classList.contains('tgt-preset-card')) {
+    presetUi.save(+el.dataset.slot);
   } else if (el.classList.contains('tl-sort')) {
     clearSort();
   }
@@ -526,5 +537,7 @@ window.addEventListener('message', function (e) {
 });
 
 paint();          // initial paint — UNAVAILABLE until the first frame arrives
+presetUi.render();
+presetUi.refresh();
 renderSort();
 renderTargets();  // initial empty list
