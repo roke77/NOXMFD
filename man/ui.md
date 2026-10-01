@@ -3,18 +3,18 @@
 Display settings, reached from MAIN's CFG key alongside [HUD](hud.md), [KEY](keybinds.md) and
 [LYT](layouts.md).
 
-## COLOURS
+## THEMES
 
 Recolours the whole MFD with saved colour themes. The active theme applies to every connected
 browser and device, every page, and extension pages too; changes show immediately, with no reload.
 The CLASSIC bezel and the F-35 frame keep their own colours.
 
-### THEMES
+### SAVED
 
 The theme list sits on the left, beside the preview and the colours (above them on a narrow
 screen). Each row shows the theme's name over a strip of its main colours; the active theme's lamp
-is lit. The count beside THEMES shows how many of the 20 themes that can be saved are in use.
-The sidebar toggle beside THEMES collapses the list to a narrow strip of each theme's lamp and first
+is lit. The count beside SAVED shows how many of the 20 themes that can be saved are in use.
+The sidebar toggle beside SAVED collapses the list to a narrow strip of each theme's lamp and first
 colours, like KEY's sidebar; the choice is remembered per browser, and with no choice made the
 sidebar starts collapsed on a screen 1152 px wide or less.
 

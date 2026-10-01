@@ -1,4 +1,4 @@
-/* UI page (CFG > UI, issue #105): COLOURS — the theme list and its actions on the left; the tabbed
+/* UI page (CFG > UI, issue #105): THEMES — the theme list and its actions on the left; the tabbed
    preview and one swatch row per editable token, in two columns, on the right. Sizes are in em of .ui-panel's font-size, which follows the pane width, so the
    page fits a split pane. */
 
