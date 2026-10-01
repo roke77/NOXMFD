@@ -135,6 +135,11 @@ lamp means ON. They sit in two groups.
   enabled only on the browser you intend to use for input. If the page detects it is running on
   the game PC it shows an amber warning under the tile, because the game also receives the same
   physical keypress and an action can fire twice.
+
+  On the game PC, the game reads keyboard binds only while its own window has focus; a click into a
+  browser there takes the keyboard with it. To use keyboard binds (SOI Next/Prev, say) while a
+  browser on the game PC has focus, turn Remote Keybinds on in that browser. Unfocused Input covers
+  the HOTAS only.
 - **HUD By Mode** — off by default. Turn it on to have switching to A/A or A/G automatically force
   [HUD](hud.md)'s matching preset (the same NAV/GUN/A2A/A2G/EW/LOG tabs HUD's own mode row
   applies), restoring whatever you had set yourself on returning to ALL. Pressing an
@@ -277,7 +282,8 @@ the shared [PAD cursor](#pad-cursor) binds, not a dedicated pan/tilt/zoom of its
 ### Sensor of Interest (SOI)
 
 Operate a display from your HOTAS without touching it. One screen at a time is selected — it is
-outlined in white — and the SOI keys move a cursor over its buttons and press them. In a split the
+outlined in white (a theme can change the outline's colour, line and spacing: [UI › SOI](ui.md#soi))
+— and the SOI keys move a cursor over its buttons and press them. In a split the
 selection is a single pane; on the [F-35 layout](layouts.md#f-35) it is a single portal. Nothing
 is selected until you press a SOI key.
 

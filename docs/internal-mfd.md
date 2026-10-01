@@ -56,7 +56,7 @@ looked like ghosted/doubled overlay text (two near-identical renders of the same
 a locked-target label showing as "HLT HLT") rather than anything useful.
 
 HSD itself (`InternalMfdHsdPage.cs`) is a deliberately simplified read of the real page
-(`src/web/pages/hsd/hsd.js`): the grid rings (theme.css `--no-hsd-pink-rgb`), the notched
+(`src/web/pages/hsd/hsd.js`): the grid rings (colors.css `--no-hsd-pink-rgb`), the notched
 contact/ownship icon (`hsd.js`'s own `'M0 -9 L-6 7 L0 4 L6 7 Z'` polygon, filled here rather than
 RWR's stroke-only caret), contact colors (`--no-purple` datalink / `--no-red` own-radar /
 `--no-white` stale / `--no-amber` focused-lock), and the AA threat rings (`--no-hsd-yellow`) are

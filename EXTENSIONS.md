@@ -419,7 +419,9 @@ shared CSS exactly like a first-party page does — no CORS story, no copying fi
 `theme.css` brings in NOXMFD's color tokens (`var(--no-*)`, defined in `colors.css`) and a few reusable component classes —
 `.mfd-empty`/`.mfd-empty-title` (a centered placeholder message, useful for an empty/not-ready
 state) among them. Using these keeps your page visually consistent with the rest of the MFD
-without hand-matching colors.
+without hand-matching colors, and it also follows the player's colour theme (CFG > UI,
+[man/ui.md](man/ui.md)): the shell repaints every page, extension pages included, when the theme
+changes. A hardcoded colour stays as it is under every theme.
 
 ## Versioning
 

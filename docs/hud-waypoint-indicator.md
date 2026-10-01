@@ -265,7 +265,7 @@ from the tick labels immediately behind it, which the green variant competes
 with. The cost is that it ignores the player's `hudColorR/G/B` setting, unlike
 every native HUD element — accepted, since legibility against the tape matters
 more here than matching a colour the player chose for a different purpose.
-Same value as the web frontend's `--no-amber` token (`theme.css`) — WPT's own
+Same value as the web frontend's `--no-amber` token (`colors.css`) — WPT's own
 compass needle already used it, and MAP's active-waypoint marker was changed
 to match, so the cue and both web pages read as one colour scheme rather than
 three unrelated yellows.

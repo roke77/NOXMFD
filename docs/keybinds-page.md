@@ -340,9 +340,10 @@ sharing the iframes' 3px corner radius, so it lands on the boundary between beze
 markup, no layout effect, and `pointer-events: none` so it can never eat a tap. It is drawn
 above the overlay, so bezel labels and chips sit inside it rather than over it.
 
-Off-white (`--no-label`) rather than the theme's green: green is what instruments report in,
-and this is chrome saying where the controls are pointed — the same distinction the bezel's key
-labels already make.
+Off-white (`--no-soi`, which defaults to the bezel labels' `--no-label`) rather than the theme's
+green: green is what instruments report in, and this is chrome saying where the controls are
+pointed — the same distinction the bezel's key labels already make. CFG > UI's SOI section sets its
+colour, line style, width and spacing per theme (`man/ui.md#soi`).
 
 It frames the display, not a pane, so a split doesn't change it — the cursor's own amber mark is
 what says which pane you are working in.

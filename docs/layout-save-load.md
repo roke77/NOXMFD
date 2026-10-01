@@ -65,7 +65,7 @@ independently optional fields, not a pair that only ever appears together.
 closest precedent was WPT's inline `editRow` (an in-place text-input swap, not an overlay).
 `layout-modal.js`/`.css` is a small reusable primitive (open/close, Escape/backdrop dismiss, a
 name-prompt builder, a list-picker builder) that both shells load and both SAVE and LOAD build
-on, rather than four one-off overlays. Styled only from `shared/theme.css` tokens so it looks and
+on, rather than four one-off overlays. Styled only from `shared/colors.css` tokens so it looks and
 behaves the same whether it's opened over the bezel or the glass.
 
 **LYT page nav items, for a tablet with no keyboard.** SAVE/LOAD LAYOUT also live as ordinary nav

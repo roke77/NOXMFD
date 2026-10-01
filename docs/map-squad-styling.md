@@ -1,7 +1,7 @@
 # MAP: squad-member styling
 
 Issue #48 — a squadmate's aircraft icon on MAP renders in the squad's teal (`--no-squad`,
-theme.css) instead of its plain faction color, so a glance at MAP shows who in the squad is where
+colors.css) instead of its plain faction color, so a glance at MAP shows who in the squad is where
 without opening SQD. Depends on the squad feature (docs/squadron-transport.md).
 
 ## Where the flag comes from

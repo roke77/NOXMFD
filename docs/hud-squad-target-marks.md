@@ -22,7 +22,7 @@ so the two cues never collide), stacked vertically when both are active:
 - **`⌃`** (chevron up) — **any** non-leader member currently has it targeted. One chevron regardless
   of how many members — a "someone else has it" flag, not a count.
 
-Both render in `--no-squad` teal (`rgb(78, 201, 201)` — `theme.css`; `Color(78/255, 201/255,
+Both render in `--no-squad` teal (`rgb(78, 201, 201)` — `colors.css`; `Color(78/255, 201/255,
 201/255)` on the plugin side), not the unit's own faction colour, so a squad mark reads as its own
 thing regardless of what it's stacked on. Shows regardless of whether the *local* pilot has also
 locked the unit — the amber "+"/lock-ring belongs to that separate, pre-existing feature

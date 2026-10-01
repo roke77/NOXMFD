@@ -18,6 +18,7 @@ src/web/
             cursor-zoom.js                                # FCR/HSD's cursor-anchored zoom + icon-shrink (docs/page-cursor.md)
             pending-selection.js                          # FCR/HSD's optimistic Select tracking, MAP's own shape (docs/page-cursor.md)
             remote-keybinds.js                            # opt-in browser keybind listener
+            rail-collapse.js                              # KEY's and UI's collapsible sidebar toggle
             range-format.js                               # TGT/TD's shared range formatter (docs/units-toggle.md)
   shell/    shared/        nav-model.js                   # NAV registry — the layout seam, BOTH shells load it
                            layout-pages.js                # where each layout mounts each NAV destination

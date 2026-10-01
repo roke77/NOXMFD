@@ -2,7 +2,7 @@
 
 ## Status
 
-**Shipped.** `man/` now holds all 19 per-page manuals listed below, linked from README's MFD pages
+**Shipped.** `man/` now holds all 24 per-page manuals listed below, linked from README's MFD pages
 section. Kept as a historical record of the planning, per this repo's convention for `docs/`
 design docs (CLAUDE.md: kept permanently even after a feature ships, unlike user-facing docs).
 
@@ -49,7 +49,7 @@ pages got their own bullet, some got folded into another's paragraph). Two delib
 Immersion Options stays a section inside the KEY manual, per the earlier "KEY includes everything"
 call — it's config that lives at the bottom of the KEY page itself.
 
-## The 20 documents
+## The 24 documents
 
 Originally 19 (table below was `man/rates.md` → RTS at #18); RTS later split apart (`nav-items`
 branch) into a CFG page per source page, following `nav-model.js`'s NAV.mapcfg/NAV.tgpcfg — each
@@ -78,6 +78,10 @@ real NAV destination" still holds even though there's no `rates`/`RTS` destinati
 | 16 | `man/hud.md` | HUD (CFG group) |
 | 17 | `man/keybinds.md` | KEY (CFG group) — binds, SOI, PAD cursor, Immersion Options, all as sections in one doc |
 | 18 | `man/layouts.md` | LYT (CFG group) — CLASSIC (incl. its bezel/shell chrome) and F-35, both layouts fully explained |
+| 19 | `man/ui.md` | UI (CFG group) — colour themes, the themes folder, previews, colour rows and the SOI section |
+| 20 | `man/sqd.md` | SQD |
+| 21 | `man/td.md` | TD (TGT sub-page, squad leaders) |
+| 22 | `man/doc.md` | DOC (MD group) — kneeboard documents |
 
 ## Open questions — resolved
 
@@ -95,7 +99,7 @@ real NAV destination" still holds even though there's no `rates`/`RTS` destinati
 ## Scope
 
 - [x] `man/` folder created
-- [x] All 19 manuals written (table above)
+- [x] All 24 manuals written (table above)
 - [x] `README.md`'s "MFD pages" and "Extended Keybinds" sections rewritten to short summaries + links
 - [x] Every new README link verified to resolve
 - [ ] Link-check tooling (the one open question above) — not started

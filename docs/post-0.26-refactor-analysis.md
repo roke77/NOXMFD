@@ -317,7 +317,7 @@ Recommended direction:
 
 | Folder | Responsibility | Current or candidate files |
 | --- | --- | --- |
-| `src/web/shared/` | Global visual tokens, fonts, tiny browser-agnostic helpers | `theme.css`, `font.css` |
+| `src/web/shared/` | Global visual tokens, fonts, tiny browser-agnostic helpers | `colors.css`, `theme.css`, `font.css` |
 | `src/web/services/` | Runtime/browser services shared by pages and shells | `telemetry-source.js`, `send-command.js`, `pad-cursor.js` |
 | `src/web/protocol/` | Shared message names, payload contracts, route constants | future `page-protocol.js`, future command constants |
 | `src/web/shell/shared/` | Shell-agnostic shell mechanics | `boot-reveal.js`, `layout-keydown.js`, `layout-modal.js`, `layout-store.js`, `layout-pages.js`, `nav-model.js` |

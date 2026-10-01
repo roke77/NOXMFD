@@ -46,7 +46,7 @@ See `docs/layouts-f35-build-log.md` for how the F-35 layout was staged and
 built, and the open-questions log from that work.
 
 What the F-35 cost outside its own `shell/f35/` directory, precisely: three
-tokens in `theme.css` (`--no-teal` and its rgb source; plus `--no-label`, which
+tokens in `colors.css` (`--no-teal` and its rgb source; plus `--no-label`, which
 was promoted out of a hardcoded `#d4d8dc` in `mfd.css` when this layout wanted
 the same off-white — a one-line change to the bezel's stylesheet, same value);
 and one added telemetry slice, `mapinfo`, for chrome that shows no map. Stage 1
@@ -384,7 +384,7 @@ Symbol names, not line numbers — this code is actively moving.
 - **Shared:** `src/web/shell/shared/nav-model.js` (+ its test) — `NAV`.
   `src/web/services/telemetry-source.js` — the one `EventSource`, inside the
   MAP page. `src/web/services/send-command.js` — `sendCommand`.
-  `src/web/shared/theme.css` — the common tokens.
+  `src/web/shared/colors.css` — the common colour tokens (`theme.css` imports it).
   `src/web/pages/avn/avn-status-policy.js` — the state→colour rule for the
   avionics flags, an AVN-page module the F-35 strip also loads.
 - **Bezel:** `src/web/shell/classic/mfd.{html,css,js}`, `split-keymap.js`. Key
