@@ -98,8 +98,23 @@ html, body { height: 100%; margin: 0; }
 .ui-swatch::-moz-color-swatch { border: none; border-radius: 2px; }
 .ui-swatch:focus-visible { outline: 2px solid var(--no-amber); outline-offset: 2px; }
 .ui-label { font-size: 0.8em; letter-spacing: 0.12em; color: var(--no-text-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ui-hex { font-size: 0.75em; letter-spacing: 0.08em; color: var(--no-text-faint); font-variant-numeric: tabular-nums; }
+.ui-hex {
+  width: 6.2em;
+  padding: 0.25em 0.4em;
+  font: inherit;
+  font-size: 0.75em;
+  letter-spacing: 0.08em;
+  font-variant-numeric: tabular-nums;
+  text-transform: uppercase;
+  color: var(--no-text-faint);
+  background: none;
+  border: 1px solid var(--no-icon-border);
+  border-radius: 3px;
+  -webkit-user-select: text; user-select: text;
+}
 .ui-row.overridden .ui-hex { color: var(--no-green-dim); }
+.ui-row .ui-hex:focus { outline: none; border-color: var(--no-amber); color: var(--no-amber); }
+.ui-row .ui-hex.bad { border-color: var(--no-red); color: var(--no-red); }
 .ui-reset {
   width: 2.2em;
   height: 2em;

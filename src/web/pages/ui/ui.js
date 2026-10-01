@@ -55,6 +55,11 @@ function effectiveHex(token) {
   return normaliser.fillStyle;
 }
 
+function parseHex(text) {
+  var m = /^#?([0-9a-f]{6})$/i.exec((text || '').trim());
+  return m ? '#' + m[1].toLowerCase() : null;
+}
+
 function cssValue(token, hex) {
   if (!isTriple(token)) return hex;
   return [1, 3, 5].map(function (i) { return parseInt(hex.slice(i, i + 2), 16); }).join(', ');
@@ -80,8 +85,13 @@ UiTokens.GROUPS.forEach(function (group) {
     var name = document.createElement('span');
     name.className = 'ui-label';
     name.textContent = label;
-    var hex = document.createElement('span');
+    var hex = document.createElement('input');
+    hex.type = 'text';
     hex.className = 'ui-hex';
+    hex.maxLength = 7;
+    hex.spellcheck = false;
+    hex.autocomplete = 'off';
+    hex.setAttribute('aria-label', label + ' hex value');
     var reset = document.createElement('button');
     reset.type = 'button';
     reset.className = 'ui-reset pad-hoverable';
@@ -95,9 +105,28 @@ UiTokens.GROUPS.forEach(function (group) {
     // Dragging the picker previews on this page only; releasing it sends the change.
     input.addEventListener('input', function () {
       document.documentElement.style.setProperty(token, cssValue(token, input.value));
-      hex.textContent = input.value.toUpperCase();
+      hex.value = input.value.toUpperCase();
+      hex.classList.remove('bad');
     });
     input.addEventListener('change', function () { pickColor(token, input.value); });
+
+    // The hex field takes #rrggbb (the # optional) and applies it on Enter or when it loses focus;
+    // anything else is flagged, then put back to the current colour on blur.
+    hex.addEventListener('input', function () {
+      var v = parseHex(hex.value);
+      hex.classList.toggle('bad', !v);
+      if (v) { input.value = v; document.documentElement.style.setProperty(token, cssValue(token, v)); }
+    });
+    hex.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); hex.blur(); }
+      else if (e.key === 'Escape') { e.preventDefault(); hex.value = rows[token].current.toUpperCase(); hex.blur(); render(); }
+    });
+    hex.addEventListener('change', function () {
+      var v = parseHex(hex.value);
+      if (v && v !== rows[token].current) { pickColor(token, v); return; }
+      hex.value = rows[token].current.toUpperCase();
+      render();
+    });
     reset.addEventListener('click', function () { send('theme.reset-color', { group: token }); });
   });
   groupsEl.append(heading, list);
@@ -158,8 +187,10 @@ function render() {
     var r = rows[t2];
     var overridden = Object.prototype.hasOwnProperty.call(colors, t2);
     var hex = overridden ? colors[t2] : effectiveHex(t2);
+    r.current = hex;
     r.input.value = hex;
-    r.hex.textContent = hex.toUpperCase();
+    if (document.activeElement !== r.hex) r.hex.value = hex.toUpperCase();
+    r.hex.classList.remove('bad');
     r.row.classList.toggle('overridden', overridden);
     r.reset.hidden = !overridden;
   }
