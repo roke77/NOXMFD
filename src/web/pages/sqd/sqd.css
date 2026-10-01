@@ -29,7 +29,15 @@ html, body { height: 100%; overflow: hidden; }
 .sqd-panel::-webkit-scrollbar-track, .sqd-roster-body::-webkit-scrollbar-track { background: transparent; }
 .sqd-panel::-webkit-scrollbar-thumb, .sqd-roster-body::-webkit-scrollbar-thumb { background: var(--no-gray); border-radius: 3px; }
 .sqd-panel > * { flex: none; }
-.sqd-title { font-size: 26px; letter-spacing: 6px; text-align: left; margin: 0 0 16px; }
+.sqd-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--no-green-dark);
+  padding-bottom: 6px;
+  margin: 0 0 14px;
+}
+.sqd-title { font-size: 26px; letter-spacing: 6px; text-align: left; margin: 0; }
 
 .sqd-unavailable {
   margin: 0 0 19px;
@@ -128,22 +136,44 @@ html, body { height: 100%; overflow: hidden; }
 .sqd-btn:disabled:hover { background: none; color: var(--no-gray); }
 .sqd-section-actions { display: flex; gap: 8px; }
 
-/* ── Squad card (header) and its inline editor ── */
+/* ── Squad container: the pilot's own squad (green border) and every other squad (teal). ──
+   The own squad's header is the card below; another squad's is a button that folds its rows. */
+.sqd-squad { border: 1px solid var(--no-squad-line); border-radius: 4px; margin-bottom: 10px; }
+.sqd-squad.sqd-mine { border-color: var(--no-green); }
 .sqd-squad-card {
   display: flex;
   align-items: center;
-  gap: 14px;
-  min-height: 62px;
+  gap: 12px;
+  min-height: 56px;
   padding: 0 10px 0 12px;
   box-sizing: border-box;
-  border: 1px solid var(--no-squad-line);
-  border-radius: 4px;
-  background: var(--no-squad-bg);
-  margin-bottom: 14px;
 }
-.sqd-squad-card.sqd-editing { border-color: var(--no-amber); background: var(--no-amber-bg); gap: 10px; }
-.sqd-squad-title { font-size: 30px; line-height: 1; letter-spacing: 4px; color: var(--no-squad); white-space: nowrap; }
+.sqd-squad-card.sqd-editing { background: var(--no-amber-bg); gap: 10px; }
+.sqd-squad-title { font-size: 22px; line-height: 1; letter-spacing: 4px; color: var(--no-squad); white-space: nowrap; }
 .sqd-squad-card .sqd-note { flex: none; font-size: 13px; color: var(--no-white-dim); }
+.sqd-squad-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 44px;
+  padding: 0 12px;
+  box-sizing: border-box;
+  background: none;
+  border: 0;
+  color: inherit;
+  font-family: var(--no-font);
+  text-align: left;
+  cursor: pointer;
+}
+.sqd-squad-head .sqd-squad-title { font-size: 16px; letter-spacing: 3px; }
+.sqd-squad-head .sqd-note { flex: none; }
+.sqd-squad-head .sqd-chevron { color: var(--no-green-dim); }
+.sqd-squad.sqd-collapsed .sqd-rows { display: none; }
+
+/* SAME DESIGNATION: another squad in the faction flies the same callsign and flight. Amber text
+   with no border, so it doesn't read as a button. */
+.sqd-dup { flex: none; font-size: 10px; letter-spacing: 1px; color: var(--no-amber); white-space: nowrap; }
 
 select {
   height: 40px;
@@ -175,25 +205,30 @@ select:focus { outline: 1px solid var(--no-green-dim); }
 }
 .sqd-flight-btn:hover { border-color: var(--no-green-dim); color: var(--no-green); }
 .sqd-flight-btn.on { border-color: var(--no-green); background: var(--no-control-bg-on); color: var(--no-green); box-shadow: 0 0 6px var(--no-green); }
+.sqd-flight-btn { position: relative; }
+.sqd-flight-btn.used { border-color: var(--no-amber); color: var(--no-amber); }
+.sqd-flight-btn.used::after { content: ''; position: absolute; top: 4px; right: 4px; width: 5px; height: 5px; border-radius: 50%; background: var(--no-amber); }
+.sqd-flight-btn.on.used { border-color: var(--no-amber); color: var(--no-amber); box-shadow: 0 0 6px var(--no-amber); }
 
-/* ── CREATE SQUAD panel ── */
+/* ── CREATE SQUAD row (no squad yet) ── */
 .sqd-create {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  padding: 16px 18px;
-  border: 1px solid var(--no-line);
+  gap: 8px;
+  padding: 12px;
+  margin-bottom: 14px;
+  border: 1px solid var(--no-green-dark);
   border-radius: 4px;
-  background: var(--no-form-bg);
 }
-.sqd-create-title { font-size: 13px; letter-spacing: 4px; color: var(--no-green-dim); }
-.sqd-form-line { display: flex; align-items: center; gap: 12px; }
-.sqd-label { flex: none; width: 90px; font-size: 11px; letter-spacing: 3px; color: var(--no-white-dim); }
-.sqd-create-foot { display: flex; align-items: center; gap: 14px; margin-top: 4px; }
-.sqd-create-des { flex: 1; font-size: 14px; letter-spacing: 1px; color: var(--no-white-dim); }
-#sqd-create-des { color: var(--no-squad); }
+.sqd-create-line { display: flex; align-items: center; gap: 10px; }
+.sqd-create-title { flex: none; width: 150px; font-size: 13px; letter-spacing: 3px; color: var(--no-green); }
+.sqd-create-line .sqd-btn-lg { margin-left: auto; }
+/* Under the pickers, in line with them: which callsign and flight another squad already flies. */
+.sqd-dup-line { padding-left: 160px; font-size: 11px; letter-spacing: 1px; color: var(--no-amber); }
+.sqd-dup-line::before { content: ''; display: inline-block; width: 6px; height: 6px; margin-right: 8px; border-radius: 50%; background: var(--no-amber); }
 
 /* ── Invite cards (incoming) ── */
+#sqd-invite-cards:not(:empty) { margin-bottom: 14px; }
 .sqd-invite-card {
   display: flex;
   align-items: center;
@@ -210,45 +245,24 @@ select:focus { outline: 1px solid var(--no-green-dim); }
 .sqd-invite-text { flex: 1; font-size: 13px; letter-spacing: 1px; color: var(--no-white-dim); }
 .sqd-invite-actions { display: flex; gap: 8px; }
 
-/* ── Squad roster table: designation | pilot | aircraft | trailing ──
-   One grid shared by the header and every row (rows are subgrids, .sqd-rows is display:contents), so
-   the first two columns shrink to their widest content and the aircraft column takes all the rest,
-   instead of fixed widths that left the aircraft name cut off next to empty space. */
-.sqd-table {
-  display: grid;
-  grid-template-columns: fit-content(180px) fit-content(240px) minmax(0, 1fr) auto;
-  column-gap: 15px;
-}
-.sqd-rows { display: contents; }
-.sqd-cols, .sqd-squad-row {
-  display: grid;
-  grid-template-columns: subgrid;
-  grid-column: 1 / -1;
-  align-items: center;
-  column-gap: 15px;
-}
-.sqd-cols {
-  padding: 0 12px 6px 10px;
-  font-size: 11px;
-  letter-spacing: 3px;
-  color: var(--no-text-faint);
-}
+/* ── Squad rows: designation | pilot | aircraft | trailing ──
+   The same four tracks in every squad, so the columns line up down the whole page. */
 .sqd-squad-row {
-  min-height: 52px;
-  margin-bottom: 6px;
-  padding: 0 8px 0 10px;
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr) 190px 156px;
+  align-items: center;
+  column-gap: 12px;
+  min-height: 42px;
+  padding: 0 10px;
   box-sizing: border-box;
-  border: 1px solid var(--no-card-line);
-  border-radius: 4px;
-  background: var(--no-card-bg);
+  border-top: 1px solid var(--no-card-line-faint);
 }
-.sqd-squad-row.self { border-color: var(--no-green-deep); background: var(--no-card-bg-on); }
-.sqd-squad-row.open { border-style: dashed; border-color: var(--no-line); background: transparent; }
+.sqd-squad-row.self { background: var(--no-card-bg-on); }
 
-.sqd-row-tag { font-size: 16px; letter-spacing: 2px; color: var(--no-squad); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.sqd-squad-row.open .sqd-row-tag { color: var(--no-squad-faint); }
-.sqd-row-name { font-size: 20px; letter-spacing: 1px; color: var(--no-green-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.sqd-squad-row.self .sqd-row-name { color: var(--no-green); }
+.sqd-row-tag { font-size: 15px; letter-spacing: 2px; color: var(--no-green-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sqd-squad-row.open .sqd-row-tag { color: var(--no-text-faint); }
+.sqd-row-name { font-size: 16px; letter-spacing: 1px; color: var(--no-green-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sqd-squad-row.self .sqd-row-name, .sqd-squad-row.self .sqd-row-tag { color: var(--no-green); }
 .sqd-squad-row.open .sqd-row-name { color: var(--no-white-dark); }
 .sqd-row-aircraft {
   display: flex;
@@ -266,17 +280,9 @@ select:focus { outline: 1px solid var(--no-green-dim); }
 .sqd-row-aircraft.plain { padding-left: 40px; }   /* icon width + gap */
 .sqd-row-aircraft-icon { flex: none; width: 30px; height: 20px; object-fit: contain; opacity: 0.9; }
 
-/* LEADER badge (amber) — outlined, on the leader's own row. */
-.sqd-row-mark {
-  justify-self: end;
-  padding: 2px 8px;
-  border: 1px solid var(--no-amber);
-  font-size: 12px;
-  letter-spacing: 2px;
-  color: var(--no-amber);
-}
-.sqd-row-mark.you { border-color: var(--no-green); color: var(--no-green); }
-.sqd-row-ctl { display: flex; gap: 4px; }
+/* LEADER label (amber text, no border: a border reads as a button). */
+.sqd-row-mark { justify-self: end; font-size: 12px; letter-spacing: 2px; color: var(--no-amber); }
+.sqd-row-ctl { display: flex; justify-content: flex-end; gap: 4px; }
 /* ▲/▼ renumber, ★ make leader, × kick — boxed icon buttons. */
 .sqd-row-icon-btn {
   width: 34px;
@@ -310,51 +316,44 @@ select:focus { outline: 1px solid var(--no-green-dim); }
 .sqd-player-row .sqd-btn { height: 32px; font-size: 12px; margin-left: auto; }
 
 /* ── Narrow / portrait panes (F-35 columns, split panes, phones) ──
-   The wide layout needs roughly 700px. Below that the squad card and forms wrap, and each roster
-   row becomes two lines: designation and pilot on the first, aircraft and the badge or leader's
-   controls on the second. The DESIGNATION/PILOT/AIRCRAFT header is dropped since the columns no
-   longer line up under it. */
+   The wide layout needs roughly 700px. Below that the squad header and forms wrap, and each row
+   becomes two lines: designation and pilot on the first, aircraft and the label or leader's
+   controls on the second. */
 @media (max-width: 640px) {
-  .sqd-title { font-size: 22px; letter-spacing: 5px; margin-bottom: 12px; }
+  .sqd-title { font-size: 22px; letter-spacing: 5px; }
 
   .sqd-squad-card { flex-wrap: wrap; gap: 8px 12px; padding: 10px 12px; }
   .sqd-squad-card .sqd-spacer { display: none; }
   .sqd-squad-card .sqd-section-actions { flex: 1 1 100%; flex-wrap: wrap; }
   .sqd-squad-card .sqd-section-actions .sqd-btn { flex: 1 1 0; padding: 0 8px; }
-  .sqd-squad-title { font-size: 24px; }
+  .sqd-squad-title { font-size: 20px; }
   .sqd-squad-card.sqd-editing > * { flex: 0 1 auto; }
   .sqd-squad-card.sqd-editing select { flex: 1 1 100%; }
   .sqd-squad-card.sqd-editing .sqd-flights { flex: 1 1 100%; }
   .sqd-squad-card.sqd-editing .sqd-btn { flex: 1 1 0; }
 
-  .sqd-cols { display: none; }
-  .sqd-table { display: block; }
-  .sqd-rows { display: block; }
   .sqd-squad-row {
-    grid-column: auto;
     grid-template-columns: minmax(110px, 42%) minmax(0, 1fr) auto;
     row-gap: 2px;
     padding: 8px 8px 8px 10px;
   }
   .sqd-squad-row > .sqd-row-tag { grid-column: 1; grid-row: 1; }
-  /* Right-aligned so the name lines up with the badge/controls on the line below. */
+  /* Right-aligned so the name lines up with the label/controls on the line below. */
   .sqd-squad-row > .sqd-row-name { grid-column: 2; grid-row: 1; text-align: right; }
   .sqd-squad-row > .sqd-row-aircraft { grid-column: 1 / 3; grid-row: 2; font-size: 12px; }
-  /* The trailing badge (LEADER/YOU) or the leader's controls (▲▼★×) take the second line's right
-     end, and the pilot name keeps the rest of the first. */
+  /* The trailing LEADER label or the leader's controls (▲▼★×) take the second line's right end,
+     and the pilot name keeps the rest of the first. */
   .sqd-squad-row > .sqd-row-mark, .sqd-squad-row > .sqd-row-ctl { grid-column: 3; grid-row: 2; }
   .sqd-squad-row:has(> .sqd-row-mark, > .sqd-row-ctl) > .sqd-row-name { grid-column: 2 / 4; }
   .sqd-row-aircraft:empty { display: none; }
 
   .sqd-flights { flex-wrap: wrap; }
   .sqd-flight-btn { flex: 1 1 30px; width: auto; min-width: 30px; }
-  .sqd-create { padding: 14px; }
-  .sqd-form-line { flex-wrap: wrap; gap: 8px; }
-  .sqd-label { width: 100%; }
+  .sqd-create-line { flex-wrap: wrap; gap: 8px; }
+  .sqd-create-title { width: 100%; }
+  .sqd-create-line .sqd-btn-lg { flex: 1 1 100%; }
+  .sqd-dup-line { padding-left: 0; }
   select { min-width: 0; width: 100%; }
-  .sqd-create-foot { flex-wrap: wrap; }
-  .sqd-create-des { flex: 1 1 100%; }
-  .sqd-create-foot .sqd-btn { flex: 1 1 100%; }
 
   .sqd-invite-card { flex-wrap: wrap; gap: 8px 12px; padding: 10px 12px; }
   .sqd-invite-key { font-size: 20px; }

@@ -167,7 +167,7 @@ namespace NOXMFD.Tests
             Assert.Equal("Ifrit", ((Dictionary<string, object?>)members[1]!)["aircraft"]);
             Assert.Equal("n100", ((Dictionary<string, object?>)members[0]!)["name"]);
             Assert.Equal(false, ((Dictionary<string, object?>)squads[1]!)["dup"]);
-            Assert.Equal(2, ((List<object?>)root["used"]!).Count);   // TALON 1 and VIPER 2
+            Assert.Equal(2, squads.Count);
         }
 
         [Fact]
@@ -175,7 +175,6 @@ namespace NOXMFD.Tests
         {
             var root = (Dictionary<string, object?>)JsonLite.Parse(FactionJson(new List<FactionSquad>(), null, id => "", id => ""))!;
             Assert.Empty((List<object?>)root["squads"]!);
-            Assert.Empty((List<object?>)root["used"]!);
             Assert.Equal(false, root["selfDup"]);
         }
 

@@ -670,6 +670,66 @@ _SQD = {
 }
 _SQD_ACCEPT_POLLS = 2   # how many /squad reads a pending mock invite stays "awaiting response"
 
+# Every squad in the mock faction (docs/faction-broadcast.md); state.faction lists the ones this
+# pilot is not in. TALON 1 clashes with the default leader scenario's own TALON 1 on purpose, so
+# the SAME DESIGNATION warnings show.
+_FACTION_SQUADS = [
+    {"leader": "76561198000000010", "callsign": "VIPER", "flight": 2, "members": [
+        {"id": "76561198000000010", "name": "DeckJockey", "slot": 1, "aircraft": "EW-25 Medusa"},
+        {"id": "76561198000000011", "name": "mav_rx",     "slot": 2, "aircraft": "FS-12 Revoker"},
+        {"id": "76561198000000012", "name": "nightjar",   "slot": 3, "aircraft": "FS-20 Vortex"},
+    ]},
+    {"leader": "76561198000000020", "callsign": "TALON", "flight": 1, "members": [
+        {"id": "76561198000000020", "name": "Hollowpoint", "slot": 1, "aircraft": "KR-67 Ifrit"},
+        {"id": "76561198000000021", "name": "brickwall",   "slot": 2, "aircraft": "KR-67 Ifrit"},
+    ]},
+    {"leader": "76561198000000030", "callsign": "ENFIELD", "flight": 3, "members": [
+        {"id": "76561198000000030", "name": "Ozone",      "slot": 1, "aircraft": "SAH-46 Chicane"},
+        {"id": "76561198000000031", "name": "Pixel_Pete", "slot": 2, "aircraft": "FS-12 Revoker"},
+    ]},
+]
+
+# The four SQD states, switched from the browser console with
+# sendCommand('sqd.mock', {name: 'leader' | 'member' | 'invited' | 'none'}).
+_SQD_SCENARIOS = {
+    "leader": {"role": "leader", "leaderId": "", "leaderName": "", "callsign": "TALON", "flight": 1,
+               "members": [
+                   {"id": "76561198000000002", "name": "Foxtrot", "slot": 2, "aircraft": "KR-67 Ifrit"},
+                   {"id": "76561198000000003", "name": "Ghost",   "slot": 3, "aircraft": "FS-12 Revoker"},
+                   {"id": "76561198000000004", "name": "Havoc",   "slot": 4, "aircraft": "FS-12 Revoker"}],
+               "pendingInvites": []},
+    "member": {"role": "member", "leaderId": "76561198000000010", "leaderName": "DeckJockey",
+               "callsign": "VIPER", "flight": 2,
+               "members": [
+                   {"id": _SQD_SELF, "name": "Falcon", "slot": 2, "aircraft": ""},
+                   {"id": "76561198000000012", "name": "nightjar", "slot": 3, "aircraft": "FS-20 Vortex"}],
+               "pendingInvites": []},
+    "invited": {"role": "none", "leaderId": "", "leaderName": "", "callsign": "", "flight": 1, "members": [],
+                "pendingInvites": [
+                    {"leaderId": "76561198000000010", "leaderName": "DeckJockey", "callsign": "VIPER", "flight": 2,
+                     "members": [{"id": "76561198000000011", "name": "mav_rx", "slot": 2},
+                                 {"id": "76561198000000012", "name": "nightjar", "slot": 3}]},
+                    {"leaderId": "76561198000000030", "leaderName": "Ozone", "callsign": "ENFIELD", "flight": 3,
+                     "members": [{"id": "76561198000000031", "name": "Pixel_Pete", "slot": 2}]}]},
+    "none": {"role": "none", "leaderId": "", "leaderName": "", "callsign": "", "flight": 1, "members": [],
+             "pendingInvites": []},
+}
+
+
+def _faction_state():
+    own_leader = _SQD_SELF if _SQD["role"] == "leader" else _SQD["leaderId"] if _SQD["role"] == "member" else ""
+    others = [sq for sq in _FACTION_SQUADS if sq["leader"] != own_leader]
+    pairs = [(sq["callsign"].upper(), sq["flight"]) for sq in others]
+    own_pair = (_SQD["callsign"].upper(), _SQD["flight"]) if _SQD["role"] != "none" else None
+    clashes = {pr for pr in set(pairs + ([own_pair] if own_pair else []))
+               if pairs.count(pr) + (1 if pr == own_pair else 0) > 1}
+    return {
+        "squads": [{"leader": sq["leader"], "callsign": sq["callsign"], "flight": sq["flight"],
+                    "dup": (sq["callsign"].upper(), sq["flight"]) in clashes, "members": sq["members"]}
+                   for sq in others],
+        "selfDup": own_pair in clashes,
+    }
+
 
 def _squad_state():
     # Countdown any pending mock invites toward auto-accept — see the module comment above.
@@ -706,6 +766,7 @@ def _squad_state():
             for pid in _SQD["pendingSent"]
         ],
         "noticeSeq": _SQD["noticeSeq"], "notice": _SQD["notice"],
+        "faction": _faction_state(),
     }
     return json.dumps({"ready": True, "state": state}).encode("utf-8")
 
@@ -723,8 +784,14 @@ def _squad_command(env):
     if not cmd.startswith("sqd."):
         return
     peer = str(env.get("peer") or "").strip()
+    if cmd == "sqd.mock":
+        scenario = _SQD_SCENARIOS.get(str(env.get("name") or ""))
+        if scenario:
+            _SQD.update(json.loads(json.dumps(scenario)))
+            _SQD["pendingSent"] = {}
+        return
     if cmd == "sqd.create":
-        if _SQD["role"] != "none" or _SQD["pendingInvites"]:
+        if _SQD["role"] != "none":
             return
         name = str(env.get("name") or "").strip()[:20]
         try:
@@ -735,6 +802,7 @@ def _squad_command(env):
             _SQD["role"] = "leader"
             _SQD["callsign"] = name
             _SQD["flight"] = flight
+            _SQD["pendingInvites"] = []   # creating a squad declines the pending invites
     elif cmd == "sqd.invite":
         if _SQD["role"] != "leader":
             return
@@ -785,10 +853,19 @@ def _squad_command(env):
         _SQD["role"] = "none"; _SQD["leaderId"] = ""; _SQD["leaderName"] = ""; _SQD["callsign"] = ""
         _SQD["flight"] = 1; _SQD["members"] = []; _SQD["pendingSent"] = {}
     elif cmd in ("sqd.accept", "sqd.decline"):
-        # Removes just the acted-on invite by leaderId (peer) — mirrors Squad.cs's queue. Normally a
-        # no-op here (this mock's role never flips to "member" on its own, see the module comment
-        # above), but lets a manually-seeded _SQD["pendingInvites"] scenario be exercised correctly.
-        _SQD["pendingInvites"] = [i for i in _SQD["pendingInvites"] if i["leaderId"] != peer]
+        # Mirrors Squad.cs's queue: accepting joins that squad and declines the rest, declining
+        # removes just the acted-on invite by leaderId (peer). Only reachable from the "invited"
+        # scenario (sqd.mock), since nothing else queues an invite here.
+        invite = next((i for i in _SQD["pendingInvites"] if i["leaderId"] == peer), None)
+        if cmd == "sqd.accept" and invite and _SQD["role"] == "none":
+            taken = {m["slot"] for m in invite["members"]}
+            slot = next(n for n in range(2, len(taken) + 3) if n not in taken)
+            _SQD.update(role="member", leaderId=invite["leaderId"], leaderName=invite["leaderName"],
+                        callsign=invite["callsign"], flight=invite["flight"], pendingInvites=[],
+                        members=sorted(invite["members"] + [{"id": _SQD_SELF, "name": _SQD_SELF_NAME, "slot": slot, "aircraft": ""}],
+                                       key=lambda m: m["slot"]))
+        else:
+            _SQD["pendingInvites"] = [i for i in _SQD["pendingInvites"] if i["leaderId"] != peer]
 
 
 # Stateful mock of the plugin's /td-state + td.* commands (issue #47, docs/target-designator.md).

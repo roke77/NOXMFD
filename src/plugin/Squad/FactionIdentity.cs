@@ -184,9 +184,9 @@ namespace NOXMFD
         }
 
         // What SQD shows of the faction beyond the viewer's own squad (state.faction in /squad):
-        // every other squad with its members, the (callsign, flight) pairs in use anywhere in the
-        // faction for the picker's marks, and whether the viewer's own pair clashes. Steam name and
-        // aircraft come from the local faction scan, not from the broadcast.
+        // every other squad with its members, and whether the viewer's own (callsign, flight) clashes
+        // with one of them. The page marks the pairs in use in its pickers from the squads list. Steam
+        // name and aircraft come from the local faction scan, not from the broadcast.
         internal static string FactionJson(IReadOnlyList<FactionSquad> others, (string Callsign, int Flight, ulong LeaderId)? own,
                                            Func<ulong, string> nameFor, Func<ulong, string> aircraftFor)
         {
@@ -216,18 +216,9 @@ namespace NOXMFD
                 }
                 sb.Append("]}");
             }
-            sb.Append("],\"used\":[");
-            var used = new SortedSet<(string Callsign, int Flight)>();
-            foreach (var s in all) used.Add((s.Callsign.ToUpperInvariant(), s.Flight));
-            bool first = true;
-            foreach (var u in used)
-            {
-                if (!first) sb.Append(',');
-                first = false;
-                sb.Append("[\"").Append(JsonLite.EscapeJson(u.Callsign)).Append("\",").Append(u.Flight.ToString(CultureInfo.InvariantCulture)).Append(']');
-            }
+            sb.Append("]");
             bool selfDup = own.HasValue && dup.Contains((own.Value.Callsign.ToUpperInvariant(), own.Value.Flight));
-            return sb.Append("],\"selfDup\":").Append(selfDup ? "true" : "false").Append('}').ToString();
+            return sb.Append(",\"selfDup\":").Append(selfDup ? "true" : "false").Append('}').ToString();
         }
 
         private static bool TryInt(Dictionary<string, object?> o, string key, int min, int max, out int value)

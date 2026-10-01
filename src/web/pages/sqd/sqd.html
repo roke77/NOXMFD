@@ -38,7 +38,10 @@
 
 <div class="sqd-panel" id="sqd-panel">
   <a class="sqd-back" href="/">&lt; MAIN</a>
-  <div class="sqd-title">SQUADRON</div>
+  <div class="sqd-head">
+    <span class="sqd-title">SQUADRONS</span>
+    <span class="sqd-note" id="sqd-count"></span>
+  </div>
 
   <!-- PAD cursor (docs/page-cursor.md) — same fixed-position crosshair WPT uses, driven while SQD
        is the SOI's focused surface. -->
@@ -50,46 +53,38 @@
 
   <div class="sqd-notice" id="sqd-notice" style="display:none;"></div>
 
-  <!-- Each section below shows or hides independently, purely off current state — none of them
-       gate one another (docs/squadron-transport.md). A pending invite doesn't hide the player
-       list: deciding on an invite and browsing the match's players are separate actions. -->
+  <!-- Each block below shows or hides independently, purely off current state — none of them
+       gate one another (docs/squadron-transport.md). The order is the page's design
+       (docs/faction-broadcast.md): create row, incoming invites, the pilot's own squad, then every
+       other squad in the faction. -->
 
-  <!-- No squad yet (role "none") — the panel is always open: Squad.cs's CreateSquad needs a
-       callsign and a flight number up front, so there is no unnamed-squad state to render. INVITE
-       only appears on the player list once this has succeeded and role flips to "leader". -->
-  <div class="sqd-section sqd-create" id="sqd-create-section" style="display:none;">
-    <div class="sqd-create-title">CREATE SQUAD</div>
-    <div class="sqd-form-line">
-      <span class="sqd-label">CALLSIGN</span>
+  <!-- No squad yet (role "none"): Squad.cs's CreateSquad needs a callsign and a flight number up
+       front, so there is no unnamed-squad state to render. Pending invites don't disable it:
+       creating a squad declines them. The amber line appears when another squad already flies the
+       selected callsign and flight. -->
+  <div class="sqd-create" id="sqd-create-section" style="display:none;">
+    <div class="sqd-create-line">
+      <span class="sqd-create-title">CREATE SQUAD</span>
       <select id="sqd-create-callsign" aria-label="Callsign"></select>
-    </div>
-    <div class="sqd-form-line">
-      <span class="sqd-label">FLIGHT</span>
       <div class="sqd-flights" id="sqd-create-flights"></div>
-    </div>
-    <div class="sqd-create-foot">
-      <span class="sqd-create-des">you will be <span id="sqd-create-des"></span> &middot; leader</span>
       <button class="sqd-btn sqd-btn-lg pad-hoverable" id="sqd-create-confirm">CREATE</button>
     </div>
+    <div class="sqd-dup-line" id="sqd-create-dup" style="display:none;"></div>
   </div>
 
   <!-- Invites awaiting our own accept/decline — queued, oldest first. Accepting any one declines
        the rest (Squad.cs's AcceptInvite) since a pilot can only join one squad. Only populated
        while role is "none" (Squad.cs's HandleInvite rejects an invite while already in a squad). -->
-  <div class="sqd-section" id="sqd-invite-section" style="display:none;">
-    <div class="sqd-section-head">
-      <span>SQUAD INVITES</span><span class="sqd-note" id="sqd-invite-note"></span>
-    </div>
-    <div id="sqd-invite-cards"><!-- one .sqd-invite-card per pending invite, built by sqd.js --></div>
-  </div>
+  <div id="sqd-invite-cards"><!-- one .sqd-invite-card per pending invite, built by sqd.js --></div>
 
-  <!-- The squad itself, once one exists (as leader or member). EDIT (leader only,
-       sqd.set-callsign) swaps the header card for the callsign editor in place; the flight number
-       is editable there too — sqd.set-callsign takes both. -->
-  <div class="sqd-section" id="sqd-squad-section" style="display:none;">
+  <!-- The pilot's own squad, once one exists (as leader or member): always open. EDIT (leader only,
+       sqd.set-callsign) swaps the header for the callsign editor in place; the flight number is
+       editable there too — sqd.set-callsign takes both. -->
+  <div class="sqd-squad sqd-mine" id="sqd-squad-section" style="display:none;">
     <div class="sqd-squad-card" id="sqd-squad-card">
       <span class="sqd-squad-title" id="sqd-squad-head"></span>
       <span class="sqd-note" id="sqd-squad-note"></span>
+      <span class="sqd-dup" id="sqd-squad-dup" style="display:none;">SAME DESIGNATION</span>
       <span class="sqd-spacer"></span>
       <div class="sqd-section-actions">
         <button class="sqd-btn pad-hoverable" id="sqd-callsign-edit-btn" style="display:none;">EDIT</button>
@@ -104,13 +99,11 @@
       <button class="sqd-btn pad-hoverable" id="sqd-callsign-set">APPLY</button>
       <button class="sqd-btn sqd-btn-dim pad-hoverable" id="sqd-callsign-cancel">CANCEL</button>
     </div>
-    <div class="sqd-table">
-      <div class="sqd-cols">
-        <span>DESIGNATION</span><span>PILOT</span><span>AIRCRAFT</span><span></span>
-      </div>
-      <div class="sqd-rows" id="sqd-squad-rows"></div>
-    </div>
+    <div class="sqd-rows" id="sqd-squad-rows"></div>
   </div>
+
+  <!-- Every other squad in the faction (state.faction), read-only and collapsible. Built by sqd.js. -->
+  <div id="sqd-others"></div>
 
   <!-- Players in this match who aren't in our squad (collapsible, sqd.js: open while we're not in a
        squad, collapsed once we lead one; hidden for a plain member). INVITE appears only for a LEADER. Its body is the page's
