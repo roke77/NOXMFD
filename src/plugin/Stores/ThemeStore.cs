@@ -228,12 +228,14 @@ namespace NOXMFD
 
         // ── commands (main thread) ───────────────────────────────────────────────────────────
 
-        // A new theme starting from the active one's colours, made active. Editing while DEFAULT or a
-        // folder theme is active goes through here first, so neither ever changes.
-        public static bool Create(string? name)
+        // A new theme, made active, starting from another theme's colours: the active one's when
+        // fromId is null (DUPLICATE, and editing while DEFAULT or a folder theme is active, so neither
+        // ever changes), or none when fromId is DEFAULT (NEW).
+        public static bool Create(string? name, string? fromId = null)
         {
             if (ThemeColors.CleanName(name) is not string clean) return false;
-            return Add(clean, new Dictionary<string, string>(Find(_activeId)?.Colors ?? new Dictionary<string, string>(), StringComparer.Ordinal));
+            Theme? from = fromId == DefaultId ? null : Find(fromId ?? _activeId);
+            return Add(clean, new Dictionary<string, string>(from?.Colors ?? new Dictionary<string, string>(), StringComparer.Ordinal));
         }
 
         public static bool Import(string? code)

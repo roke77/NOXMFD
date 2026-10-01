@@ -115,6 +115,15 @@ namespace NOXMFD.Tests
         }
 
         [Fact]
+        public void Create_from_default_starts_with_no_colours()
+        {
+            ThemeStore.Create("Amber");
+            ThemeStore.SetColor("--no-green-rgb", "#ff8800");
+            Assert.True(ThemeStore.Create("Blank", ThemeStore.DefaultId));
+            Assert.Equal(string.Empty, ThemeStore.ActiveCss);
+        }
+
+        [Fact]
         public void Deleting_the_active_theme_falls_back_to_default()
         {
             ThemeStore.Create("Amber");

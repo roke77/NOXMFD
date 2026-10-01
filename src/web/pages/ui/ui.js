@@ -9,15 +9,17 @@ var state = { active: DEFAULT_ID, themes: [] };
 
 var themesEl = document.getElementById('ui-themes');
 var groupsEl = document.getElementById('ui-groups');
-var hintEl = document.getElementById('ui-hint');
+var countEl = document.getElementById('ui-count');
 var btn = {
   create: document.getElementById('ui-new'),
+  duplicate: document.getElementById('ui-duplicate'),
   rename: document.getElementById('ui-rename'),
   remove: document.getElementById('ui-delete'),
-  copy: document.getElementById('ui-copy'),
-  paste: document.getElementById('ui-paste'),
-  resetAll: document.getElementById('ui-reset-all'),
+  exportCode: document.getElementById('ui-export'),
+  importCode: document.getElementById('ui-import'),
 };
+// The few colours a theme row's strip shows, so themes can be told apart at a glance.
+var STRIP = ['--no-green-rgb', '--no-white-rgb', '--no-red-rgb', '--no-amber-rgb', '--no-squad-rgb', '--no-purple-rgb', '--no-route-cyan', '--no-bg'];
 
 // DEFAULT and folder themes (state's file: true) can't be edited; a colour change saves a new theme.
 function isReadOnly(t) { return !t || !!t.file; }
@@ -58,6 +60,37 @@ function effectiveHex(token) {
   return normaliser.fillStyle;
 }
 
+// What a token is in colors.css itself, whatever theme is active: its value in colors.css's own :root
+// rule (reached through theme.css's @import), resolved by the probe. Falls back to the effective
+// colour if that rule can't be found.
+var defaultsRule;
+function findDefaults(sheets) {
+  for (var i = 0; i < sheets.length; i++) {
+    var rules;
+    try { rules = sheets[i].cssRules; } catch (e) { continue; }
+    for (var j = 0; j < rules.length; j++) {
+      var rule = rules[j];
+      if (rule.styleSheet) {
+        var found = findDefaults([rule.styleSheet]);
+        if (found) return found;
+      } else if (rule.selectorText === ':root' && /\/colors\.css$/.test(sheets[i].href || '')) {
+        return rule.style;
+      }
+    }
+  }
+  return null;
+}
+var defaultCache = {};
+function defaultHex(token) {
+  if (defaultCache[token]) return defaultCache[token];
+  if (defaultsRule === undefined) defaultsRule = findDefaults(document.styleSheets);
+  var raw = defaultsRule && defaultsRule.getPropertyValue(token).trim();
+  if (!raw) return effectiveHex(token);
+  probe.style.color = isTriple(token) ? 'rgb(' + raw + ')' : raw;
+  normaliser.fillStyle = getComputedStyle(probe).color;
+  return (defaultCache[token] = normaliser.fillStyle);
+}
+
 function parseHex(text) {
   var m = /^#?([0-9a-f]{6})$/i.exec((text || '').trim());
   return m ? '#' + m[1].toLowerCase() : null;
@@ -70,11 +103,20 @@ function cssValue(token, hex) {
 
 // ── colour rows ──────────────────────────────────────────────────────────────────────────────
 var rows = {};   // token → { row, input, hex, reset }
+var groupCounts = [];   // { el, tokens } per group: its heading's "n CHANGED"
 
-UiTokens.GROUPS.forEach(function (group) {
+// Two columns: CORE PALETTE + ACCENTS, then THREATS + MAP & SCOPE (13 and 11 rows).
+var columns = [document.createElement('div'), document.createElement('div')];
+columns.forEach(function (c) { c.className = 'ui-col'; groupsEl.appendChild(c); });
+
+UiTokens.GROUPS.forEach(function (group, gi) {
   var heading = document.createElement('div');
-  heading.className = 'ui-heading';
+  heading.className = 'ui-heading ui-group-head';
   heading.textContent = group.title;
+  var count = document.createElement('span');
+  count.className = 'ui-group-count';
+  heading.appendChild(count);
+  groupCounts.push({ el: count, tokens: group.tokens.map(function (pair) { return pair[0]; }) });
   var list = document.createElement('div');
   list.className = 'ui-rows';
   group.tokens.forEach(function (pair) {
@@ -132,7 +174,7 @@ UiTokens.GROUPS.forEach(function (group) {
     });
     reset.addEventListener('click', function () { send('theme.reset-color', { group: token }); });
   });
-  groupsEl.append(heading, list);
+  columns[gi < 2 ? 0 : 1].append(heading, list);
 });
 
 function pickColor(token, hex) {
@@ -168,31 +210,42 @@ function render() {
   var readOnly = isReadOnly(active);
 
   themesEl.textContent = '';
-  [{ id: DEFAULT_ID, name: 'DEFAULT' }].concat(state.themes).forEach(function (t) {
+  [{ id: DEFAULT_ID, name: 'DEFAULT', colors: {} }].concat(state.themes).forEach(function (t) {
     var card = document.createElement('button');
     card.type = 'button';
-    card.className = 'lit ui-theme pad-hoverable';
+    card.className = 'ui-theme pad-hoverable';
     card.setAttribute('aria-pressed', String(t.id === (active ? active.id : DEFAULT_ID)));
+    var lamp = document.createElement('span');
+    lamp.className = 'ui-theme-lamp';
+    var body = document.createElement('span');
+    body.className = 'ui-theme-body';
     var name = document.createElement('span');
     name.className = 'ui-theme-name';
     name.textContent = t.name;
-    card.appendChild(name);
-    if (t.file) {
+    var strip = document.createElement('span');
+    strip.className = 'ui-theme-strip';
+    strip.setAttribute('aria-hidden', 'true');
+    STRIP.forEach(function (token) {
+      var chip = document.createElement('span');
+      chip.style.background = (t.colors && t.colors[token]) || defaultHex(token);
+      strip.appendChild(chip);
+    });
+    body.append(name, strip);
+    card.append(lamp, body);
+    if (t.id === DEFAULT_ID || t.file) {
       var tag = document.createElement('span');
       tag.className = 'ui-theme-tag';
-      tag.textContent = 'FILE';
+      tag.textContent = t.file ? 'FILE' : 'READ-ONLY';
       card.appendChild(tag);
     }
     card.addEventListener('click', function () { if (t.id !== state.active) send('theme.select', { bind: t.id }); });
     themesEl.appendChild(card);
   });
 
-  hintEl.textContent = !active ? '(default is read-only: changing a colour saves a new theme)'
-    : readOnly ? '(from the themes folder, read-only: changing a colour saves a new theme)' : '';
+  countEl.textContent = savedCount() + '/' + MAX_THEMES;
   btn.rename.disabled = readOnly;
   btn.remove.disabled = readOnly;
-  btn.copy.disabled = !active;
-  btn.resetAll.disabled = readOnly || Object.keys(colors).length === 0;
+  btn.exportCode.disabled = !active;
 
   for (var t2 in rows) {
     var r = rows[t2];
@@ -205,6 +258,10 @@ function render() {
     r.row.classList.toggle('overridden', overridden);
     r.reset.hidden = !overridden || readOnly;
   }
+  groupCounts.forEach(function (g) {
+    var n = g.tokens.filter(function (token) { return Object.prototype.hasOwnProperty.call(colors, token); }).length;
+    g.el.textContent = n ? n + ' CHANGED' : '';
+  });
 }
 
 // ── dialog ───────────────────────────────────────────────────────────────────────────────────
@@ -293,7 +350,12 @@ function validateCode(text) {
 
 // ── actions ──────────────────────────────────────────────────────────────────────────────────
 btn.create.addEventListener('click', function () {
-  openDialog({ title: 'NEW THEME FROM ' + (activeTheme() ? activeTheme().name : 'DEFAULT'), placeholder: 'THEME NAME', ok: 'SAVE',
+  openDialog({ title: 'NEW THEME', placeholder: 'THEME NAME', ok: 'SAVE',
+               validate: validateNewName, onOk: function (name) { send('theme.create', { wname: name, bind: DEFAULT_ID }); } });
+});
+
+btn.duplicate.addEventListener('click', function () {
+  openDialog({ title: 'COPY OF ' + (activeTheme() ? activeTheme().name : 'DEFAULT'), placeholder: 'THEME NAME', ok: 'SAVE',
                validate: validateNewName, onOk: function (name) { send('theme.create', { wname: name }); } });
 });
 
@@ -309,38 +371,44 @@ btn.remove.addEventListener('click', function () {
                onOk: function () { send('theme.delete', { bind: t.id }); } });
 });
 
-btn.resetAll.addEventListener('click', function () {
-  var t = activeTheme(); if (!t) return;
-  openDialog({ title: 'RESET EVERY COLOUR IN ' + t.name + '?', ok: 'RESET', danger: true, noInput: true,
-               onOk: function () { send('theme.reset-color', { group: '' }); } });
-});
-
 // The async clipboard needs a secure context, which a tablet on the LAN (plain http) isn't; there
 // the code is shown selected in the dialog, and execCommand('copy') is tried on it.
-btn.copy.addEventListener('click', function () {
+btn.exportCode.addEventListener('click', function () {
   var t = activeTheme(); if (!t || !t.code) return;
   var showCode = function () {
     openDialog({ title: 'THEME CODE FOR ' + t.name, value: t.code, readOnly: true, maxLength: 4096, ok: 'DONE' });
     try { document.execCommand('copy'); } catch (e) { /* the code stays selected to copy by hand */ }
   };
   if (navigator.clipboard && window.isSecureContext) {
-    navigator.clipboard.writeText(t.code).then(function () { flashHint('code copied'); }, showCode);
+    navigator.clipboard.writeText(t.code).then(flashCopied, showCode);
   } else {
     showCode();
   }
 });
 
-btn.paste.addEventListener('click', function () {
-  openDialog({ title: 'PASTE A THEME CODE', placeholder: CODE_PREFIX + '…', maxLength: 4096, ok: 'IMPORT',
+btn.importCode.addEventListener('click', function () {
+  openDialog({ title: 'IMPORT A THEME CODE', placeholder: CODE_PREFIX + '…', maxLength: 4096, ok: 'IMPORT',
                validate: validateCode, onOk: function (code) { send('theme.import', { text: code }); } });
 });
 
-var hintTimer = 0;
-function flashHint(text) {
-  hintEl.textContent = '(' + text + ')';
-  clearTimeout(hintTimer);
-  hintTimer = setTimeout(render, 1500);
+var copiedTimer = 0;
+function flashCopied() {
+  btn.exportCode.textContent = 'COPIED';
+  clearTimeout(copiedTimer);
+  copiedTimer = setTimeout(function () { btn.exportCode.textContent = 'EXPORT'; }, 1500);
 }
+
+// Preview tabs: one mock at a time.
+var tabs = Array.prototype.slice.call(document.querySelectorAll('.pv-tab'));
+tabs.forEach(function (tab) {
+  tab.addEventListener('click', function () {
+    tabs.forEach(function (other) {
+      var on = other === tab;
+      other.setAttribute('aria-selected', String(on));
+      document.getElementById(other.getAttribute('aria-controls')).hidden = !on;
+    });
+  });
+});
 
 window.addEventListener('message', function (e) {
   var m = e.data;

@@ -516,7 +516,7 @@ def _theme_command(env):
     active = _theme_active()
     name = (env.get("wname") or "").strip()
     if cmd == "theme.create" and name:
-        return _theme_add(name, dict(active["colors"]) if active else {})
+        return _theme_add(name, dict(active["colors"]) if active and bind != "default" else {})
     if cmd == "theme.import":
         try:
             code = (env.get("text") or "").strip()

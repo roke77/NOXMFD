@@ -326,7 +326,7 @@ namespace NOXMFD
                 //   wname : theme name (create/rename)     bind : theme id (rename/delete/select; "default" selects DEFAULT)
                 //   group : colors.css token (set-color/reset-color; empty resets every colour)
                 //   text  : #rrggbb (set-color) or a share code (import)
-                { "theme.create",      e => LogTheme("create",      ThemeStore.Create(e.wname)) },
+                { "theme.create",      e => LogTheme("create",      ThemeStore.Create(e.wname, e.bind)) },
                 { "theme.rename",      e => LogTheme("rename",      ThemeStore.Rename(e.bind, e.wname)) },
                 { "theme.delete",      e => LogTheme("delete",      ThemeStore.Delete(e.bind)) },
                 { "theme.select",      e => LogTheme("select",      ThemeStore.Select(e.bind)) },

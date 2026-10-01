@@ -10,15 +10,16 @@
   GET /themes, follows the shell's relayed themes-push, and POSTs theme.* commands
   (send-command.js → CommandDispatcher → ThemeStore):
 
-    theme card tap          → theme.select {bind}            (DEFAULT is bind "default")
-    NEW                     → name dialog → theme.create {wname}   (copies the active colours)
+    theme row tap           → theme.select {bind}            (DEFAULT is bind "default")
+    NEW                     → name dialog → theme.create {wname, bind: "default"}   (no colours changed)
+    DUPLICATE               → name dialog → theme.create {wname}   (copies the active colours)
     RENAME / DELETE         → dialog → theme.rename {bind, wname} / theme.delete {bind}
-    COPY                    → the active theme's share code, to the clipboard or shown to copy
+    EXPORT                  → the active theme's share code, to the clipboard or shown to copy
+    IMPORT                  → code dialog → theme.import {text}
     page open               → theme.rescan (re-reads the themes folder's *.json files; those themes
                               are listed with a FILE tag and are read-only like DEFAULT)
-    PASTE                   → code dialog → theme.import {text}
     a colour picker         → theme.set-color {group: token, text: #rrggbb}
-    a row's reset / RESET ALL → theme.reset-color {group: token | ""}
+    a row's reset           → theme.reset-color {group: token}
 
   DEFAULT is read-only: changing a colour while it is active asks for a name, creates a theme from
   it, then applies the change there. The shell repaints every frame from each push's css before
@@ -36,25 +37,32 @@
   <section class="ui-section" aria-labelledby="ui-colours-title">
     <h1 class="ui-title" id="ui-colours-title">COLOURS</h1>
 
-    <div class="ui-heading" id="ui-themes-heading">THEMES <span class="ui-hint" id="ui-hint"></span></div>
-    <div class="ui-themes" id="ui-themes" role="group" aria-labelledby="ui-themes-heading"></div>
-    <div class="ui-actions">
-      <button type="button" class="ui-btn pad-hoverable" id="ui-new">NEW</button>
-      <button type="button" class="ui-btn pad-hoverable" id="ui-rename">RENAME</button>
-      <button type="button" class="ui-btn pad-hoverable danger" id="ui-delete">DELETE</button>
-      <button type="button" class="ui-btn pad-hoverable" id="ui-copy">COPY</button>
-      <button type="button" class="ui-btn pad-hoverable" id="ui-paste">PASTE</button>
-      <button type="button" class="ui-btn pad-hoverable" id="ui-reset-all">RESET ALL</button>
-    </div>
+    <div class="ui-layout">
+      <!-- Themes: one row per theme (DEFAULT, saved, then folder ones), actions under the list. -->
+      <div class="ui-side">
+        <div class="ui-heading" id="ui-themes-heading">THEMES <span class="ui-count" id="ui-count"></span></div>
+        <div class="ui-themes" id="ui-themes" role="group" aria-labelledby="ui-themes-heading"></div>
+        <div class="ui-actions">
+          <button type="button" class="ui-btn pad-hoverable" id="ui-new">NEW</button>
+          <button type="button" class="ui-btn pad-hoverable" id="ui-duplicate">DUPLICATE</button>
+          <button type="button" class="ui-btn pad-hoverable" id="ui-rename">RENAME</button>
+          <button type="button" class="ui-btn pad-hoverable danger" id="ui-delete">DELETE</button>
+          <button type="button" class="ui-btn pad-hoverable" id="ui-export">EXPORT</button>
+          <button type="button" class="ui-btn pad-hoverable" id="ui-import">IMPORT</button>
+        </div>
+      </div>
 
-    <!-- Static mocks of the TGT, MAP and HSD pages, drawn with the same colour tokens those pages use, so
-         they repaint with every edit. Each sits in a fake MFD bezel in fixed greys, so it reads as a
-         picture of a page whatever the theme. Display only: nothing inside is focusable or clickable. -->
-    <div class="ui-heading">PREVIEW</div>
-    <div class="ui-previews">
-      <figure class="pv-frame wide">
-        <figcaption class="pv-label">TGT</figcaption>
-        <div class="pv" role="img" aria-label="Preview of the TGT page in the current colours">
+      <div class="ui-main">
+    <!-- Static mocks of the TGT, MAP and HSD pages, one at a time behind tabs, drawn with the same colour
+         tokens those pages use, so they repaint with every edit. The frame is a fake MFD bezel in fixed
+         greys, so it reads as a picture of a page whatever the theme. Only the tabs are interactive. -->
+    <figure class="pv-frame">
+      <div class="pv-tabs" role="tablist" aria-label="Preview">
+        <button type="button" class="pv-tab" role="tab" id="pv-tab-tgt" aria-controls="pv-tgt" aria-selected="true">TGT</button>
+        <button type="button" class="pv-tab" role="tab" id="pv-tab-map" aria-controls="pv-map" aria-selected="false">MAP</button>
+        <button type="button" class="pv-tab" role="tab" id="pv-tab-hsd" aria-controls="pv-hsd" aria-selected="false">HSD</button>
+      </div>
+        <div class="pv" id="pv-tgt" role="img" aria-label="Preview of the TGT page in the current colours">
           <div class="pv-head"><span class="pv-title">TARGET SELECTION</span></div>
           <div class="pv-filters top">
             <div class="lit on pv-lit" style="--accent: var(--no-friendly-blue)">FRIENDLY</div>
@@ -89,10 +97,7 @@
             <span class="pv-action stale">CLEAR STALE <span class="pv-action-count">&middot; 1</span></span>
           </div>
         </div>
-      </figure>
-      <figure class="pv-frame">
-        <figcaption class="pv-label">MAP</figcaption>
-        <div class="pv pv-map" role="img" aria-label="Preview of the MAP page in the current colours">
+        <div class="pv pv-map" id="pv-map" role="img" aria-label="Preview of the MAP page in the current colours" hidden>
           <svg class="pv-map-svg" viewBox="0 0 400 300" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
             <path class="pv-grid-minor" d="M-380 -300V600M-360 -300V600M-340 -300V600M-320 -300V600M-280 -300V600M-260 -300V600M-240 -300V600M-220 -300V600M-180 -300V600M-160 -300V600M-140 -300V600M-120 -300V600M-80 -300V600M-60 -300V600M-40 -300V600M-20 -300V600M20 -300V600M40 -300V600M60 -300V600M80 -300V600M120 -300V600M140 -300V600M160 -300V600M180 -300V600M220 -300V600M240 -300V600M260 -300V600M280 -300V600M320 -300V600M340 -300V600M360 -300V600M380 -300V600M420 -300V600M440 -300V600M460 -300V600M480 -300V600M520 -300V600M540 -300V600M560 -300V600M580 -300V600M620 -300V600M640 -300V600M660 -300V600M680 -300V600M720 -300V600M740 -300V600M760 -300V600M780 -300V600M-400 -280H800M-400 -260H800M-400 -240H800M-400 -220H800M-400 -180H800M-400 -160H800M-400 -140H800M-400 -120H800M-400 -80H800M-400 -60H800M-400 -40H800M-400 -20H800M-400 20H800M-400 40H800M-400 60H800M-400 80H800M-400 120H800M-400 140H800M-400 160H800M-400 180H800M-400 220H800M-400 240H800M-400 260H800M-400 280H800M-400 320H800M-400 340H800M-400 360H800M-400 380H800M-400 420H800M-400 440H800M-400 460H800M-400 480H800M-400 520H800M-400 540H800M-400 560H800M-400 580H800"/>
             <path class="pv-grid-major" d="M-400 -300V600M-300 -300V600M-200 -300V600M-100 -300V600M0 -300V600M100 -300V600M200 -300V600M300 -300V600M400 -300V600M500 -300V600M600 -300V600M700 -300V600M800 -300V600M-400 -300H800M-400 -200H800M-400 -100H800M-400 0H800M-400 100H800M-400 200H800M-400 300H800M-400 400H800M-400 500H800M-400 600H800"/>
@@ -118,10 +123,7 @@
             <span class="mfd-chip">ROUTE: CAP 3/5</span>
           </div>
         </div>
-      </figure>
-      <figure class="pv-frame">
-        <figcaption class="pv-label">HSD</figcaption>
-        <div class="pv pv-map" role="img" aria-label="Preview of the HSD page in the current colours">
+        <div class="pv pv-map" id="pv-hsd" role="img" aria-label="Preview of the HSD page in the current colours" hidden>
           <svg class="pv-map-svg" viewBox="0 0 400 300" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
             <path class="pv-hsd-cone" d="M200 175L137.5 66.7A125 125 0 0 1 262.5 66.7Z"/>
             <circle class="pv-hsd-ring" cx="200" cy="175" r="42"/>
@@ -141,15 +143,16 @@
             <text class="pv-hsd-lock" x="12" y="288">LOCK 12.4</text>
           </svg>
         </div>
-      </figure>
-    </div>
+    </figure>
 
-    <!-- One group per UiTokens.GROUPS entry, built by ui.js. -->
-    <div class="ui-groups" id="ui-groups"></div>
+        <!-- One group per UiTokens.GROUPS entry, built by ui.js into two columns. -->
+        <div class="ui-groups" id="ui-groups"></div>
+      </div>
+    </div>
   </section>
 </div>
 
-<!-- Shared dialog for naming, deleting, copying and pasting (preset-dialog.css). -->
+<!-- Shared dialog for naming, deleting, exporting and importing (preset-dialog.css). -->
 <div class="preset-kp-scrim" id="ui-dialog" hidden>
   <div class="preset-kp" role="dialog" aria-modal="true" aria-labelledby="ui-dialog-title">
     <div class="preset-kp-title" id="ui-dialog-title"></div>

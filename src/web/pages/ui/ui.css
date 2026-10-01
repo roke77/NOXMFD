@@ -1,5 +1,5 @@
-/* UI page (CFG > UI, issue #105): COLOURS — theme cards, theme actions, and one swatch row per
-   editable token. Sizes are in em of .ui-panel's font-size, which follows the pane width, so the
+/* UI page (CFG > UI, issue #105): COLOURS — the theme list and its actions on the left; the tabbed
+   preview and one swatch row per editable token, in two columns, on the right. Sizes are in em of .ui-panel's font-size, which follows the pane width, so the
    page fits a split pane. */
 
 html, body { height: 100%; margin: 0; }
@@ -39,29 +39,59 @@ html, body { height: 100%; margin: 0; }
   font-size: 0.72em;
   letter-spacing: 0.35em;
 }
-/* Same look as TGT's "(hold to save)" hint (tgt.css .tgt-section-hint): the heading's dim white, TGT's size. */
-.ui-hint { margin-left: 1.2em; letter-spacing: 0.06em; font-size: clamp(8px, 1.3vmin, 12px); color: var(--no-white-dim); }
+.ui-count { margin-left: 0.8em; letter-spacing: 0.06em; color: var(--no-text-faint); }
 
-/* Theme cards: lit-panel buttons, lamp lit on the active theme. */
-.ui-themes {
+/* Themes beside the preview and colours; the theme column stays in view while the colours scroll.
+   One column on a narrow pane. */
+.ui-layout {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(8em, 1fr));
-  gap: 0.45em;
+  grid-template-columns: minmax(10em, 14em) minmax(0, 1fr);
+  gap: 1.3em;
+  align-items: start;
+}
+.ui-side { position: sticky; top: 0; display: flex; flex-direction: column; gap: 0.6em; }
+.ui-side .ui-heading { margin-top: 0; }
+.ui-main { display: flex; flex-direction: column; gap: 0.8em; min-width: 0; }
+
+/* Theme rows: a lamp lit on the active theme, the name over a strip of its main colours, a tag on
+   read-only ones. */
+.ui-themes {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4em;
+  max-height: 50vh;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--no-gray) transparent;
 }
 .ui-theme {
-  --lamp-w: 2.2em;
-  gap: 0.4em;
-  min-height: 3.2em;
-  padding: 0.45em 0.4em;
+  display: flex;
+  align-items: center;
+  gap: 0.6em;
+  min-height: 3em;
+  padding: 0.35em 0.6em 0.35em 0.4em;
+  font: inherit;
   font-size: 0.85em;
   letter-spacing: 0.08em;
+  text-align: left;
+  color: var(--no-text-soft);
+  background: var(--no-control-bg);
+  border: 1px solid var(--no-green-dark);
+  border-radius: 4px;
+  cursor: pointer;
 }
-.ui-theme-name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ui-theme-tag { font-size: 0.65em; font-weight: normal; letter-spacing: 0.2em; color: var(--no-text-faint); }
+.ui-theme[aria-pressed="true"] { color: var(--no-white); border-color: var(--no-green); }
+.ui-theme:focus-visible { outline: 2px solid var(--no-amber); outline-offset: 2px; }
+.ui-theme-lamp { align-self: stretch; width: 3px; border-radius: 2px; background: var(--no-lamp-off); }
+.ui-theme[aria-pressed="true"] .ui-theme-lamp { background: var(--no-green); }
+.ui-theme-body { display: flex; flex-direction: column; gap: 0.35em; flex: 1; min-width: 0; }
+.ui-theme-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ui-theme-strip { display: flex; gap: 2px; }
+.ui-theme-strip span { width: 1em; height: 0.5em; border-radius: 1px; box-shadow: 0 0 0 1px var(--no-line); }
+.ui-theme-tag { font-size: 0.65em; letter-spacing: 0.15em; color: var(--no-text-faint); }
 
-.ui-actions { display: flex; flex-wrap: wrap; gap: 0.45em; }
+.ui-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.4em; }
 .ui-btn {
-  flex: 1 1 6em;
   min-height: 2.4em;
   padding: 0 0.6em;
   font: inherit;
@@ -78,11 +108,6 @@ html, body { height: 100%; margin: 0; }
 .ui-btn:disabled { color: var(--no-white-dark); border-color: var(--no-line); cursor: default; }
 .ui-btn:focus-visible { outline: 2px solid var(--no-amber); outline-offset: 2px; }
 
-/* Previews: TGT across the full row, MAP and HSD side by side below it; all stacked when the pane
-   is narrow. */
-.ui-previews { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.8em; }
-.pv-frame.wide { grid-column: 1 / -1; }
-@media (max-width: 720px) { .ui-previews { grid-template-columns: minmax(0, 1fr); } }
 
 /* A fake MFD bezel in the LYT thumbnails' fixed greys (not editable), so the mock inside reads as
    a page on a display whatever the theme. Three key stubs down each side, drawn as backgrounds. */
@@ -108,13 +133,23 @@ html, body { height: 100%; margin: 0; }
 }
 .pv-frame::before { left: 0.45em; }
 .pv-frame::after { right: 0.45em; }
-.pv-label {
-  margin-bottom: 0.4em;
-  text-align: center;
+/* TGT / MAP / HSD tabs along the bezel's top edge, in the bezel's fixed greys. */
+.pv-tabs { display: flex; justify-content: center; gap: 0.4em; margin-bottom: 0.4em; }
+.pv-tab {
+  min-width: 5em;
+  min-height: 2em;
+  padding: 0 0.8em;
+  font: inherit;
   font-size: 0.7em;
   letter-spacing: 0.35em;
-  color: var(--no-text-soft);
+  color: var(--no-text-faint);
+  background: none;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
 }
+.pv-tab[aria-selected="true"] { color: var(--no-white); border-bottom-color: var(--no-white-dim); }
+.pv-tab:focus-visible { outline: 2px solid var(--no-amber); outline-offset: 2px; }
 
 /* The screen: the same tokens tgt.css / map.js use for each element, at a smaller scale. */
 .pv {
@@ -181,6 +216,7 @@ html, body { height: 100%; margin: 0; }
 /* MAP mock: grid, route, units and overlays, styled from the same tokens map.js reads for its
    canvas. The chips are the real .mfd-chip class MAP's readouts use. */
 .pv-map { position: relative; min-height: 15em; padding: 0; overflow: hidden; }
+.pv[hidden] { display: none; }
 .pv-map-svg { position: absolute; inset: 0; width: 100%; height: 100%; }
 .pv-grid-minor { stroke: rgba(var(--no-green-rgb), 0.10); stroke-width: 1; fill: none; }
 .pv-grid-major { stroke: rgba(var(--no-green-rgb), 0.30); stroke-width: 1; fill: none; }
@@ -220,23 +256,25 @@ html, body { height: 100%; margin: 0; }
 .pv-hsd-text, .pv-hsd-lock { font-family: var(--no-font); font-size: 14px; fill: var(--no-white); }
 .pv-hsd-lock { fill: var(--no-amber); }
 
-/* Colour rows: swatch picker | label | hex | reset. */
-.ui-groups { display: flex; flex-direction: column; gap: 0.3em; }
-.ui-rows { display: flex; flex-direction: column; gap: 0.3em; }
+/* Colour rows in two columns (one on a narrow pane): swatch picker | label | hex | reset, each group
+   under a heading with its count of changed colours. */
+.ui-groups { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 1.3em; }
+.ui-col { display: flex; flex-direction: column; min-width: 0; }
+.ui-group-head { display: flex; justify-content: space-between; padding-bottom: 0.3em; border-bottom: 1px solid var(--no-green-dark); }
+.ui-group-count { letter-spacing: 0.1em; color: var(--no-amber); }
+.ui-rows { display: flex; flex-direction: column; }
 .ui-row {
   display: grid;
-  grid-template-columns: 2.6em minmax(0, 1fr) auto 2.2em;
+  grid-template-columns: 2.4em minmax(0, 1fr) auto 2em;
   align-items: center;
-  gap: 0.7em;
-  min-height: 2.4em;
-  padding: 0.2em 0.5em;
-  border: 1px solid var(--no-card-line);
-  border-radius: 4px;
-  background: var(--no-card-bg);
+  gap: 0.5em;
+  min-height: 2.2em;
+  border-bottom: 1px solid var(--no-card-line);
 }
-.ui-row.overridden { border-color: var(--no-green-dark); }
+.ui-row.overridden .ui-label { color: var(--no-white); }
 .ui-swatch {
-  width: 2.6em;
+  width: 2.4em;
+  font: inherit;
   height: 1.7em;
   padding: 0;
   border: 1px solid var(--no-white-dark);
@@ -267,8 +305,8 @@ html, body { height: 100%; margin: 0; }
 .ui-row .ui-hex:focus { outline: none; border-color: var(--no-amber); color: var(--no-amber); }
 .ui-row .ui-hex.bad { border-color: var(--no-red); color: var(--no-red); }
 .ui-reset {
-  width: 2.2em;
-  height: 2em;
+  width: 2em;
+  height: 1.8em;
   padding: 0;
   font: inherit;
   font-size: 0.85em;
@@ -280,6 +318,14 @@ html, body { height: 100%; margin: 0; }
 }
 .ui-reset[hidden] { display: block; visibility: hidden; }
 .ui-reset:focus-visible { outline: 2px solid var(--no-amber); outline-offset: 2px; }
+
+@media (max-width: 900px) { .ui-groups { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 720px) {
+  .ui-layout { grid-template-columns: minmax(0, 1fr); }
+  .ui-side { position: static; }
+  .ui-themes { display: grid; grid-template-columns: repeat(auto-fill, minmax(11em, 1fr)); max-height: none; }
+  .ui-actions { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
 
 .ui-dialog-actions { grid-template-columns: repeat(2, 1fr); }
 .preset-kp-btn.danger { border-color: var(--no-red); color: var(--no-red); }
