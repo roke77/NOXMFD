@@ -429,19 +429,35 @@ def _rates_config():
 # the harness. The token list is read from ThemeColors.cs so it can't drift from the plugin's.
 THEME_TOKENS = re.findall(r'"(--no-[\w-]+)"', re.search(r'Tokens\s*=\s*\{(.*?)\};',
                           (REPO / "src" / "plugin" / "Stores" / "ThemeColors.cs").read_text(encoding="utf-8"), re.S).group(1))
-# Two saved themes to start from, unlike the folder's Dusk and Monokai: Arctic (ice blue on navy) and
-# Nebula (violet on deep plum).
+# Saved themes to start from, unlike the folder's Dusk and Monokai: Arctic (ice blue on navy), Dracula
+# (draculatheme.com's palette), Elite (Elite Dangerous' orange HUD) and Star (Star Citizen's blue UI).
 THEMES = [
     {"id": "t_arctic", "name": "Arctic", "colors": {
         "--no-green-rgb": "#5ce1ff", "--no-white-rgb": "#e8f6ff", "--no-red-rgb": "#ff5c7a",
         "--no-amber-rgb": "#ffd166", "--no-gray-rgb": "#4a6275", "--no-bg": "#06121c",
         "--no-panel-border": "#1c3a4f", "--no-ink": "#041018", "--no-squad-rgb": "#9b8cff",
         "--no-route-cyan": "#b8f2ff", "--no-target-orange": "#ffa94d"}},
-    {"id": "t_nebula", "name": "Nebula", "colors": {
-        "--no-green-rgb": "#c792ff", "--no-white-rgb": "#efe6ff", "--no-red-rgb": "#ff4f6d",
-        "--no-amber-rgb": "#ffcb6b", "--no-gray-rgb": "#5e4f7a", "--no-bg": "#0f0a17",
-        "--no-panel-border": "#2e2147", "--no-ink": "#0f0a17", "--no-squad-rgb": "#7fdbca",
-        "--no-purple-rgb": "#ff8fd8", "--no-friendly-blue": "#82aaff", "--no-route-cyan": "#89ddff"}},
+    {"id": "t_dracula", "name": "Dracula", "colors": {
+        "--no-green-rgb": "#50fa7b", "--no-white-rgb": "#f8f8f2", "--no-red-rgb": "#ff5555",
+        "--no-amber-rgb": "#ffb86c", "--no-gray-rgb": "#6272a4", "--no-bg": "#282a36",
+        "--no-panel-border": "#44475a", "--no-ink": "#282a36", "--no-squad-rgb": "#8be9fd",
+        "--no-purple-rgb": "#bd93f9", "--no-blue-rgb": "#8be9fd", "--no-friendly-blue": "#8be9fd",
+        "--no-hud-friendly": "#8be9fd", "--no-threat-white": "#f8f8f2", "--no-threat-yellow": "#f1fa8c",
+        "--no-threat-red": "#ff5555", "--no-jam-yellow-rgb": "#f1fa8c", "--no-route-cyan": "#8be9fd",
+        "--no-reached-gray": "#6272a4", "--no-target-orange": "#ffb86c", "--no-hsd-pink-rgb": "#ff79c6",
+        "--no-hsd-yellow-rgb": "#f1fa8c"}},
+    {"id": "t_elite", "name": "Elite", "colors": {
+        "--no-green-rgb": "#ff6600", "--no-white-rgb": "#ffd3a0", "--no-red-rgb": "#ff1f3d",
+        "--no-amber-rgb": "#ffcc00", "--no-gray-rgb": "#6b4a2b", "--no-bg": "#0a0603",
+        "--no-panel-border": "#3d2205", "--no-ink": "#0a0603", "--no-squad-rgb": "#29b6ff",
+        "--no-purple-rgb": "#c06bff", "--no-blue-rgb": "#3fa9ff", "--no-friendly-blue": "#3fa9ff",
+        "--no-hud-friendly": "#3fa9ff", "--no-route-cyan": "#4fc3ff", "--no-target-orange": "#ffe14d"}},
+    {"id": "t_star", "name": "Star", "colors": {
+        "--no-green-rgb": "#35b6ec", "--no-white-rgb": "#e6f4ff", "--no-red-rgb": "#ff4d4d",
+        "--no-amber-rgb": "#ffbb00", "--no-gray-rgb": "#4f6f82", "--no-bg": "#0d1a24",
+        "--no-panel-border": "#1c4d6e", "--no-ink": "#0d1a24", "--no-squad-rgb": "#9bc3d1",
+        "--no-purple-rgb": "#a98bff", "--no-blue-rgb": "#3d7bff", "--no-friendly-blue": "#4f9dff",
+        "--no-hud-friendly": "#35b6ec", "--no-route-cyan": "#7fe3ff", "--no-target-orange": "#ff8a3d"}},
 ]
 THEME_STATE = {"active": "default"}
 # The plugin's drop-in themes folder (BepInEx/plugins/NOXMFD/themes) stands in as preview/themes here
