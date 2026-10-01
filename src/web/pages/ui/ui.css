@@ -36,7 +36,8 @@ html, body { height: 100%; margin: 0; }
   font-size: 0.72em;
   letter-spacing: 0.35em;
 }
-.ui-hint { margin-left: 1.2em; letter-spacing: 0.06em; color: var(--no-amber); }
+/* Same look as TGT's "(hold to save)" hint (tgt.css .tgt-section-hint): the heading's dim white, TGT's size. */
+.ui-hint { margin-left: 1.2em; letter-spacing: 0.06em; font-size: clamp(8px, 1.3vmin, 12px); color: var(--no-white-dim); }
 
 /* Theme cards: lit-panel buttons, lamp lit on the active theme. */
 .ui-themes {
