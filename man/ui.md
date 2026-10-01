@@ -35,6 +35,10 @@ sidebar starts collapsed on a screen 1152 px wide or less.
 A saved theme such as Arctic can be renamed, deleted and edited; each colour it changes shows a
 **↺** to put that colour back to its default.
 
+Saved themes live in the plugin's config file, `BepInEx/config/com.roque.NOXMFD.themes.json`, along
+with which theme is active. They are the only editable themes: DEFAULT and the folder themes below
+are read-only.
+
 ### Themes folder
 
 Theme files can also be dropped into the mod's themes folder, next to DOC's kneeboard folder:
@@ -42,11 +46,29 @@ Theme files can also be dropped into the mod's themes folder, next to DOC's knee
 there shows as a theme row with a **FILE** tag. The folder is read when the game starts and again
 every time the UI page opens, so a new or edited file appears the next time you open CFG > UI.
 
-A folder theme is read-only, like DEFAULT: select it to use it, and changing a colour asks for a name
-and saves a copy as a normal theme. To change the folder theme itself, edit its file. Deleting the
-file removes the theme; if it was active, DEFAULT takes over. **EXPORT** still gives its share code.
+**A folder theme is read-only**, like DEFAULT: you can select it and **EXPORT** its share code, but
+not change, rename or delete it from the UI page (RENAME and DELETE are greyed out). Its file is the
+theme: to change the folder theme itself, edit its file; deleting the file removes the theme, and if
+it was active, DEFAULT takes over.
 
 ![UI page with the Dusk folder theme active](images/UI_DUS.png)
+
+#### Editing a folder theme
+
+To tweak a folder theme in game, save an editable copy of it as a saved theme:
+
+1. Tap the folder theme (Dusk, say) to make it active.
+2. Press **DUPLICATE** and name the copy, for example `Dusk Night`. The copy is made active, with
+   the same colours.
+3. Change any colour, style or width. The copy is saved in the config file; Dusk's file stays as it
+   was.
+
+Changing a colour while the folder theme itself is active does the same in one step: the page asks
+for a name, saves a copy with that change, and switches to it.
+
+To turn your edited copy back into a file to keep or share, press **EXPORT** to copy its share code
+(anyone can **IMPORT** it), or write its colours into a `.json` file in the themes folder in the
+format below.
 
 A theme file names the theme and lists the colours it changes, each by its colour row's name in
 lower case with dashes; any colour it leaves out keeps its default:
