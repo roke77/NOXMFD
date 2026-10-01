@@ -187,8 +187,8 @@ function render() {
     themesEl.appendChild(card);
   });
 
-  hintEl.textContent = !active ? '(DEFAULT IS READ-ONLY: CHANGING A COLOUR SAVES A NEW THEME)'
-    : readOnly ? '(FROM THE THEMES FOLDER, READ-ONLY: CHANGING A COLOUR SAVES A NEW THEME)' : '';
+  hintEl.textContent = !active ? '(default is read-only: changing a colour saves a new theme)'
+    : readOnly ? '(from the themes folder, read-only: changing a colour saves a new theme)' : '';
   btn.rename.disabled = readOnly;
   btn.remove.disabled = readOnly;
   btn.copy.disabled = !active;
@@ -324,7 +324,7 @@ btn.copy.addEventListener('click', function () {
     try { document.execCommand('copy'); } catch (e) { /* the code stays selected to copy by hand */ }
   };
   if (navigator.clipboard && window.isSecureContext) {
-    navigator.clipboard.writeText(t.code).then(function () { flashHint('CODE COPIED'); }, showCode);
+    navigator.clipboard.writeText(t.code).then(function () { flashHint('code copied'); }, showCode);
   } else {
     showCode();
   }
