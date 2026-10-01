@@ -65,10 +65,9 @@
   --no-blue-rgb:   77, 159, 255;
   --no-blue:       rgb(var(--no-blue-rgb));  /* mod-only decorative accent (WPN's MODE label, docs/radar-master-arms.md) */
   --no-bg:         var(--no-black);
-  /* Floating boxes over content (MAP's chips, CFG cards, dialogs): a shade of the background,
-     fitted like the control and card neutrals below; drawn translucent so a map or video shows
-     faintly through. */
-  --no-panel:      color-mix(in oklab, var(--no-bg), color-mix(in oklab, var(--no-green) 24%, var(--no-white)) 14.9%);
+  /* Floating boxes over content (MAP's chips, CFG cards, dialogs): the background colour, drawn
+     translucent so a map or video shows faintly through. */
+  --no-panel:      var(--no-bg);
   --no-panel-bg:   color-mix(in srgb, var(--no-panel) 78%, transparent);
   --no-panel-border: #1a3a1a;
   --no-ink:        #060a06;  /* dark text on a bright highlight fill (selected weapon, SOI cursor, hovers) */
@@ -198,8 +197,7 @@
     --no-squad-bg: #040808;
     --no-squad-faint: #2e4a4a;
     --no-scrim: rgba(0, 0, 0, 0.6);
-    --no-panel: #060a06;
-    --no-panel-bg: rgba(6, 10, 6, 0.78);
+    --no-panel-bg: rgba(0, 0, 0, 0.78);
     --no-scrim-deep: rgba(0, 0, 0, 0.72);
     --no-control-bg: #060807;
     --no-control-bg-on: #0a0f0b;
