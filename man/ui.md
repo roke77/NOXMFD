@@ -63,7 +63,7 @@ lower case with dashes; any colour it leaves out keeps its default:
 
 | Group | Keys |
 |---|---|
-| CORE PALETTE | `primary`, `instrument`, `alert`, `caution`, `inactive`, `background`, `panel-border`, `text-on-highlight` |
+| CORE PALETTE | `primary`, `instrument`, `alert`, `caution`, `inactive`, `background`, `panel-border`, `text-on-highlight`, `nav-label` |
 | ACCENTS | `squad`, `mod-controls`, `mod-accent`, `friendly-tgt-td`, `friendly-hud` |
 | THREATS | `search`, `track`, `lock`, `jamming` |
 | MAP & SCOPE | `route`, `flown-route`, `target`, `neutral`, `nuclear-zone`, `hsd-symbology`, `hsd-aa-rings` |
@@ -92,3 +92,5 @@ Each row is one colour: tap the swatch to pick a new one, or type a hex value (`
 optional) and press Enter. **↺** puts that colour back to its default. Rows are grouped as CORE
 PALETTE and ACCENTS in one column, THREATS and MAP & SCOPE in the other (one column on a narrow
 screen). Changing a base colour such as PRIMARY also recolours its dimmer and darker shades.
+NAV LABEL is the white of the page names beside the bezel keys (the highlighted one follows
+CAUTION); TGT's neutral and stale rows and the same text on TD and BDF use it too.

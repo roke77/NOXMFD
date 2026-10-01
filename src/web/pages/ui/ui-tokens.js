@@ -13,6 +13,7 @@
       ['--no-bg',            'BACKGROUND'],
       ['--no-panel-border',  'PANEL BORDER'],
       ['--no-ink',           'TEXT ON HIGHLIGHT'],
+      ['--no-label-rgb',     'NAV LABEL'],
     ] },
     { title: 'ACCENTS', tokens: [
       ['--no-squad-rgb',     'SQUAD'],

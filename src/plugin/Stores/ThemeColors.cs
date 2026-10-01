@@ -18,7 +18,7 @@ namespace NOXMFD
         {
             // Core palette
             "--no-green-rgb", "--no-white-rgb", "--no-red-rgb", "--no-amber-rgb", "--no-gray-rgb",
-            "--no-bg", "--no-panel-border", "--no-ink",
+            "--no-bg", "--no-panel-border", "--no-ink", "--no-label-rgb",
             // Accents
             "--no-squad-rgb", "--no-purple-rgb", "--no-blue-rgb", "--no-friendly-blue", "--no-hud-friendly",
             // Threats
@@ -36,7 +36,7 @@ namespace NOXMFD
         {
             // Core palette
             "primary", "instrument", "alert", "caution", "inactive",
-            "background", "panel-border", "text-on-highlight",
+            "background", "panel-border", "text-on-highlight", "nav-label",
             // Accents
             "squad", "mod-controls", "mod-accent", "friendly-tgt-td", "friendly-hud",
             // Threats
@@ -59,7 +59,7 @@ namespace NOXMFD
 
         internal const int MaxNameLength = 32;
         internal const string CodePrefix = "NOXT1:";
-        // A 25-colour code is ~1 KB; anything far past that isn't one, so it's rejected before decoding.
+        // A full-theme code is ~1 KB; anything far past that isn't one, so it's rejected before decoding.
         private const int MaxCodeLength = 4096;
 
         internal static bool IsToken(string? token) => token != null && TokenSet.Contains(token);

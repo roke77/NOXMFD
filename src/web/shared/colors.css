@@ -38,7 +38,8 @@
   --no-white-dark: oklch(from var(--no-white) calc(l * 0.408) calc(c * 2.090) h);  /* depleted / hollow / dial face — rim, track, minor ticks */
   --no-label-rgb:  212, 216, 220;
   --no-label:      rgb(var(--no-label-rgb));  /* off-white, not the screen's green — the bezel's
-                                key labels, and the F-35 strip's URL lines */
+                                key labels (CFG > UI's NAV LABEL), the F-35 strip's URL lines, and
+                                the neutral / stale text that matches them on TGT, TD and BDF */
   /* The F-35 layout's chrome: the frame around each portal, the labels it draws on the glass, the
      corner grips, the master strip. Its real display frames itself in teal where the bezel uses
      --no-label above. A layout's colour, not a page's: only shell/f35/ may read it, so a page
@@ -136,7 +137,7 @@
   --no-green-glow:       color-mix(in oklab, var(--no-bg), oklch(from var(--no-green) calc(l * 1.030) calc(c * 0.935) h) 40%);   /* SQD's large-button glow */
   --no-green-halo:       color-mix(in oklab, var(--no-bg), oklch(from var(--no-green) calc(l * 0.877) calc(c * 0.795) h) 40%);   /* LYT's selected shell card glow */
   --no-purple-line:      color-mix(in oklab, var(--no-bg), oklch(from var(--no-purple) calc(l * 1.045) calc(c * 0.853) h) 60%);
-  --no-label-line:       #5a5f66;
+  --no-label-line:       color-mix(in oklab, var(--no-bg), var(--no-label) 55%);   /* TGT's stale source-tag border */
   --no-red-line:         color-mix(in oklab, var(--no-bg), oklch(from var(--no-red) calc(l * 1.020) calc(c * 0.718) h) 50%);
   --no-amber-bg:         color-mix(in oklab, var(--no-bg), oklch(from var(--no-amber) calc(l * 1.200) calc(c * 0.607) h) 15%);   /* SQD's squad card while being edited */
   --no-squad-line:       color-mix(in oklab, var(--no-bg), oklch(from var(--no-squad) calc(l * 0.986) calc(c * 0.882) h) 50%);
