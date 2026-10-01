@@ -1,6 +1,6 @@
 // Self-check for the KEY page's grouping. Run: `node keybinds-groups.test.js`.
 const assert = require('assert');
-const { GROUPS, build, isBound, joyText, axisText, searchText } = require('./keybinds-groups.js');
+const { GROUPS, build, isBound, joyText, axisText, searchText, usesKey, usesJoy, keyClash } = require('./keybinds-groups.js');
 
 const bind = (id, section, extra) => Object.assign({ id, section, label: id, description: '', key: '', joyButton: -1, joyNum: 0 }, extra);
 
@@ -74,5 +74,18 @@ const shown = k => k.toUpperCase();
 const g = bind('gear-up', 'GEAR', { label: 'Gear Up', description: 'Raise the landing gear.', key: 'g', joyButton: 11, joyNum: 2 });
 for (const q of ['gear up', 'landing', 'j2 b11', 'g']) assert.ok(searchText(g, shown).includes(q), `search text should contain ${q}`);
 assert.ok(!searchText(bind('x', 'GEAR', { label: 'X' }), shown).includes('j2'), 'an unbound row has no binding text');
+
+// Press matching is exact: "G" is the Gear Down key, not every bind with a G in it, and a chord is
+// a different key from its bare key.
+const bs = [bind('gear-down', 'GEAR', { key: 'G', joyButton: 15, joyNum: 1 }), bind('flares', 'COUNTERMEASURES', { key: 'LeftShift+G' }),
+  bind('any', 'GEAR', { joyButton: 4, joyNum: 0 }), bind('axis', 'CURSOR', { axis: 3, axisNum: 2, joyButton: undefined, key: undefined })];
+assert.deepStrictEqual(bs.filter(usesKey('G')).map(b => b.id), ['gear-down']);
+assert.deepStrictEqual(bs.filter(usesKey('LeftShift+G')).map(b => b.id), ['flares']);
+assert.deepStrictEqual(bs.filter(usesKey('')).map(b => b.id), [], 'an empty key matches nothing');
+assert.deepStrictEqual(bs.filter(usesJoy(1, 15)).map(b => b.id), ['gear-down']);
+assert.deepStrictEqual(bs.filter(usesJoy(2, 15)).map(b => b.id), [], 'a button pinned to another stick');
+assert.deepStrictEqual(bs.filter(usesJoy(3, 4)).map(b => b.id), ['any'], 'stick 0 answers to every stick');
+assert.deepStrictEqual(bs.filter(usesJoy(1, -1)).map(b => b.id), [], 'no button matches nothing');
+assert.ok(keyClash(bs, 'flares', 'G') && !keyClash(bs, 'gear-down', 'G'), 'a bind never clashes with itself');
 
 console.log('keybinds-groups.test.js: OK');

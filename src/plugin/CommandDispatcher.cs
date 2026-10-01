@@ -34,6 +34,7 @@ namespace NOXMFD
                                 // soi.page : the page name the reported pane is showing
         public string? group;  // tgt.set / tgt.only : "faction" | "category" | "vehicle"
                                 // combat-mode.set : "all" | "aa" | "ag"
+                                // keybind.resolve : "keep" | "replace" | "cancel"
                                 // avn.toggle : "gear" | "radar" | "guns" | "eng" | "assist" | "nvg" |
                                 //              "lights" | "turret"
         public int    index;   // tgt.set / tgt.only : toggle index within the group
@@ -51,6 +52,8 @@ namespace NOXMFD
                                 // hsd.set-view : desired range-ladder index (hsd.js's own rangeIdx,
                                 // 0-4 into whichever of CEN_RANGE_NM/DEP_RANGE_NM the mode selects)
         public bool   on;      // tgt.set / tgt.laser / tgt.hud : desired toggle state
+                                // keybind.set-key / keybind.arm-joy : true = ask (keybind.resolve) when
+                                // another bind already uses the value, instead of sharing it
                                 // tgp.ir.set : desired IR state (true = IR, false = COLOR)
                                 // tgp.view.set : desired view state (true = STV, false = WTV)
                                 // tgp.zoom.set : held state — true on press, false on release
@@ -222,8 +225,9 @@ namespace NOXMFD
                         "ag" => CombatMode.AirToGround,
                         _    => CombatMode.All,
                     }) },
-                { "keybind.set-key",    e => Log("set-key",    e.bind, Keybinds.SetKeyBind(e.bind ?? string.Empty, e.key ?? string.Empty)) },
-                { "keybind.arm-joy",    e => Log("arm-joy",    e.bind, Keybinds.ArmJoyCapture(e.bind ?? string.Empty)) },
+                { "keybind.set-key",    e => Log("set-key",    e.bind, Keybinds.SetKeyBind(e.bind ?? string.Empty, e.key ?? string.Empty, e.on)) },
+                { "keybind.arm-joy",    e => Log("arm-joy",    e.bind, Keybinds.ArmJoyCapture(e.bind ?? string.Empty, e.on)) },
+                { "keybind.resolve",    e => Log("resolve",    e.bind, Keybinds.ResolveConflict(e.group ?? string.Empty)) },
                 { "keybind.cancel-joy", e => Keybinds.CancelJoyCapture() },
                 { "keybind.clear-joy",  e => Log("clear-joy",  e.bind, Keybinds.ClearJoyBind(e.bind ?? string.Empty)) },
                 // Analog axis capture/clear/invert — the MAP cursor's Horizontal/Vertical rows only;

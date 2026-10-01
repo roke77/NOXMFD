@@ -978,7 +978,7 @@ _KEYBIND_SEEDS = {
 }
 for _b in KEYBINDS:
     _b.update(_KEYBIND_SEEDS.get(_b["id"], {}))
-KB_STATE = {"capturing": None, "capturingKind": None, "armed_at": 0.0, "bgInput": False,
+KB_STATE = {"conflict": None, "ask": False, "lastPress": {"seq": 0, "joy": 0, "button": 0}, "capturing": None, "capturingKind": None, "armed_at": 0.0, "bgInput": False,
             "rejected": {"seq": 0, "bind": "", "by": ""},
             "radarOnOnStart": True, "engineOnOnStart": True, "masterArmsOnOnStart": True,
             "powerOnOnStart": True, "hudFiltersOnCombatMode": False}
@@ -987,18 +987,28 @@ KB_STATE = {"capturing": None, "capturingKind": None, "armed_at": 0.0, "bgInput"
 def _keybinds_config():
     # simulate the plugin capturing a stick button/axis 1.5s after arming
     if KB_STATE["capturing"] and time.monotonic() - KB_STATE["armed_at"] > 1.5:
+        if KB_STATE["capturing"] == "__search__":   # the KEY page's search-by-press probe
+            KB_STATE["lastPress"] = {"seq": KB_STATE["lastPress"]["seq"] + 1, "joy": 2, "button": 11}
         for b in KEYBINDS:
             if b["id"] == KB_STATE["capturing"]:
                 if KB_STATE["capturingKind"] == "axis":
                     b["axis"], b["axisNum"] = 3, 1
-                elif not _kb_taken(b, lambda o: o.get("joyButton") == 7):
-                    b["joyButton"], b["joyNum"] = 7, 1
+                elif not _kb_taken(b, lambda o: o.get("joyButton") == 5):
+                    # the simulated stick always "presses" J1 B5, which Cycle Guns uses in the seeds
+                    others = [o for o in KEYBINDS if o is not b and o.get("joyButton") == 5 and o.get("joyNum") == 1]
+                    if KB_STATE["ask"] and others:
+                        KB_STATE["conflict"] = {"bind": b["id"], "label": b["label"], "kind": "joy", "key": "",
+                                                "joy": 1, "button": 5, "with": [o["label"] for o in others]}
+                    else:
+                        b["joyButton"], b["joyNum"] = 5, 1
         KB_STATE["capturing"] = None
         KB_STATE["capturingKind"] = None
     return json.dumps({"binds": KEYBINDS, "notes": _KEYBIND_NOTES,
                        "capturing": KB_STATE["capturing"],
                        "capturingKind": KB_STATE["capturingKind"],
                        "rejected": KB_STATE["rejected"],
+                       "lastPress": KB_STATE["lastPress"],
+                       "conflict": KB_STATE["conflict"],
                        "bgInput": KB_STATE["bgInput"],
                        "radarOnOnStart": KB_STATE["radarOnOnStart"],
                        "engineOnOnStart": KB_STATE["engineOnOnStart"],
@@ -1028,9 +1038,30 @@ def _keybinds_command(env):
         if key in ("", "None"):
             row["key"] = ""
         elif not _kb_taken(row, lambda o: o.get("key") == key):
-            row["key"] = key
-    elif cmd == "keybind.arm-joy" and row is not None:
-        KB_STATE.update(capturing=bind, capturingKind="joy", armed_at=time.monotonic())
+            others = [o for o in KEYBINDS if o is not row and o.get("key") == key]
+            if env.get("on") and others:
+                KB_STATE["conflict"] = {"bind": row["id"], "label": row["label"], "kind": "key", "key": key,
+                                        "joy": 0, "button": 0, "with": [o["label"] for o in others]}
+            else:
+                row["key"] = key
+    elif cmd == "keybind.resolve" and KB_STATE["conflict"]:
+        c, KB_STATE["conflict"] = KB_STATE["conflict"], None
+        target = next((b for b in KEYBINDS if b["id"] == c["bind"]), None)
+        if target is not None and env.get("group") in ("keep", "replace"):
+            if env.get("group") == "replace":
+                for o in KEYBINDS:
+                    if o is target or o["label"] not in c["with"]:
+                        continue
+                    if c["kind"] == "key":
+                        o["key"] = ""
+                    else:
+                        o["joyButton"], o["joyNum"] = -1, 0
+            if c["kind"] == "key":
+                target["key"] = c["key"]
+            else:
+                target["joyButton"], target["joyNum"] = c["button"], c["joy"]
+    elif cmd == "keybind.arm-joy" and (row is not None or bind == "__search__"):
+        KB_STATE.update(capturing=bind, capturingKind="joy", armed_at=time.monotonic(), ask=bool(env.get("on")))
     elif cmd == "keybind.cancel-joy":
         KB_STATE["capturing"] = None
         KB_STATE["capturingKind"] = None

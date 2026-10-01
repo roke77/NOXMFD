@@ -39,6 +39,15 @@ namespace NOXMFD.Tests
         }
 
         [Fact]
+        public void FindAll_lists_every_other_bind_using_the_value_slots_or_not()
+        {
+            var keys = new[] { "G", "G", "", "G", "X" };
+            Assert.Equal(new[] { 1, 3 }, KeybindConflict.FindAll(Ids.Length, 0, i => keys[i] == "G"));
+            Assert.Empty(KeybindConflict.FindAll(Ids.Length, 4, i => keys[i] == "Y"));
+            Assert.DoesNotContain(2, KeybindConflict.FindAll(Ids.Length, 2, i => keys[i] == "G"));   // never itself
+        }
+
+        [Fact]
         public void Joystick_any_device_overlaps_pinned_devices()
         {
             Assert.True(KeybindConflict.JoyMatches(5, 0, 5, 2));

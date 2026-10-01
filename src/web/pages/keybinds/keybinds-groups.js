@@ -88,7 +88,19 @@
     return groups.filter(function (g) { return g.secs.length; });
   }
 
-  const api = { GROUPS, build, isBound, joyText, axisText, searchText };
+  // "Find by key press" and the clash check match a press against the binds using exactly it, not a
+  // substring (a typed "g" would match every name containing a g). A bind pinned to stick 0 answers
+  // to any stick, as the plugin's KeybindConflict.JoyMatches does.
+  function usesKey(key) { return function (b) { return !!key && b.key === key; }; }
+  function usesJoy(stick, button) {
+    return function (b) {
+      return button >= 0 && b.joyButton === button && (b.joyNum === 0 || b.joyNum === stick);
+    };
+  }
+  // Whether giving `key` to bind `id` would share it with another bind.
+  function keyClash(binds, id, key) { return binds.some(function (b) { return b.id !== id && usesKey(key)(b); }); }
+
+  const api = { GROUPS, build, isBound, joyText, axisText, searchText, usesKey, usesJoy, keyClash };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.KeybindsGroups = api;
 })(typeof self !== 'undefined' ? self : this);

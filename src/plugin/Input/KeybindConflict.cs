@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace NOXMFD
 {
@@ -7,9 +8,10 @@ namespace NOXMFD
     // to another bind. Pure (ids + a "does bind i use this value" callback), so it's unit-checkable
     // without Unity/BepInEx config entries — Keybinds.cs supplies both from its registry.
     //
-    // ponytail: only enforced when a Layout Preset slot is on either side. Every other bind keeps
-    // allowing a shared key as it always has; widening this to the whole registry is dropping the
-    // IsLayoutSlot condition in Find.
+    // Find is the hard rule and only applies when a Layout Preset slot is on either side. Every other
+    // clash is the KEY page's to resolve: it asks the plugin to check (FindAll), and the user answers
+    // keep both / replace / cancel (Keybinds.ResolveConflict). Callers that don't ask still share a
+    // key as they always have.
     internal static class KeybindConflict
     {
         internal const string LayoutSlotPrefix = "layout-preset-";
@@ -25,6 +27,17 @@ namespace NOXMFD
             for (int i = 0; i < count; i++)
                 if (i != target && (targetIsSlot || IsLayoutSlot(id(i))) && uses(i)) return i;
             return -1;
+        }
+
+        // Every OTHER bind that already uses the value being assigned to `target`, slots or not: what
+        // the KEY page's keep / replace / cancel prompt lists when the page asks to resolve a clash
+        // instead of silently sharing the key.
+        internal static List<int> FindAll(int count, int target, Func<int, bool> uses)
+        {
+            var hits = new List<int>();
+            for (int i = 0; i < count; i++)
+                if (i != target && uses(i)) hits.Add(i);
+            return hits;
         }
 
         // Same Rewired button on an overlapping device. Joystick number 0 = "any device", so it

@@ -104,8 +104,50 @@ namespace NOXMFD
         // one-row-at-a-time capture UX.
         private static BindDef? _capturing;
         private static BindDef? _capturingAxis;
-        internal static string? CapturingId   => (_capturing ?? _capturingAxis)?.Id;
-        internal static string? CapturingKind => _capturing != null ? "joy" : (_capturingAxis != null ? "axis" : null);
+        // A third armed state that belongs to no bind: the KEY page's "search by key press" asks which
+        // joystick button is pressed next so it can filter the list to it. The press is published as
+        // LastPress instead of being written into a bind. Mutually exclusive with the other two.
+        internal const string SearchProbeId = "__search__";
+        private static bool _searchProbe;
+        private static bool CaptureArmed => _capturing != null || _capturingAxis != null || _searchProbe;
+        internal static string? CapturingId   => _searchProbe ? SearchProbeId : (_capturing ?? _capturingAxis)?.Id;
+        internal static string? CapturingKind => _searchProbe || _capturing != null ? "joy" : (_capturingAxis != null ? "axis" : null);
+        private static int _pressSeq, _pressJoy, _pressButton;
+
+        // An assignment the KEY page asked to be checked (command `on` flag) that clashes with another
+        // bind: held here, unapplied, until the page answers keep / replace / cancel (ResolveConflict).
+        // Layout Preset clashes never get here — those are refused outright (KeybindConflict.Find).
+        internal sealed class PendingConflict
+        {
+            public string BindId = "", BindLabel = "", Kind = "", KeyName = "";
+            public KeyboardShortcut Shortcut = KeyboardShortcut.Empty;
+            public int Button, Joy;
+            public List<BindDef> With = new List<BindDef>();
+            public long CreatedMs = NowMs();
+        }
+        private static PendingConflict? _conflict;
+        // A clash nobody answered (the page was closed) stops being offered after a while, so it can't
+        // greet the next visit to the page with a question about a press from long ago.
+        private const long ConflictTtlMs = 120_000;
+        private static long NowMs() => System.Diagnostics.Stopwatch.GetTimestamp() * 1000 / System.Diagnostics.Stopwatch.Frequency;   // thread-safe, unlike Time.*
+        private static bool Live(PendingConflict? c) => c != null && NowMs() - c.CreatedMs < ConflictTtlMs;
+        internal static PendingConflict? Conflict => Live(_conflict) ? _conflict : null;
+
+        // Holds the assignment as a pending clash when another bind already uses it; true if held.
+        private static bool HoldConflict(BindDef b, string kind, Func<BindDef, bool> uses, PendingConflict c)
+        {
+            foreach (int i in KeybindConflict.FindAll(_binds.Count, _binds.IndexOf(b), n => uses(_binds[n])))
+                c.With.Add(_binds[i]);
+            if (c.With.Count == 0) return false;
+            c.BindId = b.Id; c.BindLabel = b.Label; c.Kind = kind;
+            _conflict = c;
+            ConfigChanged();
+            return true;
+        }
+        private static bool _captureAsk;   // whether the armed joystick capture should prompt on a clash
+        // The last button the search probe saw (stick number 1-based, Rewired button index); seq bumps
+        // per press so the same button pressed twice still reads as new.
+        internal static (int Seq, int Joy, int Button) LastPress => (_pressSeq, _pressJoy, _pressButton);
 
         // The four MAP cursor direction binds, kept by reference so Poll() can read their ActiveNow
         // directly and fold them into one cursor vector (see the MAP Keybinds comment in Bind()).
@@ -674,7 +716,7 @@ namespace NOXMFD
         // Ctrl/Alt/Shift modifiers joined with '+' ("LeftAlt+Alpha1", keybinds-keymap.js's format);
         // "" / "None" clears. Rejects unknown ids, unparseable names, joystick KeyCodes (those go
         // through the Rewired index instead), and a modifier slot holding a non-modifier key.
-        internal static bool SetKeyBind(string id, string keyName)
+        internal static bool SetKeyBind(string id, string keyName, bool ask = false)
         {
             bool clear = string.IsNullOrEmpty(keyName) || keyName == "None";
             KeyboardShortcut sc = KeyboardShortcut.Empty;
@@ -683,8 +725,37 @@ namespace NOXMFD
             if (b == null || b.KeyEntry == null) return false;
             string name = KeyName(sc);
             if (!clear && Taken(b, o => o.KeyEntry != null && KeyName(o.KeyEntry.Value) == name)) return false;
+            if (ask && !clear && HoldConflict(b, "key",
+                    o => o.KeyEntry != null && KeyName(o.KeyEntry.Value) == name,
+                    new PendingConflict { KeyName = name, Shortcut = sc })) return true;
             BackupNow();
             b.KeyEntry.Value = sc;
+            ConfigChanged();
+            return true;
+        }
+
+        // The page's answer to a pending clash: "keep" gives the bind the value and leaves the others
+        // using it too, "replace" clears it from the others first, "cancel" drops the assignment.
+        internal static bool ResolveConflict(string action)
+        {
+            PendingConflict? c = Conflict;
+            _conflict = null;
+            if (c == null) return false;
+            BindDef? b = FindBind(c.BindId);
+            if (b == null || (action != "keep" && action != "replace"))
+            {
+                ConfigChanged();
+                return action == "cancel";
+            }
+            BackupNow();
+            if (action == "replace")
+                foreach (BindDef o in c.With)
+                {
+                    if (c.Kind == "key") o.KeyEntry!.Value = KeyboardShortcut.Empty;
+                    else { o.JoyEntry!.Value = -1; o.JoyNumEntry!.Value = 0; }
+                }
+            if (c.Kind == "key") b.KeyEntry!.Value = c.Shortcut;
+            else { b.JoyEntry!.Value = c.Button; b.JoyNumEntry!.Value = c.Joy; }
             ConfigChanged();
             return true;
         }
@@ -742,13 +813,29 @@ namespace NOXMFD
         private static int _captureSettle;
         private static readonly HashSet<(int joy, int btn)> _latched = new HashSet<(int, int)>();
 
-        internal static bool ArmJoyCapture(string id)
+        internal static bool ArmJoyCapture(string id, bool ask = false)
         {
+            if (id == SearchProbeId) return ArmSearchProbe();
             BindDef? b = FindBind(id);
             if (b == null || b.JoyEntry == null) return false;
-            if (_capturing == null && _capturingAxis == null) EnableBackgroundInput();
+            if (!CaptureArmed) EnableBackgroundInput();
             _capturing = b;
             _capturingAxis = null;   // mutually exclusive
+            _searchProbe = false;
+            _captureAsk = ask;
+            _captureSettle = SettleFrames;
+            _latched.Clear();
+            LogJoysticks();
+            ConfigChanged();
+            return true;
+        }
+
+        private static bool ArmSearchProbe()
+        {
+            if (!CaptureArmed) EnableBackgroundInput();
+            _searchProbe = true;
+            _capturing = null;
+            _capturingAxis = null;
             _captureSettle = SettleFrames;
             _latched.Clear();
             LogJoysticks();
@@ -783,9 +870,10 @@ namespace NOXMFD
         {
             BindDef? b = FindBind(id);
             if (b == null || b.AxisEntry == null) return false;
-            if (_capturing == null && _capturingAxis == null) EnableBackgroundInput();
+            if (!CaptureArmed) EnableBackgroundInput();
             _capturingAxis = b;
             _capturing = null;   // mutually exclusive
+            _searchProbe = false;
             _axisSettle = AxisSettleFrames;
             _axisRest.Clear();
             LogJoysticks();
@@ -857,9 +945,10 @@ namespace NOXMFD
 
         private static void Disarm()
         {
-            if (_capturing == null && _capturingAxis == null) return;
+            if (!CaptureArmed) return;
             _capturing = null;
             _capturingAxis = null;
+            _searchProbe = false;
             ConfigChanged();
             Application.runInBackground = _prevRunInBackground;
             if (ReInput.isReady)
@@ -886,6 +975,7 @@ namespace NOXMFD
 
             // While a joy/axis entry is armed for capture, swallow the next button/deflection into it
             // (and don't let that same input also trigger an action this frame).
+            if (_searchProbe)            { ProbeJoyButton(); return; }
             if (_capturing != null)      { CaptureJoyButton(); return; }
             if (_capturingAxis != null)  { CaptureAxis(); return; }
 
@@ -1120,24 +1210,23 @@ namespace NOXMFD
             else if (ev == KeybindTapHold.Event.Hold) onHold();
         }
 
-        // Runs on the main-thread Poll while a joy capture is armed. Writes the first joystick button that
-        // goes down into the armed bind's entry, records which joystick it came from (JoystickNumber), and
-        // disarms. The captured index is exactly what JoyBtn() reads back, so capture and live-poll use the
-        // same numbering.
-        private static void CaptureJoyButton()
+        // Shared by bind capture and the search probe. Gives Rewired a few frames after the
+        // background-input flip, records every button already held (latched switches) as excluded, then
+        // reports the first button that goes down. The index is exactly what JoyBtn() reads back, so
+        // capture and live-poll use the same numbering; `stick` is the 1-based device number.
+        private static bool ScanFreshButton(out int button, out int stick, out string deviceName)
         {
-            if (!ReInput.isReady) return;
+            button = -1; stick = 0; deviceName = string.Empty;
+            if (!ReInput.isReady) return false;
             IList<Joystick> joys = ReInput.controllers.Joysticks;
 
-            // Settle window: give Rewired a few frames after the background-input flip, then record
-            // every button already held (latched switches) as excluded.
             if (_captureSettle > 0)
             {
                 if (--_captureSettle == 0)
                     for (int i = 0; i < joys.Count; i++)
                         for (int b = 0; b < joys[i].buttonCount; b++)
                             if (joys[i].GetButton(b)) _latched.Add((i, b));
-                return;
+                return false;
             }
 
             for (int i = 0; i < joys.Count; i++)
@@ -1147,21 +1236,48 @@ namespace NOXMFD
                 {
                     if (!joy.GetButton(b)) { _latched.Remove((i, b)); continue; }   // seen up → capturable again
                     if (_latched.Contains((i, b)) || !joy.GetButtonDown(b)) continue;
-                    int btn = b, num = i + 1;
-                    if (Taken(_capturing!, o => o.JoyEntry != null &&
-                            KeybindConflict.JoyMatches(btn, num, o.JoyEntry.Value, o.JoyNumEntry!.Value)))
-                    {
-                        Disarm();
-                        return;
-                    }
-                    BackupNow();
-                    _capturing!.JoyEntry!.Value = b;
-                    _capturing.JoyNumEntry!.Value = i + 1;   // pin to the device it came from
-                    Plugin.Log?.LogInfo($"[NOXMFD] captured joy[{i}] '{joy.name}' button {b} for keybind '{_capturing.Id}'.");
-                    Disarm();   // also restores the background-input overrides
-                    return;
+                    button = b; stick = i + 1; deviceName = joy.name;
+                    return true;
                 }
             }
+            return false;
+        }
+
+        // Runs on the main-thread Poll while a joy capture is armed. Writes the first joystick button that
+        // goes down into the armed bind's entry, records which joystick it came from (JoystickNumber), and
+        // disarms.
+        private static void CaptureJoyButton()
+        {
+            if (!ScanFreshButton(out int btn, out int num, out string name)) return;
+            if (Taken(_capturing!, o => o.JoyEntry != null &&
+                    KeybindConflict.JoyMatches(btn, num, o.JoyEntry.Value, o.JoyNumEntry!.Value)))
+            {
+                Disarm();
+                return;
+            }
+            if (_captureAsk && HoldConflict(_capturing!, "joy",
+                    o => o.JoyEntry != null && KeybindConflict.JoyMatches(btn, num, o.JoyEntry.Value, o.JoyNumEntry!.Value),
+                    new PendingConflict { Button = btn, Joy = num }))
+            {
+                Disarm();
+                return;
+            }
+            BackupNow();
+            _capturing!.JoyEntry!.Value = btn;
+            _capturing.JoyNumEntry!.Value = num;   // pin to the device it came from
+            Plugin.Log?.LogInfo($"[NOXMFD] captured joy[{num - 1}] '{name}' button {btn} for keybind '{_capturing.Id}'.");
+            Disarm();   // also restores the background-input overrides
+        }
+
+        // Runs on the main-thread Poll while the search probe is armed: publishes the first fresh button
+        // as LastPress instead of binding it, so the page can show what that button is bound to.
+        private static void ProbeJoyButton()
+        {
+            if (!ScanFreshButton(out int btn, out int num, out string name)) return;
+            _pressJoy = num; _pressButton = btn;
+            _pressSeq++;   // last, so a reader seeing the new seq sees the new button
+            Plugin.Log?.LogInfo($"[NOXMFD] search probe saw joy[{num - 1}] '{name}' button {btn}.");
+            Disarm();
         }
 
         // Runs on the main-thread Poll while an axis capture is armed. Settle window matches button

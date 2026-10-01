@@ -57,6 +57,7 @@
     <div class="kb-find">
       <label class="kb-sr" for="kb-find">Find a function</label>
       <input id="kb-find" type="search" placeholder="FIND FUNCTION OR KEY" autocomplete="off" spellcheck="false">
+      <button class="kb-find-press" id="kb-find-press" title="Press a key or joystick button to list what it is bound to">FIND BY KEY PRESS</button>
     </div>
     <main class="kb-main" id="kb-main">
       <!-- Plain on/off settings, not binds — no key/joy/axis source of their own, so they're
@@ -65,6 +66,20 @@
       <div id="kb-rows"><!-- built by keybinds.js from /keybinds-config --></div>
       <div class="kb-none" id="kb-none">NO MATCHING FUNCTION</div>
     </main>
+    </div>
+  </div>
+
+  <!-- Asked when an assignment would give a key or button another bind already uses; built by
+       keybinds.js from /keybinds-config's "conflict". -->
+  <div class="kb-modal-scrim" id="kb-conflict" hidden>
+    <div class="kb-modal" role="alertdialog" aria-modal="true" aria-labelledby="kb-conflict-title" aria-describedby="kb-conflict-body">
+      <div class="kb-modal-title" id="kb-conflict-title"></div>
+      <div class="kb-modal-body" id="kb-conflict-body"></div>
+      <div class="kb-modal-actions">
+        <button data-act="keep">KEEP BOTH</button>
+        <button data-act="replace">REPLACE</button>
+        <button data-act="cancel" id="kb-conflict-cancel">CANCEL</button>
+      </div>
     </div>
   </div>
 

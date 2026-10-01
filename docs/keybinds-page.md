@@ -21,7 +21,10 @@ column. The rail has a link per group and section, with bound counts; a toggle a
 it to a strip of group numbers (a 200ms linear width ease). The toggle's choice is saved in
 `localStorage` (`noxmfd.keybinds.railCollapsed`) and restored on every load; with nothing saved the
 rail starts collapsed when the pane is 1152px wide or less and follows the width. A search box fixed above the column filters the binds (it matches function
-name, description and the bound key/button). The column opens with **00 SETTINGS** — one
+name, description and the bound key/button). The button beside it listens for a key or joystick
+button and filters to exactly the binds using it: the key is read in the browser, the joystick
+button by the plugin's search probe (`keybind.arm-joy` with the reserved id `__search__`), which
+publishes it as `lastPress` in `/keybinds-config` instead of writing it into a bind. The column opens with **00 SETTINGS** — one
 tile per plain on/off setting — then the binds in six numbered groups in flight order: 01 Systems,
 02 Combat, 03 Sensors, 04 Display Control, 05 Navigation, 06 MFD Setup. Each group has one
 table (one row per function); a section header inside it can carry a note for behaviour shared by
@@ -164,6 +167,13 @@ same machine can send the same keypress twice.
   also runs a temporary 600 ms fallback so a standalone page can observe the result.
   Section display titles and notes come from `Keybinds.SectionTitle`/`SectionNote` — the
   `.cfg` section names underneath are persistence identity and never change.
+- **Clashes.** The page sends `keybind.set-key` and `keybind.arm-joy` with `on: true`, which asks
+  the plugin to check whether another bind already uses the value. A clash that doesn't involve a
+  Layout Preset (those are refused outright) is held in `Keybinds.PendingConflict` instead of being
+  applied, and `/keybinds-config` reports it as `conflict` (`bind`, `label`, `kind`, `key` or
+  `joy`/`button`, `with`: the labels already using it). The page shows a keep both / replace /
+  cancel prompt and answers with `keybind.resolve { group }`; a clash nobody answers is dropped after two minutes. Callers that don't send `on` (the LYT
+  page's key boxes) keep the old behavior of silently sharing the key.
 - `POST /command`: `keybind.set-key { bind, key }` (`""`/`"None"` clears),
   `keybind.arm-joy { bind }`, `keybind.cancel-joy`, `keybind.clear-joy { bind }`. Commands
   drain on the main thread from `MissionLifecycle.Update` (persistent), so the page works

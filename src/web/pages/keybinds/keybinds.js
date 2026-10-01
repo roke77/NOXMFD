@@ -35,6 +35,13 @@ var powerOnOnStart      = true;
 // HudCombatModeFilters' own on/off switch — default OFF, unlike the four above.
 var hudFiltersOnCombatMode = false;
 var query     = '';      // lower-cased search text; '' shows everything
+// "Find by key press": the search text came from a pressed key or button, so it filters to the binds
+// using exactly that (a typed "g" would match every name containing a g). Dropped as soon as the
+// text is edited.
+var SEARCH_ID = '__search__';   // the capture id the plugin's search probe uses (Keybinds.SearchProbeId)
+var exactBinding = null;        // {text, test(bind)} or null
+var pressSeq = null;            // last seen cfg.lastPress.seq
+var conflict = null;            // cfg.conflict: an assignment waiting on keep / replace / cancel
 var lastJson  = '';      // skip re-render when nothing changed
 var rejectSeq = null;    // last seen cfg.rejected.seq (KeybindConflict.cs refusals)
 var lastSetKind = {};    // bind id → 'key' | 'joy': which cell the last assignment came from
@@ -360,6 +367,12 @@ function renderRail(groups) {
   });
 }
 
+// Whether a bind belongs in the filtered list.
+function matchesQuery(b) {
+  if (exactBinding && findEl.value === exactBinding.text) return exactBinding.test(b);
+  return KeybindsGroups.searchText(b, displayName).indexOf(query) >= 0;
+}
+
 function render() {
   var groups = KeybindsGroups.build(binds, notes);
   var all = 0, bound = 0;
@@ -372,7 +385,7 @@ function render() {
   var shown = 0;
   groups.forEach(function (g) {
     var secs = g.secs.map(function (s) {
-      return { s: s, rows: query ? s.rows.filter(function (b) { return KeybindsGroups.searchText(b, displayName).indexOf(query) >= 0; }) : s.rows };
+      return { s: s, rows: query ? s.rows.filter(matchesQuery) : s.rows };
     }).filter(function (x) { return x.rows.length; });
     if (!secs.length) return;
 
@@ -398,6 +411,7 @@ function render() {
     rowsEl.appendChild(box);
   });
   document.getElementById('kb-none').classList.toggle('shown', !!query && !shown);
+  renderFindPress();
 }
 
 // The rail's collapsed state is the pane's choice once made: the toggle saves it (per browser,
@@ -446,6 +460,96 @@ findEl.addEventListener('input', function () {
   render();
 });
 
+// ── Find by key press ────────────────────────────────────────────────────────────────────────
+// The button listens like a bind cell: a keyboard key is read here, a joystick button by the
+// plugin's search probe (keybind.arm-joy with SEARCH_ID). Whichever comes first fills the search.
+var findPressEl = document.getElementById('kb-find-press');
+
+function renderFindPress() {
+  var armed = kbCapture === SEARCH_ID;
+  findPressEl.textContent = armed ? (kbPending || 'PRESS KEY / BUTTON…') : 'FIND BY KEY PRESS';
+  findPressEl.classList.toggle('capturing', armed);
+}
+
+function setPressSearch(text, test) {
+  findEl.value = text;
+  query = text.toLowerCase();
+  exactBinding = { text: text, test: test };
+  render();
+}
+
+// Ends the listening state on both sides, whichever of them is still armed.
+function stopPressSearch() {
+  if (kbCapture === SEARCH_ID) kbCapture = null;
+  kbPending = null;
+  if (capturing === SEARCH_ID) {
+    capturing = null;
+    capturingKind = null;
+    sendConfigCommand('keybind.cancel-joy', {}).catch(function () {});
+  }
+  updateCaptureFallback();
+}
+
+findPressEl.onclick = function () {
+  if (kbCapture === SEARCH_ID) { stopPressSearch(); render(); return; }
+  if (capturing) sendConfigCommand('keybind.cancel-joy', {}).catch(function () {});
+  kbCapture = SEARCH_ID;
+  kbPending = null;
+  capturing = SEARCH_ID;
+  capturingKind = 'joy';
+  sendConfigCommand('keybind.arm-joy', { bind: SEARCH_ID }).catch(function () {});
+  render();
+  updateCaptureFallback();
+};
+
+// ── Clash prompt ─────────────────────────────────────────────────────────────────────────────
+// The plugin holds an assignment that would give a key or button another bind already uses; this asks
+// what to do with it. KEEP BOTH leaves it on every bind, REPLACE moves it to this one, CANCEL drops it.
+var conflictEl = document.getElementById('kb-conflict');
+
+function conflictValue(c) {
+  return c.kind === 'key' ? displayName(c.key) : joyText({ joyNum: c.joy, joyButton: c.button });
+}
+
+function showConflict(c) {
+  var same = JSON.stringify(c) === JSON.stringify(conflict);
+  conflict = c || null;
+  conflictEl.hidden = !conflict;
+  if (!conflict || same) return;
+  var noun = conflict.kind === 'key' ? 'KEY' : 'BUTTON';
+  document.getElementById('kb-conflict-title').textContent = noun + ' ALREADY IN USE';
+  var body = document.getElementById('kb-conflict-body');
+  body.textContent = '';
+  var intro = document.createElement('div');
+  var v = document.createElement('strong');
+  v.textContent = conflictValue(conflict);
+  intro.appendChild(v);
+  intro.appendChild(document.createTextNode(' is already bound to:'));
+  body.appendChild(intro);
+  var list = document.createElement('ul');
+  conflict.with.forEach(function (l) { var li = document.createElement('li'); li.textContent = l.toUpperCase(); list.appendChild(li); });
+  body.appendChild(list);
+  var tip = document.createElement('div');
+  tip.textContent = 'Keep both and one press does all of them. Replace moves it to ' + conflict.label.toUpperCase() + '.';
+  body.appendChild(tip);
+  document.getElementById('kb-conflict-cancel').focus();
+}
+
+function resolveConflict(action) {
+  if (!conflict) return;
+  sendConfigCommand('keybind.resolve', { group: action }).catch(function () {});
+  conflict = null;
+  conflictEl.hidden = true;
+}
+
+conflictEl.addEventListener('click', function (e) {
+  var act = e.target.getAttribute && e.target.getAttribute('data-act');
+  if (act) resolveConflict(act);
+});
+document.addEventListener('keydown', function (e) {
+  if (conflict && e.key === 'Escape') { e.preventDefault(); resolveConflict('cancel'); }
+});
+
 // ── Keyboard capture (browser-side) ──────────────────────────────────────────────────────────
 function keyCellClick(id) {
   if (capturing) sendConfigCommand('keybind.cancel-joy', {}).catch(function () {});
@@ -464,15 +568,25 @@ function onCaptureKey(e) {
   if (!cancel && !step) return;
   if (step && 'pending' in step) { kbPending = step.pending; render(); return; }
   var id = kbCapture;
+  if (id === SEARCH_ID) {
+    stopPressSearch();
+    if (cancel || !step.key) render();   // Esc, or a key the page can't name
+    else {
+      var pressed = step.key;
+      setPressSearch(displayName(pressed), KeybindsGroups.usesKey(pressed));
+    }
+    return;
+  }
   kbCapture = null;
   kbPending = null;
   if (cancel) { render(); return; }
   var key = step.key;
   if (!key) { flashRejected(id); return; }   // unmappable (media keys, ...)
-  sendConfigCommand('keybind.set-key', { bind: id, key: key }).catch(function () {});
+  sendConfigCommand('keybind.set-key', { bind: id, key: key, on: true }).catch(function () {});
   lastSetKind[id] = 'key';
-  // Optimistic: the follow-up snapshot reconciles server truth.
-  binds.forEach(function (b) { if (b.id === id) b.key = key; });
+  // Optimistic: the follow-up snapshot reconciles server truth. A key another bind already uses is
+  // left unassigned until the plugin has accepted or asked about it.
+  if (!KeybindsGroups.keyClash(binds, id, key)) binds.forEach(function (b) { if (b.id === id) b.key = key; });
   render();
 }
 document.addEventListener('keydown', onCaptureKey);
@@ -497,7 +611,7 @@ function flashRejected(id, text, kind) {
 function joyCellClick(id) {
   kbCapture = null;
   var already = capturing === id && capturingKind === 'joy';
-  sendConfigCommand(already ? 'keybind.cancel-joy' : 'keybind.arm-joy', { bind: id }).catch(function () {});
+  sendConfigCommand(already ? 'keybind.cancel-joy' : 'keybind.arm-joy', { bind: id, on: true }).catch(function () {});
   lastSetKind[id] = 'joy';
   capturing = already ? null : id;             // optimistic; the poll is the truth
   capturingKind = already ? null : 'joy';
@@ -519,6 +633,17 @@ function axisCellClick(id) {
 // ── Server state ─────────────────────────────────────────────────────────────────────────────
 function applyConfig(cfg) {
     panelEl.classList.remove('unavailable');
+    // A joystick press for "find by key press" arrives while the search is listening (kbCapture set),
+    // so it is read before the early return below.
+    var lp = cfg.lastPress;
+    showConflict(cfg.conflict);
+    if (lp) {
+      if (pressSeq !== null && lp.seq !== pressSeq && kbCapture === SEARCH_ID) {
+        stopPressSearch();
+        setPressSearch(joyText({ joyNum: lp.joy, joyButton: lp.button }), KeybindsGroups.usesJoy(lp.joy, lp.button));
+      }
+      pressSeq = lp.seq;
+    }
     // never clobber an in-progress keyboard capture cell with a re-render; deliberately do NOT
     // record lastJson here, so the first poll after capture ends re-renders whatever changed
     if (kbCapture) return;

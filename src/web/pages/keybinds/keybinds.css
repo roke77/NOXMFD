@@ -103,9 +103,10 @@ html, body { overflow: hidden; }
 
 /* ── column ─────────────────────────────────────────────────────────────────────────────────── */
 .kb-content { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-.kb-find { flex: none; padding: 12px 18px 12px 32px; border-bottom: 1px solid var(--no-panel-border); }
+.kb-find { flex: none; display: flex; gap: 8px; padding: 12px 18px 12px 32px; border-bottom: 1px solid var(--no-panel-border); }
 .kb-find input {
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   height: 34px;
   padding: 0 12px;
   background: var(--no-ink);
@@ -117,6 +118,23 @@ html, body { overflow: hidden; }
 }
 /* The browser's own clear button is blue; Escape clears a search field. */
 .kb-find input::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; }
+/* Listens for a key or joystick button and filters the list to what is bound to it; styled like a
+   bind cell so it reads as the same kind of control. */
+.kb-find-press {
+  flex: none;
+  min-width: 200px;
+  height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--no-green-deep);
+  background: none;
+  color: var(--no-green);
+  font-family: var(--no-font);
+  font-size: 12px;
+  letter-spacing: 1px;
+  cursor: pointer;
+}
+.kb-find-press:hover { border-color: var(--no-green-dim); }
+.kb-find-press.capturing { color: var(--no-amber); border-color: var(--no-amber); animation: kb-blink 1s step-end infinite; }
 .kb-find input::placeholder { color: var(--kb-dim); }
 .kb-find input:focus { outline: 1px solid var(--no-amber); outline-offset: -1px; }
 .kb-main {
@@ -271,6 +289,42 @@ button:focus-visible, a:focus-visible { outline: 1px solid var(--no-amber); outl
 
 .kb-none { display: none; padding: 40px 0; text-align: center; font-size: 12px; letter-spacing: 3px; color: var(--kb-dim); }
 .kb-none.shown { display: block; }
+
+/* The keep / replace / cancel prompt for a key or button another bind already uses. */
+.kb-modal-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: rgba(0, 0, 0, 0.72);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.kb-modal-scrim[hidden] { display: none; }
+.kb-modal {
+  width: min(460px, 92%);
+  padding: 20px 22px;
+  background: var(--no-bg);
+  border: 1px solid var(--no-amber);
+}
+.kb-modal-title { font-size: 16px; letter-spacing: 3px; color: var(--no-amber); }
+.kb-modal-body { margin: 14px 0 18px; font-size: 13px; line-height: 1.5; color: var(--no-white-dim); }
+.kb-modal-body strong { color: var(--no-green); font-weight: normal; }
+.kb-modal-body ul { margin: 8px 0; padding-left: 18px; color: var(--no-green); }
+.kb-modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
+.kb-modal-actions button {
+  height: 34px;
+  padding: 0 16px;
+  border: 1px solid var(--no-green-deep);
+  background: none;
+  color: var(--no-green);
+  font-family: var(--no-font);
+  font-size: 12px;
+  letter-spacing: 2px;
+  cursor: pointer;
+}
+.kb-modal-actions button:hover { border-color: var(--no-green-dim); }
+.kb-modal-actions button[data-act="replace"] { border-color: var(--no-amber); color: var(--no-amber); }
 
 #kb-empty { display: none; }
 .kb-panel.unavailable .kb-body { display: none; }

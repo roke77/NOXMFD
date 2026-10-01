@@ -98,6 +98,10 @@ namespace NOXMFD
               .Append(",\"rejected\":{\"seq\":").Append(Keybinds.LastRejected.Seq.ToString(CultureInfo.InvariantCulture))
               .Append(",\"bind\":\"").Append(TelemetryServer.EscapeJson(Keybinds.LastRejected.Bind))
               .Append("\",\"by\":\"").Append(TelemetryServer.EscapeJson(Keybinds.LastRejected.By)).Append("\"}")
+              .Append(",\"conflict\":").Append(ConflictJson(Keybinds.Conflict))
+              .Append(",\"lastPress\":{\"seq\":").Append(Keybinds.LastPress.Seq.ToString(CultureInfo.InvariantCulture))
+              .Append(",\"joy\":").Append(Keybinds.LastPress.Joy.ToString(CultureInfo.InvariantCulture))
+              .Append(",\"button\":").Append(Keybinds.LastPress.Button.ToString(CultureInfo.InvariantCulture)).Append('}')
               .Append(",\"bgInput\":").Append(Keybinds.BackgroundInput ? "true" : "false")
               .Append(",\"radarOnOnStart\":").Append(ImmersionConfig.RadarOnOnStart ? "true" : "false")
               .Append(",\"engineOnOnStart\":").Append(ImmersionConfig.EngineOnOnStart ? "true" : "false")
@@ -107,6 +111,26 @@ namespace NOXMFD
               .Append(",\"remoteKeybindsSamePc\":").Append(IsSameMachineRequest(ctx) ? "true" : "false")
               .Append('}');
             return sb.ToString();
+        }
+
+        // The clash the page has to answer (Keybinds.Conflict), or null.
+        private static string ConflictJson(Keybinds.PendingConflict? c)
+        {
+            if (c == null) return "null";
+            var sb = new StringBuilder(160);
+            sb.Append("{\"bind\":\"").Append(TelemetryServer.EscapeJson(c.BindId))
+              .Append("\",\"label\":\"").Append(TelemetryServer.EscapeJson(c.BindLabel))
+              .Append("\",\"kind\":\"").Append(c.Kind)
+              .Append("\",\"key\":\"").Append(TelemetryServer.EscapeJson(c.KeyName))
+              .Append("\",\"joy\":").Append(c.Joy.ToString(CultureInfo.InvariantCulture))
+              .Append(",\"button\":").Append(c.Button.ToString(CultureInfo.InvariantCulture))
+              .Append(",\"with\":[");
+            for (int i = 0; i < c.With.Count; i++)
+            {
+                if (i > 0) sb.Append(',');
+                sb.Append('"').Append(TelemetryServer.EscapeJson(c.With[i].Label)).Append('"');
+            }
+            return sb.Append("]}").ToString();
         }
 
         private static HashSet<string>? _localAddressCache;

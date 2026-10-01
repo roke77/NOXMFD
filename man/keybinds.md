@@ -30,7 +30,13 @@ the detail lives — what each bind does exactly, and when it does nothing.
   description, and whichever key or button is bound to it, so `gear` finds the gear binds and
   `j2` finds everything on your second stick. The settings tiles are hidden while you search.
 
-  ![Search for j2](images/KEY_SEARCH.png)
+  To find what a key or button does, click **FIND BY KEY PRESS** beside the box and press it. A
+  keyboard key — with any modifiers you hold — or a joystick/HOTAS button fills the box and
+  lists only the functions bound to exactly that, so `G` finds Gear Down and not everything with
+  a G in its name. Esc cancels, and editing the box goes back to the ordinary text search. The
+  list is empty when nothing is bound to what you pressed.
+
+  ![Searching by pressing Shift+G](images/KEY_SEARCH.png)
 - **Narrow displays** — at 860 px or less the descriptions are hidden and the columns tighten, so
   a phone or a small pane still shows every function and its binds.
 
@@ -62,9 +68,16 @@ cell shows `—`. Click a cell to bind it; a function can have a key, a button, 
   when on.
 - **Keyboard only** — SAVE and LOAD LAYOUT show `KEYBOARD ONLY` in the joystick column: see
   [Layout](#layout).
-- **Conflicts** — a [Layout Preset](#layout-presets) won't take a key or button another bind
-  already uses, and no other bind will take one a Layout Preset uses: the cell shows `USED BY` and
-  that bind's name for a moment. Anywhere else, two functions can share a key.
+- **Conflicts** — binding a key or button another function already uses opens a prompt naming
+  what it's bound to:
+
+  ![Key already in use](images/KEY_CONFLICT.png)
+
+  **Keep Both** gives it to the new function too, so one press does both. **Replace** moves it
+  to the new function and clears it from the others. **Cancel** (or Esc) leaves everything as it
+  was. The exception is a [Layout Preset](#layout-presets): it can't share a key or button with
+  any other function, so the cell shows `USED BY` and that function's name for a moment instead.
+  Axes aren't checked.
 
 ## Settings
 
