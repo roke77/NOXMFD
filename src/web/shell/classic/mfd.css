@@ -318,8 +318,9 @@
      --no-soi (off-white by default), not the theme's green: the green is what instruments report
      in, and this is chrome saying where the controls are pointed. */
   /* SOI focus ring. JS positions it over the focused surface (mfd.js positionSoiRing) and toggles
-     display — the whole recess in full view, one pane in a split. box-sizing:border-box so the 2px
-     border draws inside the measured box and hugs the pane edge exactly. Hidden until positioned. */
+     display — the whole recess in full view, one pane in a split. The line (::after below) draws
+     inside that measured box, hugging the pane edge unless SOI SPACING pulls it in. Hidden until
+     positioned. */
   #soi-ring {
     position: absolute;
     display: none;
