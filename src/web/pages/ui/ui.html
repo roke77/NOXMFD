@@ -45,6 +45,29 @@
       <button type="button" class="ui-btn pad-hoverable" id="ui-reset-all">RESET ALL</button>
     </div>
 
+    <!-- A static mock of the TGT page drawn with the same colour tokens, so it repaints with every
+         edit. Display only: nothing inside is focusable or clickable. -->
+    <div class="ui-heading">PREVIEW: TGT</div>
+    <div class="pv" role="img" aria-label="Preview of the TGT page in the current colours">
+      <div class="pv-head"><span class="pv-title">TARGETS</span><span class="pv-count">4 LOCKED</span></div>
+      <div class="pv-filters">
+        <div class="lit on pv-lit" style="--accent: var(--no-friendly-blue)">FRIENDLY</div>
+        <div class="lit on pv-lit" style="--accent: var(--no-red)">ENEMY</div>
+        <div class="lit pv-lit">GROUND</div>
+        <div class="lit on pv-lit" style="--accent: var(--no-purple)">DATALINK</div>
+      </div>
+      <div class="pv-list">
+        <div class="pv-row pv-cols"><span>NAME</span><span>SRC</span><span>DIST</span><span>WPN</span><span>TD</span></div>
+        <div class="pv-row f-enemy focused"><span class="pv-name">SA-6 GAINFUL</span><span class="pv-src">RDR</span><span class="pv-dist">12.4</span><span class="pv-wpn">AGM-88</span><span class="pv-td">2-1</span></div>
+        <div class="pv-row f-enemy datalink"><span class="pv-name">T-80U</span><span class="pv-src">DL</span><span class="pv-dist">18.0</span><span class="pv-wpn">0:42</span><span class="pv-td"></span></div>
+        <div class="pv-row f-friendly inactive"><span class="pv-name">F-16C VIPER</span><span class="pv-src">VIS</span><span class="pv-dist">6.1</span><span class="pv-wpn"></span><span class="pv-td">2-2</span></div>
+        <div class="pv-row f-neutral stale"><span class="pv-name">CARGO TRUCK</span><span class="pv-src">STALE</span><span class="pv-dist">24.7</span><span class="pv-wpn"></span><span class="pv-td"></span></div>
+      </div>
+      <div class="pv-actions">
+        <span class="pv-action reset">RESET</span><span class="pv-action clear">CLEAR</span><span class="pv-action datalink">DATALINK</span>
+      </div>
+    </div>
+
     <!-- One group per UiTokens.GROUPS entry, built by ui.js. -->
     <div class="ui-groups" id="ui-groups"></div>
   </section>

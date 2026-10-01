@@ -23,8 +23,14 @@ The CLASSIC bezel and the F-35 frame keep their own colours.
 
 Up to 20 themes can be saved.
 
+### PREVIEW
+
+A small mock of the [TGT](tgt.md) page above the colour rows, drawn with the colours being edited:
+faction filters, a target list with focused, datalink and stale rows, and the action buttons. It
+follows a picker or hex value as it changes, before the change is applied.
+
 ### Colour rows
 
-Each row is one colour: tap the swatch to pick a new one, and **↺** puts that colour back to its
-default. Rows are grouped as CORE PALETTE, ACCENTS, THREATS, and MAP & SCOPE. Changing a base
+Each row is one colour: tap the swatch to pick a new one, or type a hex value (`#rrggbb`, the `#`
+optional) and press Enter. **↺** puts that colour back to its default. Rows are grouped as CORE PALETTE, ACCENTS, THREATS, and MAP & SCOPE. Changing a base
 colour such as PRIMARY GREEN also recolours its dimmer and darker shades.
