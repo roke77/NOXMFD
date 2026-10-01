@@ -15,9 +15,13 @@ html, body { height: 100%; margin: 0; }
   max-width: calc(1100px + 2 * var(--edge-pad));
   margin: 0 auto;
   font-size: clamp(11px, 1.6vw, 18px);
+  /* The slim grey scrollbar every other NOXMFD list draws (tgt.css, page-chrome.css). */
   scrollbar-width: thin;
-  scrollbar-color: var(--no-green-dark) transparent;
+  scrollbar-color: var(--no-gray) transparent;
 }
+.ui-panel::-webkit-scrollbar { width: 6px; height: 6px; }
+.ui-panel::-webkit-scrollbar-track { background: transparent; }
+.ui-panel::-webkit-scrollbar-thumb { background: var(--no-gray); border-radius: 3px; }
 .ui-section { display: flex; flex-direction: column; gap: 0.7em; }
 .ui-title {
   margin: 0;
