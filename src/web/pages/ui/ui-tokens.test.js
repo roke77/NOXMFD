@@ -19,11 +19,21 @@ assert.deepStrictEqual(pageTokens, pluginTokens, 'ui-tokens.js and ThemeColors.T
 const keysBlock = /FileKeys\s*=\s*\{([\s\S]*?)\};/.exec(cs);
 assert.ok(keysBlock, 'ThemeColors.FileKeys not found — the regex probably broke');
 const fileKeys = [...keysBlock[1].matchAll(/"([a-z0-9-]+)"/g)].map(m => m[1]);
-const slugs = GROUPS.flatMap(g => g.tokens.map(t => t[1].toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')));
-assert.deepStrictEqual(fileKeys, slugs, 'ThemeColors.FileKeys must be the row labels as slugs, in the same order');
+const slugs = GROUPS.flatMap(g => g.tokens.map(t => t[2] || t[1].toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')));
+assert.deepStrictEqual(fileKeys, slugs, 'ThemeColors.FileKeys must be the row labels as slugs (or the row\'s own key), in the same order');
 
 const colors = fs.readFileSync(path.join(root, 'src', 'web', 'shared', 'colors.css'), 'utf8');
-for (const t of pageTokens) assert.ok(new RegExp('^\\s*' + t + '\\s*:', 'm').test(colors), `${t} is not defined in colors.css`);
+const optionRows = GROUPS.flatMap(g => g.tokens).filter(t => t[3]);
+for (const t of pageTokens) {
+  if (optionRows.some(r => r[0] === t)) continue;   // option tokens aren't colours: the shells' var() fallback is the default
+  assert.ok(new RegExp('^\\s*' + t + '\\s*:', 'm').test(colors), `${t} is not defined in colors.css`);
+}
+// Each option row lists exactly ThemeColors.Options' options for its token.
+for (const [token, , , options] of optionRows) {
+  const m = new RegExp('\\["' + token + '"\\]\\s*=\\s*new\\[\\]\\s*\\{([^}]*)\\}').exec(cs);
+  assert.ok(m, `ThemeColors.Options has no entry for ${token}`);
+  assert.deepStrictEqual(options, [...m[1].matchAll(/"([^"]+)"/g)].map(x => x[1]), `${token}: options must match ThemeColors.Options`);
+}
 
 // ui.js mirrors three plugin constants for its own checks; they must agree with the C# ones.
 const ui = fs.readFileSync(path.join(__dirname, 'ui.js'), 'utf8');

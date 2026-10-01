@@ -6,7 +6,7 @@
 <title>NO XMFD — UI</title>
 <!--
   UI page served at /ui (CFG > UI, issue #105). Its first settings section is THEMES: saved colour
-  themes over the 26 tokens in ui-tokens.js. Fetch-driven like HUD: it bootstraps with one
+  themes over the 26 colours plus the SOI line style and width in ui-tokens.js. Fetch-driven like HUD: it bootstraps with one
   GET /themes, follows the shell's relayed themes-push, and POSTs theme.* commands
   (send-command.js → CommandDispatcher → ThemeStore):
 
@@ -19,6 +19,7 @@
     page open               → theme.rescan (re-reads the themes folder's *.json files; those themes
                               are listed with a FILE tag and are read-only like DEFAULT)
     a colour picker         → theme.set-color {group: token, text: #rrggbb}
+    an SOI style/width      → theme.set-color {group: token, text: the option word, e.g. "dashed"}
     a row's reset           → theme.reset-color {group: token}
 
   DEFAULT is read-only: changing a colour while it is active asks for a name, creates a theme from

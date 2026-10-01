@@ -6,7 +6,8 @@ using System.Text.RegularExpressions;
 namespace NOXMFD
 {
     // The colour rules behind CFG > UI's themes (issue 105): which colors.css tokens a player may
-    // override, what a valid value is, the CSS an active theme serves, and the shareable export code.
+    // override (plus the SOI ring's line style and width, picked from fixed options), what a valid
+    // value is, the CSS an active theme serves, and the shareable export code.
     // A theme's values end up inside served CSS, so everything that reaches it — a /command, the
     // themes file, a pasted code — goes through Normalize first. BCL-only so tools/tests links it.
     internal static class ThemeColors
@@ -18,7 +19,7 @@ namespace NOXMFD
         {
             // Core palette
             "--no-green-rgb", "--no-white-rgb", "--no-red-rgb", "--no-amber-rgb", "--no-gray-rgb",
-            "--no-bg", "--no-panel-border", "--no-ink", "--no-label-rgb", "--no-soi",
+            "--no-bg", "--no-panel-border", "--no-ink", "--no-label-rgb",
             // Accents
             "--no-squad-rgb", "--no-purple-rgb", "--no-blue-rgb", "--no-friendly-blue", "--no-hud-friendly",
             // Threats
@@ -26,17 +27,29 @@ namespace NOXMFD
             // Map & scope symbology
             "--no-route-cyan", "--no-reached-gray", "--no-target-orange", "--no-neutral-gray",
             "--no-nuclear-orange-rgb", "--no-hsd-pink-rgb", "--no-hsd-yellow-rgb",
+            // SOI focus ring and cursor
+            "--no-soi", "--no-soi-style", "--no-soi-width",
+        };
+
+        // Tokens picked from fixed options rather than set to a colour, each option written as
+        // "word" or "word=served CSS value" (a theme stores the word). Not in colors.css: the shells read
+        // them with the first option's value as the var() fallback. The UI page's table lists the same
+        // options (ui-tokens.test.js checks).
+        internal static readonly Dictionary<string, string[]> Options = new Dictionary<string, string[]>(StringComparer.Ordinal)
+        {
+            ["--no-soi-style"] = new[] { "solid", "dashed", "dotted", "double" },
+            ["--no-soi-width"] = new[] { "sm=2px", "md=3px", "lg=4px" },
         };
 
         // What a theme file in the themes folder calls each token, index for index with Tokens: the UI
-        // page's row label as a slug ("FRIENDLY (TGT / TD)" → "friendly-tgt-td"), so a hand-edited file
-        // names a colour's role, not the colour the token happens to be named after. ui-tokens.test.js
-        // checks these against the labels.
+        // page's row label as a slug ("FRIENDLY (TGT / TD)" → "friendly-tgt-td"), or the key its table
+        // names for the SOI rows, so a hand-edited file names a colour's role, not the colour the token
+        // happens to be named after. ui-tokens.test.js checks these against the page's table.
         internal static readonly string[] FileKeys =
         {
             // Core palette
             "primary", "instrument", "alert", "caution", "inactive",
-            "background", "panel-border", "text-on-highlight", "nav-label", "soi",
+            "background", "panel-border", "text-on-highlight", "nav-label",
             // Accents
             "squad", "mod-controls", "mod-accent", "friendly-tgt-td", "friendly-hud",
             // Threats
@@ -44,6 +57,8 @@ namespace NOXMFD
             // Map & scope symbology
             "route", "flown-route", "target", "neutral",
             "nuclear-zone", "hsd-symbology", "hsd-aa-rings",
+            // SOI
+            "soi", "soi-style", "soi-width",
         };
 
         private static readonly HashSet<string> TokenSet = new HashSet<string>(Tokens, StringComparer.Ordinal);
@@ -64,12 +79,32 @@ namespace NOXMFD
 
         internal static bool IsToken(string? token) => token != null && TokenSet.Contains(token);
 
-        // A value as stored and served: lowercase #rrggbb, or null when the token isn't editable or
-        // the value isn't exactly a 6-digit hex colour.
-        internal static string? Normalize(string? token, string? hex)
+        // A value as stored: lowercase #rrggbb, or for an option token one of its words in lower case;
+        // null when the token isn't editable or the value isn't one of those.
+        internal static string? Normalize(string? token, string? value)
         {
-            if (!IsToken(token) || hex == null || !HexPattern.IsMatch(hex)) return null;
-            return hex.ToLowerInvariant();
+            if (!IsToken(token) || value == null) return null;
+            if (Options.TryGetValue(token!, out string[]? options))
+            {
+                foreach (string option in options)
+                {
+                    string word = option.Split('=')[0];
+                    if (string.Equals(word, value, StringComparison.OrdinalIgnoreCase)) return word;
+                }
+                return null;
+            }
+            return HexPattern.IsMatch(value) ? value.ToLowerInvariant() : null;
+        }
+
+        // The CSS an option token's stored word serves ("md" → "3px"; a plain word serves itself).
+        private static string OptionCss(string token, string word)
+        {
+            foreach (string option in Options[token])
+            {
+                string[] parts = option.Split('=');
+                if (parts[0] == word) return parts.Length > 1 ? parts[1] : word;
+            }
+            return word;
         }
 
         // A display name, or null when nothing is left after trimming.
@@ -90,15 +125,18 @@ namespace NOXMFD
         }
 
         // The override stylesheet for a theme: one :root block, tokens in panel order, "-rgb" tokens
-        // written as the "r, g, b" triple colors.css uses. An empty theme is an empty stylesheet.
+        // written as the "r, g, b" triple colors.css uses, option tokens as their CSS value. An empty
+        // theme is an empty stylesheet.
         internal static string BuildCss(IReadOnlyDictionary<string, string> colors)
         {
             var sb = new StringBuilder();
             foreach (string token in Tokens)
             {
-                if (!colors.TryGetValue(token, out string? value) || Normalize(token, value) is not string hex) continue;
+                if (!colors.TryGetValue(token, out string? value) || Normalize(token, value) is not string clean) continue;
                 if (sb.Length == 0) sb.Append(":root{");
-                sb.Append(token).Append(':').Append(token.EndsWith("-rgb", StringComparison.Ordinal) ? Triple(hex) : hex).Append(';');
+                string css = Options.ContainsKey(token) ? OptionCss(token, clean)
+                    : token.EndsWith("-rgb", StringComparison.Ordinal) ? Triple(clean) : clean;
+                sb.Append(token).Append(':').Append(css).Append(';');
             }
             if (sb.Length > 0) sb.Append('}');
             return sb.ToString();

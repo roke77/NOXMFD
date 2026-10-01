@@ -102,7 +102,8 @@ function cssValue(token, hex) {
 }
 
 // ── colour rows ──────────────────────────────────────────────────────────────────────────────
-var rows = {};   // token → { row, input, hex, reset }
+var rows = {};      // token → { row, input, hex, reset }
+var optRows = {};   // option token → { row, buttons, options, reset }
 
 // Two columns: CORE PALETTE + ACCENTS, then THREATS + MAP & SCOPE (13 and 11 rows).
 var columns = [document.createElement('div'), document.createElement('div')];
@@ -116,6 +117,7 @@ UiTokens.GROUPS.forEach(function (group, gi) {
   list.className = 'ui-rows';
   group.tokens.forEach(function (pair) {
     var token = pair[0], label = pair[1];
+    if (pair[3]) { list.appendChild(optionRow(token, label, pair[3])); return; }
     var row = document.createElement('div');
     row.className = 'ui-row';
     var input = document.createElement('input');
@@ -171,6 +173,41 @@ UiTokens.GROUPS.forEach(function (group, gi) {
   });
   columns[gi < 2 ? 0 : 1].append(heading, list);
 });
+
+// A row picked from fixed options (the SOI line's style and width): one button per option, each
+// "word" or "word=CSS value" (ui-tokens.js); a press stores the word, like a colour pick.
+function optionRow(token, label, options) {
+  var row = document.createElement('div');
+  row.className = 'ui-row ui-opt-row';
+  var name = document.createElement('span');
+  name.className = 'ui-label';
+  name.id = 'ui-opt-' + token.slice(2);
+  name.textContent = label;
+  var group = document.createElement('div');
+  group.className = 'ui-options';
+  group.setAttribute('role', 'group');
+  group.setAttribute('aria-labelledby', name.id);
+  var parsed = options.map(function (o) { var p = o.split('='); return { word: p[0], css: p[1] || p[0] }; });
+  var buttons = parsed.map(function (o) {
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'ui-opt pad-hoverable';
+    b.textContent = o.word.toUpperCase();
+    b.addEventListener('click', function () { if (o.word !== optRows[token].current) pickColor(token, o.word); });
+    group.appendChild(b);
+    return b;
+  });
+  var reset = document.createElement('button');
+  reset.type = 'button';
+  reset.className = 'ui-reset pad-hoverable';
+  reset.textContent = '↺';
+  reset.title = 'Reset to default';
+  reset.setAttribute('aria-label', 'Reset ' + label + ' to default');
+  reset.addEventListener('click', function () { send('theme.reset-color', { group: token }); });
+  row.append(name, group, reset);
+  optRows[token] = { row: row, buttons: buttons, options: parsed, reset: reset };
+  return row;
+}
 
 function pickColor(token, hex) {
   var active = activeTheme();
@@ -253,6 +290,18 @@ function render() {
     r.hex.classList.remove('bad');
     r.row.classList.toggle('overridden', overridden);
     r.reset.hidden = !overridden || readOnly;
+  }
+  // Option rows: the stored word, else the default (first) option. Set on this page's root too, so
+  // the RWR preview's SOI ring follows even without the shell's repaint.
+  for (var t3 in optRows) {
+    var o = optRows[t3];
+    var set = Object.prototype.hasOwnProperty.call(colors, t3);
+    var pick = o.options.filter(function (x) { return x.word === colors[t3]; })[0] || o.options[0];
+    o.current = pick.word;
+    o.buttons.forEach(function (b, i) { b.setAttribute('aria-pressed', String(o.options[i] === pick)); });
+    document.documentElement.style.setProperty(t3, pick.css);
+    o.row.classList.toggle('overridden', set);
+    o.reset.hidden = !set || readOnly;
   }
 }
 

@@ -463,6 +463,21 @@ THEME_STATE = {"active": "default"}
 # The plugin's drop-in themes folder (BepInEx/plugins/NOXMFD/themes) stands in as preview/themes here
 # (gitignored with the rest of preview/): read on start and on theme.rescan, read-only like DEFAULT.
 THEMES_DIR = REPO / "preview" / "themes"
+# Option tokens (the SOI line's style and width): token → [(word, served CSS)], from ThemeColors.Options.
+THEME_OPTIONS = {tok: [tuple((o + "=" + o).split("=")[:2]) for o in re.findall(r'"([^"]+)"', body)]
+                 for tok, body in re.findall(r'\["(--no-[\w-]+)"\]\s*=\s*new\[\]\s*\{([^}]*)\}',
+                                             (REPO / "src" / "plugin" / "Stores" / "ThemeColors.cs").read_text(encoding="utf-8"))}
+
+
+def _theme_norm(token, value):
+    """ThemeColors.Normalize: lowercase #rrggbb, or an option token's word; None when invalid."""
+    if token not in THEME_TOKENS or not isinstance(value, str):
+        return None
+    if token in THEME_OPTIONS:
+        return next((w for w, _ in THEME_OPTIONS[token] if w == value.lower()), None)
+    return value.lower() if re.fullmatch(r"#[0-9a-fA-F]{6}", value) else None
+
+
 # Theme files key colours by role name (ThemeColors.FileKeys, index for index with Tokens).
 THEME_FILE_KEYS = dict(zip(re.findall(r'"([a-z0-9-]+)"', re.search(r'FileKeys\s*=\s*\{(.*?)\};',
                        (REPO / "src" / "plugin" / "Stores" / "ThemeColors.cs").read_text(encoding="utf-8"), re.S).group(1)),
@@ -480,8 +495,9 @@ def _scan_theme_folder():
                 continue
             if not isinstance(data, dict):
                 continue
-            colors = {THEME_FILE_KEYS[k.lower()]: v.lower() for k, v in (data.get("colors") or {}).items()
-                      if k.lower() in THEME_FILE_KEYS and isinstance(v, str) and re.fullmatch(r"#[0-9a-fA-F]{6}", v)}
+            colors = {THEME_FILE_KEYS[k.lower()]: _theme_norm(THEME_FILE_KEYS[k.lower()], v)
+                      for k, v in (data.get("colors") or {}).items()
+                      if k.lower() in THEME_FILE_KEYS and _theme_norm(THEME_FILE_KEYS[k.lower()], v)}
             name = str(data.get("name") or fp.stem).strip()[:32]
             if colors and name:
                 found.append({"id": "f_" + fp.name.lower(), "name": name, "colors": colors, "file": True})
@@ -500,7 +516,10 @@ def _theme_css(colors):
         hexv = colors.get(token)
         if not hexv:
             continue
-        val = ", ".join(str(int(hexv[i:i + 2], 16)) for i in (1, 3, 5)) if token.endswith("-rgb") else hexv
+        if token in THEME_OPTIONS:
+            val = dict(THEME_OPTIONS[token]).get(hexv, hexv)
+        else:
+            val = ", ".join(str(int(hexv[i:i + 2], 16)) for i in (1, 3, 5)) if token.endswith("-rgb") else hexv
         parts.append(f"{token}:{val};")
     return ":root{" + "".join(parts) + "}" if parts else ""
 
@@ -558,8 +577,7 @@ def _theme_command(env):
             data = None
         if not data or not str(data.get("n", "")).strip():
             return False
-        colors = {k: v.lower() for k, v in (data.get("c") or {}).items()
-                  if k in THEME_TOKENS and isinstance(v, str) and re.fullmatch(r"#[0-9a-fA-F]{6}", v)}
+        colors = {k: _theme_norm(k, v) for k, v in (data.get("c") or {}).items() if _theme_norm(k, v)}
         return _theme_add(str(data["n"]).strip(), colors)
     if cmd == "theme.select" and (bind == "default" or any(t["id"] == bind for t in THEMES + FILE_THEMES)):
         THEME_STATE["active"] = bind
@@ -576,8 +594,8 @@ def _theme_command(env):
     token, value = env.get("group") or "", env.get("text") or ""
     if active and active.get("file"):
         active = None   # folder themes are read-only
-    if cmd == "theme.set-color" and active and token in THEME_TOKENS and re.fullmatch(r"#[0-9a-fA-F]{6}", value):
-        active["colors"][token] = value.lower()
+    if cmd == "theme.set-color" and active and _theme_norm(token, value):
+        active["colors"][token] = _theme_norm(token, value)
         return True
     if cmd == "theme.reset-color" and active:
         if token:

@@ -487,7 +487,7 @@ html, body {
   content: '';
   position: absolute;
   inset: 0;
-  border: 2px solid var(--no-soi);
+  border: var(--no-soi-width, 2px) var(--no-soi-style, solid) var(--no-soi);   /* CFG > UI's SOI options */
   pointer-events: none;
   z-index: 3;
 }

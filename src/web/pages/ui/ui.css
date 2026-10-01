@@ -306,7 +306,7 @@ html, body { height: 100%; margin: 0; }
 .pv-rwr-notch { stroke: var(--no-threat-yellow); stroke-width: 3; stroke-dasharray: 14 12; }
 .pv-rwr-missile { stroke: var(--no-threat-red); stroke-width: 3; stroke-linecap: round; }
 /* RWR is drawn as the SOI: the shells' focus ring (mfd.css #soi-ring), traced inside the screen. */
-.pv-soi::after { content: ''; position: absolute; inset: 0; border: 2px solid var(--no-soi); border-radius: 3px; }
+.pv-soi::after { content: ''; position: absolute; inset: 0; border: var(--no-soi-width, 2px) var(--no-soi-style, solid) var(--no-soi); border-radius: 3px; }
 
 /* Colour rows in two columns (one on a narrow pane): swatch picker | label | hex | reset, each group
    under its heading. */
@@ -368,6 +368,25 @@ html, body { height: 100%; margin: 0; }
   cursor: pointer;
 }
 .ui-reset[hidden] { display: block; visibility: hidden; }
+
+/* Option rows (the SOI line's style and width): label | one button per option | reset. */
+.ui-row.ui-opt-row { grid-template-columns: minmax(0, 1fr) auto 2em; }
+.ui-options { display: flex; gap: 0.3em; }
+.ui-opt {
+  min-width: 3.4em;
+  min-height: 1.9em;
+  padding: 0 0.5em;
+  font: inherit;
+  font-size: 0.7em;
+  letter-spacing: 0.12em;
+  color: var(--no-text-faint);
+  background: none;
+  border: 1px solid var(--no-icon-border);
+  border-radius: 3px;
+  cursor: pointer;
+}
+.ui-opt[aria-pressed="true"] { color: var(--no-green); border-color: var(--no-green); }
+.ui-opt:focus-visible { outline: 2px solid var(--no-amber); outline-offset: 2px; }
 .ui-reset:focus-visible { outline: 2px solid var(--no-amber); outline-offset: 2px; }
 
 @media (max-width: 900px) { .ui-groups { grid-template-columns: minmax(0, 1fr); } }

@@ -1,7 +1,9 @@
 // The CFG > UI colour panel's editable tokens (issue 105): groups, row labels and panel order. The
 // plugin accepts exactly these (ThemeColors.Tokens in src/plugin/Stores/ThemeColors.cs), in this
 // order; ui-tokens.test.js fails if the two lists drift apart. A "-rgb" token is a colors.css triple
-// whose solid colour, washes and calculated shades all follow it.
+// whose solid colour, washes and calculated shades all follow it. A row is [token, label], plus for
+// the SOI rows the theme-file key and, for a row picked from options, ThemeColors.Options' list
+// ("word" or "word=CSS value"; the first is the default).
 (function (root) {
   var GROUPS = [
     { title: 'CORE PALETTE', tokens: [
@@ -14,7 +16,6 @@
       ['--no-panel-border',  'PANEL BORDER'],
       ['--no-ink',           'TEXT ON HIGHLIGHT'],
       ['--no-label-rgb',     'NAV LABEL'],
-      ['--no-soi',           'SOI'],
     ] },
     { title: 'ACCENTS', tokens: [
       ['--no-squad-rgb',     'SQUAD'],
@@ -37,6 +38,11 @@
       ['--no-nuclear-orange-rgb', 'NUCLEAR ZONE'],
       ['--no-hsd-pink-rgb',  'HSD SYMBOLOGY'],
       ['--no-hsd-yellow-rgb','HSD AA RINGS'],
+    ] },
+    { title: 'SOI', tokens: [
+      ['--no-soi',           'COLOUR', 'soi'],
+      ['--no-soi-style',     'STYLE',  'soi-style', ['solid', 'dashed', 'dotted', 'double']],
+      ['--no-soi-width',     'WIDTH',  'soi-width', ['sm=2px', 'md=3px', 'lg=4px']],
     ] },
   ];
 

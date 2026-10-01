@@ -63,12 +63,13 @@ lower case with dashes; any colour it leaves out keeps its default:
 
 | Group | Keys |
 |---|---|
-| CORE PALETTE | `primary`, `instrument`, `alert`, `caution`, `inactive`, `background`, `panel-border`, `text-on-highlight`, `nav-label`, `soi` |
+| CORE PALETTE | `primary`, `instrument`, `alert`, `caution`, `inactive`, `background`, `panel-border`, `text-on-highlight`, `nav-label` |
 | ACCENTS | `squad`, `mod-controls`, `mod-accent`, `friendly-tgt-td`, `friendly-hud` |
 | THREATS | `search`, `track`, `lock`, `jamming` |
 | MAP & SCOPE | `route`, `flown-route`, `target`, `neutral`, `nuclear-zone`, `hsd-symbology`, `hsd-aa-rings` |
+| SOI | `soi` (a colour), `soi-style` (`solid`, `dashed`, `dotted` or `double`), `soi-width` (`sm`, `md` or `lg`) |
 
-Values must be `#rrggbb`. A file without a `name` uses its file name; a file with no valid colour
+Colour values must be `#rrggbb`. A file without a `name` uses its file name; a file with no valid colour
 is skipped and noted in the BepInEx log. Up to 50 files of 64 KB each are read.
 
 ### PREVIEW
@@ -94,6 +95,16 @@ optional) and press Enter. **↺** puts that colour back to its default. Rows ar
 PALETTE and ACCENTS in one column, THREATS and MAP & SCOPE in the other (one column on a narrow
 screen). Changing a base colour such as PRIMARY also recolours its dimmer and darker shades.
 NAV LABEL is the white of the page names beside the bezel keys (the highlighted one follows
-CAUTION); TGT's neutral and stale rows and the same text on TD and BDF use it too. SOI is the
-focus ring around the sensor-of-interest display and the cursor on the label SELECT will press, in
-both layouts; until a theme sets it, it matches NAV LABEL.
+CAUTION); TGT's neutral and stale rows and the same text on TD and BDF use it too.
+
+### SOI
+
+The last group sets how the sensor of interest is marked, in both layouts:
+
+- **COLOUR**: the focus ring around the SOI display or pane, and the cursor on the label SELECT will
+  press. Until a theme sets it, it matches NAV LABEL.
+- **STYLE**: the focus ring's line: **SOLID**, **DASHED**, **DOTTED** or **DOUBLE**.
+- **WIDTH**: the focus ring's thickness: **SM** (2 px, the default), **MD** (3 px) or **LG** (4 px).
+  DOUBLE needs MD or LG to show as two lines.
+
+The RWR preview is drawn as the SOI, so it shows all three.

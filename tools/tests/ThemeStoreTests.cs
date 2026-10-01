@@ -41,6 +41,10 @@ namespace NOXMFD.Tests
         [InlineData("--no-bezel-hi", "#ff8800", null)]                    // shell chrome isn't editable
         [InlineData("--no-green-dim", "#ff8800", null)]                   // calculated shade isn't editable
         [InlineData(null, "#ff8800", null)]
+        [InlineData("--no-soi-style", "Dashed", "dashed")]                // an option token takes one of its words
+        [InlineData("--no-soi-style", "#ff8800", null)]
+        [InlineData("--no-soi-width", "lg", "lg")]
+        [InlineData("--no-soi-width", "4px", null)]                       // the word, not the CSS it serves
         public void Normalize_accepts_only_editable_tokens_with_six_digit_hex(string? token, string? value, string? expected)
         {
             Assert.Equal(expected, ThemeColors.Normalize(token, value));
@@ -57,6 +61,11 @@ namespace NOXMFD.Tests
             };
             Assert.Equal(":root{--no-green-rgb:255, 136, 0;--no-ink:#101010;}", ThemeColors.BuildCss(colors));
             Assert.Equal(string.Empty, ThemeColors.BuildCss(new Dictionary<string, string>()));
+            Assert.Equal(":root{--no-soi-style:dotted;--no-soi-width:3px;}", ThemeColors.BuildCss(new Dictionary<string, string>
+            {
+                ["--no-soi-width"] = "md",
+                ["--no-soi-style"] = "dotted",
+            }));
         }
 
         [Fact]
