@@ -500,7 +500,7 @@
      chips don't render under the banner's left half while it's shown. */
   .conn-lost-banner.show ~ .mfd-indicators { top: 34px; }
   .mfd-indicator {
-    background: rgba(var(--no-panel-bg-rgb),0.78);
+    background: var(--no-panel-bg);
     border: 1px solid var(--no-amber);
     padding: 5px 9px;
     font-family: var(--no-font);
@@ -643,7 +643,7 @@
        across portrait and landscape orientation. */
     padding: clamp(22px, 2.4vmax, 35px) clamp(36px, 4vmax, 58px);
     border: 1px solid var(--no-green);
-    background: rgba(var(--no-panel-bg-rgb), 0.9);
+    background: color-mix(in srgb, var(--no-panel) 90%, transparent);
     color: var(--no-green);
     font-family: var(--no-font);
     text-align: center;

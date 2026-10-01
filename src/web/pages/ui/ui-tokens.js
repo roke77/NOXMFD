@@ -11,7 +11,6 @@
       ['--no-amber-rgb',     'CAUTION AMBER'],
       ['--no-gray-rgb',      'INACTIVE GRAY'],
       ['--no-bg',            'BACKGROUND'],
-      ['--no-panel-bg-rgb',  'PANEL BACKGROUND'],
       ['--no-panel-border',  'PANEL BORDER'],
       ['--no-ink',           'TEXT ON GREEN'],
     ] },

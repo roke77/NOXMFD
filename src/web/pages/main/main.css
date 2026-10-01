@@ -13,7 +13,7 @@
     min-width: 200px;
     padding: clamp(14px, 2vh, 26px) clamp(22px, 3vh, 44px);
     border: 1px solid var(--no-green);
-    background: rgba(var(--no-panel-bg-rgb), 0.9);
+    background: color-mix(in srgb, var(--no-panel) 90%, transparent);
     box-shadow: 0 0 12px rgba(var(--no-green-rgb), 0.25);
     text-align: center;
   }
