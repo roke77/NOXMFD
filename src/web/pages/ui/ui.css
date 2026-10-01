@@ -128,10 +128,6 @@ html, body { height: 100%; margin: 0; }
 }
 .pv-head { display: flex; justify-content: space-between; padding-bottom: 0.35em; border-bottom: 1px solid var(--no-green-dark); }
 .pv-title { letter-spacing: 0.1em; color: var(--no-green); }
-.pv-sub { font-size: 0.75em; letter-spacing: 0.35em; color: var(--no-white-dim); }
-.pv-hint { margin-left: 0.8em; letter-spacing: 0.06em; }
-.pv-presets { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0.4em; }
-.pv-lit.empty { border-style: dashed; color: var(--no-text-faint); }
 .pv-filters { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 0.4em; }
 .pv-filters.top { grid-template-columns: 2fr 2fr 1fr; }
 /* Vehicle types: the label with a lamp bar under it, green when the type is shown. */
