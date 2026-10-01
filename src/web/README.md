@@ -52,6 +52,7 @@ src/web/
             lyt-slots.js  .test.js        # pure: saved layout data -> split name, pane rects, pages, SOI membership
             lyt-row.js  lyt-rows.css      # the saved-layout row, shared with the shell's LOAD/SAVE popups
     sqd/    sqd.html  sqd.css  sqd.js     # squad membership over Steam P2P (docs/squadron-transport.md) —
+                                           # and every other squad in the faction (docs/faction-broadcast.md) —
                                            # squad state and the match roster both ride the shell's relayed
                                            # SSE pushes (docs/sse-push-refactor.md), no polling of its own
     td/     td.html  td.css  td.js        # Target Designator (issue #47, docs/target-designator.md) — the

@@ -1,25 +1,30 @@
 # SQD
 
-Squadron membership over Steam: form a squad with players in your current match, and manage the
-roster.
+Squadron membership over Steam: form a squad with players in your current match, manage the
+roster, and see every other squad in the faction.
 
 ![SQD page](images/SQD.png)
 
 ## Creating a squad
 
-While you have no squad the page shows a **CREATE SQUAD** panel: a callsign picker and a
-flight-number row (1-9) — pick both and press CREATE to become the leader. Callsigns are a fixed list of real military callsigns, not free
-text. **EDIT** on the squad card lets the leader change both the callsign and the
+While you have no squad the page opens with a **CREATE SQUAD** row: a callsign picker and a
+flight-number row (1-9) — pick both and press CREATE to become the leader. Callsigns are a fixed
+list of real military callsigns, not free text. Pending invites don't block it: creating a squad
+declines them. **EDIT** on your squad's header lets the leader change both the callsign and the
 flight number later — re-numbering the flight immediately updates every member's own designation.
 
-## Roster
+If another squad in the faction already flies the callsign and flight you pick, that flight is
+marked amber and a line under the row says so. You can still pick it; the two squads then carry an
+amber **SAME DESIGNATION** note.
 
-Members render as a table: each pilot's callsign designation, their Steam display name, and their
+## Your squad
+
+Your own squad is listed first, in a green box that always stays open. Members render as a table: each pilot's callsign designation, their Steam display name, and their
 current aircraft (blank when not flying one). A designation reads `CALLSIGN FLIGHT-MEMBER` — e.g.
 `TALON 1-2` — where FLIGHT is the squad's current flight number and MEMBER is the pilot's number
-in the squad (the leader is always 1). The leader's row carries a LEADER badge; on every other row
-the leader sees ▲/▼ (move that pilot one number up or down, swapping with whoever has it), a star
-(promote) and an × (kick). Your own row is lit green (a member's carries a YOU badge).
+in the squad (the leader is always 1). The leader's row carries an amber LEADER label; on every
+other row the leader sees ▲/▼ (move that pilot one number up or down, swapping with whoever has it),
+a star (promote) and an × (kick). Your own row is lit green.
 
 Numbers stick. When a pilot leaves, is kicked or drops out, their number stays empty and shows as
 an OPEN row; nobody else's number changes. The next pilot to join takes the lowest open number, or
@@ -27,27 +32,36 @@ the leader can move someone into it with ▲/▼. When the leader leaves, leader
 lowest-numbered member (or whoever the leader promoted with the star), who becomes 1, and everyone
 else is renumbered from 2 in their current order.
 
+## Other squads
+
+Every other squad in your faction follows, each in its own teal box with its pilot count: click a
+header to fold or unfold it. They are read-only. The count at the top right is every squad and pilot
+in the faction. You see these squads whether or not you are in a squad yourself, so an ATC
+controller with no squad can still read every callsign.
+
 ## Designations as in-game names
 
-While you're in a squad, every squadmate — you included — shows under their designation instead of
-their Steam name in your game: the map, kill feed, chat, scoreboard and HUD markers, and every
-NOXMFD page. Leaving the squad brings the Steam names back. Only squad members see these names;
-everyone else in the match still sees Steam names. The NOXMFD AKF feed adds the Steam name in
-parentheses, e.g. `TALON 1-2 (Roke) [F/A-26]`, and the SQD roster keeps both columns.
+Every pilot in a squad shows under their designation instead of their Steam name in your game: the
+map, kill feed, chat, scoreboard and HUD markers, and every NOXMFD page. That holds for your own
+squad, for other squads, and whether or not you are in a squad yourself, as long as the pilot is
+running NOXMFD. Leaving a squad brings that pilot's Steam name back. Players without NOXMFD show
+under their Steam name. The NOXMFD AKF feed adds the Steam name in parentheses, e.g.
+`TALON 1-2 (Roke) [F/A-26]`, and the SQD tables keep both columns.
 
 ## Unassigned players
 
 The bar docked at the bottom, `UNASSIGNED PLAYERS (n)`, lists faction-mates in the current match who
-are also running NOXMFD and aren't in your squad. Click it to open or close it; it opens upward and
+are also running NOXMFD and aren't in any squad. Click it to open or close it; it opens upward and
 scrolls when long. It is open while you have no squad and collapsed once you lead one. As the leader,
 **INVITE** on a row sends an invite, and the player then shows there as INVITED until they answer.
 Squad members don't see the list.
 
 ## Invites
 
-Incoming invites queue oldest-first and show ACCEPT/REJECT; accepting one declines the rest, since
+Incoming invites queue oldest-first under the CREATE SQUAD row and show ACCEPT/DECLINE, with the
+designation you would get; accepting one declines the rest, and so does creating a squad, since
 squad membership is exclusive. An invite never expires on its own — it stays pending until you
-accept or reject it, however long that takes.
+answer it, however long that takes.
 
 ## Leaving
 

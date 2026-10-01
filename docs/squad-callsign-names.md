@@ -26,11 +26,11 @@ everywhere: the game's own map, kill feed, chat and scoreboard, and every NOXMFD
   the leader leaving renumbers the squad.
 - **Callsign list.** Stays the fixed `callsigns.js` list; more entries get added separately.
 - **No persistence.** Squads stay in-memory and re-form after a restart, like today.
-- **Who sees the names.** Squad members see each other's designations (they already hold the
-  roster). Players outside the squad — ATC, mission control — see Steam names until the planned
-  AWACS/Overlord role, which receives every squad's roster and designations. That role is a
-  separate feature; this one only has to leave the rename keyed by SteamID so it can feed more
-  names in later.
+- **Who sees the names.** Everyone running NOXMFD sees every squad member's designation, whether
+  they are in that squad, in another one or in none (issue #106, [faction-broadcast.md](faction-broadcast.md)):
+  each pilot broadcasts its own identity to the faction, and the rename is fed from the viewer's
+  own squad roster merged with what the faction broadcast. Players without NOXMFD see Steam names.
+  The rename stays keyed by SteamID.
 
 ## How the game resolves a name
 

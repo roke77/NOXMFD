@@ -63,8 +63,12 @@ which virus-scans and manually reviews uploads.
   exception to "no internet connections" below. Two things happen automatically, without you
   inviting or joining anyone:
   - **A small presence beacon every 5 seconds** to every faction-mate in your current match
-    (`Presence.cs`), so the SQD page can tell who else has the mod installed. It carries no
-    payload beyond "I'm here" and stops the moment you leave the match.
+    (`Presence.cs`), so the SQD page can tell who else has the mod installed. It carries your own
+    squad identity and fuel (`FactionIdentity.cs`, `docs/faction-broadcast.md`): your squad's
+    callsign and flight, your number in it, the Steam ID of your squad leader, and your aircraft's
+    fuel level. That is how every other player running the mod sees your designation, in a squad
+    or not. Outside a squad it carries only the fuel level. It is sent again as soon as your squad
+    changes, and it stops the moment you leave the match.
   - **Accepting an incoming Steam messaging session from anyone** (`Squadron.cs`'s trust model) —
     an invite has to reach a stranger before they can decide whether to accept it, so the transport
     layer itself doesn't pre-filter senders. What a message actually *does* is gated by type and
@@ -74,7 +78,8 @@ which virus-scans and manually reviews uploads.
   - Once you're actually in a squad, this same channel carries the roster, shared waypoint routes,
     and target designations/lock highlights described in `docs/squadron-transport.md`,
     `docs/target-designator.md`, and `docs/hud-squad-target-marks.md` — sent only to your own
-    leader/members, never broadcast beyond the squad. Valve's relay (not this mod) handles the
+    leader/members, never broadcast beyond the squad (the beacon above is the one exception, and
+    carries only the identity fields it lists). Valve's relay (not this mod) handles the
     actual internet routing, NAT traversal, and encryption; see `Squadron.cs`'s own header comment
     for why this is a separate Steamworks interface from the game's own multiplayer connection.
 

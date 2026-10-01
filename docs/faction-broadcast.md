@@ -86,19 +86,20 @@ message type. Older clients keep treating the beat as "running NOXMFD" and ignor
 
 ### 4. Faction squads to SQD
 
-- `PlayerRoster.Refresh` builds a `FactionSquadsJson` string on the main thread at 1 Hz, from
-  `FactionIdentity.Squads` plus `PlayerRoster`'s own Steam name and aircraft per SteamID:
+- The faction's other squads ride `/squad`'s state as `state.faction`, built in
+  `Squad.BuildStateJson` by `FactionIdentity.FactionJson` (pure, unit-tested) from
+  `Presence.Squads` plus `PlayerRoster`'s Steam name and aircraft per SteamID. That state already
+  refreshes at 1 Hz and rides the `sqd-state` push, so there is no new endpoint, SSE event or shell
+  relay wiring:
 
   ```json
   {"squads":[{"leader":"7656…","callsign":"VIPER","flight":2,"dup":false,
               "members":[{"id":"7656…","slot":1,"name":"DeckJockey","aircraft":"Tarantula"}]}],
-   "used":[["TALON",1],["VIPER",2]]}
+   "selfDup":false}
   ```
 
-  It excludes the viewer's own squad, which SQD already has from `/squad`. `used` lists every
-  `(callsign, flight)` pair in the faction for the picker marks.
-- New `GET /faction-squads` in `SquadEndpoint`, and a `faction-squads` SSE event in `SseHub`,
-  sent only when the string changes, the same way `server-players` is.
+  It excludes the viewer's own squad, which SQD already has. The page marks the pairs in use in
+  its pickers from `squads` itself, and `selfDup` says whether the viewer's own pair clashes.
 - `/server-players` keeps its shape. SQD's unassigned list is `/server-players` minus everyone
   in any squad, so INVITE is never offered to a pilot already in another squad.
 
@@ -129,9 +130,10 @@ Mockups: `docs/images/sqd-d1-leader.png`, `sqd-d2-member.png`, `sqd-d3-invited.p
 
 ### 7. `serve_web.py` mock
 
-- `/faction-squads` plus its push, with a duplicate `TALON 1`.
-- A mock switch for the four D states (leader, member, invited, no squad), so each can be checked
-  in the `hud-web` preview.
+- `state.faction` with a duplicate `TALON 1`.
+- `sendCommand('sqd.mock', {name: 'leader' | 'member' | 'invited' | 'none'})` switches between the
+  four D states, so each can be checked in the `hud-web` preview (reload after switching).
+  ACCEPT in the invited state joins that squad.
 
 ## Order of work
 

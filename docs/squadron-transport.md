@@ -367,6 +367,14 @@ it, and the roster itself stays visible and browsable even while undecided — o
 button (and CREATE SQUAD) actually needs `role`/pending-invite state, so those are disabled with an
 explanatory tooltip rather than the whole section disappearing.
 
+## Faction-wide identity (issue #106)
+
+Beyond the squad itself, every NOXMFD instance broadcasts its own identity to the whole faction in
+the `presence` beat's payload: squad callsign, flight, own slot, leader SteamID and fuel. Receivers
+keep a table of it, merge it under their own squad's roster, and feed the result to the rename, so a
+pilot sees every squad's designations, and SQD lists the other squads. The wire format, validation,
+expiry and the SQD design are in [faction-broadcast.md](faction-broadcast.md).
+
 ## Squadron Callsign System (issue #42)
 
 Both the callsign and the per-member numbering follow a real military callsign convention instead
