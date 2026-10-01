@@ -65,12 +65,12 @@
          greys, so it reads as a picture of a page whatever the theme. Only the tabs are interactive. -->
     <figure class="pv-frame">
       <div class="pv-tabs" role="tablist" aria-label="Preview">
-        <button type="button" class="pv-tab" role="tab" id="pv-tab-hsd" aria-controls="pv-hsd" aria-selected="false">HSD</button>
+        <button type="button" class="pv-tab" role="tab" id="pv-tab-hsd" aria-controls="pv-hsd" aria-selected="true">HSD</button>
         <button type="button" class="pv-tab" role="tab" id="pv-tab-map" aria-controls="pv-map" aria-selected="false">MAP</button>
         <button type="button" class="pv-tab" role="tab" id="pv-tab-rwr" aria-controls="pv-rwr" aria-selected="false">RWR</button>
-        <button type="button" class="pv-tab" role="tab" id="pv-tab-tgt" aria-controls="pv-tgt" aria-selected="true">TGT</button>
+        <button type="button" class="pv-tab" role="tab" id="pv-tab-tgt" aria-controls="pv-tgt" aria-selected="false">TGT</button>
       </div>
-        <div class="pv" id="pv-tgt" role="img" aria-label="Preview of the TGT page in the current colours">
+        <div class="pv" id="pv-tgt" role="img" aria-label="Preview of the TGT page in the current colours" hidden>
           <div class="pv-head"><span class="pv-title">TARGET SELECTION</span></div>
           <div class="pv-filters top">
             <div class="lit on pv-lit" style="--accent: var(--no-friendly-blue)">FRIENDLY</div>
@@ -131,7 +131,7 @@
             <span class="mfd-chip">ROUTE: CAP 3/5</span>
           </div>
         </div>
-        <div class="pv pv-map" id="pv-hsd" role="img" aria-label="Preview of the HSD page in the current colours" hidden>
+        <div class="pv pv-map" id="pv-hsd" role="img" aria-label="Preview of the HSD page in the current colours">
           <svg class="pv-map-svg" viewBox="0 0 400 300" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
             <path class="pv-hsd-cone" d="M200 175L137.5 66.7A125 125 0 0 1 262.5 66.7Z"/>
             <circle class="pv-hsd-ring" cx="200" cy="175" r="42"/>
