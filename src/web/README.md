@@ -63,6 +63,10 @@ src/web/
                                            # decision behind that mirror's redraw gate (issue #84)
             td-matrix.js       .test.js   # pure matrix rules: cell/row/column toggles and each slot's
                                            # SENT/CHANGED/UNSENT status
+    ui/     ui.html  ui.css  ui.js        # CFG > UI colour themes (issue #105): theme cards, TGT/MAP/HSD
+                                           # previews, one picker per editable token; bootstraps from
+                                           # GET /themes, then the shell's relayed 'themes-push'
+            ui-tokens.js  .test.js        # the editable tokens, kept in step with ThemeColors.Tokens (C#)
     wpn/  tgt/  tgp/  avn/  afm/  rwr/  rdr/  hsd/  hud/  bdf/  mis/  obj/  akf/  mapcfg/  tgpcfg/
     doc/                                       # reactive MFD pages, one folder each (bdf.js doubles as PAL, ?pal;
                                                # akf = kill feed/session stats docs/akf-page.md; mapcfg/tgpcfg =
