@@ -5,19 +5,19 @@
 (function (root) {
   var GROUPS = [
     { title: 'CORE PALETTE', tokens: [
-      ['--no-green-rgb',     'PRIMARY GREEN'],
-      ['--no-white-rgb',     'INSTRUMENT WHITE'],
-      ['--no-red-rgb',       'ALERT RED'],
-      ['--no-amber-rgb',     'CAUTION AMBER'],
-      ['--no-gray-rgb',      'INACTIVE GRAY'],
+      ['--no-green-rgb',     'PRIMARY'],
+      ['--no-white-rgb',     'INSTRUMENT'],
+      ['--no-red-rgb',       'ALERT'],
+      ['--no-amber-rgb',     'CAUTION'],
+      ['--no-gray-rgb',      'INACTIVE'],
       ['--no-bg',            'BACKGROUND'],
       ['--no-panel-border',  'PANEL BORDER'],
       ['--no-ink',           'TEXT ON HIGHLIGHT'],
     ] },
     { title: 'ACCENTS', tokens: [
       ['--no-squad-rgb',     'SQUAD'],
-      ['--no-purple-rgb',    'MOD PURPLE'],
-      ['--no-blue-rgb',      'MOD BLUE'],
+      ['--no-purple-rgb',    'MOD CONTROLS'],
+      ['--no-blue-rgb',      'MOD ACCENT'],
       ['--no-friendly-blue', 'FRIENDLY (TGT / TD)'],
       ['--no-hud-friendly',  'FRIENDLY (HUD)'],
     ] },
