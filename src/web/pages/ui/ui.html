@@ -60,7 +60,7 @@
       </div>
 
       <div class="ui-main">
-    <!-- Static mocks of the TGT, MAP and HSD pages, one at a time behind tabs, drawn with the same colour
+    <!-- Static mocks of the TGT, MAP, HSD and RWR pages, one at a time behind tabs, drawn with the same colour
          tokens those pages use, so they repaint with every edit. The frame is a fake MFD bezel in fixed
          greys, so it reads as a picture of a page whatever the theme. Only the tabs are interactive. -->
     <figure class="pv-frame">
@@ -68,6 +68,7 @@
         <button type="button" class="pv-tab" role="tab" id="pv-tab-tgt" aria-controls="pv-tgt" aria-selected="true">TGT</button>
         <button type="button" class="pv-tab" role="tab" id="pv-tab-map" aria-controls="pv-map" aria-selected="false">MAP</button>
         <button type="button" class="pv-tab" role="tab" id="pv-tab-hsd" aria-controls="pv-hsd" aria-selected="false">HSD</button>
+        <button type="button" class="pv-tab" role="tab" id="pv-tab-rwr" aria-controls="pv-rwr" aria-selected="false">RWR</button>
       </div>
         <div class="pv" id="pv-tgt" role="img" aria-label="Preview of the TGT page in the current colours">
           <div class="pv-head"><span class="pv-title">TARGET SELECTION</span></div>
@@ -148,6 +149,27 @@
             <text class="pv-hsd-text" x="12" y="24">CEN</text>
             <text class="pv-hsd-text" x="205" y="44">40</text>
             <text class="pv-hsd-lock" x="12" y="288">LOCK 12.4</text>
+          </svg>
+        </div>
+        <div class="pv pv-map" id="pv-rwr" role="img" aria-label="Preview of the RWR page in the current colours" hidden>
+          <svg class="pv-map-svg pv-rwr" viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+            <g class="pv-rwr-ring">
+              <circle cx="500" cy="500" r="460" stroke-width="4"/>
+              <circle cx="500" cy="500" r="304" stroke-width="2.5" stroke-dasharray="12 16"/>
+              <circle cx="500" cy="500" r="152" stroke-width="2.5" stroke-dasharray="10 16"/>
+              <path d="M500 40V78M500 922V960M40 500H78M922 500H960" stroke-width="3"/>
+            </g>
+            <polygon class="pv-rwr-mark" points="480,18 520,18 500,50"/>
+            <polygon class="pv-rwr-own" points="500,460 475,548 500,528 525,548"/>
+            <line class="pv-rwr-notch" x1="932" y1="657" x2="68" y2="343"/>
+            <polygon class="pv-rwr-search" points="221,322 238,339 221,356 204,339"/><text class="pv-rwr-search" x="195" y="349" text-anchor="end">EWR</text>
+            <polygon class="pv-rwr-track" points="663,289 680,306 663,323 646,306"/><text class="pv-rwr-track" x="689" y="316">SA-6</text>
+            <polygon class="pv-rwr-lock" points="679,586.5 696,603.5 679,620.5 662,603.5"/>
+            <path class="pv-rwr-bracket" d="M648 583.5V572.5H659M699 572.5H710V583.5M710 623.5V634.5H699M659 634.5H648V623.5"/>
+            <text class="pv-rwr-lock" x="719" y="613.5">SA-15</text>
+            <line class="pv-rwr-missile" x1="405.1" y1="760.8" x2="479.5" y2="556.4"/>
+            <polygon class="pv-rwr-dart" points="417.4,727 393,764.9 411.8,771.7"/>
+            <text class="pv-rwr-lock" x="393.5" y="802.8" text-anchor="end">IR 1.6 nm</text>
           </svg>
         </div>
     </figure>

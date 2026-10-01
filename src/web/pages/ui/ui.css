@@ -169,7 +169,7 @@ html, body { height: 100%; margin: 0; }
 }
 .pv-frame::before { left: 0.45em; }
 .pv-frame::after { right: 0.45em; }
-/* TGT / MAP / HSD tabs along the bezel's top edge, in the bezel's fixed greys. */
+/* TGT / MAP / HSD / RWR tabs along the bezel's top edge, in the bezel's fixed greys. */
 .pv-tabs { display: flex; justify-content: center; gap: 0.4em; margin-bottom: 0.4em; }
 .pv-tab {
   min-width: 5em;
@@ -292,6 +292,19 @@ html, body { height: 100%; margin: 0; }
 .pv-hsd-own { fill: rgba(var(--no-pure-white-rgb), 0.78); }
 .pv-hsd-text, .pv-hsd-lock { font-family: var(--no-font); font-size: 14px; fill: var(--no-white); }
 .pv-hsd-lock { fill: var(--no-amber); }
+
+/* RWR mock: rwr.html's scope and the tokens rwr.js draws contacts with (search / track / lock
+   diamonds, the lock brackets, an incoming missile with its notch line). */
+.pv-rwr text { font-family: var(--no-font); font-size: 30px; }
+.pv-rwr-ring { fill: none; stroke: rgba(var(--no-pure-white-rgb), 0.5); }
+.pv-rwr-mark { fill: rgba(var(--no-pure-white-rgb), 0.6); }
+.pv-rwr-own { fill: none; stroke: rgba(var(--no-pure-white-rgb), 0.65); stroke-width: 4; }
+.pv-rwr-search { fill: var(--no-threat-white); }
+.pv-rwr-track { fill: var(--no-threat-yellow); }
+.pv-rwr-lock, .pv-rwr-dart { fill: var(--no-threat-red); }
+.pv-rwr-bracket { fill: none; stroke: var(--no-threat-red); stroke-width: 4; }
+.pv-rwr-notch { stroke: var(--no-threat-yellow); stroke-width: 3; stroke-dasharray: 14 12; }
+.pv-rwr-missile { stroke: var(--no-threat-red); stroke-width: 3; stroke-linecap: round; }
 
 /* Colour rows in two columns (one on a narrow pane): swatch picker | label | hex | reset, each group
    under its heading. */
