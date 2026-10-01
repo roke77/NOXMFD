@@ -151,7 +151,7 @@ html, body { height: 100%; margin: 0; }
 .pv-row.focused { outline: 2px solid var(--no-amber); outline-offset: -2px; background: rgba(var(--no-amber-rgb), 0.06); }
 .pv-row.inactive { outline: 2px solid var(--no-gray); outline-offset: -2px; background: rgba(var(--no-gray-rgb), 0.10); }
 .pv-actions { display: flex; gap: 0.5em; }
-.pv-action { flex: 1; padding: 0.35em 0; text-align: center; letter-spacing: 0.15em; border: 1.5px solid currentColor; border-radius: 4px; background: var(--no-black); }
+.pv-action { flex: 1; padding: 0.35em 0; text-align: center; letter-spacing: 0.15em; border: 1.5px solid currentColor; border-radius: 4px; background: var(--no-bg); }
 .pv-action.reset { color: var(--no-amber); }
 .pv-action.clear { color: var(--no-red); }
 .pv-action.datalink { color: var(--no-purple); }

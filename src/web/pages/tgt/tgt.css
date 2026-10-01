@@ -326,7 +326,7 @@ html, body {
 }
 .tgt-action {
   font-family: var(--no-font);
-  background: var(--no-black);
+  background: var(--no-bg);
   border: 1.5px solid currentColor;
   border-radius: 4px;
   padding: 0.8em 0.25em;

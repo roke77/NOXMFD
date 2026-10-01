@@ -17,7 +17,7 @@
 .lyt-slot.none { border-color: var(--no-line); }
 .lyt-slot.none .lyt-slot-num { color: var(--no-white-dark); }
 
-.lyt-row-thumb { position: relative; flex: none; width: 58px; height: 58px; border: 1px solid var(--no-thumb-edge); background: var(--no-black); }
+.lyt-row-thumb { position: relative; flex: none; width: 58px; height: 58px; border: 1px solid var(--no-thumb-edge); background: var(--no-bg); }
 .lyt-pane {
   position: absolute; display: flex; align-items: center; justify-content: center;
   overflow: hidden; font-size: 9px; color: var(--no-green-dim);

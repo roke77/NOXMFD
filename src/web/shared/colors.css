@@ -3,17 +3,21 @@
    name here first; page CSS and JS only ever read var(--no-*). Canvas code, which can't resolve
    var(), reads the computed value once (map.js's theme()). */
 :root {
-  /* A family's shades (dim, dark, line, …) are calculated from its base colour with relative
-     oklch: lightness and chroma scaled by factors fitted to the original hand-picked shades, hue
-     kept, so a player-chosen base colour carries its whole family. The @supports block at the end
-     holds the fitted values for browsers without relative colour syntax. */
+  /* A family's shades are calculated from its base colour, so a player-chosen base carries its
+     whole family; every factor is fitted to the original hand-picked shade. Foreground shades
+     (dim, deep, mid) scale the base's oklch lightness and chroma, hue kept. Dark shades used as
+     fills and lines (dark, line, rule, glow, halo, bg, faint) mix the background with that scaled
+     base instead, so they sit on whatever background a theme picks: the scaled base is
+     pre-divided by the mix share, so a black background still reproduces the original exactly.
+     The @supports block at the end holds the fitted values for browsers without relative colour
+     syntax. */
   /* Primary tokens are RGB triples first, hex-equivalent second — the triple is what a glow/wash
      effect composes with an alpha (rgba(var(--no-green-rgb), 0.08)), so it's the one source;
      defining the solid colour separately from it would just duplicate the same value. */
   --no-green-rgb:  57, 255, 20;
   --no-green:      rgb(var(--no-green-rgb));  /* primary text / icons */
   --no-green-dim:  oklch(from var(--no-green) calc(l * 0.756) calc(c * 0.566) h);  /* secondary text (ammo, page-ind) */
-  --no-green-dark: oklch(from var(--no-green) calc(l * 0.418) calc(c * 0.325) h);  /* depleted / hollow / borders */
+  --no-green-dark: color-mix(in oklab, var(--no-bg), oklch(from var(--no-green) calc(l * 0.836) calc(c * 0.650) h) 50%);  /* depleted / hollow / borders */
   --no-green-deep: oklch(from var(--no-green) calc(l * 0.590) calc(c * 0.469) h);  /* page-name placeholder heading */
   --no-red-rgb:    255, 64, 64;
   --no-red:        rgb(var(--no-red-rgb));    /* empty / alert state */
@@ -72,8 +76,8 @@
   --no-black:     rgb(var(--no-black-rgb));
   --no-pure-white-rgb: 255, 255, 255;
   --no-pure-white:     rgb(var(--no-pure-white-rgb));
-  --no-scrim:      rgba(var(--no-black-rgb), 0.6);    /* translucent pill behind an overlay label */
-  --no-scrim-deep: rgba(var(--no-black-rgb), 0.72);   /* dim layer behind a modal dialog */
+  --no-scrim:      color-mix(in srgb, var(--no-bg) 60%, transparent);    /* translucent pill behind an overlay label */
+  --no-scrim-deep: color-mix(in srgb, var(--no-bg) 72%, transparent);   /* dim layer behind a modal dialog */
   --no-hover-wash:       rgba(var(--no-pure-white-rgb), 0.06);  /* hover / PAD-cursor feedback */
   --no-hover-wash-faint: rgba(var(--no-pure-white-rgb), 0.04);
 
@@ -106,16 +110,17 @@
   /* Controls and cards: the near-black fills, borders and greys shared by the lit panel
      (lit-panel.css), LYT, SQD, the UI page and the layout dialogs. Calculated so a theme carries
      them: each dark shade is the background tinted by a fixed share of green and white (fitted to
-     the original hand-picked values, which a black background reproduces), and the text greys are
-     instrument-white shades like --no-white-dim. */
+     the original hand-picked values, which a black background reproduces), and the text greys sit a
+     fixed share of the way from the background to instrument white, so they keep their contrast on
+     any background. */
   --no-control-bg:       color-mix(in oklab, var(--no-bg), color-mix(in oklab, var(--no-green) 7%, var(--no-white)) 13.9%);
   --no-control-bg-on:    color-mix(in oklab, var(--no-bg), color-mix(in oklab, var(--no-green) 22%, var(--no-white)) 17.4%);
-  --no-control-text-off: oklch(from var(--no-white) calc(l * 0.656) calc(c * 1.966) h);
+  --no-control-text-off: color-mix(in oklab, var(--no-bg), var(--no-white) 65.6%);
   --no-lamp-off:         color-mix(in oklab, var(--no-bg), color-mix(in oklab, var(--no-green) 15%, var(--no-white)) 26.2%);
   --no-line:             color-mix(in oklab, var(--no-bg), color-mix(in oklab, var(--no-green) 10%, var(--no-white)) 34.1%);
   --no-icon-border:      color-mix(in oklab, var(--no-bg), color-mix(in oklab, var(--no-green) 14%, var(--no-white)) 28.5%);
-  --no-text-faint:       oklch(from var(--no-white) calc(l * 0.518) calc(c * 1.601) h);
-  --no-text-soft:        oklch(from var(--no-white) calc(l * 0.857) calc(c * 1.609) h);
+  --no-text-faint:       color-mix(in oklab, var(--no-bg), var(--no-white) 51.8%);
+  --no-text-soft:        color-mix(in oklab, var(--no-bg), var(--no-white) 85.7%);
   --no-card-bg:          color-mix(in oklab, var(--no-bg), color-mix(in oklab, var(--no-green) 15%, var(--no-white)) 12.5%);
   --no-card-bg-on:       color-mix(in oklab, var(--no-bg), color-mix(in oklab, var(--no-green) 32%, var(--no-white)) 17.7%);
   --no-card-line:        color-mix(in oklab, var(--no-bg), color-mix(in oklab, var(--no-green) 27%, var(--no-white)) 25.1%);
@@ -123,17 +128,17 @@
   --no-tile-bg:          color-mix(in oklab, var(--no-bg), color-mix(in oklab, var(--no-green) 10%, var(--no-white)) 13.3%);   /* LYT's shell cards */
   --no-form-bg:          color-mix(in oklab, var(--no-bg), color-mix(in oklab, var(--no-green) 18%, var(--no-white)) 13.8%);   /* SQD's CREATE SQUAD panel */
   --no-green-mid:        oklch(from var(--no-green) calc(l * 0.667) calc(c * 0.489) h);   /* KEY's dim green, between --no-green-dim and --no-green-deep */
-  --no-green-rule:       oklch(from var(--no-green) calc(l * 0.267) calc(c * 0.159) h);   /* KEY's table row divider */
-  --no-green-line:       oklch(from var(--no-green) calc(l * 0.422) calc(c * 0.278) h);   /* TGT's source-tag border */
-  --no-green-glow:       oklch(from var(--no-green) calc(l * 0.412) calc(c * 0.374) h);   /* SQD's large-button glow */
-  --no-green-halo:       oklch(from var(--no-green) calc(l * 0.351) calc(c * 0.318) h);   /* LYT's selected shell card glow */
-  --no-purple-line:      oklch(from var(--no-purple) calc(l * 0.627) calc(c * 0.512) h);
+  --no-green-rule:       color-mix(in oklab, var(--no-bg), oklch(from var(--no-green) calc(l * 0.890) calc(c * 0.530) h) 30%);   /* KEY's table row divider */
+  --no-green-line:       color-mix(in oklab, var(--no-bg), oklch(from var(--no-green) calc(l * 0.844) calc(c * 0.556) h) 50%);   /* TGT's source-tag border */
+  --no-green-glow:       color-mix(in oklab, var(--no-bg), oklch(from var(--no-green) calc(l * 1.030) calc(c * 0.935) h) 40%);   /* SQD's large-button glow */
+  --no-green-halo:       color-mix(in oklab, var(--no-bg), oklch(from var(--no-green) calc(l * 0.877) calc(c * 0.795) h) 40%);   /* LYT's selected shell card glow */
+  --no-purple-line:      color-mix(in oklab, var(--no-bg), oklch(from var(--no-purple) calc(l * 1.045) calc(c * 0.853) h) 60%);
   --no-label-line:       #5a5f66;
-  --no-red-line:         oklch(from var(--no-red) calc(l * 0.510) calc(c * 0.359) h);
-  --no-amber-bg:         oklch(from var(--no-amber) calc(l * 0.180) calc(c * 0.091) h);   /* SQD's squad card while being edited */
-  --no-squad-line:       oklch(from var(--no-squad) calc(l * 0.493) calc(c * 0.441) h);
-  --no-squad-bg:         oklch(from var(--no-squad) calc(l * 0.167) calc(c * 0.083) h);
-  --no-squad-faint:      oklch(from var(--no-squad) calc(l * 0.504) calc(c * 0.313) h);   /* an open roster slot's tag */
+  --no-red-line:         color-mix(in oklab, var(--no-bg), oklch(from var(--no-red) calc(l * 1.020) calc(c * 0.718) h) 50%);
+  --no-amber-bg:         color-mix(in oklab, var(--no-bg), oklch(from var(--no-amber) calc(l * 1.200) calc(c * 0.607) h) 15%);   /* SQD's squad card while being edited */
+  --no-squad-line:       color-mix(in oklab, var(--no-bg), oklch(from var(--no-squad) calc(l * 0.986) calc(c * 0.882) h) 50%);
+  --no-squad-bg:         color-mix(in oklab, var(--no-bg), oklch(from var(--no-squad) calc(l * 1.113) calc(c * 0.553) h) 15%);
+  --no-squad-faint:      color-mix(in oklab, var(--no-bg), oklch(from var(--no-squad) calc(l * 1.008) calc(c * 0.626) h) 50%);   /* an open roster slot's tag */
   /* LYT's slot numbers and F-35 thumbnail: a page's copy of the F-35 teal, its own token for the
      same reason as --no-squad (--no-teal is shell-only). */
   --no-layout-teal-rgb:  78, 201, 201;
@@ -147,7 +152,6 @@
   --no-thumb-rim:   #17191c;
   --no-thumb-key:   #4a4f55;
   --no-thumb-strip: #0c1a1a;
-  --no-thumb-glass: #061212;
 
   /* The CLASSIC shell's bezel hardware. A layout's colours like --no-label: only shell/classic/
      reads them. */
@@ -190,6 +194,8 @@
     --no-squad-line: #1f4a4a;
     --no-squad-bg: #040808;
     --no-squad-faint: #2e4a4a;
+    --no-scrim: rgba(0, 0, 0, 0.6);
+    --no-scrim-deep: rgba(0, 0, 0, 0.72);
     --no-control-bg: #060807;
     --no-control-bg-on: #0a0f0b;
     --no-lamp-off: #1b221e;
