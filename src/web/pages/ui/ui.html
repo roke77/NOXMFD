@@ -47,12 +47,12 @@
       <button type="button" class="ui-btn pad-hoverable" id="ui-reset-all">RESET ALL</button>
     </div>
 
-    <!-- Static mocks of the TGT and MAP pages, drawn with the same colour tokens those pages use, so
+    <!-- Static mocks of the TGT, MAP and HSD pages, drawn with the same colour tokens those pages use, so
          they repaint with every edit. Each sits in a fake MFD bezel in fixed greys, so it reads as a
          picture of a page whatever the theme. Display only: nothing inside is focusable or clickable. -->
     <div class="ui-heading">PREVIEW</div>
     <div class="ui-previews">
-      <figure class="pv-frame">
+      <figure class="pv-frame wide">
         <figcaption class="pv-label">TGT</figcaption>
         <div class="pv" role="img" aria-label="Preview of the TGT page in the current colours">
           <div class="pv-head"><span class="pv-title">TARGETS</span><span class="pv-count">4 LOCKED</span></div>
@@ -101,6 +101,29 @@
             <span class="mfd-chip">GRID: Hc87</span>
             <span class="mfd-chip">ROUTE: CAP 3/5</span>
           </div>
+        </div>
+      </figure>
+      <figure class="pv-frame">
+        <figcaption class="pv-label">HSD</figcaption>
+        <div class="pv pv-map" role="img" aria-label="Preview of the HSD page in the current colours">
+          <svg class="pv-map-svg" viewBox="0 0 400 300" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+            <path class="pv-hsd-cone" d="M200 175L137.5 66.7A125 125 0 0 1 262.5 66.7Z"/>
+            <circle class="pv-hsd-ring" cx="200" cy="175" r="42"/>
+            <circle class="pv-hsd-ring" cx="200" cy="175" r="83"/>
+            <circle class="pv-hsd-ring outer" cx="200" cy="175" r="125"/>
+            <circle class="pv-hsd-threat" cx="305" cy="215" r="34"/>
+            <polyline class="pv-hsd-route" points="115,250 165,150 250,95 315,135"/>
+            <circle class="pv-hsd-wp" cx="165" cy="150" r="4"/><circle class="pv-hsd-wp" cx="250" cy="95" r="4"/><circle class="pv-hsd-wp" cx="315" cy="135" r="4"/>
+            <g transform="translate(150 85) rotate(160)"><path class="pv-hsd-c datalink" d="M0 -9L-6 7L0 4L6 7Z"/></g>
+            <g transform="translate(228 72) rotate(195)"><path class="pv-hsd-c radar" d="M0 -9L-6 7L0 4L6 7Z"/></g>
+            <g transform="translate(242 122) rotate(225)"><path class="pv-hsd-c focused" d="M0 -9L-6 7L0 4L6 7Z"/></g>
+            <circle class="pv-hsd-lock-ring" cx="242" cy="122" r="10"/>
+            <g transform="translate(112 180) rotate(80)"><path class="pv-hsd-c stale" d="M0 -9L-6 7L0 4L6 7Z"/></g>
+            <path class="pv-hsd-own" d="M200 165L194 182L200 179L206 182Z"/>
+            <text class="pv-hsd-text" x="12" y="24">CEN</text>
+            <text class="pv-hsd-text" x="205" y="44">40</text>
+            <text class="pv-hsd-lock" x="12" y="288">LOCK 12.4</text>
+          </svg>
         </div>
       </figure>
     </div>

@@ -52,12 +52,13 @@ is skipped and noted in the BepInEx log. Up to 50 files of 64 KB each are read.
 
 ### PREVIEW
 
-Small mocks of the [TGT](tgt.md) and [MAP](map.md) pages above the colour rows, each in a grey MFD
-frame, drawn with the colours being edited. TGT shows the faction filters, a target list with
-focused, datalink and stale rows, and the action buttons; MAP shows the grid, a route, units of each
-faction, a target, a nuclear zone, a jamming line and the readout chips. They sit side by side, or
-stacked on a narrow screen, and follow a picker or hex value as it changes, before the change is
-applied.
+Small mocks of the [TGT](tgt.md), [MAP](map.md) and [HSD](rdr.md#hsd) pages above the colour rows, each
+in a grey MFD frame, drawn with the colours being edited. TGT shows the faction filters, a target
+list with focused, datalink and stale rows, and the action buttons; MAP shows the grid, a route,
+units of each faction, a target, a nuclear zone, a jamming line and the readout chips; HSD shows
+the range rings, the radar cone, a route, an AA threat ring and contacts in each state. TGT spans the
+full width with MAP and HSD side by side below it (all stacked on a narrow screen), and they follow
+a picker or hex value as it changes, before the change is applied.
 
 ### Colour rows
 

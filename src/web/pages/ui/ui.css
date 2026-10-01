@@ -74,8 +74,10 @@ html, body { height: 100%; margin: 0; }
 .ui-btn:disabled { color: var(--no-white-dark); border-color: var(--no-line); cursor: default; }
 .ui-btn:focus-visible { outline: 2px solid var(--no-amber); outline-offset: 2px; }
 
-/* Previews: TGT and MAP side by side, stacked when the pane is narrow. */
+/* Previews: TGT across the full row, MAP and HSD side by side below it; all stacked when the pane
+   is narrow. */
 .ui-previews { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.8em; }
+.pv-frame.wide { grid-column: 1 / -1; }
 @media (max-width: 720px) { .ui-previews { grid-template-columns: minmax(0, 1fr); } }
 
 /* A fake MFD bezel in the LYT thumbnails' fixed greys (not editable), so the mock inside reads as
@@ -181,6 +183,23 @@ html, body { height: 100%; margin: 0; }
 .pv-player { fill: var(--no-green); }
 .pv-map-chips { position: absolute; left: 0.6em; top: 0.6em; display: flex; flex-direction: column; align-items: flex-start; gap: 0.3em; }
 .pv-map-chips .mfd-chip { font-size: 0.85em; }
+
+/* HSD mock: the same tokens hsd.js writes into its SVG (rings, FCR cone, route, AA threat ring,
+   contacts by state, own ship, readouts). The cone reads --no-teal-rgb because hsd.js does. */
+.pv-hsd-ring { fill: none; stroke: rgba(var(--no-hsd-pink-rgb), 0.36); stroke-width: 2; }
+.pv-hsd-ring.outer { stroke: rgba(var(--no-hsd-pink-rgb), 0.70); }
+.pv-hsd-cone { fill: rgba(var(--no-teal-rgb), 0.07); stroke: rgba(var(--no-teal-rgb), 0.64); stroke-width: 2; }
+.pv-hsd-route { fill: none; stroke: rgba(var(--no-pure-white-rgb), 0.85); stroke-width: 1; }
+.pv-hsd-wp { fill: none; stroke: rgba(var(--no-pure-white-rgb), 0.85); stroke-width: 1.5; }
+.pv-hsd-threat { fill: none; stroke: var(--no-hsd-yellow); stroke-width: 1.5; stroke-opacity: 0.75; }
+.pv-hsd-c.datalink { fill: var(--no-purple); }
+.pv-hsd-c.radar { fill: var(--no-red); }
+.pv-hsd-c.focused { fill: var(--no-amber); }
+.pv-hsd-c.stale { fill: var(--no-white); }
+.pv-hsd-lock-ring { fill: none; stroke: var(--no-amber); stroke-width: 2; }
+.pv-hsd-own { fill: rgba(var(--no-pure-white-rgb), 0.78); }
+.pv-hsd-text, .pv-hsd-lock { font-family: var(--no-font); font-size: 14px; fill: var(--no-white); }
+.pv-hsd-lock { fill: var(--no-amber); }
 
 /* Colour rows: swatch picker | label | hex | reset. */
 .ui-groups { display: flex; flex-direction: column; gap: 0.3em; }
