@@ -1278,6 +1278,8 @@
       return;
     }
 
+    if (m.type === 'themes-push') ThemeLive.apply(window, m.data && m.data.css);
+
     slices[m.type] = m;   // cache every slice: the screen that wants it may not be up yet
     livePortals().forEach(function (p) { p.onSlice(m.type); });
 

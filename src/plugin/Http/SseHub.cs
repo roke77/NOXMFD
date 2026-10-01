@@ -120,6 +120,7 @@ namespace NOXMFD
                 // value-wins comparison as squad/TD/waypoint state above. Replaces SQD's own 2s
                 // /server-players poll.
                 string lastServerPlayers = string.Empty;
+                string lastThemes = string.Empty;
                 int sinceFrame = FrameEveryMs;   // send a frame immediately on connect
                 while (!ct.IsCancellationRequested)
                 {
@@ -230,6 +231,18 @@ namespace NOXMFD
                         lastServerPlayers = serverPlayers;
                         byte[] pbytes = Encoding.UTF8.GetBytes("event: server-players\ndata: " + serverPlayers + "\n\n");
                         await ctx.Response.OutputStream.WriteAsync(pbytes, 0, pbytes.Length, ct).ConfigureAwait(false);
+                        wrote = true;
+                    }
+
+                    // Colour themes (CFG > UI, issue #105) — same bare-JSON, change-gated shape as
+                    // wpt-options. The shells apply its css to every frame they host, so a theme
+                    // change repaints every open display without a reload.
+                    string themes = ThemeStore.StateJson;
+                    if (!string.Equals(themes, lastThemes, StringComparison.Ordinal))
+                    {
+                        lastThemes = themes;
+                        byte[] thbytes = Encoding.UTF8.GetBytes("event: themes\ndata: " + themes + "\n\n");
+                        await ctx.Response.OutputStream.WriteAsync(thbytes, 0, thbytes.Length, ct).ConfigureAwait(false);
                         wrote = true;
                     }
 

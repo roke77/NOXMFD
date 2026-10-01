@@ -88,6 +88,7 @@ namespace NOXMFD
         public float  wx;      // wpt.add-waypoint / wpt.add-navigation-point / wpt.add-steerpoint / tgp.slew : floating-origin-corrected X
         public float  wz;      // wpt.add-waypoint / wpt.add-navigation-point / wpt.add-steerpoint / tgp.slew : floating-origin-corrected Z
         public string? text;   // wpt.import* portable JSON, layout.save's DataJson blob, td.designate's payload
+                                // theme.set-color : the #rrggbb value; theme.import : the share code
     }
 #pragma warning restore CS0649
 
@@ -320,6 +321,18 @@ namespace NOXMFD
                 { "layout.update", e => LogLayout("update", LayoutStore.UpdateLayout(e.bind ?? string.Empty, e.wname ?? string.Empty, e.text ?? string.Empty)) },
                 { "layout.rename", e => LogLayout("rename", LayoutStore.RenameLayout(e.bind ?? string.Empty, e.wname ?? string.Empty)) },
                 { "layout.delete", e => LogLayout("delete", LayoutStore.DeleteLayout(e.bind ?? string.Empty)) },
+                // CFG > UI colour themes (issue #105, ThemeStore). Colour edits apply to the ACTIVE theme
+                // and are rejected while DEFAULT is active — the page creates a theme first.
+                //   wname : theme name (create/rename)     bind : theme id (rename/delete/select; "default" selects DEFAULT)
+                //   group : colors.css token (set-color/reset-color; empty resets every colour)
+                //   text  : #rrggbb (set-color) or a share code (import)
+                { "theme.create",      e => LogTheme("create",      ThemeStore.Create(e.wname)) },
+                { "theme.rename",      e => LogTheme("rename",      ThemeStore.Rename(e.bind, e.wname)) },
+                { "theme.delete",      e => LogTheme("delete",      ThemeStore.Delete(e.bind)) },
+                { "theme.select",      e => LogTheme("select",      ThemeStore.Select(e.bind)) },
+                { "theme.set-color",   e => LogTheme("set-color",   ThemeStore.SetColor(e.group, e.text)) },
+                { "theme.reset-color", e => LogTheme("reset-color", ThemeStore.ResetColor(e.group)) },
+                { "theme.import",      e => LogTheme("import",      ThemeStore.Import(e.text)) },
                 // HUD filter presets — 5 fixed numbered slots (HudPresetStore), not an arbitrary list
                 // like layout.* above: `index` (1-5) addresses a slot directly. save takes it
                 // optionally (absent = whichever slot is server-side CURRENT) and makes that slot current.
@@ -371,6 +384,11 @@ namespace NOXMFD
         private static void LogLayout(string op, bool ok)
         {
             if (!ok) Plugin.Log?.LogInfo($"[NOXMFD] layout.{op}: rejected.");
+        }
+
+        private static void LogTheme(string op, bool ok)
+        {
+            if (!ok) Plugin.Log?.LogInfo($"[NOXMFD] theme.{op}: rejected.");
         }
 
         // Same shape again, for the preset.* family.

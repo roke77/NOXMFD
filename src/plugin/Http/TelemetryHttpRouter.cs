@@ -53,6 +53,10 @@ namespace NOXMFD
                 ConfigEndpoint.ServeTgtPresets(ctx);
             else if (path == "/rates-config")
                 ConfigEndpoint.ServeRatesConfig(ctx);
+            else if (path == "/themes")
+                ConfigEndpoint.ServeThemes(ctx);
+            else if (path == "/colors-override.css")
+                ConfigEndpoint.ServeColorsOverride(ctx);
             else if (path == "/keybinds-config")
                 ConfigEndpoint.ServeKeybindsConfig(ctx);
             else if (path == "/soi-instances")

@@ -51,6 +51,9 @@ namespace NOXMFD
             RouteStore.SendSquadData = Squad.SendData;                        // docs/squadron-transport.md — same BepInEx-free seam, for the Squad.cs dependency
             TryBind("Waypoint routes", RouteStore.Load);                       // docs/hud-waypoint-indicator.md — route library persisted to disk
             TryBind("Saved layouts", LayoutStore.Load);                        // issue #51 — SAVE/LOAD LAYOUT library persisted to disk
+            ThemeStore.ConfigDir = Paths.ConfigPath;                           // same BepInEx-free seam as RouteStore
+            ThemeStore.LogWarning = msg => Log?.LogWarning(msg);
+            TryBind("Colour themes", ThemeStore.Load);                         // issue #105 — CFG > UI colour themes persisted to disk
             TryBind("HUD presets", HudPresetStore.Load);                       // issue #50 follow-up — 5 numbered HUD-filter presets persisted to disk
             TryBind("HUD presets self-check", HudPresetStore.SelfCheck);        // docs/hud-presets.md — pure JSON round-trip, same reasoning as JsonLite above
             TryBind("TGT presets", TgtPresetStore.Load);                       // issue #78 — 5 numbered TGT-filter presets persisted to disk

@@ -2062,6 +2062,8 @@ window.addEventListener('message', function(e) {
     ibStatus.textContent = m.text;
     connLostBannerCtrl.update(m.cls);
     if (splitMode) forwardStatusToPanes();
+  } else if (m.type === 'themes-push') {
+    ThemeLive.apply(window, m.data && m.data.css);
   } else if (m.type === 'soi-cid') {
     // The tap learned this instance's cid — remember it and report the surface count under it (this
     // also fires after an SSE reconnect, when the server has reset the count to 1).

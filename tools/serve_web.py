@@ -422,6 +422,12 @@ def _rates_config():
     }).encode("utf-8")
 
 
+# Mock of the plugin's /themes and /colors-override.css (CFG > UI, issue 105): DEFAULT active, no
+# saved themes, so every page imports an empty override. The theme.* commands have no mock.
+def _themes_state():
+    return json.dumps({"active": "default", "css": "", "themes": []}).encode("utf-8")
+
+
 def _rates_config_merged():
     val = _asset_json("rates-config")
     if val is None:
@@ -1166,6 +1172,10 @@ class H(http.server.SimpleHTTPRequestHandler):
             return self._send(_keybinds_config(), 'application/json; charset=utf-8')
         if path == '/rates-config':
             return self._send(_rates_config_merged(), 'application/json; charset=utf-8')
+        if path == '/themes':
+            return self._send(_themes_state(), 'application/json; charset=utf-8')
+        if path == '/colors-override.css':
+            return self._send(b'', 'text/css; charset=utf-8', {'Cache-Control': 'no-store'})
         if path == '/squad':
             return self._send(_squad_state(), 'application/json; charset=utf-8')
         if path == '/td-state':
