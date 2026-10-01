@@ -104,21 +104,24 @@
   --no-afm-damaged-heavy: rgb(255, 0, 0);
 
   /* Controls and cards: the near-black fills, borders and greys shared by the lit panel
-     (lit-panel.css), LYT, SQD and the layout dialogs. */
-  --no-control-bg:       #060807;
-  --no-control-bg-on:    #0a0f0b;
-  --no-control-text-off: #7d868d;
-  --no-lamp-off:         #1b221e;
-  --no-line:             #2c3431;
-  --no-icon-border:      #1f2723;
-  --no-text-faint:       #5a6066;
-  --no-text-soft:        #b8c0c6;
-  --no-card-bg:          #040604;
-  --no-card-bg-on:       #07100a;
-  --no-card-line:        #15201a;
-  --no-card-line-faint:  #10201a;
-  --no-tile-bg:          #050706;   /* LYT's shell cards */
-  --no-form-bg:          #050806;   /* SQD's CREATE SQUAD panel */
+     (lit-panel.css), LYT, SQD, the UI page and the layout dialogs. Calculated so a theme carries
+     them: each dark shade is the background tinted by a fixed share of green and white (fitted to
+     the original hand-picked values, which a black background reproduces), and the text greys are
+     instrument-white shades like --no-white-dim. */
+  --no-control-bg:       color-mix(in oklab, var(--no-bg), color-mix(in oklab, var(--no-green) 7%, var(--no-white)) 13.9%);
+  --no-control-bg-on:    color-mix(in oklab, var(--no-bg), color-mix(in oklab, var(--no-green) 22%, var(--no-white)) 17.4%);
+  --no-control-text-off: oklch(from var(--no-white) calc(l * 0.656) calc(c * 1.966) h);
+  --no-lamp-off:         color-mix(in oklab, var(--no-bg), color-mix(in oklab, var(--no-green) 15%, var(--no-white)) 26.2%);
+  --no-line:             color-mix(in oklab, var(--no-bg), color-mix(in oklab, var(--no-green) 10%, var(--no-white)) 34.1%);
+  --no-icon-border:      color-mix(in oklab, var(--no-bg), color-mix(in oklab, var(--no-green) 14%, var(--no-white)) 28.5%);
+  --no-text-faint:       oklch(from var(--no-white) calc(l * 0.518) calc(c * 1.601) h);
+  --no-text-soft:        oklch(from var(--no-white) calc(l * 0.857) calc(c * 1.609) h);
+  --no-card-bg:          color-mix(in oklab, var(--no-bg), color-mix(in oklab, var(--no-green) 15%, var(--no-white)) 12.5%);
+  --no-card-bg-on:       color-mix(in oklab, var(--no-bg), color-mix(in oklab, var(--no-green) 32%, var(--no-white)) 17.7%);
+  --no-card-line:        color-mix(in oklab, var(--no-bg), color-mix(in oklab, var(--no-green) 27%, var(--no-white)) 25.1%);
+  --no-card-line-faint:  color-mix(in oklab, var(--no-bg), color-mix(in oklab, var(--no-green) 28%, var(--no-white)) 24.7%);
+  --no-tile-bg:          color-mix(in oklab, var(--no-bg), color-mix(in oklab, var(--no-green) 10%, var(--no-white)) 13.3%);   /* LYT's shell cards */
+  --no-form-bg:          color-mix(in oklab, var(--no-bg), color-mix(in oklab, var(--no-green) 18%, var(--no-white)) 13.8%);   /* SQD's CREATE SQUAD panel */
   --no-green-mid:        oklch(from var(--no-green) calc(l * 0.667) calc(c * 0.489) h);   /* KEY's dim green, between --no-green-dim and --no-green-deep */
   --no-green-rule:       oklch(from var(--no-green) calc(l * 0.267) calc(c * 0.159) h);   /* KEY's table row divider */
   --no-green-line:       oklch(from var(--no-green) calc(l * 0.422) calc(c * 0.278) h);   /* TGT's source-tag border */
@@ -187,5 +190,19 @@
     --no-squad-line: #1f4a4a;
     --no-squad-bg: #040808;
     --no-squad-faint: #2e4a4a;
+    --no-control-bg: #060807;
+    --no-control-bg-on: #0a0f0b;
+    --no-lamp-off: #1b221e;
+    --no-line: #2c3431;
+    --no-icon-border: #1f2723;
+    --no-card-bg: #040604;
+    --no-card-bg-on: #07100a;
+    --no-card-line: #15201a;
+    --no-card-line-faint: #10201a;
+    --no-tile-bg: #050706;
+    --no-form-bg: #050806;
+    --no-text-faint: #5a6066;
+    --no-control-text-off: #7d868d;
+    --no-text-soft: #b8c0c6;
   }
 }
