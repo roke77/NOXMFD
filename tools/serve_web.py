@@ -429,7 +429,21 @@ def _rates_config():
 # the harness. The token list is read from ThemeColors.cs so it can't drift from the plugin's.
 THEME_TOKENS = re.findall(r'"(--no-[\w-]+)"', re.search(r'Tokens\s*=\s*\{(.*?)\};',
                           (REPO / "src" / "plugin" / "Stores" / "ThemeColors.cs").read_text(encoding="utf-8"), re.S).group(1))
-THEMES = []
+# Two saved themes to start from, unlike the folder's Dusk and Monokai: Arctic (ice blue on navy) and
+# Paper (a light theme, dark ink on cream).
+THEMES = [
+    {"id": "t_arctic", "name": "Arctic", "colors": {
+        "--no-green-rgb": "#5ce1ff", "--no-white-rgb": "#e8f6ff", "--no-red-rgb": "#ff5c7a",
+        "--no-amber-rgb": "#ffd166", "--no-gray-rgb": "#4a6275", "--no-bg": "#06121c",
+        "--no-panel-border": "#1c3a4f", "--no-ink": "#041018", "--no-squad-rgb": "#9b8cff",
+        "--no-route-cyan": "#b8f2ff", "--no-target-orange": "#ffa94d"}},
+    {"id": "t_paper", "name": "Paper", "colors": {
+        "--no-green-rgb": "#1f7a3a", "--no-white-rgb": "#1c1c1c", "--no-red-rgb": "#c62828",
+        "--no-amber-rgb": "#b26a00", "--no-gray-rgb": "#9e9a8e", "--no-bg": "#f2efe6",
+        "--no-panel-border": "#c9c2ad", "--no-ink": "#f2efe6", "--no-squad-rgb": "#00838f",
+        "--no-purple-rgb": "#6a3fb5", "--no-blue-rgb": "#1e5fb4", "--no-friendly-blue": "#1e5fb4",
+        "--no-route-cyan": "#0077a8", "--no-reached-gray": "#8a8a8a"}},
+]
 THEME_STATE = {"active": "default"}
 # The plugin's drop-in themes folder (BepInEx/plugins/NOXMFD/themes) stands in as preview/themes here
 # (gitignored with the rest of preview/): read on start and on theme.rescan, read-only like DEFAULT.
