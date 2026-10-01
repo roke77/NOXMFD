@@ -923,6 +923,15 @@ namespace NOXMFD
         // the wire.
         internal static void RebuildState() { StateJson = BuildStateJson(); }
 
+        // Every other squad in the faction, for SQD's list of squads this pilot isn't in (issue #106,
+        // docs/faction-broadcast.md); the own squad's pair joins the duplicate check.
+        private static string FactionJson()
+        {
+            ulong ownLeader = _role == Role.Leader ? Squadron.SelfId() : _role == Role.Member ? _leaderId : 0;
+            (string, int, ulong)? own = _role == Role.None ? ((string, int, ulong)?)null : (_callsign, _flight, ownLeader);
+            return FactionIdentity.FactionJson(Presence.Squads(ownLeader), own, PlayerRoster.SteamNameFor, PlayerRoster.AircraftFor);
+        }
+
         private static string BuildStateJson()
         {
             string roleStr = _role switch { Role.Leader => "leader", Role.Member => "member", _ => "none" };
@@ -961,6 +970,7 @@ namespace NOXMFD
                   .Append(",\"members\":").Append(MembersJson(inv.Members)).Append('}');
             }
             sb.Append(']');
+            sb.Append(",\"faction\":").Append(FactionJson());
             sb.Append(",\"pendingSent\":[");
             bool first = true;
             foreach (var kv in _pendingSent)

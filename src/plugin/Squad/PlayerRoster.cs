@@ -44,6 +44,13 @@ namespace NOXMFD
         internal static string AircraftFor(ulong steamId) =>
             _aircraftBySteamId.TryGetValue(steamId, out string name) ? name : string.Empty;
 
+        // Steam name (never a squad designation) of everyone in the local faction on the last
+        // Refresh(), for SQD's rows of squads this pilot isn't in (docs/faction-broadcast.md).
+        private static readonly Dictionary<ulong, string> _steamNameBySteamId = new Dictionary<ulong, string>();
+
+        internal static string SteamNameFor(ulong steamId) =>
+            _steamNameBySteamId.TryGetValue(steamId, out string name) ? name : string.Empty;
+
         // issue #48 (MAP squad-member styling) — the same per-SteamID aircraft read as
         // _aircraftBySteamId above, just the unit's persistentID instead of its type name; this is
         // what lets TelemetryReader.BuildUnits flag a map icon as a squadmate's without any new
@@ -85,6 +92,7 @@ namespace NOXMFD
                 _factionSince.Clear();
                 _aircraftBySteamId.Clear();
                 _aircraftIdBySteamId.Clear();
+                _steamNameBySteamId.Clear();
                 _squadAircraftIds.Clear();
                 return;
             }
@@ -98,6 +106,7 @@ namespace NOXMFD
             _scratch.AddRange(hq.GetPlayers(sortByScore: false));
             _aircraftBySteamId.Clear();
             _aircraftIdBySteamId.Clear();
+            _steamNameBySteamId.Clear();
 
             // Ping the WHOLE faction, including anyone filtered out below — someone who just
             // (re)launched NOXMFD needs to start receiving beats before Presence.HasNoxmfd can ever
@@ -120,13 +129,14 @@ namespace NOXMFD
                 _aircraftBySteamId[id] = p.Aircraft != null && p.Aircraft.definition != null
                     ? (p.Aircraft.definition.unitName ?? string.Empty) : string.Empty;
                 _aircraftIdBySteamId[id] = p.Aircraft != null ? p.Aircraft.persistentID.Id : 0;
+                string name = PlayerNameOverride.OriginalDisplayName(p);   // Steam name, never a designation
+                _steamNameBySteamId[id] = name;
 
                 if (id == self) continue;   // exclude self from the invite candidate list below
                 peerIds.Add(id);
                 if (!Presence.HasNoxmfd(id)) continue;   // only offer players actually running NOXMFD
                 if (!first) sb.Append(',');
                 first = false;
-                string name = PlayerNameOverride.OriginalDisplayName(p);   // Steam name, never a designation
                 sb.Append("{\"id\":\"").Append(id).Append("\",\"name\":\"")
                   .Append(TelemetryServer.EscapeJson(name)).Append("\"}");
             }

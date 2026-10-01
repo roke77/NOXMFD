@@ -50,7 +50,7 @@ namespace NOXMFD
             var sb = new StringBuilder("{\"v\":").Append(SchemaVersion);
             if (id.InSquad)
             {
-                sb.Append(",\"c\":\"").Append(Escape(id.Callsign)).Append('"')
+                sb.Append(",\"c\":\"").Append(JsonLite.EscapeJson(id.Callsign)).Append('"')
                   .Append(",\"f\":").Append(id.Flight.ToString(CultureInfo.InvariantCulture))
                   .Append(",\"s\":").Append(id.Slot.ToString(CultureInfo.InvariantCulture))
                   .Append(",\"l\":\"").Append(id.LeaderId.ToString(CultureInfo.InvariantCulture)).Append('"');
@@ -183,6 +183,53 @@ namespace NOXMFD
             return result;
         }
 
+        // What SQD shows of the faction beyond the viewer's own squad (state.faction in /squad):
+        // every other squad with its members, the (callsign, flight) pairs in use anywhere in the
+        // faction for the picker's marks, and whether the viewer's own pair clashes. Steam name and
+        // aircraft come from the local faction scan, not from the broadcast.
+        internal static string FactionJson(IReadOnlyList<FactionSquad> others, (string Callsign, int Flight, ulong LeaderId)? own,
+                                           Func<ulong, string> nameFor, Func<ulong, string> aircraftFor)
+        {
+            var all = new List<(string Callsign, int Flight, ulong LeaderId)>();
+            foreach (FactionSquad sq in others) all.Add((sq.Callsign, sq.Flight, sq.LeaderId));
+            if (own.HasValue) all.Add(own.Value);
+            HashSet<(string Callsign, int Flight)> dup = Duplicates(all);
+
+            var sb = new StringBuilder("{\"squads\":[");
+            for (int i = 0; i < others.Count; i++)
+            {
+                FactionSquad sq = others[i];
+                if (i > 0) sb.Append(',');
+                sb.Append("{\"leader\":\"").Append(sq.LeaderId.ToString(CultureInfo.InvariantCulture))
+                  .Append("\",\"callsign\":\"").Append(JsonLite.EscapeJson(sq.Callsign))
+                  .Append("\",\"flight\":").Append(sq.Flight.ToString(CultureInfo.InvariantCulture))
+                  .Append(",\"dup\":").Append(dup.Contains((sq.Callsign.ToUpperInvariant(), sq.Flight)) ? "true" : "false")
+                  .Append(",\"members\":[");
+                for (int j = 0; j < sq.Members.Count; j++)
+                {
+                    var m = sq.Members[j];
+                    if (j > 0) sb.Append(',');
+                    sb.Append("{\"id\":\"").Append(m.Id.ToString(CultureInfo.InvariantCulture))
+                      .Append("\",\"slot\":").Append(m.Slot.ToString(CultureInfo.InvariantCulture))
+                      .Append(",\"name\":\"").Append(JsonLite.EscapeJson(nameFor(m.Id)))
+                      .Append("\",\"aircraft\":\"").Append(JsonLite.EscapeJson(aircraftFor(m.Id))).Append("\"}");
+                }
+                sb.Append("]}");
+            }
+            sb.Append("],\"used\":[");
+            var used = new SortedSet<(string Callsign, int Flight)>();
+            foreach (var s in all) used.Add((s.Callsign.ToUpperInvariant(), s.Flight));
+            bool first = true;
+            foreach (var u in used)
+            {
+                if (!first) sb.Append(',');
+                first = false;
+                sb.Append("[\"").Append(JsonLite.EscapeJson(u.Callsign)).Append("\",").Append(u.Flight.ToString(CultureInfo.InvariantCulture)).Append(']');
+            }
+            bool selfDup = own.HasValue && dup.Contains((own.Value.Callsign.ToUpperInvariant(), own.Value.Flight));
+            return sb.Append("],\"selfDup\":").Append(selfDup ? "true" : "false").Append('}').ToString();
+        }
+
         private static bool TryInt(Dictionary<string, object?> o, string key, int min, int max, out int value)
         {
             value = 0;
@@ -197,8 +244,5 @@ namespace NOXMFD
             return false;
         }
 
-        // Callsigns come from a fixed list, but Squad.CreateSquad accepts any text, so the writer
-        // still escapes what would break the JSON.
-        private static string Escape(string s) => s.Replace("\\", "\\\\").Replace("\"", "\\\"");
     }
 }

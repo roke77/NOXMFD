@@ -140,6 +140,11 @@ namespace NOXMFD
         internal static Dictionary<ulong, string> Designations() =>
             _identities.Designations(Time.unscaledTime, PlayerRoster.InFaction);
 
+        // Every other squad heard of, for SQD's faction list (the viewer's own squad, led by
+        // `excludeLeader`, comes from Squad.cs's roster instead).
+        internal static List<FactionIdentity.FactionSquad> Squads(ulong excludeLeader) =>
+            _identities.Squads(Time.unscaledTime, PlayerRoster.InFaction, excludeLeader);
+
         // A faction-mate's fuel: its own broadcast in the identity record, else the `fuel` message an
         // older client still sends (FuelBroadcast.cs; removable once those clients are gone).
         internal static float? FuelFor(ulong steamId) =>

@@ -147,6 +147,39 @@ namespace NOXMFD.Tests
         }
 
         [Fact]
+        public void FactionJson_lists_other_squads_with_names_aircraft_and_duplicate_flags()
+        {
+            var t = new Table();
+            t.Note(100, Squad(slot: 1, leader: 100), 0f);     // another TALON 1
+            t.Note(101, Squad(slot: 2, leader: 100), 0f);
+            t.Note(300, Squad("VIPER", 2, 1, 300), 0f);
+            var others = t.Squads(1f, InFaction, excludeLeader: 900);
+
+            string json = FactionJson(others, ("TALON", 1, 900UL), id => "n" + id, id => id == 101 ? "Ifrit" : "");
+            Assert.True(JsonLite.Parse(json) is Dictionary<string, object?>);
+            var root = (Dictionary<string, object?>)JsonLite.Parse(json)!;
+            var squads = (List<object?>)root["squads"]!;
+            var talon = (Dictionary<string, object?>)squads[0]!;
+            Assert.Equal("TALON", talon["callsign"]);
+            Assert.Equal(true, talon["dup"]);                  // the viewer's own squad is TALON 1 too
+            Assert.Equal(true, root["selfDup"]);
+            var members = (List<object?>)talon["members"]!;
+            Assert.Equal("Ifrit", ((Dictionary<string, object?>)members[1]!)["aircraft"]);
+            Assert.Equal("n100", ((Dictionary<string, object?>)members[0]!)["name"]);
+            Assert.Equal(false, ((Dictionary<string, object?>)squads[1]!)["dup"]);
+            Assert.Equal(2, ((List<object?>)root["used"]!).Count);   // TALON 1 and VIPER 2
+        }
+
+        [Fact]
+        public void FactionJson_with_no_squads_and_no_own_squad_is_empty_and_valid()
+        {
+            var root = (Dictionary<string, object?>)JsonLite.Parse(FactionJson(new List<FactionSquad>(), null, id => "", id => ""))!;
+            Assert.Empty((List<object?>)root["squads"]!);
+            Assert.Empty((List<object?>)root["used"]!);
+            Assert.Equal(false, root["selfDup"]);
+        }
+
+        [Fact]
         public void Duplicates_needs_two_different_leaders_on_the_same_callsign_and_flight()
         {
             var d = Duplicates(new[]
