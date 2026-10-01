@@ -238,6 +238,7 @@ function render() {
       tag.textContent = t.file ? 'FILE' : 'READ-ONLY';
       card.appendChild(tag);
     }
+    card.title = t.name;   // the collapsed sidebar clips the name
     card.addEventListener('click', function () { if (t.id !== state.active) send('theme.select', { bind: t.id }); });
     themesEl.appendChild(card);
   });
@@ -397,6 +398,36 @@ function flashCopied() {
   clearTimeout(copiedTimer);
   copiedTimer = setTimeout(function () { btn.exportCode.textContent = 'EXPORT'; }, 1500);
 }
+
+// The sidebar's collapsed state works like KEY's rail (keybinds.js): the toggle saves it per browser
+// and a saved value wins; with nothing saved it starts collapsed on a pane 1152px wide or less,
+// following the width as it changes.
+var SIDE_STORAGE = 'noxmfd.ui.sideCollapsed';
+var sideEl = document.getElementById('ui-side');
+var sideToggle = document.getElementById('ui-side-toggle');
+var sideNarrow = window.matchMedia('(max-width: 1152px)');
+
+function readSidePref() {
+  try {
+    var v = localStorage.getItem(SIDE_STORAGE);
+    return v === '1' ? true : v === '0' ? false : null;
+  } catch (e) { return null; }
+}
+function setSideCollapsed(collapsed) {
+  sideEl.classList.toggle('collapsed', collapsed);
+  sideToggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+}
+function applySideDefault() {
+  var pref = readSidePref();
+  setSideCollapsed(pref === null ? sideNarrow.matches : pref);
+}
+sideToggle.addEventListener('click', function () {
+  var collapsed = !sideEl.classList.contains('collapsed');
+  try { localStorage.setItem(SIDE_STORAGE, collapsed ? '1' : '0'); } catch (e) {}
+  setSideCollapsed(collapsed);
+});
+sideNarrow.addEventListener('change', applySideDefault);
+applySideDefault();
 
 // Preview tabs: one mock at a time.
 var tabs = Array.prototype.slice.call(document.querySelectorAll('.pv-tab'));

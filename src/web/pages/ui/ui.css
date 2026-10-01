@@ -45,12 +45,46 @@ html, body { height: 100%; margin: 0; }
    One column on a narrow pane. */
 .ui-layout {
   display: grid;
-  grid-template-columns: minmax(10em, 14em) minmax(0, 1fr);
+  grid-template-columns: auto minmax(0, 1fr);
   gap: 1.3em;
   align-items: start;
 }
-.ui-side { position: sticky; top: 0; display: flex; flex-direction: column; gap: 0.6em; }
-.ui-side .ui-heading { margin-top: 0; }
+.ui-side {
+  position: sticky;
+  top: 0;
+  box-sizing: border-box;
+  width: 14em;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6em;
+  overflow: hidden;
+  /* Collapses like KEY's rail: the width eases linearly over 200ms and clips the theme rows to their
+     lamp and first colours; the heading and actions drop out. */
+  transition: width 200ms linear;
+}
+.ui-side.collapsed { width: 3.4em; }
+.ui-side.collapsed .ui-heading,
+.ui-side.collapsed .ui-actions,
+.ui-side.collapsed .ui-theme-name,
+.ui-side.collapsed .ui-theme-tag { display: none; }
+.ui-side.collapsed .ui-theme { padding-right: 0; }
+.ui-side-head { display: flex; align-items: center; gap: 0.5em; }
+.ui-side .ui-heading { margin-top: 0; white-space: nowrap; }
+.ui-side-toggle {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid transparent;
+  background: none;
+  color: var(--no-green-dim);
+  cursor: pointer;
+}
+.ui-side-toggle:hover { border-color: var(--no-green-dark); color: var(--no-amber); }
+.ui-side-toggle:focus-visible { outline: 2px solid var(--no-amber); outline-offset: 2px; }
 .ui-main { display: flex; flex-direction: column; gap: 0.8em; min-width: 0; }
 
 /* Theme rows: a lamp lit on the active theme, the name over a strip of its main colours, a tag on
@@ -325,7 +359,12 @@ html, body { height: 100%; margin: 0; }
 @media (max-width: 900px) { .ui-groups { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 720px) {
   .ui-layout { grid-template-columns: minmax(0, 1fr); }
-  .ui-side { position: static; }
+  /* Stacked: the themes sit above the colours at full width, so there is nothing to collapse. */
+  .ui-side, .ui-side.collapsed { position: static; width: auto; }
+  .ui-side-toggle { display: none; }
+  .ui-side.collapsed .ui-heading, .ui-side.collapsed .ui-theme-name { display: revert; }
+  .ui-side.collapsed .ui-actions { display: grid; }
+  .ui-side.collapsed .ui-theme-tag { display: inline; }
   .ui-themes { display: grid; grid-template-columns: repeat(auto-fill, minmax(11em, 1fr)); max-height: none; }
   .ui-actions { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }

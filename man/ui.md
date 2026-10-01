@@ -14,6 +14,9 @@ The CLASSIC bezel and the F-35 frame keep their own colours.
 The theme list sits on the left, beside the preview and the colours (above them on a narrow
 screen). Each row shows the theme's name over a strip of its main colours; the active theme's lamp
 is lit. The count beside THEMES shows how many of the 20 themes that can be saved are in use.
+The sidebar toggle beside THEMES collapses the list to a narrow strip of each theme's lamp and first
+colours, like KEY's sidebar; the choice is remembered per browser, and with no choice made the
+sidebar starts collapsed on a screen 1152 px wide or less.
 
 - **DEFAULT** is the stock colour set, tagged **READ-ONLY**: changing a colour while it is active
   asks for a name and saves a new theme with that change.
