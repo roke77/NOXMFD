@@ -28,17 +28,39 @@ the detail lives — what each bind does exactly, and when it does nothing.
   ![Collapsed sidebar](images/KEY_SIDEBAR_COLLAPSED.png)
 - **Search** — the box above the list filters it as you type. It matches a function's name, its
   description, and whichever key or button is bound to it, so `gear` finds the gear binds and
-  `j2` finds everything on your second stick. The settings tiles are hidden while you search.
-
-  To find what a key or button does, click **FIND BY KEY PRESS** beside the box and press it. A
-  keyboard key — with any modifiers you hold — or a joystick/HOTAS button fills the box and
-  lists only the functions bound to exactly that, so `G` finds Gear Down and not everything with
-  a G in its name. Esc cancels, and editing the box goes back to the ordinary text search. The
-  list is empty when nothing is bound to what you pressed.
-
-  ![Searching by pressing Shift+G](images/KEY_SEARCH.png)
+  `j2` finds everything on your second stick. The settings tiles are hidden while you search. To
+  find what a particular key or button does, use [Find by key press](#find-by-key-press).
 - **Narrow displays** — at 860 px or less the descriptions are hidden and the columns tighten, so
   a phone or a small pane still shows every function and its binds.
+
+### Find by key press
+
+The **FIND BY KEY PRESS** button at the right of the search box answers "what is this key bound
+to?" without typing it. Click it, then press a keyboard key or a joystick/HOTAS button; the
+button blinks amber and reads `PRESS KEY / BUTTON…` while it listens.
+
+![Listening for a press](images/KEY_FIND_ARMED.png)
+
+The key or button fills the search box and the list shows only the functions bound to exactly
+that. It is an exact match, not a text search: `G` finds Gear Down, not everything with a G in its
+name, and `SHIFT+G` is a different key from `G`.
+
+![Searching by pressing Shift+G](images/KEY_SEARCH.png)
+
+- **Keyboard** — hold any modifiers first, as when [binding a key](#binding-a-function). The
+  button shows `SHIFT+…` while you hold Shift and the key is still to come.
+- **Joystick / HOTAS** — the game reads the button, so it works while the browser has focus. The
+  box fills with the stick and button, such as `J2 B11`. A button already held when you click is
+  ignored, the same as when binding, and a function bound to the same button on "any stick" is
+  found too.
+
+  ![Searching by a stick button](images/KEY_FIND_JOY.png)
+- **Nothing bound** — the list is empty and says `NO MATCHING FUNCTION`, so that key or button is
+  free.
+
+  ![A key nothing is bound to](images/KEY_FIND_NONE.png)
+- **Cancelling** — `Esc`, or click the button again, stops listening and leaves the box as it was.
+  Typing in the box switches back to the ordinary text search.
 
 ## Binding a function
 
@@ -68,16 +90,31 @@ cell shows `—`. Click a cell to bind it; a function can have a key, a button, 
   when on.
 - **Keyboard only** — SAVE and LOAD LAYOUT show `KEYBOARD ONLY` in the joystick column: see
   [Layout](#layout).
-- **Conflicts** — binding a key or button another function already uses opens a prompt naming
-  what it's bound to:
 
-  ![Key already in use](images/KEY_CONFLICT.png)
+### Conflicts
 
-  **Keep Both** gives it to the new function too, so one press does both. **Replace** moves it
-  to the new function and clears it from the others. **Cancel** (or Esc) leaves everything as it
-  was. The exception is a [Layout Preset](#layout-presets): it can't share a key or button with
-  any other function, so the cell shows `USED BY` and that function's name for a moment instead.
-  Axes aren't checked.
+Binding a key or button another function already uses opens a prompt instead of quietly sharing
+it. It names the key or button and lists every function already using it.
+
+![Key already in use](images/KEY_CONFLICT.png)
+
+- **Keep Both** — the new function takes it too, and one press does all of them.
+- **Replace** — the new function takes it and it is cleared from the others.
+- **Cancel** — or `Esc`: nothing changes, and the new function stays as it was.
+
+When more than one function already uses it, they are all listed, and Replace clears all of them.
+
+![Two functions already use the key](images/KEY_CONFLICT_MANY.png)
+
+It works the same for a joystick button, and the title reads `BUTTON ALREADY IN USE`. A button
+counts as a clash on the same stick, or when either function is bound to "any stick".
+
+- **Layout Presets** are the exception: a [Layout Preset](#layout-presets) can't share a key or
+  button with any other function, so there is no prompt. The cell shows `USED BY` and that
+  function's name for a moment and nothing is bound.
+- **Axes** aren't checked.
+- An unanswered prompt is dropped after two minutes, so it won't be waiting the next time you open
+  the page.
 
 ## Settings
 
