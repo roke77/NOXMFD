@@ -47,7 +47,7 @@
 .led-pick {
   flex: none; width: 22px; height: 22px; margin: 0 6px 0 auto;
   appearance: none; -webkit-appearance: none;
-  border: 1px solid var(--no-green-deep); border-radius: 50%; background: var(--no-black);
+  border: 1px solid var(--no-green-deep); border-radius: 50%; background: var(--no-bg);
   display: grid; place-items: center; cursor: pointer;
 }
 .led-pick::after {

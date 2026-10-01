@@ -38,6 +38,7 @@ the older single-slot preview/assets/manifest.json if neither CURRENT nor its ta
 Ctrl+C to stop.
 """
 import argparse
+import base64
 import hashlib
 import http.server
 import json
@@ -298,6 +299,7 @@ def _preview_push(query):
         "keybinds-config": _keybinds_config(),
         "hud-options": _captured_or("hud-options", _hud_options),
         "server-players": _server_players(),
+        "themes": _themes_state(),
     }
     hashes = {}
     events = {}
@@ -420,6 +422,188 @@ def _rates_config():
         "tgpSuppressNative": False,
         "mapShowPlayerNames": False
     }).encode("utf-8")
+
+
+# Stateful mock of the plugin's ThemeStore (CFG > UI, issue 105): /themes, /colors-override.css,
+# the "themes" push and the theme.* commands, so the UI page and the shells' live repaint work in
+# the harness. The token list is read from ThemeColors.cs so it can't drift from the plugin's.
+THEME_TOKENS = re.findall(r'"(--no-[\w-]+)"', re.search(r'Tokens\s*=\s*\{(.*?)\};',
+                          (REPO / "src" / "plugin" / "Stores" / "ThemeColors.cs").read_text(encoding="utf-8"), re.S).group(1))
+# Saved themes to start from, unlike the folder's Dusk and Monokai: Arctic (ice blue on navy), Dracula
+# (draculatheme.com's palette), Elite (Elite Dangerous' orange HUD) and Star (Star Citizen's blue UI).
+THEMES = [
+    {"id": "t_arctic", "name": "Arctic", "colors": {
+        "--no-green-rgb": "#5ce1ff", "--no-white-rgb": "#e8f6ff", "--no-red-rgb": "#ff5c7a",
+        "--no-amber-rgb": "#ffd166", "--no-gray-rgb": "#4a6275", "--no-bg": "#06121c",
+        "--no-panel-border": "#1c3a4f", "--no-ink": "#041018", "--no-squad-rgb": "#9b8cff",
+        "--no-route-cyan": "#b8f2ff", "--no-target-orange": "#ffa94d"}},
+    {"id": "t_dracula", "name": "Dracula", "colors": {
+        "--no-green-rgb": "#50fa7b", "--no-white-rgb": "#f8f8f2", "--no-red-rgb": "#ff5555",
+        "--no-amber-rgb": "#ffb86c", "--no-gray-rgb": "#6272a4", "--no-bg": "#282a36",
+        "--no-panel-border": "#44475a", "--no-ink": "#282a36", "--no-squad-rgb": "#8be9fd",
+        "--no-purple-rgb": "#bd93f9", "--no-blue-rgb": "#8be9fd", "--no-friendly-blue": "#8be9fd",
+        "--no-hud-friendly": "#8be9fd", "--no-threat-white": "#f8f8f2", "--no-threat-yellow": "#f1fa8c",
+        "--no-threat-red": "#ff5555", "--no-jam-yellow-rgb": "#f1fa8c", "--no-route-cyan": "#8be9fd",
+        "--no-reached-gray": "#6272a4", "--no-target-orange": "#ffb86c", "--no-hsd-pink-rgb": "#ff79c6",
+        "--no-hsd-yellow-rgb": "#f1fa8c"}},
+    {"id": "t_elite", "name": "Elite", "colors": {
+        "--no-green-rgb": "#ff6600", "--no-white-rgb": "#ffd3a0", "--no-red-rgb": "#ff1f3d",
+        "--no-amber-rgb": "#ffcc00", "--no-gray-rgb": "#6b4a2b", "--no-bg": "#0a0603",
+        "--no-panel-border": "#3d2205", "--no-ink": "#0a0603", "--no-squad-rgb": "#29b6ff",
+        "--no-purple-rgb": "#c06bff", "--no-blue-rgb": "#3fa9ff", "--no-friendly-blue": "#3fa9ff",
+        "--no-hud-friendly": "#3fa9ff", "--no-route-cyan": "#4fc3ff", "--no-target-orange": "#ffe14d"}},
+    {"id": "t_star", "name": "Star", "colors": {
+        "--no-green-rgb": "#35b6ec", "--no-white-rgb": "#e6f4ff", "--no-red-rgb": "#ff4d4d",
+        "--no-amber-rgb": "#ffbb00", "--no-gray-rgb": "#4f6f82", "--no-bg": "#0d1a24",
+        "--no-panel-border": "#1c4d6e", "--no-ink": "#0d1a24", "--no-squad-rgb": "#9bc3d1",
+        "--no-purple-rgb": "#a98bff", "--no-blue-rgb": "#3d7bff", "--no-friendly-blue": "#4f9dff",
+        "--no-hud-friendly": "#35b6ec", "--no-route-cyan": "#7fe3ff", "--no-target-orange": "#ff8a3d"}},
+]
+THEME_STATE = {"active": "default"}
+# The plugin's drop-in themes folder (BepInEx/plugins/NOXMFD/themes) stands in as preview/themes here
+# (gitignored with the rest of preview/): read on start and on theme.rescan, read-only like DEFAULT.
+THEMES_DIR = REPO / "preview" / "themes"
+# Option tokens (the SOI line's style and width): token → [(word, served CSS)], from ThemeColors.Options.
+THEME_OPTIONS = {tok: [tuple((o + "=" + o).split("=")[:2]) for o in re.findall(r'"([^"]+)"', body)]
+                 for tok, body in re.findall(r'\["(--no-[\w-]+)"\]\s*=\s*new\[\]\s*\{([^}]*)\}',
+                                             (REPO / "src" / "plugin" / "Stores" / "ThemeColors.cs").read_text(encoding="utf-8"))}
+
+
+def _theme_norm(token, value):
+    """ThemeColors.Normalize: lowercase #rrggbb, or an option token's word; None when invalid."""
+    if token not in THEME_TOKENS or not isinstance(value, str):
+        return None
+    if token in THEME_OPTIONS:
+        return next((w for w, _ in THEME_OPTIONS[token] if w == value.lower()), None)
+    return value.lower() if re.fullmatch(r"#[0-9a-fA-F]{6}", value) else None
+
+
+# Theme files key colours by role name (ThemeColors.FileKeys, index for index with Tokens).
+THEME_FILE_KEYS = dict(zip(re.findall(r'"([a-z0-9-]+)"', re.search(r'FileKeys\s*=\s*\{(.*?)\};',
+                       (REPO / "src" / "plugin" / "Stores" / "ThemeColors.cs").read_text(encoding="utf-8"), re.S).group(1)),
+                       THEME_TOKENS))
+FILE_THEMES = []
+
+
+def _scan_theme_folder():
+    found = []
+    if THEMES_DIR.is_dir():
+        for fp in sorted(THEMES_DIR.glob("*.json"), key=lambda f: f.name.lower())[:50]:
+            try:
+                data = json.loads(fp.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                continue
+            if not isinstance(data, dict):
+                continue
+            colors = {THEME_FILE_KEYS[k.lower()]: _theme_norm(THEME_FILE_KEYS[k.lower()], v)
+                      for k, v in (data.get("colors") or {}).items()
+                      if k.lower() in THEME_FILE_KEYS and _theme_norm(THEME_FILE_KEYS[k.lower()], v)}
+            name = str(data.get("name") or fp.stem).strip()[:32]
+            if colors and name:
+                found.append({"id": "f_" + fp.name.lower(), "name": name, "colors": colors, "file": True})
+    FILE_THEMES[:] = found
+    if THEME_STATE["active"] != "default" and not _theme_active():
+        THEME_STATE["active"] = "default"
+
+
+def _theme_active():
+    return next((t for t in THEMES + FILE_THEMES if t["id"] == THEME_STATE["active"]), None)
+
+
+def _theme_css(colors):
+    parts = []
+    for token in THEME_TOKENS:
+        hexv = colors.get(token)
+        if not hexv:
+            continue
+        if token in THEME_OPTIONS:
+            val = dict(THEME_OPTIONS[token]).get(hexv, hexv)
+        else:
+            val = ", ".join(str(int(hexv[i:i + 2], 16)) for i in (1, 3, 5)) if token.endswith("-rgb") else hexv
+        parts.append(f"{token}:{val};")
+    return ":root{" + "".join(parts) + "}" if parts else ""
+
+
+def _theme_code(t):
+    payload = json.dumps({"n": t["name"], "c": t["colors"]}, separators=(",", ":"))
+    return "NOXT1:" + base64.b64encode(payload.encode("utf-8")).decode("ascii")
+
+
+def _themes_state():
+    active = _theme_active()
+    return json.dumps({
+        "active": active["id"] if active else "default",
+        "css": _theme_css(active["colors"]) if active else "",
+        "themes": [dict(t, code=_theme_code(t)) for t in THEMES + FILE_THEMES],
+    }).encode("utf-8")
+
+
+def _theme_unique(name, exclude=None):
+    taken = {"DEFAULT"} | {t["name"] for t in THEMES + FILE_THEMES if t["id"] != exclude}
+    if name not in taken:
+        return name
+    n = 2
+    while f"{name} ({n})" in taken:
+        n += 1
+    return f"{name} ({n})"
+
+
+def _theme_add(name, colors):
+    if len(THEMES) >= 20:
+        return False
+    t = {"id": f"t_{uuid.uuid4().hex}", "name": _theme_unique(name[:32]), "colors": colors}
+    THEMES.append(t)
+    THEME_STATE["active"] = t["id"]
+    return True
+
+
+_scan_theme_folder()
+
+
+def _theme_command(env):
+    cmd, bind = env.get("cmd", ""), env.get("bind", "")
+    if cmd == "theme.rescan":
+        _scan_theme_folder()
+        return True
+    active = _theme_active()
+    name = (env.get("wname") or "").strip()
+    if cmd == "theme.create" and name:
+        return _theme_add(name, dict(active["colors"]) if active and bind != "default" else {})
+    if cmd == "theme.import":
+        try:
+            code = (env.get("text") or "").strip()
+            data = json.loads(base64.b64decode(code[len("NOXT1:"):]).decode("utf-8")) if code.startswith("NOXT1:") else None
+        except ValueError:
+            data = None
+        if not data or not str(data.get("n", "")).strip():
+            return False
+        colors = {k: _theme_norm(k, v) for k, v in (data.get("c") or {}).items() if _theme_norm(k, v)}
+        return _theme_add(str(data["n"]).strip(), colors)
+    if cmd == "theme.select" and (bind == "default" or any(t["id"] == bind for t in THEMES + FILE_THEMES)):
+        THEME_STATE["active"] = bind
+        return True
+    row = next((t for t in THEMES if t["id"] == bind), None)
+    if cmd == "theme.rename" and row and name:
+        row["name"] = _theme_unique(name[:32], bind)
+        return True
+    if cmd == "theme.delete" and row:
+        THEMES.remove(row)
+        if THEME_STATE["active"] == bind:
+            THEME_STATE["active"] = "default"
+        return True
+    token, value = env.get("group") or "", env.get("text") or ""
+    if active and active.get("file"):
+        active = None   # folder themes are read-only
+    if cmd == "theme.set-color" and active and _theme_norm(token, value):
+        active["colors"][token] = _theme_norm(token, value)
+        return True
+    if cmd == "theme.reset-color" and active:
+        if token:
+            active["colors"].pop(token, None)
+        else:
+            active["colors"].clear()
+        return True
+    return False
 
 
 def _rates_config_merged():
@@ -1114,6 +1298,7 @@ class H(http.server.SimpleHTTPRequestHandler):
             _tgt_preset_command(env)
             _tgt_sort_command(env)
             _soi_command(env)
+            _theme_command(env)
             self.send_response(204)
             self.end_headers()
             return
@@ -1166,6 +1351,12 @@ class H(http.server.SimpleHTTPRequestHandler):
             return self._send(_keybinds_config(), 'application/json; charset=utf-8')
         if path == '/rates-config':
             return self._send(_rates_config_merged(), 'application/json; charset=utf-8')
+        if path == '/themes':
+            return self._send(_themes_state(), 'application/json; charset=utf-8')
+        if path == '/colors-override.css':
+            active = _theme_active()
+            css = _theme_css(active["colors"]) if active else ""
+            return self._send(css.encode('utf-8'), 'text/css; charset=utf-8', {'Cache-Control': 'no-store'})
         if path == '/squad':
             return self._send(_squad_state(), 'application/json; charset=utf-8')
         if path == '/td-state':

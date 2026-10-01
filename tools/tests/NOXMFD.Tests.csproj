@@ -60,6 +60,10 @@
     <!-- PresetSlots.cs (shared by HudPresetStore.cs/TgtPresetStore.cs) — BCL-only through the same
          LogWarning seam RouteStore.cs uses above; ConfigBackup.cs/JsonLite.cs are already linked. -->
     <Compile Include="..\..\src\plugin\Stores\PresetSlots.cs" Link="Source\PresetSlots.cs" />
+    <!-- ThemeColors.cs/ThemeStore.cs (CFG > UI colour themes, issue #105) — BCL-only through
+         ThemeStore's own ConfigDir/LogWarning seam, same shape as RouteStore.cs. -->
+    <Compile Include="..\..\src\plugin\Stores\ThemeColors.cs" Link="Source\ThemeColors.cs" />
+    <Compile Include="..\..\src\plugin\Stores\ThemeStore.cs" Link="Source\ThemeStore.cs" />
     <Compile Include="..\..\src\plugin\Http\CommandContentType.cs" Link="Source\CommandContentType.cs" />
     <!-- TelemetryAssets.cs (docs/plugin-efficiency-audit.md findings 13/14) — only its two pure
          decision helpers (AcceptsGzip, IsCompressibleContentType) get exercised here; the file's

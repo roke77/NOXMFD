@@ -142,6 +142,11 @@ function theme(name) {
   if (v) themeCache[name] = v;
   return v;
 }
+// theme-live.js fires 'no-theme' after the shell applies a changed CFG > UI theme.
+window.addEventListener('no-theme', () => {
+  for (const k in themeCache) delete themeCache[k];
+  themeFactions = null;
+});
 // A theme RGB triple as #rrggbb, for colours that go through dimHex.
 function themeHex(rgbName) {
   return '#' + theme(rgbName).split(',').map(v => (+v).toString(16).padStart(2, '0')).join('');

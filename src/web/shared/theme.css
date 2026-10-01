@@ -1,6 +1,9 @@
 /* Shared MFD theme: base reset, common utility classes, and the mono font stack used by every
-   page. Pages link this after font.css. Colour tokens live in colors.css, imported here. */
+   page. Pages link this after font.css. Colour tokens live in colors.css, imported here; the
+   plugin's /colors-override.css (the active CFG > UI theme, empty for DEFAULT) comes after it so
+   its values win. */
 @import url("colors.css");
+@import url("/colors-override.css");
 :root {
   --no-font: 'Share Tech Mono', 'Courier New', monospace;
   /* The PAD cursor's sprite (docs/page-cursor.md, docs/map-cursor.md): a HUD-green crosshair,

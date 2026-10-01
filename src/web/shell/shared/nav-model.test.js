@@ -65,7 +65,7 @@ for (const page of ['avn', 'afm', 'rwr', 'tgt', 'ext', 'sqd']) {
 // rather than wherever the generic sweep would put it (mfd.js's dedicated 'tgp' branch).
 assert.deepStrictEqual(NAV.tgp, [ { label: 'MAIN', action: 'main' }, { label: 'CFG', action: 'tgpcfg' } ]);
 
-// CFG group: HUD/KEY/LYT folded together, same shape as BDF/PAL/MIS/OBJ below (reached from MAIN
+// CFG group: HUD/KEY/LYT/UI folded together, same shape as BDF/PAL/MIS/OBJ below (reached from MAIN
 // via CFG — mfd.js BEZEL_EXTRAS.main, action now 'hud'). LYT has no `mark` slot of its own — see
 // nav-model.js's comment on why NAV.lyt doesn't exist (BEZEL_EXTRAS.lyt places CLASSIC/F-35 at
 // fixed keys that would silently clobber it). The TLM/TGP refresh-rate sliders live on
@@ -75,12 +75,21 @@ assert.deepStrictEqual(NAV.hud, [
   { label: 'HUD',  action: 'hud', mark: true },
   { label: 'KEY',  action: 'keys' },
   { label: 'LYT',  action: 'lyt'  },
+  { label: 'UI',   action: 'ui'   },
 ]);
 assert.deepStrictEqual(NAV.keys, [
   { label: 'MAIN', action: 'main' },
   { label: 'HUD',  action: 'hud' },
   { label: 'KEY',  action: 'keys', mark: true },
   { label: 'LYT',  action: 'lyt'  },
+  { label: 'UI',   action: 'ui'   },
+]);
+assert.deepStrictEqual(NAV.ui, [
+  { label: 'MAIN', action: 'main' },
+  { label: 'HUD',  action: 'hud' },
+  { label: 'KEY',  action: 'keys' },
+  { label: 'LYT',  action: 'lyt'  },
+  { label: 'UI',   action: 'ui', mark: true },
 ]);
 assert.ok(!('lyt' in NAV), 'NAV.lyt must not exist — BEZEL_EXTRAS.lyt owns that page\'s placement');
 assert.ok(!('rates' in NAV), 'NAV.rates must not exist — its two settings moved to NAV.mapcfg/NAV.tgpcfg');

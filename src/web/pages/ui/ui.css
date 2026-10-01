@@ -1,0 +1,406 @@
+/* UI page (CFG > UI, issue #105): THEMES — the theme list and its actions on the left; the tabbed
+   preview and one swatch row per editable token, in two columns, on the right. Sizes are in em of .ui-panel's font-size, which follows the pane width, so the
+   page fits a split pane. */
+
+html, body { height: 100%; margin: 0; }
+
+.ui-panel {
+  box-sizing: border-box;
+  height: 100%;
+  overflow-y: auto;
+  /* The shell stands its nav labels upright on this page, on whichever edge the layout puts them,
+     so both sides get HUD/TGT's inset. */
+  --edge-pad: clamp(34px, 5vw, 48px);
+  padding: 14px var(--edge-pad) 18px;
+  max-width: calc(1100px + 2 * var(--edge-pad));
+  margin: 0 auto;
+  font-size: clamp(11px, 1.6vw, 18px);
+  /* The slim grey scrollbar every other NOXMFD list draws (tgt.css, page-chrome.css). */
+  scrollbar-width: thin;
+  scrollbar-color: var(--no-gray) transparent;
+}
+.ui-panel::-webkit-scrollbar { width: 6px; height: 6px; }
+.ui-panel::-webkit-scrollbar-track { background: transparent; }
+.ui-panel::-webkit-scrollbar-thumb { background: var(--no-gray); border-radius: 3px; }
+.ui-section { display: flex; flex-direction: column; gap: 0.7em; }
+/* The title sits over a rule, like TGT's header (tgt.css .tgt-head). */
+.ui-title {
+  margin: 0;
+  padding-bottom: clamp(2px, 0.8vh, 6px);
+  border-bottom: 1px solid var(--no-green-dark);
+  font-size: 1.15em;
+  font-weight: normal;
+  letter-spacing: 0.3em;
+  color: var(--no-green);
+}
+.ui-heading {
+  margin-top: 0.4em;
+  color: var(--no-white-dim);
+  font-size: 0.72em;
+  letter-spacing: 0.35em;
+}
+.ui-count { margin-left: 0.8em; letter-spacing: 0.06em; color: var(--no-text-faint); }
+
+/* Themes beside the preview and colours; the theme column stays in view while the colours scroll.
+   One column on a narrow pane. */
+.ui-layout {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 1.3em;
+  align-items: start;
+}
+.ui-side {
+  position: sticky;
+  top: 0;
+  box-sizing: border-box;
+  width: 14em;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6em;
+  overflow: hidden;
+  /* Collapses like KEY's rail: the width eases linearly over 200ms and clips the theme rows to their
+     lamp and first colours; the heading and actions drop out. */
+  transition: width 200ms linear;
+}
+.ui-side.collapsed { width: 3.4em; }
+.ui-side.collapsed .ui-heading,
+.ui-side.collapsed .ui-actions,
+.ui-side.collapsed .ui-theme-name,
+.ui-side.collapsed .ui-theme-tag { display: none; }
+.ui-side.collapsed .ui-theme { padding-right: 0; }
+.ui-side-head { display: flex; align-items: center; gap: 0.5em; }
+.ui-side .ui-heading { margin-top: 0; white-space: nowrap; }
+.ui-side-toggle {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid transparent;
+  background: none;
+  color: var(--no-green-dim);
+  cursor: pointer;
+}
+.ui-side-toggle:hover { border-color: var(--no-green-dark); color: var(--no-amber); }
+.ui-side-toggle:focus-visible { outline: 2px solid var(--no-amber); outline-offset: 2px; }
+.ui-main { display: flex; flex-direction: column; gap: 0.8em; min-width: 0; }
+
+/* Theme rows: a lamp lit on the active theme, the name over a strip of its main colours, a tag on
+   read-only ones. */
+.ui-themes {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4em;
+  max-height: 50vh;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--no-gray) transparent;
+}
+.ui-theme {
+  display: flex;
+  align-items: center;
+  gap: 0.6em;
+  min-height: 3em;
+  padding: 0.35em 0.6em 0.35em 0.4em;
+  font: inherit;
+  font-size: 0.85em;
+  letter-spacing: 0.08em;
+  text-align: left;
+  color: var(--no-text-soft);
+  background: var(--no-control-bg);
+  border: 1px solid var(--no-green-dark);
+  border-radius: 4px;
+  cursor: pointer;
+}
+.ui-theme[aria-pressed="true"] { color: var(--no-white); border-color: var(--no-green); }
+.ui-theme:focus-visible { outline: 2px solid var(--no-amber); outline-offset: 2px; }
+.ui-theme-lamp { align-self: stretch; width: 3px; border-radius: 2px; background: var(--no-lamp-off); }
+.ui-theme[aria-pressed="true"] .ui-theme-lamp { background: var(--no-green); }
+.ui-theme-body { display: flex; flex-direction: column; gap: 0.35em; flex: 1; min-width: 0; }
+.ui-theme-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ui-theme-strip { display: flex; gap: 2px; }
+.ui-theme-strip span { width: 1em; height: 0.5em; border-radius: 1px; box-shadow: 0 0 0 1px var(--no-line); }
+.ui-theme-tag { font-size: 0.65em; letter-spacing: 0.15em; color: var(--no-text-faint); }
+
+.ui-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.4em; padding-bottom: 0.6em; border-bottom: 1px solid var(--no-green-dark); }
+.ui-btn {
+  min-height: 2.4em;
+  padding: 0 0.6em;
+  font: inherit;
+  font-size: 0.75em;
+  letter-spacing: 0.2em;
+  color: var(--no-green);
+  background: none;
+  border: 1px solid var(--no-green-dark);
+  border-radius: 4px;
+  cursor: pointer;
+}
+.ui-btn.danger { color: var(--no-red); border-color: var(--no-red-line); }
+.ui-btn:not(:disabled):active { background: rgba(var(--no-green-rgb), 0.12); }
+.ui-btn:disabled { color: var(--no-white-dark); border-color: var(--no-line); cursor: default; }
+.ui-btn:focus-visible { outline: 2px solid var(--no-amber); outline-offset: 2px; }
+
+
+/* A fake MFD bezel in the LYT thumbnails' fixed greys (not editable), so the mock inside reads as
+   a page on a display whatever the theme. Three key stubs down each side, drawn as backgrounds. */
+/* The three mocks share one grid cell, the hidden ones kept in layout (visibility only), so the
+   frame is TGT's height whichever tab shows. */
+.pv-frame {
+  position: relative;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  margin: 0;
+  padding: 0.5em 1.6em 1.1em;
+  background: var(--no-thumb-bezel);
+  border-radius: 10px;
+  box-shadow: inset 0 0 0 1px var(--no-thumb-edge);
+}
+.pv-frame::before, .pv-frame::after {
+  content: '';
+  position: absolute;
+  top: 2.2em; bottom: 1.6em;
+  width: 0.65em;
+  background:
+    linear-gradient(var(--no-thumb-key), var(--no-thumb-key)) 0 20% / 100% 1.2em no-repeat,
+    linear-gradient(var(--no-thumb-key), var(--no-thumb-key)) 0 50% / 100% 1.2em no-repeat,
+    linear-gradient(var(--no-thumb-key), var(--no-thumb-key)) 0 80% / 100% 1.2em no-repeat;
+}
+.pv-frame::before { left: 0.45em; }
+.pv-frame::after { right: 0.45em; }
+/* HSD / MAP / RWR / TGT tabs (alphabetical) along the bezel's top edge, in the bezel's fixed greys. */
+.pv-tabs { display: flex; justify-content: center; gap: 0.4em; margin-bottom: 0.4em; }
+.pv-tab {
+  min-width: 5em;
+  min-height: 2em;
+  padding: 0 0.8em;
+  font: inherit;
+  font-size: 0.7em;
+  letter-spacing: 0.35em;
+  color: var(--no-text-faint);
+  background: none;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+}
+.pv-tab[aria-selected="true"] { color: var(--no-white); border-bottom-color: var(--no-white-dim); }
+.pv-tab:focus-visible { outline: 2px solid var(--no-amber); outline-offset: 2px; }
+
+/* The screen: the same tokens tgt.css / map.js use for each element, at a smaller scale. */
+.pv {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55em;
+  padding: 0.7em 0.8em;
+  background: var(--no-bg);
+  box-shadow: 0 0 0 1px var(--no-thumb-rim);
+  font-size: 0.8em;
+  color: var(--no-green);
+  pointer-events: none;
+  user-select: none;
+}
+.pv-head { display: flex; justify-content: space-between; padding-bottom: 0.35em; border-bottom: 1px solid var(--no-green-dark); }
+.pv-title { letter-spacing: 0.1em; color: var(--no-green); }
+.pv-filters { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 0.4em; }
+.pv-filters.top { grid-template-columns: 2fr 2fr 1fr; }
+/* Vehicle types: the label with a lamp bar under it, green when the type is shown. */
+.pv-vehs { display: flex; justify-content: space-around; gap: 0.4em; }
+.pv-veh { display: flex; flex-direction: column; align-items: center; gap: 0.3em; font-size: 0.8em; color: var(--no-text-faint); }
+.pv-veh::after { content: ''; width: 1.5em; height: 3px; background: var(--no-lamp-off); }
+.pv-veh.on { color: var(--no-green); }
+.pv-veh.on::after { background: var(--no-green); }
+.pv-lit { --lamp-w: 2em; gap: 0.35em; padding: 0.4em 0.2em; font-size: 0.85em; letter-spacing: 0.06em; }
+.pv-list { display: flex; flex-direction: column; }
+.pv-row {
+  display: grid;
+  grid-template-columns: minmax(0, 2.4fr) minmax(0, 1fr) minmax(0, 0.8fr) minmax(0, 0.6fr) 5.6em minmax(0, 1fr) minmax(0, 0.8fr);
+  align-items: center;
+  gap: 0.6em;
+  padding: 0.3em 0.4em;
+  border-bottom: 1px solid rgba(var(--no-green-rgb), 0.10);
+}
+.pv-cols { color: var(--no-green-dim); font-size: 0.85em; letter-spacing: 0.1em; border-bottom-color: var(--no-green-dark); }
+.pv-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pv-row.f-enemy .pv-name { color: var(--no-red); }
+.pv-row.f-friendly .pv-name { color: var(--no-friendly-blue); }
+.pv-row.f-neutral .pv-name { color: var(--no-label); }
+.pv-src { justify-self: start; padding: 0.1em 0.4em; font-size: 0.8em; color: var(--no-green-dim); border: 1px solid var(--no-green-line); }
+.pv-row.datalink .pv-src { color: var(--no-purple); border-color: var(--no-purple-line); }
+.pv-row.stale .pv-src { color: var(--no-label); border-color: var(--no-label-line); }
+.pv-dist { color: var(--no-green); font-variant-numeric: tabular-nums; }
+.pv-wpn { color: var(--no-amber); font-variant-numeric: tabular-nums; }
+.pv-td { color: var(--no-squad); }
+.pv-grid { color: var(--no-green-dim); }
+.pv-count { color: var(--no-amber); }
+.pv-row.focused { outline: 2px solid var(--no-amber); outline-offset: -2px; background: rgba(var(--no-amber-rgb), 0.06); }
+.pv-row.inactive { outline: 2px solid var(--no-gray); outline-offset: -2px; background: rgba(var(--no-gray-rgb), 0.10); }
+.pv-actions { display: flex; gap: 0.5em; }
+.pv-action { flex: 1; padding: 0.35em 0.2em; text-align: center; letter-spacing: 0.15em; white-space: nowrap; border: 1.5px solid currentColor; border-radius: 4px; background: var(--no-bg); }
+.pv-action.reset { color: var(--no-amber); }
+.pv-action.clear { color: var(--no-red); }
+.pv-action.datalink { color: var(--no-purple); }
+.pv-action.stale { color: var(--no-label); }
+.pv-action-count { font-size: 0.8em; opacity: 0.8; }
+/* DETAILED / COMPACT density switch, set to COMPACT. */
+.pv-toggle { display: flex; justify-content: flex-end; align-items: center; gap: 0.5em; font-size: 0.7em; letter-spacing: 0.08em; color: var(--no-green-dim); }
+.pv-toggle .on { color: var(--no-green); }
+.pv-switch { position: relative; width: 2.6em; height: 1.3em; border: 1px solid var(--no-green-dark); border-radius: 0.65em; background: var(--no-hover-wash-faint); }
+.pv-knob { position: absolute; top: 0.12em; right: 0.12em; width: 0.9em; height: 0.9em; border-radius: 50%; background: var(--no-green); }
+
+/* MAP mock: grid, route, units and overlays, styled from the same tokens map.js reads for its
+   canvas. The chips are the real .mfd-chip class MAP's readouts use. */
+.pv-map { position: relative; min-height: 15em; padding: 0; overflow: hidden; }
+.pv { grid-area: 2 / 1; }
+.pv[hidden] { display: flex; visibility: hidden; }
+.pv-map-svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.pv-grid-minor { stroke: rgba(var(--no-green-rgb), 0.10); stroke-width: 1; fill: none; }
+.pv-grid-major { stroke: rgba(var(--no-green-rgb), 0.30); stroke-width: 1; fill: none; }
+.pv-grid-label { fill: var(--no-grid-label); font-family: var(--no-font); font-size: 10px; }
+.pv-nuke { fill: rgba(var(--no-nuclear-orange-rgb), 0.35); stroke: var(--no-nuclear-orange); stroke-width: 3; }
+.pv-route, .pv-route-reached { fill: none; stroke-width: 2; stroke-dasharray: 6 5; }
+.pv-route { stroke: var(--no-route-cyan); }
+.pv-route-reached { stroke: var(--no-reached-gray); }
+.pv-wp { fill: none; stroke: var(--no-route-cyan); stroke-width: 2; }
+.pv-wp.reached { stroke: var(--no-reached-gray); }
+.pv-wp.next { stroke: var(--no-amber); }
+.pv-jam { stroke: rgba(var(--no-jam-yellow-rgb), 0.85); stroke-width: 1.5; stroke-linecap: round; }
+.pv-unit.neutral { fill: var(--no-neutral-gray); }
+.pv-unit.friendly { fill: var(--no-green); }
+.pv-unit.squad { fill: var(--no-squad); }
+.pv-unit.enemy { fill: var(--no-red); }
+.pv-target { fill: none; stroke: var(--no-target-orange); stroke-width: 2; }
+.pv-threat { fill: var(--no-threat-red); }
+.pv-player { fill: var(--no-green); }
+.pv-map-chips { position: absolute; left: 0.6em; top: 0.6em; display: flex; flex-direction: column; align-items: flex-start; gap: 0.3em; }
+.pv-map-chips .mfd-chip { font-size: 0.85em; }
+
+/* HSD mock: the same tokens hsd.js writes into its SVG (rings, FCR cone, route, AA threat ring,
+   contacts by state, own ship, readouts). The cone reads --no-teal-rgb because hsd.js does. */
+.pv-hsd-ring { fill: none; stroke: rgba(var(--no-hsd-pink-rgb), 0.36); stroke-width: 2; }
+.pv-hsd-ring.outer { stroke: rgba(var(--no-hsd-pink-rgb), 0.70); }
+.pv-hsd-cone { fill: rgba(var(--no-teal-rgb), 0.07); stroke: rgba(var(--no-teal-rgb), 0.64); stroke-width: 2; }
+.pv-hsd-route { fill: none; stroke: rgba(var(--no-pure-white-rgb), 0.85); stroke-width: 1; }
+.pv-hsd-wp { fill: none; stroke: rgba(var(--no-pure-white-rgb), 0.85); stroke-width: 1.5; }
+.pv-hsd-threat { fill: none; stroke: var(--no-hsd-yellow); stroke-width: 1.5; stroke-opacity: 0.75; }
+.pv-hsd-c.datalink { fill: var(--no-purple); }
+.pv-hsd-c.radar { fill: var(--no-red); }
+.pv-hsd-c.focused { fill: var(--no-amber); }
+.pv-hsd-c.stale { fill: var(--no-white); }
+.pv-hsd-lock-ring { fill: none; stroke: var(--no-amber); stroke-width: 2; }
+.pv-hsd-own { fill: rgba(var(--no-pure-white-rgb), 0.78); }
+.pv-hsd-text, .pv-hsd-lock { font-family: var(--no-font); font-size: 14px; fill: var(--no-white); }
+.pv-hsd-lock { fill: var(--no-amber); }
+
+/* RWR mock: rwr.html's scope and the tokens rwr.js draws contacts with (search / track / lock
+   diamonds, the lock brackets, an incoming missile with its notch line). */
+.pv-rwr text { font-family: var(--no-font); font-size: 30px; }
+.pv-rwr-ring { fill: none; stroke: rgba(var(--no-pure-white-rgb), 0.5); }
+.pv-rwr-mark { fill: rgba(var(--no-pure-white-rgb), 0.6); }
+.pv-rwr-own { fill: none; stroke: rgba(var(--no-pure-white-rgb), 0.65); stroke-width: 4; }
+.pv-rwr-search { fill: var(--no-threat-white); }
+.pv-rwr-track { fill: var(--no-threat-yellow); }
+.pv-rwr-lock, .pv-rwr-dart { fill: var(--no-threat-red); }
+.pv-rwr-bracket { fill: none; stroke: var(--no-threat-red); stroke-width: 4; }
+.pv-rwr-notch { stroke: var(--no-threat-yellow); stroke-width: 3; stroke-dasharray: 14 12; }
+.pv-rwr-missile { stroke: var(--no-threat-red); stroke-width: 3; stroke-linecap: round; }
+/* RWR is drawn as the SOI: the shells' focus ring (mfd.css #soi-ring), traced inside the screen. */
+.pv-soi::after { content: ''; position: absolute; inset: 0; border: var(--no-soi-width, 2px) var(--no-soi-style, solid) var(--no-soi); border-radius: 3px; }
+
+/* Colour rows in two columns (one on a narrow pane): swatch picker | label | hex | reset, each group
+   under its heading. */
+.ui-groups { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 1.3em; }
+.ui-col { display: flex; flex-direction: column; min-width: 0; }
+.ui-group-head { padding-bottom: 0.3em; border-bottom: 1px solid var(--no-green-dark); }
+.ui-rows { display: flex; flex-direction: column; }
+.ui-row {
+  display: grid;
+  grid-template-columns: 2.4em minmax(0, 1fr) auto 2em;
+  align-items: center;
+  gap: 0.5em;
+  min-height: 2.2em;
+  border-bottom: 1px solid var(--no-card-line);
+}
+.ui-row.overridden .ui-label { color: var(--no-white); }
+.ui-swatch {
+  width: 2.4em;
+  font: inherit;
+  height: 1.7em;
+  padding: 0;
+  border: 1px solid var(--no-white-dark);
+  border-radius: 3px;
+  background: none;
+  cursor: pointer;
+}
+.ui-swatch::-webkit-color-swatch-wrapper { padding: 0; }
+.ui-swatch::-webkit-color-swatch { border: none; border-radius: 2px; }
+.ui-swatch::-moz-color-swatch { border: none; border-radius: 2px; }
+.ui-swatch:focus-visible { outline: 2px solid var(--no-amber); outline-offset: 2px; }
+.ui-label { font-size: 0.8em; letter-spacing: 0.12em; color: var(--no-text-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ui-hex {
+  width: 6.2em;
+  padding: 0.25em 0.4em;
+  font: inherit;
+  font-size: 0.75em;
+  letter-spacing: 0.08em;
+  font-variant-numeric: tabular-nums;
+  text-transform: uppercase;
+  color: var(--no-text-faint);
+  background: none;
+  border: 1px solid var(--no-icon-border);
+  border-radius: 3px;
+  -webkit-user-select: text; user-select: text;
+}
+.ui-row.overridden .ui-hex { color: var(--no-green-dim); }
+.ui-row .ui-hex:focus { outline: none; border-color: var(--no-amber); color: var(--no-amber); }
+.ui-row .ui-hex.bad { border-color: var(--no-red); color: var(--no-red); }
+.ui-reset {
+  width: 2em;
+  height: 1.8em;
+  padding: 0;
+  font: inherit;
+  font-size: 0.85em;
+  color: var(--no-white-dim);
+  background: none;
+  border: 1px solid var(--no-icon-border);
+  border-radius: 3px;
+  cursor: pointer;
+}
+.ui-reset[hidden] { display: block; visibility: hidden; }
+
+/* Option rows (the SOI line's style and width): label | one button per option | reset. */
+.ui-row.ui-opt-row { grid-template-columns: minmax(0, 1fr) auto 2em; }
+.ui-options { display: flex; gap: 0.3em; }
+.ui-opt {
+  min-width: 3.4em;
+  min-height: 1.9em;
+  padding: 0 0.5em;
+  font: inherit;
+  font-size: 0.7em;
+  letter-spacing: 0.12em;
+  color: var(--no-text-faint);
+  background: none;
+  border: 1px solid var(--no-icon-border);
+  border-radius: 3px;
+  cursor: pointer;
+}
+.ui-opt[aria-pressed="true"] { color: var(--no-green); border-color: var(--no-green); }
+.ui-opt:focus-visible { outline: 2px solid var(--no-amber); outline-offset: 2px; }
+.ui-reset:focus-visible { outline: 2px solid var(--no-amber); outline-offset: 2px; }
+
+@media (max-width: 900px) { .ui-groups { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 720px) {
+  .ui-layout { grid-template-columns: minmax(0, 1fr); }
+  /* Stacked: the themes sit above the colours at full width, so there is nothing to collapse. */
+  .ui-side, .ui-side.collapsed { position: static; width: auto; }
+  .ui-side-toggle { display: none; }
+  .ui-side.collapsed .ui-heading, .ui-side.collapsed .ui-theme-name { display: revert; }
+  .ui-side.collapsed .ui-actions { display: grid; }
+  .ui-side.collapsed .ui-theme-tag { display: inline; }
+  .ui-themes { display: grid; grid-template-columns: repeat(auto-fill, minmax(11em, 1fr)); max-height: none; }
+  .ui-actions { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+.ui-dialog-actions { grid-template-columns: repeat(2, 1fr); }
+.preset-kp-btn.danger { border-color: var(--no-red); color: var(--no-red); }

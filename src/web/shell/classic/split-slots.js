@@ -61,11 +61,12 @@
     // this list doesn't need to change if NAV.hsd's own item order does — only its length matters.
     rdr: [ { side: 'left', slot: 0 }, { side: 'left', slot: 1 }, { side: 'left', slot: 2 }, { side: 'right', slot: 0 }, { side: 'right', slot: 1 } ],
     hsd: [ { side: 'left', slot: 0 }, { side: 'left', slot: 1 }, { side: 'left', slot: 2 }, { side: 'right', slot: 0 }, { side: 'right', slot: 1 }, { side: 'right', slot: 2 } ],
-    // CFG group: MAIN/HUD/KEY/LYT switch directly between each other, same 6-slot shape AKF/BDF/
-    // PAL/MIS/OBJ used before DOC joined them (see the header comment above) but only 4 items —
-    // all fit the left column. Index-aligned with NAV.hud/NAV.keys.
-    hud:   [ { side: 'left', slot: 0 }, { side: 'left', slot: 1 }, { side: 'left', slot: 2 }, { side: 'right', slot: 0 } ],
-    keys:  [ { side: 'left', slot: 0 }, { side: 'left', slot: 1 }, { side: 'left', slot: 2 }, { side: 'right', slot: 0 } ],
+    // CFG group: MAIN/HUD/KEY/LYT/UI switch directly between each other, the same left-then-right
+    // fill as AKF/BDF/PAL/MIS/OBJ (see the header comment above) with five items: three on the left,
+    // two on the right. Index-aligned with NAV.hud/NAV.keys/NAV.ui.
+    hud:   [ { side: 'left', slot: 0 }, { side: 'left', slot: 1 }, { side: 'left', slot: 2 }, { side: 'right', slot: 0 }, { side: 'right', slot: 1 } ],
+    keys:  [ { side: 'left', slot: 0 }, { side: 'left', slot: 1 }, { side: 'left', slot: 2 }, { side: 'right', slot: 0 }, { side: 'right', slot: 1 } ],
+    ui:    [ { side: 'left', slot: 0 }, { side: 'left', slot: 1 }, { side: 'left', slot: 2 }, { side: 'right', slot: 0 }, { side: 'right', slot: 1 } ],
     // WPT gets a single MAIN-equivalent back-button, same shape as AVN/AFM/TGP/RWR/TGT — but back
     // to MAP, matching NAV.wpt (reached from MAP's own nav row, not MAIN).
     wpt: [ { side: 'left', slot: 0 } ],

@@ -150,6 +150,11 @@ export class TelemetrySource {
     es.addEventListener('hud-options', (e) => {
       try { this._postUp({ type: 'hud-options-push', data: JSON.parse(e.data) }); } catch (err) { /* malformed — skip this one */ }
     });
+    // CFG > UI colour themes (issue #105): the shell applies its css to every frame (theme-live.js)
+    // and relays the whole state to the UI page.
+    es.addEventListener('themes', (e) => {
+      try { this._postUp({ type: 'themes-push', data: JSON.parse(e.data) }); } catch (err) { /* malformed — skip this one */ }
+    });
     es.addEventListener('server-players', (e) => {
       try { this._postUp({ type: 'server-players-push', data: JSON.parse(e.data) }); } catch (err) { /* malformed — skip this one */ }
     });

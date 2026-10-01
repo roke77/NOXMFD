@@ -52,7 +52,7 @@ see [MAIN's Connection status](main.md#connection-status).
 ## The LYT page
 
 On CLASSIC, **LYT** (MAIN → **CFG** → **LYT**) is the layout manager. Its bezel keys are **MAIN** (top
-left, back to MAIN) and the CFG switch to **HUD** and **KEY**. The page has three parts:
+left, back to MAIN) and the CFG switch to **HUD**, **KEY** and **[UI](ui.md)**. The page has three parts:
 
 - **LAYOUTS** — the two layouts as cards. Tap one to switch to it; CLASSIC is lit while you are on it.
 - **KEYBINDS** — the **SAVE** and **LOAD** layout keys. Click a box, then press the key you want

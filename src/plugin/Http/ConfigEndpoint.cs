@@ -194,6 +194,31 @@ namespace NOXMFD
             finally { try { ctx.Response.Close(); } catch { } }
         }
 
+        internal static void ServeThemes(HttpListenerContext ctx)
+        {
+            try { TelemetryServer.WriteJson(ctx, ThemeStore.StateJson, "/themes"); }
+            catch (Exception ex) { TelemetryServer.LogHttpFailure(ctx, "/themes", ex); }
+            finally { try { ctx.Response.Close(); } catch { } }
+        }
+
+        // The active theme's overrides, imported by theme.css after colors.css so every page and
+        // extension paints with it from its first frame. no-store: a theme change must reach the
+        // next page load even though theme.css itself is cached.
+        internal static void ServeColorsOverride(HttpListenerContext ctx)
+        {
+            try
+            {
+                byte[] body = Encoding.UTF8.GetBytes(ThemeStore.ActiveCss);
+                ctx.Response.StatusCode      = 200;
+                ctx.Response.ContentType     = "text/css; charset=utf-8";
+                ctx.Response.ContentLength64 = body.Length;
+                ctx.Response.Headers.Add("Cache-Control", "no-store");
+                ctx.Response.OutputStream.Write(body, 0, body.Length);
+            }
+            catch (Exception ex) { TelemetryServer.LogHttpFailure(ctx, "/colors-override.css", ex); }
+            finally { try { ctx.Response.Close(); } catch { } }
+        }
+
         internal static void ServeLayoutOptions(HttpListenerContext ctx)
         {
             try

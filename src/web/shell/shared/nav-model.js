@@ -129,7 +129,7 @@
       { label: 'PAL',  action: 'pal', mark: true },
       { label: 'DOC',  action: 'doc' },
     ],
-    // CFG folds HUD, KEY and LYT under one MAIN entry, same pattern as BDF/PAL/MIS/OBJ above.
+    // CFG folds HUD, KEY, LYT and UI under one MAIN entry, same pattern as BDF/PAL/MIS/OBJ above.
     // LYT's action is the CLASSIC/F-35 chooser (mfd.js BEZEL_EXTRAS.lyt / f35.js
     // GLASS_ACTIONS.lyt) — only its entry point lives here, its own rendering is untouched. The
     // TLM/TGP refresh-rate sliders live on MAP's and TGP's own CFG items instead (NAV.map/NAV.tgp
@@ -139,12 +139,22 @@
       { label: 'HUD',  action: 'hud', mark: true },
       { label: 'KEY',  action: 'keys' },
       { label: 'LYT',  action: 'lyt'  },
+      { label: 'UI',   action: 'ui'   },
     ],
     keys: [
       { label: 'MAIN', action: 'main' },
       { label: 'HUD',  action: 'hud' },
       { label: 'KEY',  action: 'keys', mark: true },
       { label: 'LYT',  action: 'lyt'  },
+      { label: 'UI',   action: 'ui'   },
+    ],
+    // UI (issue #105): the colour themes panel, the CFG group's fifth page.
+    ui: [
+      { label: 'MAIN', action: 'main' },
+      { label: 'HUD',  action: 'hud' },
+      { label: 'KEY',  action: 'keys' },
+      { label: 'LYT',  action: 'lyt'  },
+      { label: 'UI',   action: 'ui', mark: true },
     ],
     // No NAV.lyt entry: BEZEL_EXTRAS.lyt places CLASSIC/F-35 at explicit left0/left1 after the
     // generic NAV[name] sweep (showPage), so a NAV.lyt list here would just get silently

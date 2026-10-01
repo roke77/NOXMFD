@@ -28,6 +28,7 @@ src/web/
                            boot-reveal.js                 # shared boot loading-bar + typewriter mechanics
                            wake-lock.js  wake-lock.test.js # screen wake-lock controller (docs/screen-wake-lock.md)
                            conn-lost-banner.js  .test.js   # disconnect-banner dismiss/re-arm state machine (issue #79)
+                           theme-live.js  .test.js        # applies a changed colour theme to every hosted frame (issue #105)
                            ext-nav.js                     # EXT hub's runtime extension-nav plan builder
                            td-nav.js                      # TD's runtime nav-visibility plan builder (issue #47) —
                                                            # same shape as ext-nav.js, gated on live squad membership
@@ -62,6 +63,12 @@ src/web/
                                            # decision behind that mirror's redraw gate (issue #84)
             td-matrix.js       .test.js   # pure matrix rules: cell/row/column toggles and each slot's
                                            # SENT/CHANGED/UNSENT status
+    ui/     ui.html  ui.css  ui.js        # CFG > UI colour themes (issue #105): collapsible saved-theme
+                                           # list, tabbed HSD/MAP/RWR/TGT previews, one picker per
+                                           # editable colour in two columns, the SOI line's style and
+                                           # width options; bootstraps from
+                                           # GET /themes, then the shell's relayed 'themes-push'
+            ui-tokens.js  .test.js        # the editable tokens, kept in step with ThemeColors.Tokens (C#)
     wpn/  tgt/  tgp/  avn/  afm/  rwr/  rdr/  hsd/  hud/  bdf/  mis/  obj/  akf/  mapcfg/  tgpcfg/
     doc/                                       # reactive MFD pages, one folder each (bdf.js doubles as PAL, ?pal;
                                                # akf = kill feed/session stats docs/akf-page.md; mapcfg/tgpcfg =

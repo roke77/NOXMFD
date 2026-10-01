@@ -145,6 +145,7 @@ const BEZEL_EXTRAS = {
     { label: 'HUD',  action: 'hud',  bank: 'left', index: 1 },
     { label: 'KEY',  action: 'keys', bank: 'left', index: 2 },
     { label: 'LYT',  action: 'lyt',  bank: 'left', index: 3, mark: true },
+    { label: 'UI',   action: 'ui',   bank: 'left', index: 4 },
   ],
 };
 
@@ -469,7 +470,7 @@ function placeSplitKey(m, label, action, paneTag, mark, pending) {
 // this same lone MAIN label (ext-nav.js), so there's no per-extension list to hardcode here the
 // way TGT/AKF/etc. are — this either clears real content (ATC's own table header, the reason this
 // was added) or costs nothing on a page with none.
-function isVmainPage(p) { return p === 'tgt' || p === 'td' || p === 'sqd' || p === 'akf' || p === 'bdf' || p === 'pal' || p === 'mis' || p === 'obj' || p === 'lyt' || p === 'keys' || p === 'hud' || ExtNav.isExtensionPage(p); }
+function isVmainPage(p) { return p === 'tgt' || p === 'td' || p === 'sqd' || p === 'akf' || p === 'bdf' || p === 'pal' || p === 'mis' || p === 'obj' || p === 'lyt' || p === 'keys' || p === 'hud' || p === 'ui' || ExtNav.isExtensionPage(p); }
 
 // The item count on each MAIN split page. Unlike WPN, MAIN reserves no fixed back-slot: PREV anchors
 // the first key only on pages past the first, NEXT the last key only on pages before the last, and
@@ -966,6 +967,8 @@ function forwardHudOptionsToPanes() { if (hudOptionsData) forwardToPanes('hud', 
 // options above, replacing SQD's own 2s /server-players poll.
 function forwardServerPlayersToFrame() { if (serverPlayersData) forwardToFrame(serverPlayersData); }
 function forwardServerPlayersToPanes() { if (serverPlayersData) forwardToPanes('sqd', serverPlayersData); }
+function forwardThemesToFrame() { if (themesData) forwardToFrame(themesData); }
+function forwardThemesToPanes() { if (themesData) forwardToPanes('ui', themesData); }
 // The TGT page shows the selected-target list under its filters (mirrored in targetsData).
 // No pagination — the page scrolls — so forward the whole list, to the frame and any TGT pane.
 function tgtTargetsMsg() {
@@ -1724,6 +1727,7 @@ let sqdStateData = null;
 let tdStateData = null;
 let hudOptionsData = null;
 let serverPlayersData = null;
+let themesData = null;
 
 // Latest BDF faction-forces state, mirrored from the map iframe's SSE feed (docs/bdf-page.md).
 // The shell keeps only this state and forwards it to the frame or the pane showing it.
@@ -1980,6 +1984,8 @@ function showPage(name) {
   if (name === 'hud') { showFramePage('hud'); forwardHudOptionsToFrame(); }
   // KEY bootstraps itself, then receives the same configuration push shared shell services use.
   if (name === 'keys') showFramePage('keys');
+  // UI (issue #105) bootstraps from GET /themes, then follows the relayed themes push.
+  if (name === 'ui') { showFramePage('ui'); forwardThemesToFrame(); }
   // MAP's and TGP's own CFG pages render in #page-frame too — same self-driven shape as KEY/HUD:
   // each polls /rates-config and POSTs its own rates.set commands, so the shell forwards them
   // nothing.
@@ -2036,6 +2042,9 @@ const RELAY_MESSAGES = Object.assign(Object.create(null), {
   akf:     { page: 'akf', set: function (m) { akfData     = m; }, toFrame: forwardAkfToFrame, toPanes: forwardAkfToPanes },
   'hud-options-push': { page: 'hud', set: function (m) { hudOptionsData = m; }, toFrame: forwardHudOptionsToFrame, toPanes: forwardHudOptionsToPanes },
   'server-players-push': { page: 'sqd', set: function (m) { serverPlayersData = m; }, toFrame: forwardServerPlayersToFrame, toPanes: forwardServerPlayersToPanes },
+  // Colour themes (issue #105): every frame repaints first (theme-live.js), so the UI page reads the
+  // new effective colours when it re-renders from the relayed state.
+  'themes-push': { page: 'ui', set: function (m) { ThemeLive.apply(window, m.data && m.data.css); themesData = m; }, toFrame: forwardThemesToFrame, toPanes: forwardThemesToPanes },
   mapinfo: { page: 'wpt', set: function (m) { mapInfoData = m; }, toFrame: forwardWptToFrame, toPanes: forwardWptToPanes },
 });
 
@@ -2734,6 +2743,7 @@ function mfdButton(el) {
       break;
     case 'hud':  showPage('hud');  break;
     case 'keys':  showPage('keys');  break;
+    case 'ui':    showPage('ui');    break;
     case 'mapcfg': showPage('mapcfg'); break;
     case 'tgpcfg': showPage('tgpcfg'); break;
     case 'lyt':   showPage('lyt');   break;

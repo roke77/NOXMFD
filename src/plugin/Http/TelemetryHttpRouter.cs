@@ -53,6 +53,10 @@ namespace NOXMFD
                 ConfigEndpoint.ServeTgtPresets(ctx);
             else if (path == "/rates-config")
                 ConfigEndpoint.ServeRatesConfig(ctx);
+            else if (path == "/themes")
+                ConfigEndpoint.ServeThemes(ctx);
+            else if (path == "/colors-override.css")
+                ConfigEndpoint.ServeColorsOverride(ctx);
             else if (path == "/keybinds-config")
                 ConfigEndpoint.ServeKeybindsConfig(ctx);
             else if (path == "/soi-instances")
@@ -116,6 +120,8 @@ namespace NOXMFD
                 TelemetryAssets.ServeAssetRel(ctx, "pages/hud/hud.html");
             else if (path == "/keybinds")
                 TelemetryAssets.ServeAssetRel(ctx, "pages/keybinds/keybinds.html");
+            else if (path == "/ui")
+                TelemetryAssets.ServeAssetRel(ctx, "pages/ui/ui.html");
             else if (path == "/mapcfg")
                 TelemetryAssets.ServeAssetRel(ctx, "pages/mapcfg/mapcfg.html");
             else if (path == "/tgpcfg")

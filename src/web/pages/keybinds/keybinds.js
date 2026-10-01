@@ -414,36 +414,8 @@ function render() {
   renderFindPress();
 }
 
-// The rail's collapsed state is the pane's choice once made: the toggle saves it (per browser,
-// localStorage) and a saved value wins over the width. With nothing saved, the rail starts
-// collapsed on a pane 1152px wide or less and open otherwise, following the width as it changes.
-var RAIL_STORAGE = 'noxmfd.keybinds.railCollapsed';
-var railEl = document.getElementById('kb-rail');
-var railToggle = document.getElementById('kb-rail-toggle');
-var narrow = window.matchMedia('(max-width: 1152px)');
-
-function readRailPref() {
-  try {
-    var v = localStorage.getItem(RAIL_STORAGE);
-    return v === '1' ? true : v === '0' ? false : null;
-  } catch (e) { return null; }
-}
-
-function setRailCollapsed(collapsed) {
-  railEl.classList.toggle('collapsed', collapsed);
-  railToggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
-}
-function applyRailDefault() {
-  var pref = readRailPref();
-  setRailCollapsed(pref === null ? narrow.matches : pref);
-}
-railToggle.onclick = function () {
-  var collapsed = !railEl.classList.contains('collapsed');
-  try { localStorage.setItem(RAIL_STORAGE, collapsed ? '1' : '0'); } catch (e) {}
-  setRailCollapsed(collapsed);
-};
-narrow.addEventListener('change', applyRailDefault);
-applyRailDefault();
+// The rail collapses to an icon strip (services/rail-collapse.js).
+railCollapse(document.getElementById('kb-rail'), document.getElementById('kb-rail-toggle'), 'noxmfd.keybinds.railCollapsed');
 
 // The rail's links scroll the column rather than navigate: the page is usually inside a shell
 // frame, where a hash change has nothing useful to do.
