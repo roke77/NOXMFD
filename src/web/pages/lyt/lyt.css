@@ -19,7 +19,8 @@ button { font-family: inherit; }
   display: flex; flex-direction: column; gap: 14px;
 }
 
-.lyt-head { display: flex; align-items: baseline; gap: 16px; }
+/* The title sits over a rule, like TGT's header (tgt.css .tgt-head). */
+.lyt-head { display: flex; align-items: baseline; gap: 16px; border-bottom: 1px solid var(--no-green-dark); padding-bottom: clamp(2px, 0.8vh, 6px); }
 .lyt-title { margin: 0; font-size: 26px; font-weight: normal; line-height: 1; letter-spacing: 6px; color: var(--no-green); }
 
 /* ── LAYOUTS: the two shells ── */

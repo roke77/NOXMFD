@@ -23,8 +23,11 @@ html, body { height: 100%; margin: 0; }
 .ui-panel::-webkit-scrollbar-track { background: transparent; }
 .ui-panel::-webkit-scrollbar-thumb { background: var(--no-gray); border-radius: 3px; }
 .ui-section { display: flex; flex-direction: column; gap: 0.7em; }
+/* The title sits over a rule, like TGT's header (tgt.css .tgt-head). */
 .ui-title {
   margin: 0;
+  padding-bottom: clamp(2px, 0.8vh, 6px);
+  border-bottom: 1px solid var(--no-green-dark);
   font-size: 1.15em;
   font-weight: normal;
   letter-spacing: 0.3em;
