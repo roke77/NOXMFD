@@ -71,7 +71,7 @@
   --no-panel:      color-mix(in oklab, var(--no-bg), color-mix(in oklab, var(--no-green) 24%, var(--no-white)) 14.9%);
   --no-panel-bg:   color-mix(in srgb, var(--no-panel) 78%, transparent);
   --no-panel-border: #1a3a1a;
-  --no-ink:        #060a06;  /* text on a green fill */
+  --no-ink:        #060a06;  /* dark text on a bright highlight fill (selected weapon, SOI cursor, hovers) */
 
   /* Pure black and white, as triples for the shadows, scrims and washes that compose them with an
      alpha. --no-white above is the instrument white; these are the absolute ends. */

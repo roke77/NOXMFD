@@ -12,7 +12,7 @@
       ['--no-gray-rgb',      'INACTIVE GRAY'],
       ['--no-bg',            'BACKGROUND'],
       ['--no-panel-border',  'PANEL BORDER'],
-      ['--no-ink',           'TEXT ON GREEN'],
+      ['--no-ink',           'TEXT ON HIGHLIGHT'],
     ] },
     { title: 'ACCENTS', tokens: [
       ['--no-squad-rgb',     'SQUAD'],
