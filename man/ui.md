@@ -63,7 +63,7 @@ lower case with dashes; any colour it leaves out keeps its default:
 
 | Group | Keys |
 |---|---|
-| CORE PALETTE | `primary`, `instrument`, `alert`, `caution`, `inactive`, `background`, `panel-border`, `text-on-highlight`, `nav-label` |
+| CORE PALETTE | `primary`, `instrument`, `alert`, `caution`, `inactive`, `background`, `panel-border`, `text-on-highlight`, `nav-label`, `soi` |
 | ACCENTS | `squad`, `mod-controls`, `mod-accent`, `friendly-tgt-td`, `friendly-hud` |
 | THREATS | `search`, `track`, `lock`, `jamming` |
 | MAP & SCOPE | `route`, `flown-route`, `target`, `neutral`, `nuclear-zone`, `hsd-symbology`, `hsd-aa-rings` |
@@ -80,7 +80,8 @@ colours being edited:
 - **HSD**: the range rings, the radar cone, a route, an AA threat ring and contacts in each state.
 - **MAP**: the grid, a route, units of each faction, a target, a nuclear zone, a jamming line and
   the readout chips.
-- **RWR**: search, track and lock contacts and an incoming missile with its notch line.
+- **RWR**: search, track and lock contacts and an incoming missile with its notch line, inside the
+  SOI focus ring.
 - **TGT**: both filter rows, the vehicle-type lamps, a target list with focused, datalink and stale
   rows, the density toggle and all four action buttons.
 
@@ -93,4 +94,6 @@ optional) and press Enter. **↺** puts that colour back to its default. Rows ar
 PALETTE and ACCENTS in one column, THREATS and MAP & SCOPE in the other (one column on a narrow
 screen). Changing a base colour such as PRIMARY also recolours its dimmer and darker shades.
 NAV LABEL is the white of the page names beside the bezel keys (the highlighted one follows
-CAUTION); TGT's neutral and stale rows and the same text on TD and BDF use it too.
+CAUTION); TGT's neutral and stale rows and the same text on TD and BDF use it too. SOI is the
+focus ring around the sensor-of-interest display and the cursor on the label SELECT will press, in
+both layouts; until a theme sets it, it matches NAV LABEL.

@@ -18,7 +18,7 @@ namespace NOXMFD
         {
             // Core palette
             "--no-green-rgb", "--no-white-rgb", "--no-red-rgb", "--no-amber-rgb", "--no-gray-rgb",
-            "--no-bg", "--no-panel-border", "--no-ink", "--no-label-rgb",
+            "--no-bg", "--no-panel-border", "--no-ink", "--no-label-rgb", "--no-soi",
             // Accents
             "--no-squad-rgb", "--no-purple-rgb", "--no-blue-rgb", "--no-friendly-blue", "--no-hud-friendly",
             // Threats
@@ -36,7 +36,7 @@ namespace NOXMFD
         {
             // Core palette
             "primary", "instrument", "alert", "caution", "inactive",
-            "background", "panel-border", "text-on-highlight", "nav-label",
+            "background", "panel-border", "text-on-highlight", "nav-label", "soi",
             // Accents
             "squad", "mod-controls", "mod-accent", "friendly-tgt-td", "friendly-hud",
             // Threats

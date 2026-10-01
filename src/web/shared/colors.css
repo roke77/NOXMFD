@@ -40,6 +40,8 @@
   --no-label:      rgb(var(--no-label-rgb));  /* off-white, not the screen's green — the bezel's
                                 key labels (CFG > UI's NAV LABEL), the F-35 strip's URL lines, and
                                 the neutral / stale text that matches them on TGT, TD and BDF */
+  --no-soi:        var(--no-label);  /* the SOI focus ring and cursor in both layouts (CFG > UI's SOI);
+                                the labels' white until a theme sets it */
   /* The F-35 layout's chrome: the frame around each portal, the labels it draws on the glass, the
      corner grips, the master strip. Its real display frames itself in teal where the bezel uses
      --no-label above. A layout's colour, not a page's: only shell/f35/ may read it, so a page

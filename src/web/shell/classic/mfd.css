@@ -161,11 +161,11 @@
   /* The SOI cursor, on the physical key. Not only on the label: WPN's weapon rows are keys with an
      action whose text is drawn INSIDE the page iframe, so there is no overlay label to mark and a
      label-only cursor would vanish exactly where it is most useful. The key is always there.
-     White (--no-label) to match the label mark and the focus ring, with a steady glow so it reads
-     apart from .lit's green press-flash. */
+     --no-soi to match the label mark and the focus ring, with a steady glow so it reads apart from
+     .lit's green press-flash. */
   .key.cursor {
-    border-color: var(--no-label);
-    box-shadow: inset 0 1px 0 var(--no-key-highlight), inset 0 -2px 3px rgba(var(--no-black-rgb), 0.4), 0 0 8px var(--no-label);
+    border-color: var(--no-soi);
+    box-shadow: inset 0 1px 0 var(--no-key-highlight), inset 0 -2px 3px rgba(var(--no-black-rgb), 0.4), 0 0 8px var(--no-soi);
   }
   .key.icon { width: 36px; height: 30px; }
   .key.sun  { color: var(--no-pure-white); }
@@ -315,8 +315,8 @@
      (inset 6px = .screen's padding, matching the iframes' 3px corner), so it reads as the screen
      being lit rather than as content, and no page or pane has to leave room for it.
      A ::after on .screen so it costs no markup, and pointer-events:none so it never eats a tap.
-     Off-white --no-label, not the theme's green: the green is what instruments report in, and this
-     is chrome saying where the controls are pointed. */
+     --no-soi (off-white by default), not the theme's green: the green is what instruments report
+     in, and this is chrome saying where the controls are pointed. */
   /* SOI focus ring. JS positions it over the focused surface (mfd.js positionSoiRing) and toggles
      display — the whole recess in full view, one pane in a split. box-sizing:border-box so the 2px
      border draws inside the measured box and hugs the pane edge exactly. Hidden until positioned. */
@@ -324,7 +324,7 @@
     position: absolute;
     display: none;
     box-sizing: border-box;
-    border: 2px solid var(--no-label);
+    border: 2px solid var(--no-soi);
     border-radius: 3px;
     pointer-events: none;
     z-index: 4;   /* above .overlay and its chips, which sit at 2 */
@@ -692,14 +692,14 @@
   }
   /* The SOI cursor — the label SELECT will press. Filled rather than outlined: .on and .paging have
      both outline idioms already, and a cursor is a position rather than a property of the label, so
-     it has to read at a glance from across the cockpit. White (--no-label), the same colour as the
+     it has to read at a glance from across the cockpit. --no-soi, the same colour as the
      SOI focus ring, so the two read as one system: this display is focused, and this is the item on
      it. --no-ink is the dark text-on-a-fill partner. Padding matches the other two so the label
      doesn't shift off its key when the cursor lands on it. */
   .overlay-item.cursor {
     color: var(--no-ink);
-    background: var(--no-label);
-    outline: 1px solid var(--no-label);
+    background: var(--no-soi);
+    outline: 1px solid var(--no-soi);
     padding: 2px 6px;
   }
   .info-box .ib-title  { font-size: clamp(28px, 3.12vmax, 45px); font-weight: 900; margin-bottom: clamp(14px, 1.6vmax, 22px); }

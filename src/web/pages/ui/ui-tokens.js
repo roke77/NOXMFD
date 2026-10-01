@@ -14,6 +14,7 @@
       ['--no-panel-border',  'PANEL BORDER'],
       ['--no-ink',           'TEXT ON HIGHLIGHT'],
       ['--no-label-rgb',     'NAV LABEL'],
+      ['--no-soi',           'SOI'],
     ] },
     { title: 'ACCENTS', tokens: [
       ['--no-squad-rgb',     'SQUAD'],

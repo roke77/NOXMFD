@@ -6,7 +6,7 @@
 <title>NO XMFD — UI</title>
 <!--
   UI page served at /ui (CFG > UI, issue #105). Its first settings section is THEMES: saved colour
-  themes over the 25 tokens in ui-tokens.js. Fetch-driven like HUD: it bootstraps with one
+  themes over the 26 tokens in ui-tokens.js. Fetch-driven like HUD: it bootstraps with one
   GET /themes, follows the shell's relayed themes-push, and POSTs theme.* commands
   (send-command.js → CommandDispatcher → ThemeStore):
 
@@ -151,7 +151,7 @@
             <text class="pv-hsd-lock" x="12" y="288">LOCK 12.4</text>
           </svg>
         </div>
-        <div class="pv pv-map" id="pv-rwr" role="img" aria-label="Preview of the RWR page in the current colours" hidden>
+        <div class="pv pv-map pv-soi" id="pv-rwr" role="img" aria-label="Preview of the RWR page in the current colours, as the SOI" hidden>
           <svg class="pv-map-svg pv-rwr" viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
             <g class="pv-rwr-ring">
               <circle cx="500" cy="500" r="460" stroke-width="4"/>
