@@ -669,7 +669,7 @@ html, body {
    all need the same treatment here. Extension pages ([data-ext], set by f35.js renderNav) get it
    too, matching isVmainPage()'s ExtNav.isExtensionPage: an extension lays out its own page and
    can't know this layout draws MAIN on top of its top-left (ATC's RANGE bar, for one). HUD joins
-   them (hud.css pads for the upright label). RDR (FCR/HSD) stays horizontal (per user preference) —
+   them (hud.css pads for the upright label), and so does UI (ui.css, same padding). RDR (FCR/HSD) stays horizontal (per user preference) —
    RDR's MAIN label does overlap the B-scope's own top-left RWS text as a result, accepted as-is
    rather than fixed. */
 .nav-grid.edge[data-page="tgt"] .nav-item,
@@ -681,6 +681,7 @@ html, body {
 .nav-grid.edge[data-page="obj"] .nav-item,
 .nav-grid.edge[data-page="keys"] .nav-item,
 .nav-grid.edge[data-page="hud"] .nav-item,
+.nav-grid.edge[data-page="ui"] .nav-item,
 .nav-grid.edge[data-ext] .nav-item {
   writing-mode: vertical-rl;
   text-orientation: upright;

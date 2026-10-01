@@ -1,0 +1,119 @@
+/* UI page (CFG > UI, issue #105): COLOURS — theme cards, theme actions, and one swatch row per
+   editable token. Sizes are in em of .ui-panel's font-size, which follows the pane width, so the
+   page fits a split pane. */
+
+html, body { height: 100%; margin: 0; }
+
+.ui-panel {
+  box-sizing: border-box;
+  height: 100%;
+  overflow-y: auto;
+  /* The shell stands its nav labels upright on this page, on whichever edge the layout puts them,
+     so both sides get HUD/TGT's inset. */
+  --edge-pad: clamp(34px, 5vw, 48px);
+  padding: 14px var(--edge-pad) 18px;
+  max-width: calc(1100px + 2 * var(--edge-pad));
+  margin: 0 auto;
+  font-size: clamp(11px, 1.6vw, 18px);
+  scrollbar-width: thin;
+  scrollbar-color: var(--no-green-dark) transparent;
+}
+.ui-section { display: flex; flex-direction: column; gap: 0.7em; }
+.ui-title {
+  margin: 0;
+  font-size: 1.15em;
+  font-weight: normal;
+  letter-spacing: 0.3em;
+  color: var(--no-green);
+}
+.ui-heading {
+  margin-top: 0.4em;
+  color: var(--no-white-dim);
+  font-size: 0.72em;
+  letter-spacing: 0.35em;
+}
+.ui-hint { margin-left: 1.2em; letter-spacing: 0.06em; color: var(--no-amber); }
+
+/* Theme cards: lit-panel buttons, lamp lit on the active theme. */
+.ui-themes {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(8em, 1fr));
+  gap: 0.45em;
+}
+.ui-theme {
+  --lamp-w: 2.2em;
+  gap: 0.4em;
+  min-height: 3.2em;
+  padding: 0.45em 0.4em;
+  font-size: 0.85em;
+  letter-spacing: 0.08em;
+}
+.ui-theme-name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.ui-actions { display: flex; flex-wrap: wrap; gap: 0.45em; }
+.ui-btn {
+  flex: 1 1 6em;
+  min-height: 2.4em;
+  padding: 0 0.6em;
+  font: inherit;
+  font-size: 0.75em;
+  letter-spacing: 0.2em;
+  color: var(--no-green);
+  background: none;
+  border: 1px solid var(--no-green-dark);
+  border-radius: 4px;
+  cursor: pointer;
+}
+.ui-btn.danger { color: var(--no-red); border-color: var(--no-red-line); }
+.ui-btn:not(:disabled):active { background: rgba(var(--no-green-rgb), 0.12); }
+.ui-btn:disabled { color: var(--no-white-dark); border-color: var(--no-line); cursor: default; }
+.ui-btn:focus-visible { outline: 2px solid var(--no-amber); outline-offset: 2px; }
+
+/* Colour rows: swatch picker | label | hex | reset. */
+.ui-groups { display: flex; flex-direction: column; gap: 0.3em; }
+.ui-rows { display: flex; flex-direction: column; gap: 0.3em; }
+.ui-row {
+  display: grid;
+  grid-template-columns: 2.6em minmax(0, 1fr) auto 2.2em;
+  align-items: center;
+  gap: 0.7em;
+  min-height: 2.4em;
+  padding: 0.2em 0.5em;
+  border: 1px solid var(--no-card-line);
+  border-radius: 4px;
+  background: var(--no-card-bg);
+}
+.ui-row.overridden { border-color: var(--no-green-dark); }
+.ui-swatch {
+  width: 2.6em;
+  height: 1.7em;
+  padding: 0;
+  border: 1px solid var(--no-white-dark);
+  border-radius: 3px;
+  background: none;
+  cursor: pointer;
+}
+.ui-swatch::-webkit-color-swatch-wrapper { padding: 0; }
+.ui-swatch::-webkit-color-swatch { border: none; border-radius: 2px; }
+.ui-swatch::-moz-color-swatch { border: none; border-radius: 2px; }
+.ui-swatch:focus-visible { outline: 2px solid var(--no-amber); outline-offset: 2px; }
+.ui-label { font-size: 0.8em; letter-spacing: 0.12em; color: var(--no-text-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ui-hex { font-size: 0.75em; letter-spacing: 0.08em; color: var(--no-text-faint); font-variant-numeric: tabular-nums; }
+.ui-row.overridden .ui-hex { color: var(--no-green-dim); }
+.ui-reset {
+  width: 2.2em;
+  height: 2em;
+  padding: 0;
+  font: inherit;
+  font-size: 0.85em;
+  color: var(--no-white-dim);
+  background: none;
+  border: 1px solid var(--no-icon-border);
+  border-radius: 3px;
+  cursor: pointer;
+}
+.ui-reset[hidden] { display: block; visibility: hidden; }
+.ui-reset:focus-visible { outline: 2px solid var(--no-amber); outline-offset: 2px; }
+
+.ui-dialog-actions { grid-template-columns: repeat(2, 1fr); }
+.preset-kp-btn.danger { border-color: var(--no-red); color: var(--no-red); }

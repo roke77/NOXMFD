@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NO XMFD — UI</title>
+<!--
+  UI page served at /ui (CFG > UI, issue #105). Its first settings section is COLOURS: saved colour
+  themes over the 25 tokens in ui-tokens.js. Fetch-driven like HUD: it bootstraps with one
+  GET /themes, follows the shell's relayed themes-push, and POSTs theme.* commands
+  (send-command.js → CommandDispatcher → ThemeStore):
+
+    theme card tap          → theme.select {bind}            (DEFAULT is bind "default")
+    NEW                     → name dialog → theme.create {wname}   (copies the active colours)
+    RENAME / DELETE         → dialog → theme.rename {bind, wname} / theme.delete {bind}
+    COPY                    → the active theme's share code, to the clipboard or shown to copy
+    PASTE                   → code dialog → theme.import {text}
+    a colour picker         → theme.set-color {group: token, text: #rrggbb}
+    a row's reset / RESET ALL → theme.reset-color {group: token | ""}
+
+  DEFAULT is read-only: changing a colour while it is active asks for a name, creates a theme from
+  it, then applies the change there. The shell repaints every frame from each push's css before
+  relaying it (theme-live.js), so this page reads the effective colours back from its own styles.
+-->
+<link rel="stylesheet" href="/assets/shared/font.css">
+<link rel="stylesheet" href="/assets/shared/theme.css">
+<link rel="stylesheet" href="/assets/shared/lit-panel.css">
+<link rel="stylesheet" href="/assets/shared/preset-dialog.css">
+<link rel="stylesheet" href="/assets/pages/ui/ui.css">
+</head>
+<body>
+
+<div class="ui-panel" id="ui-panel">
+  <section class="ui-section" aria-labelledby="ui-colours-title">
+    <h1 class="ui-title" id="ui-colours-title">COLOURS</h1>
+
+    <div class="ui-heading" id="ui-themes-heading">THEMES <span class="ui-hint" id="ui-hint"></span></div>
+    <div class="ui-themes" id="ui-themes" role="group" aria-labelledby="ui-themes-heading"></div>
+    <div class="ui-actions">
+      <button type="button" class="ui-btn pad-hoverable" id="ui-new">NEW</button>
+      <button type="button" class="ui-btn pad-hoverable" id="ui-rename">RENAME</button>
+      <button type="button" class="ui-btn pad-hoverable danger" id="ui-delete">DELETE</button>
+      <button type="button" class="ui-btn pad-hoverable" id="ui-copy">COPY</button>
+      <button type="button" class="ui-btn pad-hoverable" id="ui-paste">PASTE</button>
+      <button type="button" class="ui-btn pad-hoverable" id="ui-reset-all">RESET ALL</button>
+    </div>
+
+    <!-- One group per UiTokens.GROUPS entry, built by ui.js. -->
+    <div class="ui-groups" id="ui-groups"></div>
+  </section>
+</div>
+
+<!-- Shared dialog for naming, deleting, copying and pasting (preset-dialog.css). -->
+<div class="preset-kp-scrim" id="ui-dialog" hidden>
+  <div class="preset-kp" role="dialog" aria-modal="true" aria-labelledby="ui-dialog-title">
+    <div class="preset-kp-title" id="ui-dialog-title"></div>
+    <input class="preset-kp-input" id="ui-dialog-input" type="text" autocomplete="off" spellcheck="false" aria-labelledby="ui-dialog-title">
+    <div class="preset-kp-error" id="ui-dialog-error" role="alert"></div>
+    <div class="preset-kp-actions ui-dialog-actions">
+      <button type="button" class="preset-kp-btn pad-hoverable" id="ui-dialog-cancel">CANCEL</button>
+      <button type="button" class="preset-kp-btn pad-hoverable save" id="ui-dialog-ok">SAVE</button>
+    </div>
+  </div>
+</div>
+
+<script src="/assets/services/send-command.js"></script>
+<script src="/assets/pages/keybinds/keybinds-keymap.js"></script>
+<script src="/assets/services/remote-keybinds.js"></script>
+<script src="/assets/pages/ui/ui-tokens.js"></script>
+<script src="/assets/pages/ui/ui.js"></script>
+</body>
+</html>

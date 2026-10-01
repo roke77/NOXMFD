@@ -90,6 +90,9 @@
     // match-roster invite list now ride these relayed pushes instead of their own /squad and
     // /server-players polls.
     sqd: ['sqd-state', 'server-players-push'],
+    // UI (issue #105): saved colour themes. The glass applies each push's css to every frame
+    // before relaying it, so the page re-renders from the new effective colours.
+    ui: ['themes-push'],
   };
 
   // The tap calls it 'targets'; TGT listens for 'tgt-targets'. The bezel renames it in exactly the

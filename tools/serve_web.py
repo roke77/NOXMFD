@@ -38,6 +38,7 @@ the older single-slot preview/assets/manifest.json if neither CURRENT nor its ta
 Ctrl+C to stop.
 """
 import argparse
+import base64
 import hashlib
 import http.server
 import json
@@ -298,6 +299,7 @@ def _preview_push(query):
         "keybinds-config": _keybinds_config(),
         "hud-options": _captured_or("hud-options", _hud_options),
         "server-players": _server_players(),
+        "themes": _themes_state(),
     }
     hashes = {}
     events = {}
@@ -422,10 +424,103 @@ def _rates_config():
     }).encode("utf-8")
 
 
-# Mock of the plugin's /themes and /colors-override.css (CFG > UI, issue 105): DEFAULT active, no
-# saved themes, so every page imports an empty override. The theme.* commands have no mock.
+# Stateful mock of the plugin's ThemeStore (CFG > UI, issue 105): /themes, /colors-override.css,
+# the "themes" push and the theme.* commands, so the UI page and the shells' live repaint work in
+# the harness. The token list is read from ThemeColors.cs so it can't drift from the plugin's.
+THEME_TOKENS = re.findall(r'"(--no-[\w-]+)"', re.search(r'Tokens\s*=\s*\{(.*?)\};',
+                          (REPO / "src" / "plugin" / "Stores" / "ThemeColors.cs").read_text(encoding="utf-8"), re.S).group(1))
+THEMES = []
+THEME_STATE = {"active": "default"}
+
+
+def _theme_active():
+    return next((t for t in THEMES if t["id"] == THEME_STATE["active"]), None)
+
+
+def _theme_css(colors):
+    parts = []
+    for token in THEME_TOKENS:
+        hexv = colors.get(token)
+        if not hexv:
+            continue
+        val = ", ".join(str(int(hexv[i:i + 2], 16)) for i in (1, 3, 5)) if token.endswith("-rgb") else hexv
+        parts.append(f"{token}:{val};")
+    return ":root{" + "".join(parts) + "}" if parts else ""
+
+
+def _theme_code(t):
+    payload = json.dumps({"n": t["name"], "c": t["colors"]}, separators=(",", ":"))
+    return "NOXT1:" + base64.b64encode(payload.encode("utf-8")).decode("ascii")
+
+
 def _themes_state():
-    return json.dumps({"active": "default", "css": "", "themes": []}).encode("utf-8")
+    active = _theme_active()
+    return json.dumps({
+        "active": active["id"] if active else "default",
+        "css": _theme_css(active["colors"]) if active else "",
+        "themes": [dict(t, code=_theme_code(t)) for t in THEMES],
+    }).encode("utf-8")
+
+
+def _theme_unique(name, exclude=None):
+    taken = {"DEFAULT"} | {t["name"] for t in THEMES if t["id"] != exclude}
+    if name not in taken:
+        return name
+    n = 2
+    while f"{name} ({n})" in taken:
+        n += 1
+    return f"{name} ({n})"
+
+
+def _theme_add(name, colors):
+    if len(THEMES) >= 20:
+        return False
+    t = {"id": f"t_{uuid.uuid4().hex}", "name": _theme_unique(name[:32]), "colors": colors}
+    THEMES.append(t)
+    THEME_STATE["active"] = t["id"]
+    return True
+
+
+def _theme_command(env):
+    cmd, bind = env.get("cmd", ""), env.get("bind", "")
+    active = _theme_active()
+    name = (env.get("wname") or "").strip()
+    if cmd == "theme.create" and name:
+        return _theme_add(name, dict(active["colors"]) if active else {})
+    if cmd == "theme.import":
+        try:
+            code = (env.get("text") or "").strip()
+            data = json.loads(base64.b64decode(code[len("NOXT1:"):]).decode("utf-8")) if code.startswith("NOXT1:") else None
+        except ValueError:
+            data = None
+        if not data or not str(data.get("n", "")).strip():
+            return False
+        colors = {k: v.lower() for k, v in (data.get("c") or {}).items()
+                  if k in THEME_TOKENS and isinstance(v, str) and re.fullmatch(r"#[0-9a-fA-F]{6}", v)}
+        return _theme_add(str(data["n"]).strip(), colors)
+    if cmd == "theme.select" and (bind == "default" or any(t["id"] == bind for t in THEMES)):
+        THEME_STATE["active"] = bind
+        return True
+    row = next((t for t in THEMES if t["id"] == bind), None)
+    if cmd == "theme.rename" and row and name:
+        row["name"] = _theme_unique(name[:32], bind)
+        return True
+    if cmd == "theme.delete" and row:
+        THEMES.remove(row)
+        if THEME_STATE["active"] == bind:
+            THEME_STATE["active"] = "default"
+        return True
+    token, value = env.get("group") or "", env.get("text") or ""
+    if cmd == "theme.set-color" and active and token in THEME_TOKENS and re.fullmatch(r"#[0-9a-fA-F]{6}", value):
+        active["colors"][token] = value.lower()
+        return True
+    if cmd == "theme.reset-color" and active:
+        if token:
+            active["colors"].pop(token, None)
+        else:
+            active["colors"].clear()
+        return True
+    return False
 
 
 def _rates_config_merged():
@@ -1120,6 +1215,7 @@ class H(http.server.SimpleHTTPRequestHandler):
             _tgt_preset_command(env)
             _tgt_sort_command(env)
             _soi_command(env)
+            _theme_command(env)
             self.send_response(204)
             self.end_headers()
             return
@@ -1175,7 +1271,9 @@ class H(http.server.SimpleHTTPRequestHandler):
         if path == '/themes':
             return self._send(_themes_state(), 'application/json; charset=utf-8')
         if path == '/colors-override.css':
-            return self._send(b'', 'text/css; charset=utf-8', {'Cache-Control': 'no-store'})
+            active = _theme_active()
+            css = _theme_css(active["colors"]) if active else ""
+            return self._send(css.encode('utf-8'), 'text/css; charset=utf-8', {'Cache-Control': 'no-store'})
         if path == '/squad':
             return self._send(_squad_state(), 'application/json; charset=utf-8')
         if path == '/td-state':
