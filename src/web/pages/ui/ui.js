@@ -134,12 +134,7 @@ UiTokens.GROUPS.forEach(function (group, gi) {
     hex.spellcheck = false;
     hex.autocomplete = 'off';
     hex.setAttribute('aria-label', label + ' hex value');
-    var reset = document.createElement('button');
-    reset.type = 'button';
-    reset.className = 'ui-reset pad-hoverable';
-    reset.textContent = '↺';
-    reset.title = 'Reset to default';
-    reset.setAttribute('aria-label', 'Reset ' + label + ' to default');
+    var reset = resetButton(token, label);
     row.append(input, name, hex, reset);
     list.appendChild(row);
     rows[token] = { row: row, input: input, hex: hex, reset: reset };
@@ -169,10 +164,21 @@ UiTokens.GROUPS.forEach(function (group, gi) {
       hex.value = rows[token].current.toUpperCase();
       render();
     });
-    reset.addEventListener('click', function () { send('theme.reset-color', { group: token }); });
   });
   columns[gi < 2 ? 0 : 1].append(heading, list);
 });
+
+// A row's ↺: puts that token back to its default in the active theme.
+function resetButton(token, label) {
+  var reset = document.createElement('button');
+  reset.type = 'button';
+  reset.className = 'ui-reset pad-hoverable';
+  reset.textContent = '↺';
+  reset.title = 'Reset to default';
+  reset.setAttribute('aria-label', 'Reset ' + label + ' to default');
+  reset.addEventListener('click', function () { send('theme.reset-color', { group: token }); });
+  return reset;
+}
 
 // A row picked from fixed options (the SOI line's style and width): one button per option, each
 // "word" or "word=CSS value" (ui-tokens.js); a press stores the word, like a colour pick.
@@ -197,13 +203,7 @@ function optionRow(token, label, options) {
     group.appendChild(b);
     return b;
   });
-  var reset = document.createElement('button');
-  reset.type = 'button';
-  reset.className = 'ui-reset pad-hoverable';
-  reset.textContent = '↺';
-  reset.title = 'Reset to default';
-  reset.setAttribute('aria-label', 'Reset ' + label + ' to default');
-  reset.addEventListener('click', function () { send('theme.reset-color', { group: token }); });
+  var reset = resetButton(token, label);
   row.append(name, group, reset);
   optRows[token] = { row: row, buttons: buttons, options: parsed, reset: reset };
   return row;

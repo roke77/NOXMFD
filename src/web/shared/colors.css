@@ -27,8 +27,8 @@
   --no-gray:       rgb(var(--no-gray-rgb));  /* inactive / off annunciator (AVN status tiles) */
   /* Neutral instrument white, in the same primary/dim/dark triplet as the greens above and used the
      same way: a readout that reports in white rather than green (AVN's gauge dials). Distinct from
-     --no-label below, which is a LAYOUT's chrome colour (the bezel's key labels) that a page must
-     not read — reporting-white needs its own name. */
+     --no-label below, the bezel's key-label white (CFG > UI's NAV LABEL) — reporting-white needs its
+     own name. */
   --no-white-rgb:  230, 235, 239;
   --no-white:      rgb(var(--no-white-rgb));  /* primary — needle, value, label */
   /* ponytail: chroma factors above 1 fit the near-grey default white's slightly bluer shades; a

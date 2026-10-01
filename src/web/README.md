@@ -65,7 +65,8 @@ src/web/
                                            # SENT/CHANGED/UNSENT status
     ui/     ui.html  ui.css  ui.js        # CFG > UI colour themes (issue #105): collapsible saved-theme
                                            # list, tabbed HSD/MAP/RWR/TGT previews, one picker per
-                                           # editable token in two columns; bootstraps from
+                                           # editable colour in two columns, the SOI line's style and
+                                           # width options; bootstraps from
                                            # GET /themes, then the shell's relayed 'themes-push'
             ui-tokens.js  .test.js        # the editable tokens, kept in step with ThemeColors.Tokens (C#)
     wpn/  tgt/  tgp/  avn/  afm/  rwr/  rdr/  hsd/  hud/  bdf/  mis/  obj/  akf/  mapcfg/  tgpcfg/

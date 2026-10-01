@@ -183,7 +183,9 @@ namespace NOXMFD.Tests
             Assert.Equal("Night", name);
             Assert.Equal("#aa0000", colors["--no-red-rgb"]);
             Assert.Equal("#0000ff", colors["--no-friendly-blue"]);
-            Assert.True(ThemeColors.TryParseFileTheme("{\"colors\":{\"background\":\"#111111\"}}", "monokai", out name, out _));
+            Assert.True(ThemeColors.TryParseFileTheme("{\"colors\":{\"background\":\"#111111\",\"soi-width\":\"LG\",\"soi-style\":\"wavy\"}}", "monokai", out name, out colors));
+            Assert.Equal("lg", colors["--no-soi-width"]);
+            Assert.False(colors.ContainsKey("--no-soi-style"));                                        // not one of its options
             Assert.Equal("monokai", name);
             Assert.False(ThemeColors.TryParseFileTheme("{\"name\":\"Empty\",\"colors\":{\"bezel\":\"#111111\"}}", "x", out _, out _));
             Assert.False(ThemeColors.TryParseFileTheme("{\"name\":\"Tokens\",\"colors\":{\"--no-bg\":\"#111111\"}}", "x", out _, out _));   // files use role names, not tokens
