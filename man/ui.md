@@ -53,8 +53,9 @@ is skipped and noted in the BepInEx log. Up to 50 files of 64 KB each are read.
 ### PREVIEW
 
 Small mocks of the [TGT](tgt.md), [MAP](map.md) and [HSD](rdr.md#hsd) pages above the colour rows, each
-in a grey MFD frame, drawn with the colours being edited. TGT shows the faction filters, a target
-list with focused, datalink and stale rows, and the action buttons; MAP shows the grid, a route,
+in a grey MFD frame, drawn with the colours being edited. TGT shows the presets, both filter rows,
+the vehicle-type lamps, a target list with focused, datalink and stale rows, the density toggle and
+all four action buttons; MAP shows the grid, a route,
 units of each faction, a target, a nuclear zone, a jamming line and the readout chips; HSD shows
 the range rings, the radar cone, a route, an AA threat ring and contacts in each state. TGT spans the
 full width with MAP and HSD side by side below it (all stacked on a narrow screen), and they follow

@@ -55,22 +55,47 @@
       <figure class="pv-frame wide">
         <figcaption class="pv-label">TGT</figcaption>
         <div class="pv" role="img" aria-label="Preview of the TGT page in the current colours">
-          <div class="pv-head"><span class="pv-title">TARGETS</span><span class="pv-count">4 LOCKED</span></div>
-          <div class="pv-filters">
+          <div class="pv-head"><span class="pv-title">TARGET SELECTION</span></div>
+          <div class="pv-sub">PRESETS <span class="pv-hint">(hold to save)</span></div>
+          <div class="pv-presets">
+            <div class="lit on pv-lit">CAP</div>
+            <div class="lit pv-lit empty">EMPTY</div>
+            <div class="lit pv-lit empty">EMPTY</div>
+            <div class="lit pv-lit empty">EMPTY</div>
+            <div class="lit pv-lit empty">EMPTY</div>
+          </div>
+          <div class="pv-sub">FILTERS <span class="pv-hint">(hold to only)</span></div>
+          <div class="pv-filters top">
             <div class="lit on pv-lit" style="--accent: var(--no-friendly-blue)">FRIENDLY</div>
             <div class="lit on pv-lit" style="--accent: var(--no-red)">ENEMY</div>
-            <div class="lit pv-lit">GROUND</div>
-            <div class="lit on pv-lit" style="--accent: var(--no-purple)">DATALINK</div>
+            <div class="lit pv-lit">LASER</div>
+          </div>
+          <div class="pv-filters">
+            <div class="lit on pv-lit">AIR</div>
+            <div class="lit pv-lit">MSL</div>
+            <div class="lit on pv-lit">GND</div>
+            <div class="lit on pv-lit">BLD</div>
+            <div class="lit on pv-lit">SHP</div>
+            <div class="lit pv-lit">HUD</div>
+          </div>
+          <div class="pv-vehs">
+            <span class="pv-veh on">TRUCK</span><span class="pv-veh on">AFV</span><span class="pv-veh on">MBT</span>
+            <span class="pv-veh">ART</span><span class="pv-veh on">AAA</span><span class="pv-veh on">R SAM</span><span class="pv-veh on">RDR</span>
           </div>
           <div class="pv-list">
-            <div class="pv-row pv-cols"><span>NAME</span><span>SRC</span><span>DIST</span><span>WPN</span><span>TD</span></div>
-            <div class="pv-row f-enemy focused"><span class="pv-name">SA-6 GAINFUL</span><span class="pv-src">RDR</span><span class="pv-dist">12.4</span><span class="pv-wpn">AGM-88</span><span class="pv-td">2-1</span></div>
-            <div class="pv-row f-enemy datalink"><span class="pv-name">T-80U</span><span class="pv-src">DL</span><span class="pv-dist">18.0</span><span class="pv-wpn">0:42</span><span class="pv-td"></span></div>
-            <div class="pv-row f-friendly inactive"><span class="pv-name">F-16C VIPER</span><span class="pv-src">VIS</span><span class="pv-dist">6.1</span><span class="pv-wpn"></span><span class="pv-td">2-2</span></div>
-            <div class="pv-row f-neutral stale"><span class="pv-name">CARGO TRUCK</span><span class="pv-src">STALE</span><span class="pv-dist">24.7</span><span class="pv-wpn"></span><span class="pv-td"></span></div>
+            <div class="pv-row pv-cols"><span>TARGETS <span class="pv-count">(5)</span></span><span>WPN</span><span>TTI</span><span>TD</span><span>SRC</span><span>RNG</span><span>GRID</span></div>
+            <div class="pv-row f-enemy focused"><span class="pv-name">HLT FLATBED</span><span class="pv-wpn">AGM-48</span><span class="pv-wpn">0:08</span><span class="pv-td">2-1</span><span class="pv-src">SENSOR</span><span class="pv-dist">4,5 nm</span><span class="pv-grid">Kg53</span></div>
+            <div class="pv-row f-enemy datalink"><span class="pv-name">BMP-2</span><span></span><span></span><span></span><span class="pv-src">DATALINK</span><span class="pv-dist">4,9 nm</span><span class="pv-grid">Kh54</span></div>
+            <div class="pv-row f-friendly inactive"><span class="pv-name">F-18</span><span></span><span></span><span class="pv-td">2-2</span><span class="pv-src">SENSOR</span><span class="pv-dist">5,2 nm</span><span class="pv-grid">Kh55</span></div>
+            <div class="pv-row f-neutral"><span class="pv-name">VESSEL</span><span></span><span></span><span></span><span class="pv-src">SENSOR</span><span class="pv-dist">5,9 nm</span><span class="pv-grid">Lh56</span></div>
+            <div class="pv-row f-enemy stale"><span class="pv-name">SA-15 TOR</span><span></span><span></span><span></span><span class="pv-src">STALE</span><span class="pv-dist">6,7 nm</span><span class="pv-grid">Lj57</span></div>
           </div>
+          <div class="pv-toggle"><span>DETAILED</span><span class="pv-switch"><span class="pv-knob"></span></span><span class="on">COMPACT</span></div>
           <div class="pv-actions">
-            <span class="pv-action reset">RESET</span><span class="pv-action clear">CLEAR</span><span class="pv-action datalink">DATALINK</span>
+            <span class="pv-action reset">RESET FILTERS</span>
+            <span class="pv-action clear">CLEAR TARGETS</span>
+            <span class="pv-action datalink">CLEAR DATALINK <span class="pv-action-count">&middot; 2</span></span>
+            <span class="pv-action stale">CLEAR STALE <span class="pv-action-count">&middot; 1</span></span>
           </div>
         </div>
       </figure>

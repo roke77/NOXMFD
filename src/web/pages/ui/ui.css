@@ -128,13 +128,23 @@ html, body { height: 100%; margin: 0; }
 }
 .pv-head { display: flex; justify-content: space-between; padding-bottom: 0.35em; border-bottom: 1px solid var(--no-green-dark); }
 .pv-title { letter-spacing: 0.1em; color: var(--no-green); }
-.pv-count { color: var(--no-white-dim); letter-spacing: 0.08em; }
-.pv-filters { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.4em; }
+.pv-sub { font-size: 0.75em; letter-spacing: 0.35em; color: var(--no-white-dim); }
+.pv-hint { margin-left: 0.8em; letter-spacing: 0.06em; }
+.pv-presets { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0.4em; }
+.pv-lit.empty { border-style: dashed; color: var(--no-text-faint); }
+.pv-filters { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 0.4em; }
+.pv-filters.top { grid-template-columns: 2fr 2fr 1fr; }
+/* Vehicle types: the label with a lamp bar under it, green when the type is shown. */
+.pv-vehs { display: flex; justify-content: space-around; gap: 0.4em; }
+.pv-veh { display: flex; flex-direction: column; align-items: center; gap: 0.3em; font-size: 0.8em; color: var(--no-text-faint); }
+.pv-veh::after { content: ''; width: 1.5em; height: 3px; background: var(--no-lamp-off); }
+.pv-veh.on { color: var(--no-green); }
+.pv-veh.on::after { background: var(--no-green); }
 .pv-lit { --lamp-w: 2em; gap: 0.35em; padding: 0.4em 0.2em; font-size: 0.85em; letter-spacing: 0.06em; }
 .pv-list { display: flex; flex-direction: column; }
 .pv-row {
   display: grid;
-  grid-template-columns: minmax(0, 2.4fr) 4.2em minmax(0, 1fr) minmax(0, 1.2fr) 2.6em;
+  grid-template-columns: minmax(0, 2.4fr) minmax(0, 1fr) minmax(0, 0.8fr) minmax(0, 0.6fr) 5.6em minmax(0, 1fr) minmax(0, 0.8fr);
   align-items: center;
   gap: 0.6em;
   padding: 0.3em 0.4em;
@@ -151,13 +161,22 @@ html, body { height: 100%; margin: 0; }
 .pv-dist { color: var(--no-green); font-variant-numeric: tabular-nums; }
 .pv-wpn { color: var(--no-amber); font-variant-numeric: tabular-nums; }
 .pv-td { color: var(--no-squad); }
+.pv-grid { color: var(--no-green-dim); }
+.pv-count { color: var(--no-amber); }
 .pv-row.focused { outline: 2px solid var(--no-amber); outline-offset: -2px; background: rgba(var(--no-amber-rgb), 0.06); }
 .pv-row.inactive { outline: 2px solid var(--no-gray); outline-offset: -2px; background: rgba(var(--no-gray-rgb), 0.10); }
 .pv-actions { display: flex; gap: 0.5em; }
-.pv-action { flex: 1; padding: 0.35em 0; text-align: center; letter-spacing: 0.15em; border: 1.5px solid currentColor; border-radius: 4px; background: var(--no-bg); }
+.pv-action { flex: 1; padding: 0.35em 0.2em; text-align: center; letter-spacing: 0.15em; white-space: nowrap; border: 1.5px solid currentColor; border-radius: 4px; background: var(--no-bg); }
 .pv-action.reset { color: var(--no-amber); }
 .pv-action.clear { color: var(--no-red); }
 .pv-action.datalink { color: var(--no-purple); }
+.pv-action.stale { color: var(--no-label); }
+.pv-action-count { font-size: 0.8em; opacity: 0.8; }
+/* DETAILED / COMPACT density switch, set to COMPACT. */
+.pv-toggle { display: flex; justify-content: flex-end; align-items: center; gap: 0.5em; font-size: 0.7em; letter-spacing: 0.08em; color: var(--no-green-dim); }
+.pv-toggle .on { color: var(--no-green); }
+.pv-switch { position: relative; width: 2.6em; height: 1.3em; border: 1px solid var(--no-green-dark); border-radius: 0.65em; background: var(--no-hover-wash-faint); }
+.pv-knob { position: absolute; top: 0.12em; right: 0.12em; width: 0.9em; height: 0.9em; border-radius: 50%; background: var(--no-green); }
 
 /* MAP mock: grid, route, units and overlays, styled from the same tokens map.js reads for its
    canvas. The chips are the real .mfd-chip class MAP's readouts use. */
