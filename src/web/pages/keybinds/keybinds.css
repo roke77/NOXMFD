@@ -53,8 +53,8 @@ html, body { overflow: hidden; }
   border-right: 1px solid var(--no-panel-border);
   overflow-x: hidden;
   overflow-y: auto;
-  /* shadcn's icon-collapsible sidebar: the width eases linearly over 200ms and the labels are
-     clipped by it; the section rows (which have no icon form) drop out. */
+  /* Collapses to an icon strip: the width eases linearly over 200ms and the labels are clipped by
+     it; the section rows (which have no icon form) drop out. */
   transition: width 200ms linear;
 }
 .kb-rail.collapsed { width: 48px; }

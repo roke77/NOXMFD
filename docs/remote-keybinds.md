@@ -347,7 +347,7 @@ arbitrates.
   local-only, client-side toggle sitting in a section whose other rows are all shared/global) is
   why it later moved to the top of the page instead, right after INPUT WHEN GAME UNFOCUSED — the
   page's other client-only, non-bind setting — leaving IMMERSION OPTIONS to hold only real
-  server-persisted settings.
+  server-persisted settings. It is now the REMOTE KEYBINDS tile in the INPUT & HUD settings group.
 - **Label and copy, brief and instructive, generic rather than WSO-specific**:
   - Label: **"LISTEN FOR KEYBINDS (REMOTE)"**, default OFF.
   - One-line description: *"Lets this browser send your configured keybinds to the game as if

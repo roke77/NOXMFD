@@ -419,11 +419,10 @@ namespace NOXMFD
                     () => TgtPresetStore.LoadPreset(presetIndex));
             }
 
-            // Immersion keybinds — docs/radar-master-arms.md (issue #32). Registered LAST (and its
-            // four start-state settings appended after this Bind() method, in the same order) so the
-            // KEY page's "Immersion options" section — binds + settings together — lands at the very
-            // bottom of the page, below a separator, per the user's request: appended, not interleaved
-            // with the existing sections above. Master Arm/Power/Radar/Engine are plain dedicated
+            // Immersion keybinds — docs/radar-master-arms.md (issue #32). Registered after the other
+            // sections; the KEY page places them by id (keybinds-groups.js: Power/Engine/Radar and
+            // Master Arm under Systems, A/A and A/G under Combat), not by registration order.
+            // Master Arm/Power/Radar/Engine are plain dedicated
             // ON+OFF pairs (edge:true, always the same action) — the game already has its own
             // single-toggle Radar/Engine bind for anyone who doesn't want a dedicated pair, so
             // there's no tap/hold trick here. A/A and A/G are different: there's no stock "reset

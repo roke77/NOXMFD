@@ -234,7 +234,7 @@ No per-layout cursor code — just the same "is my focused surface a MAP? then f
    that component (`Poll()`), so keys and axis coexist on the same two rows (**Cursor Horizontal** /
    **Cursor Vertical**) without conflict. `ConfigEndpoint.ServeKeybindsConfig` and `CommandDispatcher`
    (`keybind.arm-axis`/`cancel-axis`/`clear-axis`/`set-axis-invert`) extended to match; `keybinds.js`
-   renders these two rows as one wide cell (arm/capture/invert/clear) instead of empty key/joy cells,
+   renders these two rows with AXIS ONLY in the keyboard column and one axis cell (arm/capture/invert/clear) in the joystick column instead of empty key/joy cells,
    guided by the JSON simply omitting `key` for an axis-only row. Verified end-to-end in the
    `serve_web` harness (arm → simulated capture → invert → clear, no console errors) — the server-side
    axis read itself needs a real HOTAS in-game to confirm, same caveat as step 4's rAF glide.

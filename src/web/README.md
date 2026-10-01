@@ -93,7 +93,7 @@ Logic worth checking gets split into a **pure sibling module** the page loads an
 without a DOM — the page keeps the elements and live state and passes what the module needs in. The
 same move the shell makes with `nav-model.js` / `classic-paging.js`. Named for what it does:
 `map-transform.js` (world⇄pixel maths), `bdf-funds.js` (the magnitude-band money format),
-`keybinds-keymap.js` (KeyboardEvent ⇄ Unity KeyCode names, including Ctrl/Alt/Shift chords), `remote-keybinds.js` (the
+`keybinds-keymap.js` (KeyboardEvent ⇄ Unity KeyCode names, including Ctrl/Alt/Shift chords), `keybinds-groups.js` (the KEY page's flight-order grouping, bound counts and search text), `remote-keybinds.js` (the
 per-browser KEY-page listener that maps configured keys into `/command` posts), `wpt-route.js`
 (navigation display derivation — bearing/distance math, effective route/steer target selection,
 and client-side pre-validation for pasted JSON; the actual navigation data and its mutation live

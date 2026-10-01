@@ -134,7 +134,7 @@ correct modal.
 | `src/web/shell/shared/layout-keybinds.js` | Reads the shared keybind-config push and matches a `keydown` against the configured save/load keys |
 | `src/web/shell/classic/mfd.js` | `captureLayoutState`/`applyLayoutState` — `{splitMode, splitVariant, pages, pinnedPage}`; two LYT nav items (`BEZEL_EXTRAS.lyt`); `handleLayoutKeydown` attached to every iframe the shell owns (map, page-frame, both split panes), not just the top document |
 | `src/web/shell/f35/f35.js`, `f35.html`, `f35.css` | `captureLayoutState`/`applyLayoutState` — `{cells, pages}`, rebuilding portals directly from a saved `F35Glass` arrangement rather than replaying merge/split actions; a second row of nav items in `#layout-picker`; `handleLayoutKeydown` attached to `#map-tap` and every portal's frame (`makePortal`) |
-| `src/web/pages/keybinds/keybinds.js` | Renders a key-only row (one wide keyboard cell, no joystick column) |
+| `src/web/pages/keybinds/keybinds.js` | Renders a key-only row (a keyboard cell, with KEYBOARD ONLY in the joystick column) |
 | `tools/serve_web.py` | Stateful mock: `/layout-options` + `layout.save`/`rename`/`delete` actually edit a mutable `LAYOUTS` list (mirrors the existing `KEYBINDS` mock), seeded with one CLASSIC + one F-35 demo layout; plus the two new `KEYBINDS` rows |
 
 ## Verification performed
