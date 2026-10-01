@@ -89,7 +89,7 @@ lower case with dashes; any colour it leaves out keeps its default:
 | ACCENTS | `squad`, `mod-controls`, `mod-accent`, `friendly-tgt-td`, `friendly-hud` |
 | THREATS | `search`, `track`, `lock`, `jamming` |
 | MAP & SCOPE | `route`, `flown-route`, `target`, `neutral`, `nuclear-zone`, `hsd-symbology`, `hsd-aa-rings` |
-| SOI | `soi` (a colour), `soi-style` (`solid`, `dashed`, `dotted` or `double`), `soi-width` (`sm`, `md` or `lg`) |
+| SOI | `soi` (a colour), `soi-style` (`solid`, `dashed`, `dotted` or `double`), `soi-width` (`sm`, `md` or `lg`), `soi-spacing` (`none`, `sm`, `md` or `lg`) |
 
 Colour values must be `#rrggbb`. A file without a `name` uses its file name; a file with no valid colour
 is skipped and noted in the BepInEx log. Up to 50 files of 64 KB each are read.
@@ -128,5 +128,8 @@ The last group sets how the sensor of interest is marked, in both layouts:
 - **STYLE**: the focus ring's line: **SOLID**, **DASHED**, **DOTTED** or **DOUBLE**.
 - **WIDTH**: the focus ring's thickness: **SM** (2 px, the default), **MD** (3 px) or **LG** (4 px).
   DOUBLE needs MD or LG to show as two lines.
+- **SPACING**: how far the focus ring sits in from the display's edge: **NONE** (the default, on the
+  edge), **SM** (2 px), **MD** (4 px) or **LG** (6 px). The ring draws over the page without
+  blocking taps on it.
 
-The RWR preview is drawn as the SOI, so it shows all three.
+The RWR preview is drawn as the SOI, so it shows all four.

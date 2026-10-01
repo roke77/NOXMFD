@@ -43,6 +43,7 @@
       ['--no-soi',           'COLOUR', 'soi'],
       ['--no-soi-style',     'STYLE',  'soi-style', ['solid', 'dashed', 'dotted', 'double']],
       ['--no-soi-width',     'WIDTH',  'soi-width', ['sm=2px', 'md=3px', 'lg=4px']],
+      ['--no-soi-inset',     'SPACING', 'soi-spacing', ['none=0px', 'sm=2px', 'md=4px', 'lg=6px']],
     ] },
   ];
 

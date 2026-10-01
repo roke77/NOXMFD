@@ -486,7 +486,7 @@ html, body {
 .portal.soi::after {
   content: '';
   position: absolute;
-  inset: 0;
+  inset: var(--no-soi-inset, 0px);   /* CFG > UI's SOI spacing */
   border: var(--no-soi-width, 2px) var(--no-soi-style, solid) var(--no-soi);   /* CFG > UI's SOI options */
   pointer-events: none;
   z-index: 3;

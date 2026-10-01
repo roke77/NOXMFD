@@ -13,7 +13,7 @@ const ALLOWED = {
   [path.join('shell', 'shared', 'wake-lock.js')]: true,
 };
 // --no-* custom properties that aren't colours.
-const NOT_COLOURS = new Set(['--no-font', '--no-soi-style', '--no-soi-width']);   // the SOI ring's line, picked in CFG > UI
+const NOT_COLOURS = new Set(['--no-font', '--no-soi-style', '--no-soi-width', '--no-soi-inset']);   // the SOI ring's line, picked in CFG > UI
 
 function walk(dir, out) {
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {

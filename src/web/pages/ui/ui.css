@@ -306,7 +306,7 @@ html, body { height: 100%; margin: 0; }
 .pv-rwr-notch { stroke: var(--no-threat-yellow); stroke-width: 3; stroke-dasharray: 14 12; }
 .pv-rwr-missile { stroke: var(--no-threat-red); stroke-width: 3; stroke-linecap: round; }
 /* RWR is drawn as the SOI: the shells' focus ring (mfd.css #soi-ring), traced inside the screen. */
-.pv-soi::after { content: ''; position: absolute; inset: 0; border: var(--no-soi-width, 2px) var(--no-soi-style, solid) var(--no-soi); border-radius: 3px; }
+.pv-soi::after { content: ''; position: absolute; inset: var(--no-soi-inset, 0px); border: var(--no-soi-width, 2px) var(--no-soi-style, solid) var(--no-soi); border-radius: 3px; }
 
 /* Colour rows in two columns (one on a narrow pane): swatch picker | label | hex | reset, each group
    under its heading. */

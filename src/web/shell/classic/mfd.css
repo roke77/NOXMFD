@@ -323,12 +323,17 @@
   #soi-ring {
     position: absolute;
     display: none;
-    box-sizing: border-box;
-    /* Line style and width are theme options (CFG > UI's SOI section); these are their defaults. */
-    border: var(--no-soi-width, 2px) var(--no-soi-style, solid) var(--no-soi);
-    border-radius: 3px;
     pointer-events: none;
     z-index: 4;   /* above .overlay and its chips, which sit at 2 */
+  }
+  /* The line itself, drawn on a ::after so CFG > UI's SOI SPACING can pull it in from the measured
+     box. Line style, width and spacing are theme options; these fallbacks are their defaults. */
+  #soi-ring::after {
+    content: '';
+    position: absolute;
+    inset: var(--no-soi-inset, 0px);
+    border: var(--no-soi-width, 2px) var(--no-soi-style, solid) var(--no-soi);
+    border-radius: 3px;
   }
   /* Full-view host iframe for the frame-hosted pages (WPN). Covers the recess like the map iframe;
      shown via .screen.page-on, hidden in split (panes take over). It sits below the .overlay

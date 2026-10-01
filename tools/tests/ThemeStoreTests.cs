@@ -61,8 +61,9 @@ namespace NOXMFD.Tests
             };
             Assert.Equal(":root{--no-green-rgb:255, 136, 0;--no-ink:#101010;}", ThemeColors.BuildCss(colors));
             Assert.Equal(string.Empty, ThemeColors.BuildCss(new Dictionary<string, string>()));
-            Assert.Equal(":root{--no-soi-style:dotted;--no-soi-width:3px;}", ThemeColors.BuildCss(new Dictionary<string, string>
+            Assert.Equal(":root{--no-soi-style:dotted;--no-soi-width:3px;--no-soi-inset:6px;}", ThemeColors.BuildCss(new Dictionary<string, string>
             {
+                ["--no-soi-inset"] = "lg",
                 ["--no-soi-width"] = "md",
                 ["--no-soi-style"] = "dotted",
             }));

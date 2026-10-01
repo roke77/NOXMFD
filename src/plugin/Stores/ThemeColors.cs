@@ -6,8 +6,8 @@ using System.Text.RegularExpressions;
 namespace NOXMFD
 {
     // The colour rules behind CFG > UI's themes (issue 105): which colors.css tokens a player may
-    // override (plus the SOI ring's line style and width, picked from fixed options), what a valid
-    // value is, the CSS an active theme serves, and the shareable export code.
+    // override (plus the SOI ring's line style, width and spacing, picked from fixed options), what a
+    // valid value is, the CSS an active theme serves, and the shareable export code.
     // A theme's values end up inside served CSS, so everything that reaches it — a /command, the
     // themes file, a pasted code — goes through Normalize first. BCL-only so tools/tests links it.
     internal static class ThemeColors
@@ -28,7 +28,7 @@ namespace NOXMFD
             "--no-route-cyan", "--no-reached-gray", "--no-target-orange", "--no-neutral-gray",
             "--no-nuclear-orange-rgb", "--no-hsd-pink-rgb", "--no-hsd-yellow-rgb",
             // SOI focus ring and cursor
-            "--no-soi", "--no-soi-style", "--no-soi-width",
+            "--no-soi", "--no-soi-style", "--no-soi-width", "--no-soi-inset",
         };
 
         // Tokens picked from fixed options rather than set to a colour, each option written as
@@ -39,6 +39,7 @@ namespace NOXMFD
         {
             ["--no-soi-style"] = new[] { "solid", "dashed", "dotted", "double" },
             ["--no-soi-width"] = new[] { "sm=2px", "md=3px", "lg=4px" },
+            ["--no-soi-inset"] = new[] { "none=0px", "sm=2px", "md=4px", "lg=6px" },
         };
 
         // What a theme file in the themes folder calls each token, index for index with Tokens: the UI
@@ -58,7 +59,7 @@ namespace NOXMFD
             "route", "flown-route", "target", "neutral",
             "nuclear-zone", "hsd-symbology", "hsd-aa-rings",
             // SOI
-            "soi", "soi-style", "soi-width",
+            "soi", "soi-style", "soi-width", "soi-spacing",
         };
 
         private static readonly HashSet<string> TokenSet = new HashSet<string>(Tokens, StringComparer.Ordinal);
