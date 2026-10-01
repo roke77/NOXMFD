@@ -90,7 +90,7 @@ html, body { height: 100%; margin: 0; }
 .ui-theme-strip span { width: 1em; height: 0.5em; border-radius: 1px; box-shadow: 0 0 0 1px var(--no-line); }
 .ui-theme-tag { font-size: 0.65em; letter-spacing: 0.15em; color: var(--no-text-faint); }
 
-.ui-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.4em; }
+.ui-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.4em; padding-bottom: 0.6em; border-bottom: 1px solid var(--no-green-dark); }
 .ui-btn {
   min-height: 2.4em;
   padding: 0 0.6em;
@@ -111,10 +111,12 @@ html, body { height: 100%; margin: 0; }
 
 /* A fake MFD bezel in the LYT thumbnails' fixed greys (not editable), so the mock inside reads as
    a page on a display whatever the theme. Three key stubs down each side, drawn as backgrounds. */
+/* The three mocks share one grid cell, the hidden ones kept in layout (visibility only), so the
+   frame is TGT's height whichever tab shows. */
 .pv-frame {
   position: relative;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-rows: auto 1fr;
   margin: 0;
   padding: 0.5em 1.6em 1.1em;
   background: var(--no-thumb-bezel);
@@ -216,7 +218,8 @@ html, body { height: 100%; margin: 0; }
 /* MAP mock: grid, route, units and overlays, styled from the same tokens map.js reads for its
    canvas. The chips are the real .mfd-chip class MAP's readouts use. */
 .pv-map { position: relative; min-height: 15em; padding: 0; overflow: hidden; }
-.pv[hidden] { display: none; }
+.pv { grid-area: 2 / 1; }
+.pv[hidden] { display: flex; visibility: hidden; }
 .pv-map-svg { position: absolute; inset: 0; width: 100%; height: 100%; }
 .pv-grid-minor { stroke: rgba(var(--no-green-rgb), 0.10); stroke-width: 1; fill: none; }
 .pv-grid-major { stroke: rgba(var(--no-green-rgb), 0.30); stroke-width: 1; fill: none; }
