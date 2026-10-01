@@ -106,6 +106,22 @@ namespace NOXMFD
             return colors;
         }
 
+        // A theme file from the themes folder: {"name": "...", "colors": {"--no-green-rgb": "#a6e22e", ...}}.
+        // The name falls back to the file's own name; a file with no valid colour at all is rejected,
+        // since it's almost certainly not a theme file (or a typo in every key).
+        internal static bool TryParseFileTheme(string? json, string fallbackName, out string name, out Dictionary<string, string> colors)
+        {
+            name = string.Empty;
+            colors = new Dictionary<string, string>(StringComparer.Ordinal);
+            if (JsonLite.Parse(json ?? string.Empty) is not Dictionary<string, object?> root) return false;
+            colors = ParseColors(root.TryGetValue("colors", out object? c) ? c : null);
+            if (colors.Count == 0) return false;
+            if (CleanName(root.TryGetValue("name", out object? n) ? n as string : null) is string clean) name = clean;
+            else if (CleanName(fallbackName) is string fallback) name = fallback;
+            else return false;
+            return true;
+        }
+
         // Share code: the prefix (its digit is the format version) plus base64 of {"n":name,"c":{…}}.
         internal static string BuildCode(string name, IReadOnlyDictionary<string, string> colors)
         {

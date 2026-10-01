@@ -10,16 +10,21 @@ namespace NOXMFD.Tests
     {
         private readonly string _dir = Path.Combine(Path.GetTempPath(), "noxmfd-themes-test-" + Guid.NewGuid());
 
+        private string Folder => Path.Combine(_dir, "themes");
+
         public ThemeStoreTests()
         {
             Directory.CreateDirectory(_dir);
+            Directory.CreateDirectory(Folder);
             ThemeStore.ConfigDir = _dir;
+            ThemeStore.ThemesDir = Folder;
             ThemeStore.Load();
         }
 
         public void Dispose()
         {
             ThemeStore.ConfigDir = null;
+            ThemeStore.ThemesDir = null;
             try { Directory.Delete(_dir, true); } catch { }
         }
 
@@ -147,6 +152,76 @@ namespace NOXMFD.Tests
             for (int i = 1; i < ThemeStore.MaxThemes; i++) Assert.True(ThemeStore.Create("T" + i));
             Assert.False(ThemeStore.Create("One too many"));
             Assert.False(ThemeStore.Import(code));
+        }
+    
+        private void Drop(string file, string json) => File.WriteAllText(Path.Combine(Folder, file), json);
+        private static List<object?> Themes() => (List<object?>)State()["themes"]!;
+        private static Dictionary<string, object?> ThemeAt(int i) => (Dictionary<string, object?>)Themes()[i]!;
+
+        [Fact]
+        public void File_theme_parses_name_and_colours_and_falls_back_to_the_file_name()
+        {
+            Assert.True(ThemeColors.TryParseFileTheme("{\"name\":\" Night \",\"colors\":{\"--no-red-rgb\":\"#AA0000\"}}", "x", out string name, out var colors));
+            Assert.Equal("Night", name);
+            Assert.Equal("#aa0000", colors["--no-red-rgb"]);
+            Assert.True(ThemeColors.TryParseFileTheme("{\"colors\":{\"--no-bg\":\"#111111\"}}", "monokai", out name, out _));
+            Assert.Equal("monokai", name);
+            Assert.False(ThemeColors.TryParseFileTheme("{\"name\":\"Empty\",\"colors\":{\"--no-bezel-hi\":\"#111111\"}}", "x", out _, out _));
+            Assert.False(ThemeColors.TryParseFileTheme("not json", "x", out _, out _));
+        }
+
+        [Fact]
+        public void Folder_themes_are_listed_after_saved_ones_and_are_read_only()
+        {
+            ThemeStore.Create("Saved");
+            Drop("dusk.json", "{\"name\":\"Dusk\",\"colors\":{\"--no-green-rgb\":\"#ff8800\"}}");
+            Drop("broken.json", "{\"name\":\"Broken\"}");
+            Drop("notes.txt", "{\"colors\":{\"--no-bg\":\"#111111\"}}");
+            ThemeStore.Rescan();
+
+            Assert.Equal(2, Themes().Count);
+            Assert.Equal("Dusk", ThemeAt(1)["name"]);
+            Assert.Equal(true, ThemeAt(1)["file"]);
+            string id = (string)ThemeAt(1)["id"]!;
+
+            Assert.True(ThemeStore.Select(id));
+            Assert.Equal(":root{--no-green-rgb:255, 136, 0;}", ThemeStore.ActiveCss);
+            Assert.False(ThemeStore.SetColor("--no-red-rgb", "#000000"));
+            Assert.False(ThemeStore.ResetColor(null));
+            Assert.False(ThemeStore.Rename(id, "Other"));
+            Assert.False(ThemeStore.Delete(id));
+
+            Assert.True(ThemeStore.Create("Dusk"));                    // a saved copy, named apart from the file theme
+            Assert.Equal("Dusk (2)", ThemeAt(1)["name"]);
+            Assert.Equal(":root{--no-green-rgb:255, 136, 0;}", ThemeStore.ActiveCss);
+        }
+
+        [Fact]
+        public void Active_folder_theme_survives_a_restart_and_falls_back_when_its_file_goes()
+        {
+            Drop("dusk.json", "{\"name\":\"Dusk\",\"colors\":{\"--no-green-rgb\":\"#ff8800\"}}");
+            ThemeStore.Rescan();
+            string id = (string)ThemeAt(0)["id"]!;
+            ThemeStore.Select(id);
+
+            ThemeStore.Load();
+            Assert.Equal(id, ActiveId());
+
+            File.Delete(Path.Combine(Folder, "dusk.json"));
+            ThemeStore.Rescan();
+            Assert.Equal(ThemeStore.DefaultId, ActiveId());
+            Assert.Empty(Themes());
+            ThemeStore.Load();
+            Assert.Equal(ThemeStore.DefaultId, ActiveId());          // the fallback was saved
+        }
+
+        [Fact]
+        public void Folder_themes_are_not_written_into_the_saved_themes_file()
+        {
+            Drop("dusk.json", "{\"name\":\"Dusk\",\"colors\":{\"--no-green-rgb\":\"#ff8800\"}}");
+            ThemeStore.Rescan();
+            ThemeStore.Create("Saved");
+            Assert.DoesNotContain("Dusk", File.ReadAllText(Path.Combine(_dir, "com.roque.NOXMFD.themes.json")));
         }
     }
 }

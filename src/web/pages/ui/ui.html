@@ -14,6 +14,8 @@
     NEW                     → name dialog → theme.create {wname}   (copies the active colours)
     RENAME / DELETE         → dialog → theme.rename {bind, wname} / theme.delete {bind}
     COPY                    → the active theme's share code, to the clipboard or shown to copy
+    page open               → theme.rescan (re-reads the themes folder's *.json files; those themes
+                              are listed with a FILE tag and are read-only like DEFAULT)
     PASTE                   → code dialog → theme.import {text}
     a colour picker         → theme.set-color {group: token, text: #rrggbb}
     a row's reset / RESET ALL → theme.reset-color {group: token | ""}

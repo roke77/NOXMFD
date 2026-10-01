@@ -431,10 +431,34 @@ THEME_TOKENS = re.findall(r'"(--no-[\w-]+)"', re.search(r'Tokens\s*=\s*\{(.*?)\}
                           (REPO / "src" / "plugin" / "Stores" / "ThemeColors.cs").read_text(encoding="utf-8"), re.S).group(1))
 THEMES = []
 THEME_STATE = {"active": "default"}
+# The plugin's drop-in themes folder (BepInEx/plugins/NOXMFD/themes) stands in as preview/themes here
+# (gitignored with the rest of preview/): read on start and on theme.rescan, read-only like DEFAULT.
+THEMES_DIR = REPO / "preview" / "themes"
+FILE_THEMES = []
+
+
+def _scan_theme_folder():
+    found = []
+    if THEMES_DIR.is_dir():
+        for fp in sorted(THEMES_DIR.glob("*.json"), key=lambda f: f.name.lower())[:50]:
+            try:
+                data = json.loads(fp.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                continue
+            if not isinstance(data, dict):
+                continue
+            colors = {k: v.lower() for k, v in (data.get("colors") or {}).items()
+                      if k in THEME_TOKENS and isinstance(v, str) and re.fullmatch(r"#[0-9a-fA-F]{6}", v)}
+            name = str(data.get("name") or fp.stem).strip()[:32]
+            if colors and name:
+                found.append({"id": "f_" + fp.name.lower(), "name": name, "colors": colors, "file": True})
+    FILE_THEMES[:] = found
+    if THEME_STATE["active"] != "default" and not _theme_active():
+        THEME_STATE["active"] = "default"
 
 
 def _theme_active():
-    return next((t for t in THEMES if t["id"] == THEME_STATE["active"]), None)
+    return next((t for t in THEMES + FILE_THEMES if t["id"] == THEME_STATE["active"]), None)
 
 
 def _theme_css(colors):
@@ -458,12 +482,12 @@ def _themes_state():
     return json.dumps({
         "active": active["id"] if active else "default",
         "css": _theme_css(active["colors"]) if active else "",
-        "themes": [dict(t, code=_theme_code(t)) for t in THEMES],
+        "themes": [dict(t, code=_theme_code(t)) for t in THEMES + FILE_THEMES],
     }).encode("utf-8")
 
 
 def _theme_unique(name, exclude=None):
-    taken = {"DEFAULT"} | {t["name"] for t in THEMES if t["id"] != exclude}
+    taken = {"DEFAULT"} | {t["name"] for t in THEMES + FILE_THEMES if t["id"] != exclude}
     if name not in taken:
         return name
     n = 2
@@ -481,8 +505,14 @@ def _theme_add(name, colors):
     return True
 
 
+_scan_theme_folder()
+
+
 def _theme_command(env):
     cmd, bind = env.get("cmd", ""), env.get("bind", "")
+    if cmd == "theme.rescan":
+        _scan_theme_folder()
+        return True
     active = _theme_active()
     name = (env.get("wname") or "").strip()
     if cmd == "theme.create" and name:
@@ -498,7 +528,7 @@ def _theme_command(env):
         colors = {k: v.lower() for k, v in (data.get("c") or {}).items()
                   if k in THEME_TOKENS and isinstance(v, str) and re.fullmatch(r"#[0-9a-fA-F]{6}", v)}
         return _theme_add(str(data["n"]).strip(), colors)
-    if cmd == "theme.select" and (bind == "default" or any(t["id"] == bind for t in THEMES)):
+    if cmd == "theme.select" and (bind == "default" or any(t["id"] == bind for t in THEMES + FILE_THEMES)):
         THEME_STATE["active"] = bind
         return True
     row = next((t for t in THEMES if t["id"] == bind), None)
@@ -511,6 +541,8 @@ def _theme_command(env):
             THEME_STATE["active"] = "default"
         return True
     token, value = env.get("group") or "", env.get("text") or ""
+    if active and active.get("file"):
+        active = None   # folder themes are read-only
     if cmd == "theme.set-color" and active and token in THEME_TOKENS and re.fullmatch(r"#[0-9a-fA-F]{6}", value):
         active["colors"][token] = value.lower()
         return True

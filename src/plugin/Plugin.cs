@@ -53,6 +53,7 @@ namespace NOXMFD
             TryBind("Saved layouts", LayoutStore.Load);                        // issue #51 — SAVE/LOAD LAYOUT library persisted to disk
             ThemeStore.ConfigDir = Paths.ConfigPath;                           // same BepInEx-free seam as RouteStore
             ThemeStore.LogWarning = msg => Log?.LogWarning(msg);
+            ThemeStore.ThemesDir = ThemesFolder();                             // drop-in theme files, beside DOC's kneeboard folder
             TryBind("Colour themes", ThemeStore.Load);                         // issue #105 — CFG > UI colour themes persisted to disk
             TryBind("HUD presets", HudPresetStore.Load);                       // issue #50 follow-up — 5 numbered HUD-filter presets persisted to disk
             TryBind("HUD presets self-check", HudPresetStore.SelfCheck);        // docs/hud-presets.md — pure JSON round-trip, same reasoning as JsonLite above
@@ -92,6 +93,17 @@ namespace NOXMFD
         }
 
         private static void OnApplicationQuitting() => TelemetryServer.Stop();
+
+        // The drop-in theme folder (CFG > UI, issue #105), created eagerly like DOC's kneeboard folder so
+        // it exists in Explorer as soon as the plugin loads. A failure only logs: ThemeStore treats a
+        // missing folder as "no folder themes".
+        private static string ThemesFolder()
+        {
+            string dir = System.IO.Path.Combine(Paths.PluginPath, "NOXMFD", "themes");
+            try { System.IO.Directory.CreateDirectory(dir); }
+            catch (Exception ex) { Log?.LogWarning($"[NOXMFD] Could not create themes folder {dir}: {ex.Message}"); }
+            return dir;
+        }
 
         // Runs a config-binding step without letting its failure take the rest of Awake down.
         private static void TryBind(string what, Action bind)

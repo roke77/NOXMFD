@@ -53,6 +53,7 @@ html, body { height: 100%; margin: 0; }
   letter-spacing: 0.08em;
 }
 .ui-theme-name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ui-theme-tag { font-size: 0.65em; font-weight: normal; letter-spacing: 0.2em; color: var(--no-text-faint); }
 
 .ui-actions { display: flex; flex-wrap: wrap; gap: 0.45em; }
 .ui-btn {

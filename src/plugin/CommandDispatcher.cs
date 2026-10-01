@@ -333,6 +333,8 @@ namespace NOXMFD
                 { "theme.set-color",   e => LogTheme("set-color",   ThemeStore.SetColor(e.group, e.text)) },
                 { "theme.reset-color", e => LogTheme("reset-color", ThemeStore.ResetColor(e.group)) },
                 { "theme.import",      e => LogTheme("import",      ThemeStore.Import(e.text)) },
+                // Re-reads the themes folder; the UI page sends it when it opens.
+                { "theme.rescan",      e => LogTheme("rescan",      ThemeStore.Rescan()) },
                 // HUD filter presets — 5 fixed numbered slots (HudPresetStore), not an arbitrary list
                 // like layout.* above: `index` (1-5) addresses a slot directly. save takes it
                 // optionally (absent = whichever slot is server-side CURRENT) and makes that slot current.

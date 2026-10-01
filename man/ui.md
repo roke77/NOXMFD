@@ -23,6 +23,33 @@ The CLASSIC bezel and the F-35 frame keep their own colours.
 
 Up to 20 themes can be saved.
 
+### Themes folder
+
+Theme files can also be dropped into the mod's themes folder, next to DOC's kneeboard folder:
+`BepInEx/plugins/NOXMFD/themes/` (created automatically when the plugin loads). Each `.json` file
+there shows as a theme card with a **FILE** tag. The folder is read when the game starts and again
+every time the UI page opens, so a new or edited file appears the next time you open CFG > UI.
+
+A folder theme is read-only, like DEFAULT: select it to use it, and changing a colour asks for a name
+and saves a copy as a normal theme. To change the folder theme itself, edit its file. Deleting the
+file removes the theme; if it was active, DEFAULT takes over. **COPY** still gives its share code.
+
+A theme file names the theme and lists the colours it changes, using the names in
+`src/web/pages/ui/ui-tokens.js`; any colour it leaves out keeps its default:
+
+```json
+{
+  "name": "Dusk",
+  "colors": {
+    "--no-green-rgb": "#ff9e3d",
+    "--no-bg": "#120c18"
+  }
+}
+```
+
+Values must be `#rrggbb`. A file without a `name` uses its file name; a file with no valid colour
+is skipped and noted in the BepInEx log. Up to 50 files of 64 KB each are read.
+
 ### PREVIEW
 
 Small mocks of the [TGT](tgt.md) and [MAP](map.md) pages above the colour rows, each in a grey MFD

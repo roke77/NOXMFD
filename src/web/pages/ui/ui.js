@@ -19,6 +19,9 @@ var btn = {
   resetAll: document.getElementById('ui-reset-all'),
 };
 
+// DEFAULT and folder themes (state's file: true) can't be edited; a colour change saves a new theme.
+function isReadOnly(t) { return !t || !!t.file; }
+
 function activeTheme() {
   for (var i = 0; i < state.themes.length; i++) if (state.themes[i].id === state.active) return state.themes[i];
   return null;
@@ -133,13 +136,14 @@ UiTokens.GROUPS.forEach(function (group) {
 });
 
 function pickColor(token, hex) {
-  if (state.active !== DEFAULT_ID) {
+  var active = activeTheme();
+  if (!isReadOnly(active)) {
     send('theme.set-color', { group: token, text: hex });
     return;
   }
-  // DEFAULT is read-only: the edit becomes the first change of a new theme.
+  // A read-only theme: the edit becomes the first change of a new theme copied from it.
   openDialog({
-    title: 'DEFAULT IS READ-ONLY. NAME A NEW THEME',
+    title: (active ? active.name : 'DEFAULT') + ' IS READ-ONLY. NAME A NEW THEME',
     placeholder: 'THEME NAME',
     ok: 'SAVE',
     validate: validateNewName,
@@ -161,7 +165,7 @@ function render() {
   for (var token in rows) document.documentElement.style.removeProperty(token);
   var active = activeTheme();
   var colors = (active && active.colors) || {};
-  var isDefault = !active;
+  var readOnly = isReadOnly(active);
 
   themesEl.textContent = '';
   [{ id: DEFAULT_ID, name: 'DEFAULT' }].concat(state.themes).forEach(function (t) {
@@ -173,15 +177,22 @@ function render() {
     name.className = 'ui-theme-name';
     name.textContent = t.name;
     card.appendChild(name);
+    if (t.file) {
+      var tag = document.createElement('span');
+      tag.className = 'ui-theme-tag';
+      tag.textContent = 'FILE';
+      card.appendChild(tag);
+    }
     card.addEventListener('click', function () { if (t.id !== state.active) send('theme.select', { bind: t.id }); });
     themesEl.appendChild(card);
   });
 
-  hintEl.textContent = isDefault ? '(DEFAULT IS READ-ONLY: CHANGING A COLOUR SAVES A NEW THEME)' : '';
-  btn.rename.disabled = isDefault;
-  btn.remove.disabled = isDefault;
-  btn.copy.disabled = isDefault;
-  btn.resetAll.disabled = isDefault || Object.keys(colors).length === 0;
+  hintEl.textContent = !active ? '(DEFAULT IS READ-ONLY: CHANGING A COLOUR SAVES A NEW THEME)'
+    : readOnly ? '(FROM THE THEMES FOLDER, READ-ONLY: CHANGING A COLOUR SAVES A NEW THEME)' : '';
+  btn.rename.disabled = readOnly;
+  btn.remove.disabled = readOnly;
+  btn.copy.disabled = !active;
+  btn.resetAll.disabled = readOnly || Object.keys(colors).length === 0;
 
   for (var t2 in rows) {
     var r = rows[t2];
@@ -192,7 +203,7 @@ function render() {
     if (document.activeElement !== r.hex) r.hex.value = hex.toUpperCase();
     r.hex.classList.remove('bad');
     r.row.classList.toggle('overridden', overridden);
-    r.reset.hidden = !overridden;
+    r.reset.hidden = !overridden || readOnly;
   }
 }
 
@@ -260,15 +271,17 @@ dlg.scrim.addEventListener('keydown', function (e) {
   else if (e.key === 'Escape') { e.preventDefault(); cancelDialog(); }
 });
 
+// The 20-theme cap (ThemeStore.MaxThemes) counts saved themes only, not folder ones.
+function savedCount() { return state.themes.filter(function (t) { return !t.file; }).length; }
 function validateName(text) { return text ? '' : 'ENTER A NAME'; }
 function validateNewName(text) {
-  if (state.themes.length >= MAX_THEMES) return 'THEME LIMIT REACHED (' + MAX_THEMES + ')';
+  if (savedCount() >= MAX_THEMES) return 'THEME LIMIT REACHED (' + MAX_THEMES + ')';
   return validateName(text);
 }
 
 // A share code decodes to {"n": name, "c": {...}}; the plugin re-validates every colour.
 function validateCode(text) {
-  if (state.themes.length >= MAX_THEMES) return 'THEME LIMIT REACHED (' + MAX_THEMES + ')';
+  if (savedCount() >= MAX_THEMES) return 'THEME LIMIT REACHED (' + MAX_THEMES + ')';
   if (text.indexOf(CODE_PREFIX) !== 0) return 'NOT A THEME CODE';
   try {
     var bytes = Uint8Array.from(atob(text.slice(CODE_PREFIX.length)), function (c) { return c.charCodeAt(0); });
@@ -336,4 +349,5 @@ window.addEventListener('message', function (e) {
 });
 
 render();
-load();
+// Pick up theme files dropped in the folder since the last look (the push brings the result too).
+sendCommand('theme.rescan', {}).catch(function () {}).then(load);
