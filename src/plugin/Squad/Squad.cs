@@ -149,10 +149,10 @@ namespace NOXMFD
 
         // Us: invites we haven't answered yet, oldest first. A second (or third...) invite while one
         // is already pending queues alongside it rather than replacing it, so a pilot never loses
-        // visibility of an earlier offer just because a later one arrived. Accepting one clears the
-        // rest automatically (AcceptInvite declines them on the pilot's behalf, since joining a squad
-        // is exclusive); each stays independently accept/decline-able by its own leaderId in the
-        // meantime.
+        // visibility of an earlier offer just because a later one arrived. Accepting one, or creating
+        // a squad of our own, clears the rest automatically (they are declined on the pilot's behalf,
+        // since a pilot is in at most one squad); each stays independently accept/decline-able by its
+        // own leaderId in the meantime.
         private static readonly List<PendingInvite> _pendingReceived = new List<PendingInvite>();
 
         // Server-thread-readable cache, same threading contract as RouteStore.RoutesJson: every
@@ -210,14 +210,18 @@ namespace NOXMFD
         // Explicitly starts a new squad with a chosen callsign and flight number — the SQD page's
         // own CREATE SQUAD button. Requires both up front; INVITE only appears on the roster once
         // this has made the pilot a leader. Both the callsign and the flight number can be changed
-        // later via SetCallsign (the roster's own EDIT button).
+        // later via SetCallsign (the roster's own EDIT button). Pending invites don't block it:
+        // they are declined.
         internal static bool CreateSquad(string callsign, int flight)
         {
             if (_role != Role.None) return false;
-            if (_pendingReceived.Count > 0) return false;   // decide our own pending invite(s) first
             string name = (callsign ?? string.Empty).Trim();
             if (name.Length == 0 || name.Length > 20) return false;
             if (flight < 1 || flight > 9) return false;
+            // Leading a squad of our own turns every outstanding offer down, like accepting one does:
+            // a pilot is in at most one squad, and the senders would otherwise wait forever.
+            foreach (var other in _pendingReceived) Squadron.SendTo(other.LeaderId, "sqd.decline", "{}");
+            _pendingReceived.Clear();
             _role = Role.Leader;
             _members.Clear();
             _callsign = name;
