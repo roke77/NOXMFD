@@ -16,9 +16,22 @@ shows a `< MAIN` link back to `/` (the sticky-layout head guard resolves that to
 current). Embedded in a shell the link is redundant with the shell's own MAIN key, so `keybinds.js`
 removes it when `window.parent !== window`.
 
-One table, one row per function, grouped under three section headers — COUNTERMEASURES,
-GEAR, WEAPONS. A section can carry a note under its header for behaviour shared by its
-binds (WEAPONS uses it for how the cycle keys work), keeping the per-row text short.
+The page is a header (back link, title, `bound / total` count), a section rail and one scrolling
+column. The rail has a link per group and section, with bound counts; a toggle at its top collapses
+it to a strip of group numbers (a 200ms linear width ease). The toggle's choice is saved in
+`localStorage` (`noxmfd.keybinds.railCollapsed`) and restored on every load; with nothing saved the
+rail starts collapsed when the pane is 1152px wide or less and follows the width. A search box fixed above the column filters the binds (it matches function
+name, description and the bound key/button). The button beside it listens for a key or joystick
+button and filters to exactly the binds using it: the key is read in the browser, the joystick
+button by the plugin's search probe (`keybind.arm-joy` with the reserved id `__search__`), which
+publishes it as `lastPress` in `/keybinds-config` instead of writing it into a bind. The column opens with **00 SETTINGS** — one
+tile per plain on/off setting — then the binds in six numbered groups in flight order: 01 Systems,
+02 Combat, 03 Sensors, 04 Display Control, 05 Navigation, 06 MFD Setup. Each group has one
+table (one row per function); a section header inside it can carry a note for behaviour shared by
+its binds (WEAPONS uses it for how the cycle keys work). `GROUPS` in `keybinds.js` maps the
+registry's sections (and a few bind ids, for the Power/Engine/Radar, Master Arm and combat-mode
+pairs) onto those groups; a bind it doesn't claim lands in a trailing OTHER group. Axis rows show `AXIS ONLY` in the keyboard column and the axis cell with an
+`INV` toggle in the joystick column; key-only rows show `KEYBOARD ONLY` in the joystick column.
 
 | column | content |
 |---|---|
@@ -70,16 +83,15 @@ and no need to advance through a list.
 
 ### Immersion options (docs/radar-master-arms.md)
 
-A true second section of the page, not appended content sharing the main table: its own
-EXTENDED-KEYBINDS-sized title ("IMMERSION OPTIONS"), a short description, the three start-state
-settings, then its own table (own header row, own rows) for the eight binds below — see
-[docs/radar-master-arms.md](radar-master-arms.md) for the full design and known limitations (e.g.
-the dedicated-server gap for Engine).
+The immersion start-state settings are tiles under **00 SETTINGS → ON AT SPAWN**, and their binds
+are spread across the groups above (Power/Engine/Radar and Master Arm in 01 Systems, A/A and A/G in
+02 Combat) — see [docs/radar-master-arms.md](radar-master-arms.md) for the full design and known
+limitations (e.g. the dedicated-server gap for Engine).
 
-- **Three settings**, right after the title/description (not binds — same shape as **Input When
-  Game Unfocused**): Enable Radar on start, Enable Engine on start, Enable Master Arm on start. All
-  default ON (today's behaviour); switch one OFF for the corresponding system to start off on every
-  new aircraft.
+- **Four settings** (not binds — same shape as **Unfocused Input**): Radar, Engine, Master Arm and
+  Power on start. All default ON (today's behaviour); switch one OFF for the corresponding system to
+  start off on every new aircraft. **HUD By Mode** (INPUT & HUD) makes combat mode drive the HUD page's own
+  filter presets; default OFF.
 - **Master Arm ON / OFF, Radar ON / OFF, Engine ON / OFF** — plain dedicated pairs, no tap/hold
   (the game already has its own single-toggle bind for Radar/Engine). Master Arm OFF blocks all
   gun/missile/bomb fire, including the stock trigger.
@@ -155,6 +167,13 @@ same machine can send the same keypress twice.
   also runs a temporary 600 ms fallback so a standalone page can observe the result.
   Section display titles and notes come from `Keybinds.SectionTitle`/`SectionNote` — the
   `.cfg` section names underneath are persistence identity and never change.
+- **Clashes.** The page sends `keybind.set-key` and `keybind.arm-joy` with `on: true`, which asks
+  the plugin to check whether another bind already uses the value. A clash that doesn't involve a
+  Layout Preset (those are refused outright) is held in `Keybinds.PendingConflict` instead of being
+  applied, and `/keybinds-config` reports it as `conflict` (`bind`, `label`, `kind`, `key` or
+  `joy`/`button`, `with`: the labels already using it). The page shows a keep both / replace /
+  cancel prompt (the shared preset dialog's box and buttons, as the LYT dialogs use) and answers with `keybind.resolve { group }`; a clash nobody answers is dropped after two minutes. Callers that don't send `on` (the LYT
+  page's key boxes) keep the old behavior of silently sharing the key.
 - `POST /command`: `keybind.set-key { bind, key }` (`""`/`"None"` clears),
   `keybind.arm-joy { bind }`, `keybind.cancel-joy`, `keybind.clear-joy { bind }`. Commands
   drain on the main thread from `MissionLifecycle.Update` (persistent), so the page works

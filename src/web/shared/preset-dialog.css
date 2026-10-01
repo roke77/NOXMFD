@@ -1,5 +1,6 @@
 /* The SAVE PRESET dialog: the TGT and HUD preset cards open it (services/preset-cards.js), and the
-   layout edit / save dialog (shell/shared/layout-edit-dialog.js) is built from the same pieces. Its
+   layout edit / save dialog (shell/shared/layout-edit-dialog.js) and the KEY page's keep / replace /
+   cancel prompt are built from the same pieces. Its
    own file rather than part of lit-panel.css because the bezel shell uses `.lit` for its key press
    flash, so it can't load lit-panel.css. */
 
