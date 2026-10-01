@@ -14,6 +14,14 @@ const pluginTokens = [...block[1].matchAll(/"(--no-[\w-]+)"/g)].map(m => m[1]);
 const pageTokens = GROUPS.flatMap(g => g.tokens.map(t => t[0]));
 assert.deepStrictEqual(pageTokens, pluginTokens, 'ui-tokens.js and ThemeColors.Tokens must list the same tokens in the same order');
 
+// Theme files key each colour by its row label as a slug (ThemeColors.FileKeys), so a renamed label
+// must rename its file key too.
+const keysBlock = /FileKeys\s*=\s*\{([\s\S]*?)\};/.exec(cs);
+assert.ok(keysBlock, 'ThemeColors.FileKeys not found — the regex probably broke');
+const fileKeys = [...keysBlock[1].matchAll(/"([a-z0-9-]+)"/g)].map(m => m[1]);
+const slugs = GROUPS.flatMap(g => g.tokens.map(t => t[1].toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')));
+assert.deepStrictEqual(fileKeys, slugs, 'ThemeColors.FileKeys must be the row labels as slugs, in the same order');
+
 const colors = fs.readFileSync(path.join(root, 'src', 'web', 'shared', 'colors.css'), 'utf8');
 for (const t of pageTokens) assert.ok(new RegExp('^\\s*' + t + '\\s*:', 'm').test(colors), `${t} is not defined in colors.css`);
 

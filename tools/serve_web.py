@@ -463,6 +463,10 @@ THEME_STATE = {"active": "default"}
 # The plugin's drop-in themes folder (BepInEx/plugins/NOXMFD/themes) stands in as preview/themes here
 # (gitignored with the rest of preview/): read on start and on theme.rescan, read-only like DEFAULT.
 THEMES_DIR = REPO / "preview" / "themes"
+# Theme files key colours by role name (ThemeColors.FileKeys, index for index with Tokens).
+THEME_FILE_KEYS = dict(zip(re.findall(r'"([a-z0-9-]+)"', re.search(r'FileKeys\s*=\s*\{(.*?)\};',
+                       (REPO / "src" / "plugin" / "Stores" / "ThemeColors.cs").read_text(encoding="utf-8"), re.S).group(1)),
+                       THEME_TOKENS))
 FILE_THEMES = []
 
 
@@ -476,8 +480,8 @@ def _scan_theme_folder():
                 continue
             if not isinstance(data, dict):
                 continue
-            colors = {k: v.lower() for k, v in (data.get("colors") or {}).items()
-                      if k in THEME_TOKENS and isinstance(v, str) and re.fullmatch(r"#[0-9a-fA-F]{6}", v)}
+            colors = {THEME_FILE_KEYS[k.lower()]: v.lower() for k, v in (data.get("colors") or {}).items()
+                      if k.lower() in THEME_FILE_KEYS and isinstance(v, str) and re.fullmatch(r"#[0-9a-fA-F]{6}", v)}
             name = str(data.get("name") or fp.stem).strip()[:32]
             if colors and name:
                 found.append({"id": "f_" + fp.name.lower(), "name": name, "colors": colors, "file": True})

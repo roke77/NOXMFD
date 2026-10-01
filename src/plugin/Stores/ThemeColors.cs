@@ -28,7 +28,33 @@ namespace NOXMFD
             "--no-nuclear-orange-rgb", "--no-hsd-pink-rgb", "--no-hsd-yellow-rgb",
         };
 
+        // What a theme file in the themes folder calls each token, index for index with Tokens: the UI
+        // page's row label as a slug ("FRIENDLY (TGT / TD)" → "friendly-tgt-td"), so a hand-edited file
+        // names a colour's role, not the colour the token happens to be named after. ui-tokens.test.js
+        // checks these against the labels.
+        internal static readonly string[] FileKeys =
+        {
+            // Core palette
+            "primary", "instrument", "alert", "caution", "inactive",
+            "background", "panel-border", "text-on-highlight",
+            // Accents
+            "squad", "mod-controls", "mod-accent", "friendly-tgt-td", "friendly-hud",
+            // Threats
+            "search", "track", "lock", "jamming",
+            // Map & scope symbology
+            "route", "flown-route", "target", "neutral",
+            "nuclear-zone", "hsd-symbology", "hsd-aa-rings",
+        };
+
         private static readonly HashSet<string> TokenSet = new HashSet<string>(Tokens, StringComparer.Ordinal);
+        private static readonly Dictionary<string, string> TokenByFileKey = BuildTokenByFileKey();
+
+        private static Dictionary<string, string> BuildTokenByFileKey()
+        {
+            var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            for (int i = 0; i < FileKeys.Length; i++) map[FileKeys[i]] = Tokens[i];
+            return map;
+        }
         private static readonly Regex HexPattern = new Regex(@"\A#[0-9a-fA-F]{6}\z", RegexOptions.CultureInvariant);
 
         internal const int MaxNameLength = 32;
@@ -106,15 +132,18 @@ namespace NOXMFD
             return colors;
         }
 
-        // A theme file from the themes folder: {"name": "...", "colors": {"--no-green-rgb": "#a6e22e", ...}}.
-        // The name falls back to the file's own name; a file with no valid colour at all is rejected,
-        // since it's almost certainly not a theme file (or a typo in every key).
+        // A theme file from the themes folder: {"name": "...", "colors": {"primary": "#a6e22e", ...}}, keyed
+        // by FileKeys (any case). The name falls back to the file's own name; a file with no valid colour
+        // at all is rejected, since it's almost certainly not a theme file (or a typo in every key).
         internal static bool TryParseFileTheme(string? json, string fallbackName, out string name, out Dictionary<string, string> colors)
         {
             name = string.Empty;
             colors = new Dictionary<string, string>(StringComparer.Ordinal);
             if (JsonLite.Parse(json ?? string.Empty) is not Dictionary<string, object?> root) return false;
-            colors = ParseColors(root.TryGetValue("colors", out object? c) ? c : null);
+            if (root.TryGetValue("colors", out object? c) && c is Dictionary<string, object?> fileColors)
+                foreach (var kv in fileColors)
+                    if (TokenByFileKey.TryGetValue(kv.Key, out string? token) && Normalize(token, kv.Value as string) is string hex)
+                        colors[token] = hex;
             if (colors.Count == 0) return false;
             if (CleanName(root.TryGetValue("name", out object? n) ? n as string : null) is string clean) name = clean;
             else if (CleanName(fallbackName) is string fallback) name = fallback;

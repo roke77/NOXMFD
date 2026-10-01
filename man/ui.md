@@ -48,18 +48,25 @@ file removes the theme; if it was active, DEFAULT takes over. **EXPORT** still g
 
 ![UI page with the Dusk folder theme active](images/UI_DUS.png)
 
-A theme file names the theme and lists the colours it changes, using the names in
-`src/web/pages/ui/ui-tokens.js`; any colour it leaves out keeps its default:
+A theme file names the theme and lists the colours it changes, each by its colour row's name in
+lower case with dashes; any colour it leaves out keeps its default:
 
 ```json
 {
   "name": "Dusk",
   "colors": {
-    "--no-green-rgb": "#ff9e3d",
-    "--no-bg": "#120c18"
+    "primary": "#ff9e3d",
+    "background": "#120c18"
   }
 }
 ```
+
+| Group | Keys |
+|---|---|
+| CORE PALETTE | `primary`, `instrument`, `alert`, `caution`, `inactive`, `background`, `panel-border`, `text-on-highlight` |
+| ACCENTS | `squad`, `mod-controls`, `mod-accent`, `friendly-tgt-td`, `friendly-hud` |
+| THREATS | `search`, `track`, `lock`, `jamming` |
+| MAP & SCOPE | `route`, `flown-route`, `target`, `neutral`, `nuclear-zone`, `hsd-symbology`, `hsd-aa-rings` |
 
 Values must be `#rrggbb`. A file without a `name` uses its file name; a file with no valid colour
 is skipped and noted in the BepInEx log. Up to 50 files of 64 KB each are read.
