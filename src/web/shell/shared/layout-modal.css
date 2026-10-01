@@ -1,11 +1,11 @@
 /* Shared modal primitive (layout-modal.js) — used by both shells for SAVE's name-prompt and LOAD's
-   layout-picker. Built only from shared/theme.css tokens so it looks the same, and correct,
+   layout-picker. Built only from shared/colors.css tokens so it looks the same, and correct,
    whether it's opened over the bezel (mfd.css) or the glass (f35.css) — neither shell's own chrome
    colour (e.g. f35.css's teal) belongs to a control that isn't part of that shell's own frame. */
 .layout-modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.6);
+  background: var(--no-scrim);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -17,7 +17,7 @@
   max-height: 80vh;
   background: var(--no-bg);
   border: 1px solid var(--no-green-dark);
-  box-shadow: 0 0 0 1px rgba(var(--no-green-rgb), 0.15), 0 8px 32px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 0 0 1px rgba(var(--no-green-rgb), 0.15), 0 8px 32px rgba(var(--no-black-rgb), 0.6);
   font-family: var(--no-font);
   color: var(--no-green);
   display: flex;

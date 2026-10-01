@@ -1,6 +1,6 @@
 /* AVN page — avionics (the 8 avn.toggle status tiles + FUEL/RPM/HEAT/THRL gauges). Single source
-   of truth for BOTH layouts. Base reset / colour tokens / font come from theme.css. No damage
-   silhouette or airframe name here — the AFM page owns airframe status; this page is avionics
+   of truth for BOTH layouts. Base reset and font come from theme.css, colour tokens from colors.css.
+   No damage silhouette or airframe name here — the AFM page owns airframe status; this page is avionics
    only. */
 .avn-panel {
   position: absolute;

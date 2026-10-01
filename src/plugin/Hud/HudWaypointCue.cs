@@ -22,7 +22,7 @@ namespace NOXMFD
         // Amber, not HUD green. The tick labels immediately behind the bug are green, and a green
         // bug competes with them at exactly the moment it matters — at the cost of ignoring the
         // player's hudColorR/G/B setting, unlike every native element.
-        // #FFAA00 matches theme.css's --no-amber (the web frontend's WPT compass needle and MAP's
+        // #FFAA00 matches colors.css's --no-amber (the web frontend's WPT compass needle and MAP's
         // active-waypoint marker), one color scheme across the HUD cue and both web pages.
         private static readonly Color Amber = new Color(1f, 0.6667f, 0f, 1f);
 

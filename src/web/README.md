@@ -11,7 +11,7 @@ Full design history and decisions: [`docs/src-architecture.md`](../../docs/src-a
 
 ```
 src/web/
-  shared/   font.css  theme.css  lit-panel.css  preset-dialog.css  share-tech-mono.woff2   # passive cross-page assets
+  shared/   font.css  colors.css  theme.css  lit-panel.css  preset-dialog.css  share-tech-mono.woff2   # passive cross-page assets; colors.css holds every colour token
   services/ telemetry-source.js  send-command.js          # active shared code (the providers)
             preset-cards.js  .test.js                     # the 5 preset cards + SAVE PRESET dialog (HUD and TGT)
             pad-cursor.js                                 # the shared PAD crosshair (docs/page-cursor.md)

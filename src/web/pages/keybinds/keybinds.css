@@ -1,12 +1,5 @@
 /* Extended-keybinds page — header, section rail and one scrolling column: SETTINGS tiles, then the
-   binds as function | keyboard | joystick tables grouped in flight order. Colors from theme.css
-   tokens. The --kb-* literals below are two shades between theme tokens (a dimmer green and the
-   row divider) that no other page uses, so they stay local to this page. */
-
-:root {
-  --kb-dim: #3f8f3f;
-  --kb-row-line: #0f230f;
-}
+   binds as function | keyboard | joystick tables grouped in flight order. Colors from colors.css tokens. */
 
 /* The panel fills the pane and the column scrolls inside it, so the rail stays put. The side
    padding is the same on both edges and just clears the bezel's upright nav labels (TGT's value). */
@@ -98,7 +91,7 @@ html, body { overflow: hidden; }
 .kb-rail-g .t { flex: 1; }
 .kb-rail-g .c { font-size: 11px; color: var(--no-green-dim); }
 .kb-rail a.kb-rail-s { padding: 3px 0 3px 42px; font-size: 11px; letter-spacing: 1px; }
-.kb-rail-bar { margin-left: 42px; height: 2px; background: var(--kb-row-line); }
+.kb-rail-bar { margin-left: 42px; height: 2px; background: var(--no-green-rule); }
 .kb-rail-bar > div { height: 2px; background: var(--no-green-deep); }
 
 /* ── column ─────────────────────────────────────────────────────────────────────────────────── */
@@ -135,7 +128,7 @@ html, body { overflow: hidden; }
 }
 .kb-find-press:hover { border-color: var(--no-green-dim); }
 .kb-find-press.capturing { color: var(--no-amber); border-color: var(--no-amber); animation: kb-blink 1s step-end infinite; }
-.kb-find input::placeholder { color: var(--kb-dim); }
+.kb-find input::placeholder { color: var(--no-green-mid); }
 .kb-find input:focus { outline: 1px solid var(--no-amber); outline-offset: -1px; }
 .kb-main {
   flex: 1;
@@ -189,7 +182,7 @@ html, body { overflow: hidden; }
 
 .kb-row {
   padding: 6px 12px;
-  border-bottom: 1px solid var(--kb-row-line);
+  border-bottom: 1px solid var(--no-green-rule);
 }
 .kb-row:hover { background: rgba(var(--no-green-rgb), 0.045); }
 
@@ -202,7 +195,7 @@ html, body { overflow: hidden; }
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.kb-na { text-align: center; font-size: 10px; letter-spacing: 2px; color: var(--kb-dim); }
+.kb-na { text-align: center; font-size: 10px; letter-spacing: 2px; color: var(--no-green-mid); }
 
 /* a bind cell: the clickable current-value box + its clear button */
 .kb-cell { display: flex; align-items: center; gap: 5px; }
@@ -223,7 +216,7 @@ html, body { overflow: hidden; }
   overflow: hidden;
 }
 .kb-val:hover { border-color: var(--no-green-dim); }
-.kb-val.unbound { border-color: var(--no-panel-border); color: var(--kb-dim); }
+.kb-val.unbound { border-color: var(--no-panel-border); color: var(--no-green-mid); }
 .kb-val.capturing {
   color: var(--no-amber);
   border-color: var(--no-amber);
@@ -287,7 +280,7 @@ html, body { overflow: hidden; }
 
 button:focus-visible, a:focus-visible { outline: 1px solid var(--no-amber); outline-offset: 2px; }
 
-.kb-none { display: none; padding: 40px 0; text-align: center; font-size: 12px; letter-spacing: 3px; color: var(--kb-dim); }
+.kb-none { display: none; padding: 40px 0; text-align: center; font-size: 12px; letter-spacing: 3px; color: var(--no-green-mid); }
 .kb-none.shown { display: block; }
 
 /* The keep / replace / cancel prompt for a key or button another bind already uses. The dialog, its

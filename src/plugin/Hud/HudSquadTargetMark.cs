@@ -8,7 +8,7 @@ namespace NOXMFD
     // (HUDUnitMarker — the square on ground units, the triangle on aircraft), showing that unit is
     // currently being targeted by someone else in the squad: "*" for the leader, "⌃" (chevron
     // up) for any other member (one chevron regardless of how many members — a "someone else has it"
-    // flag, not a count). Both render in --no-squad teal (theme.css), not the unit's own faction
+    // flag, not a count). Both render in --no-squad teal (colors.css), not the unit's own faction
     // colour, so a squad mark reads as its own thing regardless of what it's stacked on.
     //
     // Same "ride CombatHUD's own marker instead of reprojecting world position" approach as

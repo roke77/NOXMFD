@@ -3,11 +3,6 @@
    Presets and filters share one "lit panel" pushbutton look (shared/lit-panel.css): a small lamp
    above the label that glows in the control's accent while it is on. */
 
-:root {
-  --tgt-blue: #4aa3ff;   /* deliberately its own value, not --no-blue (a different, mod-only
-     decorative accent) — FRIENDLY here specifically matches the game's own friendly-unit blue */
-}
-
 * { box-sizing: border-box; }
 
 html, body {
@@ -58,7 +53,7 @@ html, body {
 
 /* Filter cells (faction / category) and the LASER/HUD modes are .lit pushbuttons
    (shared/lit-panel.css). FRIENDLY and ENEMY light in their faction colour. */
-#row-faction .tgt-cell[data-index="0"] { --accent: var(--tgt-blue); }
+#row-faction .tgt-cell[data-index="0"] { --accent: var(--no-friendly-blue); }
 #row-faction .tgt-cell[data-index="1"] { --accent: var(--no-red); }
 .tgt-cell, .tgt-mode {
   flex: 1 1 0;
@@ -97,13 +92,13 @@ html, body {
   gap: clamp(2px, 0.5vh, 5px);
   padding: clamp(2px, 0.5vh, 6px) clamp(2px, 0.6vw, 6px);
   cursor: pointer;
-  color: #5a6066;
+  color: var(--no-text-faint);
   font-size: clamp(8px, 1.4vmin, 13px);
 }
 .tgt-veh::after {
   content: '';
   width: 1.5em; height: 3px;
-  background: var(--lit-off-lamp);
+  background: var(--no-lamp-off);
 }
 .tgt-veh.on { color: var(--no-green); }
 .tgt-veh.on::after { background: var(--no-green); }
@@ -238,7 +233,7 @@ html, body {
 .tgt-panel.has-td-col .tgt-td-head,
 .tgt-panel.has-td-col .tl-td { display: block; }
 /* Faction tint on the name (mirrors the map colours): friendly blue, neutral white, enemy red. */
-.tl-row.f-friendly .tl-name { color: var(--tgt-blue); }
+.tl-row.f-friendly .tl-name { color: var(--no-friendly-blue); }
 .tl-row.f-neutral  .tl-name { color: var(--no-label); }
 .tl-row.f-enemy    .tl-name { color: var(--no-red); }
 /* SRC column: a boxed badge. SENSOR (live) reads green; DATALINK (relayed, still trustworthy — see
@@ -250,10 +245,10 @@ html, body {
   padding: 0.15em 0.45em;
   font-size: 0.7em; letter-spacing: 0.06em; white-space: nowrap;
   color: var(--no-green-dim);
-  border: 1px solid #1f4a24;
+  border: 1px solid var(--no-green-line);
 }
-.tl-row.datalink .tl-src { color: var(--no-purple); border-color: #5a4a80; }
-.tl-row.stale    .tl-src { color: var(--no-label);  border-color: #5a5f66; }
+.tl-row.datalink .tl-src { color: var(--no-purple); border-color: var(--no-purple-line); }
+.tl-row.stale    .tl-src { color: var(--no-label);  border-color: var(--no-label-line); }
 
 /* The single locked target Next/Previous currently focuses, shared with FCR/HSD (issue #62,
    docs/tgt-cycle-focus.md) — TGT's only row highlight (docs/tgt-cycle-focus.md's "Consolidated to
@@ -265,7 +260,7 @@ html, body {
 /* Same row, but the PAD cursor has taken Select back (docs/tgt-cycle-focus.md's "Select
    arbitration") — grey rather than amber, so it reads as "still focused, but Select won't act on
    it until Next/Previous is pressed again" instead of looking actionable. */
-.tl-row.tgt-focused-inactive { outline: 2px solid var(--no-gray); outline-offset: -2px; background: rgba(90,90,90,0.10); }
+.tl-row.tgt-focused-inactive { outline: 2px solid var(--no-gray); outline-offset: -2px; background: rgba(var(--no-gray-rgb), 0.10); }
 
 .tgt-list-empty {
   flex: 1 1 auto;
@@ -300,7 +295,7 @@ html, body {
   width: 28px; height: 14px;
   border: 1px solid var(--no-green-dark);
   border-radius: 7px;
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--no-hover-wash-faint);
   flex: 0 0 auto;
 }
 .tgt-density-knob {
@@ -331,7 +326,7 @@ html, body {
 }
 .tgt-action {
   font-family: var(--no-font);
-  background: #000;
+  background: var(--no-black);
   border: 1.5px solid currentColor;
   border-radius: 4px;
   padding: 0.8em 0.25em;
@@ -425,7 +420,7 @@ body.unavailable .tgt-unavailable { display: block; }
 .tgt-td-item .n { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tgt-td-item .r, .tgt-td-item .g { color: var(--no-green-dim); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .tgt-td-item .g { width: 4.5em; }
-.tgt-td-item.f-friendly .n { color: var(--tgt-blue); }
+.tgt-td-item.f-friendly .n { color: var(--no-friendly-blue); }
 .tgt-td-item.f-neutral  .n { color: var(--no-label); }
 .tgt-td-item.f-enemy    .n { color: var(--no-red); }
 /* Already in this pilot's list: ADD skips it, so it reads dimmed and says so. */

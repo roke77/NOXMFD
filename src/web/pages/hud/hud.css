@@ -3,12 +3,6 @@
    active, and stays dark when it is hidden/minimized, matching the in-game screen's
    lit-means-shown convention. Sizes are in em of .hud-panel's font-size, which follows the pane width. */
 
-:root {
-  /* The game's friendly-unit cyan on its HUD options screen; its own value, not --no-blue or TGT's
-     --tgt-blue, which are different accents. */
-  --hud-friendly: #33ccff;
-}
-
 html, body {
   height: 100%;
   margin: 0;
@@ -90,7 +84,7 @@ html, body {
 .lit-status {
   font-size: 0.62em;
   letter-spacing: 0.16em;
-  color: var(--lit-empty-text);
+  color: var(--no-text-faint);
 }
 .lit[aria-pressed="true"] .lit-status { color: var(--no-green-dim); }
 
@@ -102,7 +96,7 @@ html, body {
 /* Categories: lamp, icon or faction dot, name in the category accent, FULL/MIN status. FRIENDLY and
    ENEMY carry the game's faction colours; the type categories stay HUD green. */
 .hud-cats .lit { --lamp-w: 1.7em; min-height: 8em; gap: 0.5em; }
-.hud-cat-friendly { --accent: var(--hud-friendly); }
+.hud-cat-friendly { --accent: var(--no-hud-friendly); }
 .hud-cat-enemy    { --accent: var(--no-red); }
 .hud-cat-icon {
   display: grid;
@@ -145,7 +139,7 @@ html, body {
   border: 0;
   background: transparent;
   font: inherit;
-  color: var(--lit-empty-text);
+  color: var(--no-text-faint);
   cursor: pointer;
   touch-action: manipulation;
 }
@@ -153,7 +147,7 @@ html, body {
   content: '';
   width: 1.5em;
   height: 3px;
-  background: var(--lit-off-lamp);
+  background: var(--no-lamp-off);
 }
 .hud-type:focus-visible { outline: 2px solid var(--no-amber); outline-offset: 2px; }
 .hud-type[aria-pressed="true"] { color: var(--no-green); }

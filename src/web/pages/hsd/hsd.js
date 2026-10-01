@@ -16,7 +16,7 @@ var M_PER_NM = 1852, M_PER_KM = 1000;
 var HSD_PINK = 'var(--no-purple)', RED = 'var(--no-red)', AMBER = 'var(--no-amber)', STALE_WHITE = 'var(--no-white)';
 var HSD_PINK_RGB = 'var(--no-hsd-pink-rgb)', TEAL_RGB = 'var(--no-teal-rgb)';
 var YELLOW = 'var(--no-hsd-yellow)';   // AA threat rings (issue #74)
-var CURSOR_WHITE = 'rgba(255,255,255,0.85)';
+var CURSOR_WHITE = 'rgba(var(--no-pure-white-rgb),0.85)';
 var state = { ownX: 0, ownZ: 0, hdg: 0, metric: false, radarPresent: false, radarRange: 0, radarCone: 0, items: [], threats: [], focusedTargetId: 0 };
 
 // DCS's own DEP/CEN range ladders (NM) — same length, and DEP[i] is exactly 1.5x CEN[i] at every
@@ -171,7 +171,7 @@ function renderRadarCone() {
 // full-featured version of this). A waypoint outside the selected range is simply not plotted
 // (the same cull hsdXY already applies to aerial contacts); a segment only draws when BOTH its
 // ends are in range, so the route doesn't jump straight across the display to an off-scope point.
-var ROUTE_WHITE = 'rgba(255,255,255,0.85)';
+var ROUTE_WHITE = 'rgba(var(--no-pure-white-rgb),0.85)';
 
 // Pure — plots each waypoint (or null if out of range), same convention as hsdXY itself. Kept free
 // of module state and the DOM so it's unit-checkable (hsd.test.js) independent of WaypointsStore.
@@ -250,7 +250,7 @@ function renderContacts() {
     // its own hoveredId brick.
     if (c.id === hoveredId)
       out += '<circle cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) +
-             '" r="16" fill="none" stroke="rgba(255,255,255,0.55)" stroke-width="2"/>';
+             '" r="16" fill="none" stroke="rgba(var(--no-pure-white-rgb),0.55)" stroke-width="2"/>';
     out += '<g transform="translate(' + p.x.toFixed(1) + ' ' + p.y.toFixed(1) + ') rotate(' + rot.toFixed(1) + ')">';
     out += '<path d="M0 -9 L-6 7 L0 4 L6 7 Z" fill="' + col + '"/>';
     out += '</g>';
@@ -421,9 +421,9 @@ function renderOwnship() {
   if (!g) return;
   g.innerHTML =
     '<path d="M' + CX + ' ' + (CY - 9) + ' L' + (CX - 6) + ' ' + (CY + 7) + ' L' + CX + ' ' +
-    (CY + 4) + ' L' + (CX + 6) + ' ' + (CY + 7) + ' Z" fill="rgba(255,255,255,0.78)"/>' +
+    (CY + 4) + ' L' + (CX + 6) + ' ' + (CY + 7) + ' Z" fill="rgba(var(--no-pure-white-rgb),0.78)"/>' +
     '<line x1="' + CX + '" y1="' + (CY - 18) + '" x2="' + CX + '" y2="' + (CY - 9) +
-    '" stroke="rgba(255,255,255,0.45)" stroke-width="2"/>';
+    '" stroke="rgba(var(--no-pure-white-rgb),0.45)" stroke-width="2"/>';
 }
 
 function render() {

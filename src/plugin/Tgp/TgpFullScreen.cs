@@ -45,7 +45,7 @@ namespace NOXMFD
         private const float BottomLeftMargin  = 8f * UiScale;
         private const float BottomLeftSpacing = 8f * UiScale;
 
-        // Matches theme.css's --no-white/--no-red/--no-blue tokens (the web TGP page's own overlay
+        // Matches colors.css's --no-white/--no-red/--no-blue tokens (the web TGP page's own overlay
         // colors) so the native version reads the same, not this mod's usual amber HUD-cue color.
         private static readonly Color White  = new Color32(230, 235, 239, 255);
         private static readonly Color Red    = new Color32(255, 64, 64, 255);

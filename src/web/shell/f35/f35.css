@@ -5,7 +5,7 @@
 
 /* ── The layout's chrome colour ────────────────────────────────────────────────────────
    The real F-35's panoramic display draws its frame and its labels in teal, so this layout does
-   too: --no-teal (theme.css) on the frame around each portal, the nav labels drawn on the glass,
+   too: --no-teal (colors.css) on the frame around each portal, the nav labels drawn on the glass,
    the corner grips, and the strip with its LAYOUT button.
 
    It stops at what the LAYOUT owns. Instrument data keeps the theme's palette wherever it sits —
@@ -191,9 +191,8 @@ html, body {
 
 /* ── The tube ──────────────────────────────────────────────────────────────────────────
    AVN's gauge tube (avn.css .avn-vbar-tube), turned on its side: the 2px green frame around a
-   near-black trough, and the fill inset within it. #050a05 is AVN's own literal — the trough is a
-   shade off the display's black and the theme has no token for it, so it is repeated here rather
-   than approximated with --no-bg.
+   near-black trough (--no-gauge-trough, a shade off the display's black), and the fill inset
+   within it.
 
    The loader's .ms-bar is left alone: it is a progress bar, and these are instruments now.
    flex-basis 0 hands the trough whatever the label and number don't take; min-width floors it so a
@@ -205,7 +204,7 @@ html, body {
   height: 20px;
   box-sizing: border-box;
   border: 2px solid var(--no-green);
-  background: #050a05;
+  background: var(--no-gauge-trough);
   overflow: hidden;
 }
 
@@ -249,8 +248,8 @@ html, body {
     to right,
     transparent 0,
     transparent calc(10% - 3px),
-    #050a05 calc(10% - 3px),
-    #050a05 10%
+    var(--no-gauge-trough) calc(10% - 3px),
+    var(--no-gauge-trough) 10%
   );
   pointer-events: none;
 }
@@ -606,13 +605,13 @@ html, body {
 
 /* TGP's own labels sit directly on top of its live picture (docs/tgp-manual-control.md's "Layout
    placement") rather than beside it, unlike every other page's plain background — a small
-   translucent pill, the same rgba(0,0,0,0.6) the page's own stat overlay already uses (tgp.css's
+   translucent pill, the same --no-scrim the page's own stat overlay already uses (tgp.css's
    .tgp-ov-stat), keeps the text readable over a busy/bright patch of video. Scoped by the grid's
    own [data-page] (f35.js's renderNav), not a JS-added class per label like the bezel's own
    .tgp-scrim needs — each portal here only ever shows one page at a time, so there's no
    split-pane-style case of a second page's labels sharing this same grid. */
 .nav-grid[data-page="tgp"] .nav-item {
-  background: rgba(0, 0, 0, 0.6);
+  background: var(--no-scrim);
   border-radius: 2px;
 }
 /* Without this, the generic .nav-item:hover rule below loses the specificity fight to the

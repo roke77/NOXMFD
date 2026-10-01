@@ -3,7 +3,7 @@
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body { height: 100%; }
   body {
-    background: #0d0f11;
+    background: var(--no-bezel-backdrop);
     font-family: 'Courier New', monospace;
     overflow: hidden;
   }
@@ -19,8 +19,8 @@
     gap: 10px;
     padding: 10px;
     border-radius: 14px;
-    background: linear-gradient(160deg, #3b3f45, #26282c);
-    box-shadow: inset 0 1px 0 #5a5f66, inset 0 -2px 8px #15161a, 0 6px 22px rgba(0,0,0,0.55);
+    background: linear-gradient(160deg, var(--no-bezel-hi), var(--no-bezel-lo));
+    box-shadow: inset 0 1px 0 var(--no-bezel-highlight), inset 0 -2px 8px var(--no-bezel-shadow), 0 6px 22px rgba(var(--no-black-rgb), 0.55);
   }
 
   /* "Hide shell" mode: .shell-hidden on .mfd collapses the frame chrome (strips, screws,
@@ -60,10 +60,10 @@
     top: 8px; left: 8px;
     width: 24px; height: 24px;
     z-index: 100;
-    border: 1px solid #202225;
+    border: 1px solid var(--no-key-border);
     border-radius: 4px;
-    background: linear-gradient(#4b4f56, #313438);
-    box-shadow: inset 0 1px 0 #62666d, inset 0 -2px 3px rgba(0,0,0,0.4);
+    background: linear-gradient(var(--no-key-hi), var(--no-key-lo));
+    box-shadow: inset 0 1px 0 var(--no-key-highlight), inset 0 -2px 3px rgba(var(--no-black-rgb), 0.4);
     cursor: pointer;
     opacity: 0.55;
     transition: opacity 0.15s;
@@ -72,7 +72,7 @@
   .shell-restore::before {
     content: '';
     width: 12px; height: 12px;
-    border: 1.5px solid #c8ccd0;
+    border: 1.5px solid var(--no-key-text);
     border-radius: 2px;
   }
 
@@ -100,16 +100,16 @@
   .keys.v .key::before {
     content: '';
     width: 16px; height: 2px;
-    background: #e8eaed;
-    box-shadow: 0 0 2px rgba(255,255,255,0.35);
+    background: var(--no-key-tick);
+    box-shadow: 0 0 2px rgba(var(--no-pure-white-rgb), 0.35);
     border-radius: 1px;
   }
   /* White vertical line marking inside each generic top/bottom key. Icon keys suppress it. */
   .keys.h .key::before {
     content: '';
     width: 2px; height: 16px;
-    background: #e8eaed;
-    box-shadow: 0 0 2px rgba(255,255,255,0.35);
+    background: var(--no-key-tick);
+    box-shadow: 0 0 2px rgba(var(--no-pure-white-rgb), 0.35);
     border-radius: 1px;
   }
   .keys.h .key.icon::before { display: none; }
@@ -119,16 +119,16 @@
   .keys.v .sep::before {
     content: '';
     width: 100%; height: 2px;
-    background: #16181b;
-    box-shadow: 0 1px 0 rgba(255,255,255,0.06), 0 -1px 0 rgba(0,0,0,0.45);
+    background: var(--no-key-sep);
+    box-shadow: 0 1px 0 rgba(var(--no-pure-white-rgb), 0.06), 0 -1px 0 rgba(var(--no-black-rgb), 0.45);
     border-radius: 1px;
   }
   .keys.h .sep { display: flex; align-items: center; }
   .keys.h .sep::before {
     content: '';
     width: 2px; height: 100%;
-    background: #16181b;
-    box-shadow: 1px 0 0 rgba(255,255,255,0.06), -1px 0 0 rgba(0,0,0,0.45);
+    background: var(--no-key-sep);
+    box-shadow: 1px 0 0 rgba(var(--no-pure-white-rgb), 0.06), -1px 0 0 rgba(var(--no-black-rgb), 0.45);
     border-radius: 1px;
   }
 
@@ -138,23 +138,23 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    border: 1px solid #202225;
+    border: 1px solid var(--no-key-border);
     border-radius: 4px;
-    background: linear-gradient(#4b4f56, #313438);
-    box-shadow: inset 0 1px 0 #62666d, inset 0 -2px 3px rgba(0,0,0,0.4);
+    background: linear-gradient(var(--no-key-hi), var(--no-key-lo));
+    box-shadow: inset 0 1px 0 var(--no-key-highlight), inset 0 -2px 3px rgba(var(--no-black-rgb), 0.4);
     cursor: pointer;
-    color: #c8ccd0;
+    color: var(--no-key-text);
     font-family: inherit;
     font-size: 14px;
     line-height: 1;
     padding: 0;
     user-select: none;
   }
-  .key:hover { background: linear-gradient(#565b63, #393c42); }
+  .key:hover { background: linear-gradient(var(--no-key-hover-hi), var(--no-key-hover-lo)); }
   /* Pressed / briefly "lit" — glows HUD-green to tie into the screen theme */
   .key:active, .key.lit {
-    background: linear-gradient(#2a2c30, #3a3e44);
-    box-shadow: inset 0 2px 5px rgba(0,0,0,0.6), 0 0 7px var(--no-green);
+    background: linear-gradient(var(--no-key-pressed-hi), var(--no-key-pressed-lo));
+    box-shadow: inset 0 2px 5px rgba(var(--no-black-rgb), 0.6), 0 0 7px var(--no-green);
     border-color: var(--no-green);
     color: var(--no-green);
   }
@@ -165,10 +165,10 @@
      apart from .lit's green press-flash. */
   .key.cursor {
     border-color: var(--no-label);
-    box-shadow: inset 0 1px 0 #62666d, inset 0 -2px 3px rgba(0,0,0,0.4), 0 0 8px var(--no-label);
+    box-shadow: inset 0 1px 0 var(--no-key-highlight), inset 0 -2px 3px rgba(var(--no-black-rgb), 0.4), 0 0 8px var(--no-label);
   }
   .key.icon { width: 36px; height: 30px; }
-  .key.sun  { color: #ffffff; }
+  .key.sun  { color: var(--no-pure-white); }
   /* WAKE key while the wake-lock preference is on (docs/screen-wake-lock.md) — no other top
      function key persists an on/off state on the key itself today (PIN's is shown by the PINNED
      corner chip instead), so this borrows the engaged-amber idiom .overlay-item.on already uses
@@ -177,7 +177,7 @@
   .key.icon.on {
     border-color: var(--no-amber);
     color: var(--no-amber);
-    box-shadow: inset 0 1px 0 #62666d, inset 0 -2px 3px rgba(0,0,0,0.4), 0 0 8px var(--no-amber);
+    box-shadow: inset 0 1px 0 var(--no-key-highlight), inset 0 -2px 3px rgba(var(--no-black-rgb), 0.4), 0 0 8px var(--no-amber);
   }
 
   /* Plain square outline */
@@ -298,7 +298,7 @@
     border-radius: 6px;
     background: var(--no-bg);
     padding: 6px;
-    box-shadow: inset 0 0 0 1px #000, inset 0 0 14px rgba(0,0,0,0.85);
+    box-shadow: inset 0 0 0 1px var(--no-black), inset 0 0 14px rgba(var(--no-black-rgb), 0.85);
     min-width: 0;
     min-height: 0;
   }
@@ -409,7 +409,7 @@
   .split-divider {
     flex: 0 0 2px;
     width: 100%;
-    background: #ffffff;
+    background: var(--no-pure-white);
   }
   /* Left/right variants (V_SPLIT 50/50, V_WIDE_SPLIT_L/_R 2:1): lay the panes side by side and
      stand the divider up vertically. The base rules above (column, full-width panes/divider)
@@ -586,13 +586,13 @@
   .overlay-item.top { transform: translate(-50%, 0); }
   .overlay-item.bottom { transform: translate(-50%, -100%); }
   /* TGP's own labels sit directly on top of its live picture (docs/tgp-manual-control.md's
-     "Layout placement") rather than beside it — a small translucent pill, the same rgba(0,0,0,0.6)
+     "Layout placement") rather than beside it — a small translucent pill, the same --no-scrim
      the page's own stat overlay already uses (tgp.css's .tgp-ov-stat), keeps bold white text
      readable over a busy/bright patch of video. Added by JS per label (placeTgpNavLabels' own
      labels, renderSplitLabels' 'tgp' branch), not scoped by page name here in CSS, since a split
      pane's OTHER pane can be showing a different page in that very same #overlay. */
   .overlay-item.tgp-scrim {
-    background: rgba(0, 0, 0, 0.6);
+    background: var(--no-scrim);
     padding: 2px 6px;
     /* The pill's side padding must not push the text off the edge anchor every other page's labels
        sit on: the negative margin pulls the box out by the same 6px, so the text stays put. */
@@ -758,7 +758,7 @@
     /* Lift the near-black screw photo toward the bezel's grey (brightness) and bleed out
        some of its blue cast (saturate) so it reads as grey hardware, not black; the cross +
        shading survive because the lift is relative. drop-shadow keeps it raised off the bezel. */
-    filter: brightness(1.6) saturate(0.6) drop-shadow(0 1px 1.5px rgba(0, 0, 0, 0.55));
+    filter: brightness(1.6) saturate(0.6) drop-shadow(0 1px 1.5px rgba(var(--no-black-rgb), 0.55));
     pointer-events: none;
     z-index: 1;
   }

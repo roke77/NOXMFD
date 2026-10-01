@@ -67,14 +67,9 @@ let   gridOn       = false;    // coordinate grid overlay (issue #41), default o
 let   waypointRoute = null;    // WaypointsStore's active route, cached for drawWaypoints()
 let   steerPoints = [];
 let   activeSteerPointId = null;
-const WPT_LINE_COLOR = '#39d0ff';       // dashed route line + non-next markers
-const WPT_NEXT_COLOR = '#ffaa00';       // the waypoint the WPT readout is currently tracking — matches
-                                         // theme.css's --no-amber (WPT's own compass needle) and the
-                                         // in-game HUD cue's amber, one color scheme across all three
-const WPT_REACHED_COLOR = '#a0a0a0';    // waypoints/segments already flown past — lighter than the
-                                         // theme's --no-gray (#5a5a5a), which nearly vanished against dark terrain
-const STEER_POINT_COLOR = '#39ff14';    // a non-active steer point — theme's --no-green, distinct from
-                                         // WPT_LINE_COLOR's route-line teal since steer points aren't routes
+// Route colours: --no-route-cyan for the line and markers ahead, --no-amber for the waypoint the
+// WPT readout tracks (WPT's compass needle and the in-game HUD cue use the same amber),
+// --no-reached-gray behind. A steer point is --no-green, not route cyan, since it isn't a route.
 function refreshWaypointRoute() {
   if (disposed) return;
   const data = WaypointsStore.load();
@@ -126,9 +121,6 @@ function loadPersistedView() {
 function savePersistedView() {
   try { sessionStorage.setItem(VIEW_STORE_KEY, JSON.stringify({ zoom: view.zoom, follow: followPlayer, grid: gridOn })); } catch (_) {}
 }
-const PLAYER_COLOR = '#39ff14';                     // player stays HUD green — matches --no-green;
-                                                     // canvas strokeStyle can't use CSS var()
-const TARGET_COLOR = '#ff8000';                     // orange ring on the player's targeted unit(s)
 const STALE_ALPHA  = 0.5;                           // faded icon opacity for a stale contact (F2)
 // A unit the TGT filters exclude (u.ex, TargetListSelector.CheckExclusions): the game's own map
 // multiplies the icon's whole RGBA by 0.67 (UnitMapIcon_UpdateColor) — darker AND more transparent.
@@ -140,14 +132,30 @@ function dimHex(hex, k) {
   const c = s => Math.round(((n >> s) & 255) * k).toString(16).padStart(2, '0');
   return '#' + c(16) + c(8) + c(0);
 }
-// A squadmate's aircraft (issue #48, docs/squadron-transport.md) — matches --no-squad-rgb
-// (78,201,201, theme.css); canvas strokeStyle can't use CSS var() so this is its own literal, same
-// reasoning as PLAYER_COLOR above. Takes priority over the plain faction color, but never applies
-// to the viewer's own plane — that's a separate draw call below that never reads factionColors at
-// all, so there's nothing here for it to override.
-const SQUAD_COLOR = '#4ec9c9';
-let   factionColors = { 0: '#9aa0a6', 1: '#39ff14', 2: '#ff4040' };  // updated from the game's HUD colors —
-                                                     // 1/2 default to --no-green/--no-red until then
+// Canvas can't resolve var(), so theme colours (shared/colors.css) are read from the computed style
+// and cached. Only called while drawing, by which point the stylesheet has loaded; an empty read is
+// not cached.
+const themeCache = Object.create(null);
+function theme(name) {
+  if (themeCache[name]) return themeCache[name];
+  const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  if (v) themeCache[name] = v;
+  return v;
+}
+// A theme RGB triple as #rrggbb, for colours that go through dimHex.
+function themeHex(rgbName) {
+  return '#' + theme(rgbName).split(',').map(v => (+v).toString(16).padStart(2, '0')).join('');
+}
+// A squadmate's aircraft (issue #48, docs/squadron-transport.md) is --no-squad. It takes priority
+// over the plain faction color, but never applies to the viewer's own plane — that's a separate
+// draw call below that never reads factionColors at all, so there's nothing here for it to override.
+// factionColors comes from the game's HUD colors; until then, the theme's (themeFactionColors).
+let   factionColors = null;
+let   themeFactions = null;
+function themeFactionColors() {
+  return themeFactions || (themeFactions =
+    { 0: theme('--no-neutral-gray'), 1: themeHex('--no-green-rgb'), 2: themeHex('--no-red-rgb') });
+}
 // Per-unit-type overrides from a registered extension (docs/vanilla-icons-plus-extension.md),
 // keyed by the same type name contacts carry as "t". { hex, f? } — f, when present, restricts the
 // override to that one faction (0 neutral/1 friendly/2 enemy), matching factionColors' own keys.
@@ -400,7 +408,7 @@ function drawTargetBox(cx, cy, half) {
   oc.moveTo(-s + k,  s); oc.lineTo(-s,  s); oc.lineTo(-s,  s - k);   // bottom-left
   // Cheap glow: a wide translucent underlay plus the bright core. This keeps the lock brackets
   // legible without paying canvas' live shadowBlur cost on every target redraw.
-  oc.strokeStyle = TARGET_COLOR;
+  oc.strokeStyle = theme('--no-target-orange');
   oc.globalAlpha = 0.35;
   oc.lineWidth   = 5;
   oc.stroke();
@@ -461,7 +469,7 @@ function drawMissiles() {
     // Orient to the missile's travel heading (like the game's map icon); 1.2× flash boost.
     const r = drawIcon(MISSILE_ICON, hex, mp.cx, mp.cy, m.h || 0, typeof m.h === 'number', base, 1.2);
     hitTargets.push({ cx: mp.cx, cy: mp.cy, r: r + HIT_PAD,
-                      label: (m.st ? m.st + ' MISSILE' : 'MISSILE'), color: '#ff3b30' });
+                      label: (m.st ? m.st + ' MISSILE' : 'MISSILE'), color: theme('--no-threat-red') });
   }
 }
 
@@ -481,7 +489,7 @@ function jamTargetPos(id) {
 function drawJamLines() {
   if (!lastData) return;
   oc.save();
-  oc.strokeStyle = 'rgba(255,221,0,0.85)';
+  oc.strokeStyle = 'rgba(' + theme('--no-jam-yellow-rgb') + ', 0.85)';
   oc.lineWidth = 1.5;
   oc.lineCap = 'round';
   if (Array.isArray(lastData.contacts)) {
@@ -507,7 +515,7 @@ function drawJamLines() {
 function drawJamGlyph(cx, cy, r) {
   const s = r * 2.4;
   oc.save();
-  oc.strokeStyle = TARGET_COLOR;
+  oc.strokeStyle = theme('--no-target-orange');
   oc.lineWidth = 1.5;
   oc.setLineDash([3, 3]);
   oc.beginPath();
@@ -515,7 +523,7 @@ function drawJamGlyph(cx, cy, r) {
   oc.stroke();
   oc.setLineDash([]);
   oc.translate(cx, cy);
-  oc.fillStyle = TARGET_COLOR;
+  oc.fillStyle = theme('--no-target-orange');
   oc.beginPath();
   oc.moveTo(s * 0.15, -s * 0.5);
   oc.lineTo(-s * 0.15, s * 0.05);
@@ -537,9 +545,6 @@ function drawJamGlyph(cx, cy, r) {
 // major line" (index % 10 === 0) never drifts off after many additions.
 const GRID_MINOR_UNIT  = 1000;   // world units per minor line (1 km)
 const GRID_LINES_PER_MAJOR = 10; // minor lines between major lines (10 km majors)
-const GRID_MINOR_COLOR = 'rgba(57,255,20,0.10)';    // matches --no-green-rgb; canvas can't use var()
-const GRID_MAJOR_COLOR = 'rgba(57,255,20,0.30)';
-const GRID_LABEL_COLOR = 'rgba(196,255,176,0.75)';
 function drawGrid() {
   if (!gridOn || !mapMeta || mapMeta.w <= 0 || mapMeta.h <= 0) return;
   // Drawn out to the mission's real reachable extent (rw/rh, issue #65), not just the smaller w/h
@@ -561,7 +566,7 @@ function drawGrid() {
     const wx = i * GRID_MINOR_UNIT - mapMeta.ox;
     const top = worldToOverlay(wx, wMaxZ), bot = worldToOverlay(wx, wMinZ);
     if (!top || !bot) continue;
-    oc.strokeStyle = (i % GRID_LINES_PER_MAJOR === 0) ? GRID_MAJOR_COLOR : GRID_MINOR_COLOR;
+    oc.strokeStyle = 'rgba(' + theme('--no-green-rgb') + ((i % GRID_LINES_PER_MAJOR === 0) ? ', 0.30)' : ', 0.10)');
     oc.beginPath(); oc.moveTo(top.cx, top.cy); oc.lineTo(bot.cx, bot.cy); oc.stroke();
   }
   // Horizontal lines (constant world Z).
@@ -569,7 +574,7 @@ function drawGrid() {
     const wz = mapMeta.oy - i * GRID_MINOR_UNIT;
     const left = worldToOverlay(wMinX, wz), right = worldToOverlay(wMaxX, wz);
     if (!left || !right) continue;
-    oc.strokeStyle = (i % GRID_LINES_PER_MAJOR === 0) ? GRID_MAJOR_COLOR : GRID_MINOR_COLOR;
+    oc.strokeStyle = 'rgba(' + theme('--no-green-rgb') + ((i % GRID_LINES_PER_MAJOR === 0) ? ', 0.30)' : ', 0.10)');
     oc.beginPath(); oc.moveTo(left.cx, left.cy); oc.lineTo(right.cx, right.cy); oc.stroke();
   }
 
@@ -579,7 +584,7 @@ function drawGrid() {
   // them drift inward off the true panel edge at any other zoom/pan — worst at the default zoom
   // (4x) and most visible in a split pane, where letterboxing differs more from full view's.
   // Pinning to the canvas edge keeps them glued to the pane's true top/left regardless.
-  oc.fillStyle = GRID_LABEL_COLOR;
+  oc.fillStyle = theme('--no-grid-label');
   oc.font = '22px "Courier New", monospace';
   oc.textBaseline = 'top';
   for (let i = iMinX - (iMinX % GRID_LINES_PER_MAJOR); i <= iMaxX; i += GRID_LINES_PER_MAJOR) {
@@ -606,12 +611,10 @@ function drawGrid() {
 // "reached" flag of its own (WptRoute's nextIndex is a plain progress COUNT, not a per-waypoint
 // state — same reasoning the reorder/delete fix relies on), so "reached" here is just index < nextIndex.
 // Nuclear exclusion zones (lastData.xz, FactionHQ.GetExclusionZones) — the in-game map's orange
-// ring + translucent disc, shown from a nuke's launch until it detonates. Canvas can't read CSS vars
-// per stroke, so the theme triple is read once.
-let nukeRgb = null;
+// ring + translucent disc, shown from a nuke's launch until it detonates.
 function drawExclusionZones() {
   if (!Array.isArray(lastData.xz) || !lastData.xz.length) return;
-  if (!nukeRgb) nukeRgb = getComputedStyle(document.documentElement).getPropertyValue('--no-nuclear-orange-rgb').trim();
+  const nukeRgb = theme('--no-nuclear-orange-rgb');
   oc.save();
   oc.lineWidth = 4;
   oc.strokeStyle = 'rgb(' + nukeRgb + ')';
@@ -640,7 +643,7 @@ function drawWaypoints() {
   for (let i = 0; i < pts.length - 1; i++) {
     const a = pts[i], b = pts[i + 1];
     if (a.cx == null || b.cx == null) continue;
-    oc.strokeStyle = WptRoute.segmentReached(i, waypointRoute.nextIndex) ? WPT_REACHED_COLOR : WPT_LINE_COLOR;
+    oc.strokeStyle = WptRoute.segmentReached(i, waypointRoute.nextIndex) ? theme('--no-reached-gray') : theme('--no-route-cyan');
     oc.beginPath();
     oc.moveTo(a.cx, a.cy);
     oc.lineTo(b.cx, b.cy);
@@ -651,7 +654,7 @@ function drawWaypoints() {
     if (!onScreen(p, 48)) return;
     const state = WptRoute.waypointMarkerState(i, waypointRoute.nextIndex);   // pure + tested, wpt-route.js
     const next = state === 'next';
-    const color = next ? WPT_NEXT_COLOR : state === 'reached' ? WPT_REACHED_COLOR : WPT_LINE_COLOR;
+    const color = next ? theme('--no-amber') : state === 'reached' ? theme('--no-reached-gray') : theme('--no-route-cyan');
     const r = next ? 6 : 4;
     oc.strokeStyle = color;
     oc.beginPath();
@@ -679,7 +682,7 @@ function drawSteerPoints() {
     const p = worldToOverlay(point.x, point.z);
     if (!p || !onScreen(p, 48)) return;
     const active = !waypointRoute && point.id === activeSteerPointId;
-    const color = active ? WPT_NEXT_COLOR : STEER_POINT_COLOR;
+    const color = active ? theme('--no-amber') : theme('--no-green');
     const r = active ? 7 : 5;
     oc.strokeStyle = color;
     oc.lineWidth = active ? 3 : 2;
@@ -762,7 +765,8 @@ function drawOverlay() {
       ensureIconImage(u.t);
       const typeOv = typeColors[u.t];
       const typeHex = typeOv && (typeOv.f == null || typeOv.f === u.f) ? typeOv.hex : null;
-      const baseHex = u.sq ? SQUAD_COLOR : (typeHex || factionColors[u.f] || factionColors[0]);
+      const fc = factionColors || themeFactionColors();
+      const baseHex = u.sq ? themeHex('--no-squad-rgb') : (typeHex || fc[u.f] || fc[0]);
       const hex = u.ex ? dimHex(baseHex, EXCLUDED_DIM) : baseHex;
       oc.globalAlpha = (u.st ? STALE_ALPHA : 1) * (u.ex ? EXCLUDED_DIM : 1);
       const r = drawIcon(u.t, hex, p.cx, p.cy, u.h, u.o, iconBase(), u.s);
@@ -807,9 +811,9 @@ function drawOverlay() {
       cx: Math.max(edgePad, Math.min(overlay.width  - edgePad, rawPos.cx)),
       cy: Math.max(edgePad, Math.min(overlay.height - edgePad, rawPos.cy)),
     };
-    const pr = drawIcon(lastData.name, PLAYER_COLOR, pos.cx, pos.cy, lastData.hdg, lastData.iconOrient, iconBase(), lastData.iconScale);
+    const pr = drawIcon(lastData.name, themeHex('--no-green-rgb'), pos.cx, pos.cy, lastData.hdg, lastData.iconOrient, iconBase(), lastData.iconScale);
     if (lastData.pjm) drawJamGlyph(pos.cx, pos.cy, pr);
-    hitTargets.push({ cx: pos.cx, cy: pos.cy, r: pr + HIT_PAD, label: lastData.name, color: PLAYER_COLOR });
+    hitTargets.push({ cx: pos.cx, cy: pos.cy, r: pr + HIT_PAD, label: lastData.name, color: theme('--no-green') });
   }
 
   // Incoming-missile triangles last = on top of everything (most urgent cue).
@@ -827,7 +831,7 @@ function drawOverlay() {
           const t = hitTargets[i];
           oc.save();
           oc.globalAlpha = Math.max(0, (clickFlash.until - now) / 450);
-          oc.strokeStyle = '#ffffff';
+          oc.strokeStyle = theme('--no-pure-white');
           oc.lineWidth   = 2;
           oc.beginPath();
           oc.arc(t.cx, t.cy, t.r + 6, 0, Math.PI * 2);
@@ -850,7 +854,7 @@ function drawOverlay() {
       if (hitTargets[i].id !== lastData.selectedUnitId) continue;
       const t = hitTargets[i];
       oc.save();
-      oc.strokeStyle = '#ffaa00';
+      oc.strokeStyle = theme('--no-amber');
       oc.lineWidth = 2;
       oc.setLineDash([4, 4]);
       oc.beginPath();
@@ -869,7 +873,7 @@ function drawOverlay() {
     else {
       oc.save();
       oc.globalAlpha = Math.max(0, (wptFlash.until - now) / 450);
-      oc.strokeStyle = WPT_NEXT_COLOR;
+      oc.strokeStyle = theme('--no-amber');
       oc.lineWidth   = 2;
       oc.beginPath();
       oc.arc(wptFlash.cx, wptFlash.cy, 14, 0, Math.PI * 2);

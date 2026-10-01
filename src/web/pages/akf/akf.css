@@ -60,7 +60,7 @@ html, body {
   width: 28px; height: 14px;
   border: 1px solid var(--no-green-dark);
   border-radius: 7px;
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--no-hover-wash-faint);
   flex: 0 0 auto;
 }
 .akf-density-knob {

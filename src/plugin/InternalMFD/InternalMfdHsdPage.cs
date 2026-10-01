@@ -8,7 +8,7 @@ namespace NOXMFD
     // Native HSD plan view for the internal MFD's left pane (default content — InternalMfdController
     // swaps this pane over to InternalMfdTgpPage instead while the TGP has a lock or manual mode is
     // engaged, then back to this once neither is true). Matched against the real page's own SVG
-    // (src/web/pages/hsd/hsd.html/hsd.js): grid ring color/opacity (theme.css --no-hsd-pink-rgb),
+    // (src/web/pages/hsd/hsd.html/hsd.js): grid ring color/opacity (colors.css --no-hsd-pink-rgb),
     // contact colors (--no-purple datalink / --no-red own-radar / --no-white stale / --no-amber
     // focused-lock), the AA threat rings (--no-hsd-yellow), and the notched contact/ownship icon
     // polygon (hsd.js's own 'M0 -9 L-6 7 L0 4 L6 7 Z' — reused verbatim for both, filled, unlike
@@ -64,7 +64,7 @@ namespace NOXMFD
         private static readonly float[] CenGridFractions = { 0.25f, 0.5f, 0.75f, 1f };
         private static readonly float[] DepGridFractions = { 1f / 3f, 2f / 3f, 1f };
 
-        // theme.css --no-hsd-pink-rgb (121,21,81) — hsd.js's own grid ring color, not the brighter
+        // colors.css --no-hsd-pink-rgb (121,21,81) — hsd.js's own grid ring color, not the brighter
         // --no-purple contact color below (same file, two different tokens for two different uses).
         private static readonly Color32 GridColorDim = new Color32(121, 21, 81, 92);   // 0.36 alpha
         private static readonly Color32 GridColorBright = new Color32(121, 21, 81, 178); // 0.70 alpha

@@ -416,7 +416,7 @@ shared CSS exactly like a first-party page does — no CORS story, no copying fi
 <link rel="stylesheet" href="/assets/shared/theme.css">
 ```
 
-`theme.css` carries NOXMFD's color tokens (`var(--no-*)`) and a few reusable component classes —
+`theme.css` brings in NOXMFD's color tokens (`var(--no-*)`, defined in `colors.css`) and a few reusable component classes —
 `.mfd-empty`/`.mfd-empty-title` (a centered placeholder message, useful for an empty/not-ready
 state) among them. Using these keeps your page visually consistent with the rest of the MFD
 without hand-matching colors.

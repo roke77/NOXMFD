@@ -1,45 +1,33 @@
 /* A saved layout as a row (lyt-row.js): slot badge, pane thumbnail, name, split and pages. The LYT
-   page's SAVED list and the CLASSIC shell's "replace one" dialog both load this. The near-black
-   fills and grays are this feature's own shades — theme.css has no token for them. */
-
-:root {
-  --lyt-card: #050706;
-  --lyt-card-on: #07100a;
-  --lyt-line: #2c3431;
-  --lyt-row-line: #15201a;
-  --lyt-faint: #5a6066;
-  --lyt-soft: #b8c0c6;
-  --lyt-slot: #4ec9c9;        /* the slot number: position = Layout N keybind */
-  --lyt-slot-line: #1f4a4a;
-}
+   page's SAVED list and the CLASSIC shell's "replace one" dialog both load this. */
 
 .lyt-row {
   display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px;
   min-height: 76px; padding: 8px 10px;
-  border: 1px solid var(--lyt-row-line); border-radius: 4px; background: #040604;
+  border: 1px solid var(--no-card-line); border-radius: 4px; background: var(--no-card-bg);
 }
 
 .lyt-slot {
   flex: none; width: 46px; height: 58px;
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
-  border: 1px solid var(--lyt-slot-line); border-radius: 3px;
+  border: 1px solid var(--no-layout-teal-line); border-radius: 3px;
 }
-.lyt-slot-label { font-size: 9px; letter-spacing: 1px; color: var(--lyt-faint); }
-.lyt-slot-num { font-size: 24px; line-height: 1; color: var(--lyt-slot); }
-.lyt-slot.none { border-color: var(--lyt-line); }
+.lyt-slot-label { font-size: 9px; letter-spacing: 1px; color: var(--no-text-faint); }
+.lyt-slot-num { font-size: 24px; line-height: 1; color: var(--no-layout-teal); }
+.lyt-slot.none { border-color: var(--no-line); }
 .lyt-slot.none .lyt-slot-num { color: var(--no-white-dark); }
 
-.lyt-row-thumb { position: relative; flex: none; width: 58px; height: 58px; border: 1px solid #3a3e44; background: #000; }
+.lyt-row-thumb { position: relative; flex: none; width: 58px; height: 58px; border: 1px solid var(--no-thumb-edge); background: var(--no-black); }
 .lyt-pane {
   position: absolute; display: flex; align-items: center; justify-content: center;
   overflow: hidden; font-size: 9px; color: var(--no-green-dim);
-  border: 1px solid var(--no-green-deep); background: #07100a;
+  border: 1px solid var(--no-green-deep); background: var(--no-card-bg-on);
 }
 .lyt-pane.out { color: var(--no-gray); border-color: var(--no-white-dark); background: transparent; }
 
 .lyt-row-text { flex: 1 1 150px; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
-.lyt-row-name { font-size: 18px; letter-spacing: 2px; color: var(--lyt-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.lyt-row-sub { font-size: 12px; letter-spacing: 1px; color: var(--lyt-faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lyt-row-name { font-size: 18px; letter-spacing: 2px; color: var(--no-text-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lyt-row-sub { font-size: 12px; letter-spacing: 1px; color: var(--no-text-faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* LayoutKeybinds.slotBox's button, restyled as the row's key pill (its states — capturing,
    rejected — come from layout-modal.css). Also the save dialog's key box and its replace rows. */
@@ -49,22 +37,22 @@
   font-size: 12px; letter-spacing: 1px; color: var(--no-green-dim);
   margin-left: auto;   /* with the noslot text below: the controls sit at the row's right edge */
 }
-.lyt-row .layout-modal-kb.unbound, .lyt-bind .layout-modal-kb.unbound, .led-key .layout-modal-kb.unbound { border-style: dashed; border-color: var(--lyt-line); color: var(--lyt-faint); }
+.lyt-row .layout-modal-kb.unbound, .lyt-bind .layout-modal-kb.unbound, .led-key .layout-modal-kb.unbound { border-style: dashed; border-color: var(--no-line); color: var(--no-text-faint); }
 .lyt-row .layout-modal-kb:focus-visible, .lyt-bind .layout-modal-kb:focus-visible, .led-key .layout-modal-kb:focus-visible { outline: 2px solid var(--no-amber); outline-offset: 2px; }
 
-.lyt-noslot { flex: none; margin-left: auto; font-size: 11px; letter-spacing: 1px; color: var(--lyt-faint); }
+.lyt-noslot { flex: none; margin-left: auto; font-size: 11px; letter-spacing: 1px; color: var(--no-text-faint); }
 
 /* A slot with no layout yet. */
-.lyt-row.empty { border-style: dashed; border-color: var(--lyt-line); background: transparent; }
-.lyt-row.empty .lyt-slot { border-color: var(--lyt-line); }
+.lyt-row.empty { border-style: dashed; border-color: var(--no-line); background: transparent; }
+.lyt-row.empty .lyt-slot { border-color: var(--no-line); }
 .lyt-row.empty .lyt-slot-num { color: var(--no-white-dark); }
-.lyt-row.empty .lyt-row-thumb { border: 1px dashed var(--lyt-line); background: transparent; }
+.lyt-row.empty .lyt-row-thumb { border: 1px dashed var(--no-line); background: transparent; }
 .lyt-row.empty .lyt-row-name { color: var(--no-white-dark); }
 
 /* A saved row's controls: edit / delete icons and LOAD (lyt-row.js buildSaved). */
 .lyt-icon {
   flex: none; width: 34px; height: 34px; padding: 0;
-  border: 1px solid #1f2723; border-radius: 3px; background: transparent;
+  border: 1px solid var(--no-icon-border); border-radius: 3px; background: transparent;
   font-size: 14px; color: var(--no-white-dim); cursor: pointer;
 }
 .lyt-icon.danger { color: var(--no-red); }
@@ -72,8 +60,8 @@
 
 .lyt-load {
   flex: none; width: 96px; height: 34px; padding: 0 10px;
-  border: 1px solid var(--lyt-line); border-radius: 3px; background: var(--lit-off-fill, #060807);
-  font-size: 12px; letter-spacing: 2px; color: var(--lyt-soft); cursor: pointer;
+  border: 1px solid var(--no-line); border-radius: 3px; background: var(--no-control-bg);
+  font-size: 12px; letter-spacing: 2px; color: var(--no-text-soft); cursor: pointer;
 }
 .lyt-load:active { background: rgba(var(--no-green-rgb), 0.08); }
 .lyt-load:focus-visible, .lyt-icon:focus-visible { outline: 2px solid var(--no-amber); outline-offset: 2px; }
