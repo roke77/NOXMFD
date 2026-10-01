@@ -172,7 +172,7 @@ same machine can send the same keypress twice.
   Layout Preset (those are refused outright) is held in `Keybinds.PendingConflict` instead of being
   applied, and `/keybinds-config` reports it as `conflict` (`bind`, `label`, `kind`, `key` or
   `joy`/`button`, `with`: the labels already using it). The page shows a keep both / replace /
-  cancel prompt and answers with `keybind.resolve { group }`; a clash nobody answers is dropped after two minutes. Callers that don't send `on` (the LYT
+  cancel prompt (the shared preset dialog's box and buttons, as the LYT dialogs use) and answers with `keybind.resolve { group }`; a clash nobody answers is dropped after two minutes. Callers that don't send `on` (the LYT
   page's key boxes) keep the old behavior of silently sharing the key.
 - `POST /command`: `keybind.set-key { bind, key }` (`""`/`"None"` clears),
   `keybind.arm-joy { bind }`, `keybind.cancel-joy`, `keybind.clear-joy { bind }`. Commands

@@ -290,41 +290,17 @@ button:focus-visible, a:focus-visible { outline: 1px solid var(--no-amber); outl
 .kb-none { display: none; padding: 40px 0; text-align: center; font-size: 12px; letter-spacing: 3px; color: var(--kb-dim); }
 .kb-none.shown { display: block; }
 
-/* The keep / replace / cancel prompt for a key or button another bind already uses. */
-.kb-modal-scrim {
-  position: fixed;
-  inset: 0;
-  z-index: 40;
-  background: rgba(0, 0, 0, 0.72);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.kb-modal-scrim[hidden] { display: none; }
-.kb-modal {
-  width: min(460px, 92%);
-  padding: 20px 22px;
-  background: var(--no-bg);
-  border: 1px solid var(--no-amber);
-}
-.kb-modal-title { font-size: 16px; letter-spacing: 3px; color: var(--no-amber); }
-.kb-modal-body { margin: 14px 0 18px; font-size: 13px; line-height: 1.5; color: var(--no-white-dim); }
-.kb-modal-body strong { color: var(--no-green); font-weight: normal; }
-.kb-modal-body ul { margin: 8px 0; padding-left: 18px; color: var(--no-green); }
-.kb-modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
-.kb-modal-actions button {
-  height: 34px;
-  padding: 0 16px;
-  border: 1px solid var(--no-green-deep);
-  background: none;
-  color: var(--no-green);
-  font-family: var(--no-font);
-  font-size: 12px;
-  letter-spacing: 2px;
-  cursor: pointer;
-}
-.kb-modal-actions button:hover { border-color: var(--no-green-dim); }
-.kb-modal-actions button[data-act="replace"] { border-color: var(--no-amber); color: var(--no-amber); }
+/* The keep / replace / cancel prompt for a key or button another bind already uses. The dialog, its
+   title and buttons are the shared SAVE PRESET dialog's (shared/preset-dialog.css) the LYT page uses;
+   this adds the body text and the buttons' accents (KEEP BOTH green, REPLACE amber, as on TGT's
+   squad dock). */
+.kb-conflict-box { width: min(600px, 94%); }
+.kb-conflict-body { font-size: 13px; line-height: 1.5; letter-spacing: 1px; color: var(--no-white); }
+.kb-conflict-body strong { color: var(--no-green); font-weight: normal; }
+.kb-conflict-body ul { margin: 8px 0; padding-left: 18px; color: var(--no-green); }
+.kb-conflict-actions { padding-top: clamp(6px, 1.6vh, 14px); border-top: 1px solid var(--no-green-dark); }
+.preset-kp-btn.keep { border-color: var(--no-green); color: var(--no-green); }
+.preset-kp-btn.replace { border-color: var(--no-amber); color: var(--no-amber); }
 
 #kb-empty { display: none; }
 .kb-panel.unavailable .kb-body { display: none; }

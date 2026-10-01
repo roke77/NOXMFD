@@ -29,6 +29,7 @@
 <link rel="stylesheet" href="/assets/shared/theme.css">
 <link rel="stylesheet" href="/assets/shared/page-chrome.css">
 <link rel="stylesheet" href="/assets/shared/lit-panel.css">
+<link rel="stylesheet" href="/assets/shared/preset-dialog.css">
 <link rel="stylesheet" href="/assets/pages/keybinds/keybinds.css">
 </head>
 <body>
@@ -71,14 +72,14 @@
 
   <!-- Asked when an assignment would give a key or button another bind already uses; built by
        keybinds.js from /keybinds-config's "conflict". -->
-  <div class="kb-modal-scrim" id="kb-conflict" hidden>
-    <div class="kb-modal" role="alertdialog" aria-modal="true" aria-labelledby="kb-conflict-title" aria-describedby="kb-conflict-body">
-      <div class="kb-modal-title" id="kb-conflict-title"></div>
-      <div class="kb-modal-body" id="kb-conflict-body"></div>
-      <div class="kb-modal-actions">
-        <button data-act="keep">KEEP BOTH</button>
-        <button data-act="replace">REPLACE</button>
-        <button data-act="cancel" id="kb-conflict-cancel">CANCEL</button>
+  <div class="preset-kp-scrim" id="kb-conflict" hidden>
+    <div class="preset-kp kb-conflict-box" role="alertdialog" aria-modal="true" aria-labelledby="kb-conflict-title" aria-describedby="kb-conflict-body">
+      <div class="preset-kp-title" id="kb-conflict-title"></div>
+      <div class="kb-conflict-body" id="kb-conflict-body"></div>
+      <div class="preset-kp-actions kb-conflict-actions">
+        <button type="button" class="preset-kp-btn keep" data-act="keep">KEEP BOTH</button>
+        <button type="button" class="preset-kp-btn replace" data-act="replace">REPLACE</button>
+        <button type="button" class="preset-kp-btn" data-act="cancel" id="kb-conflict-cancel">CANCEL</button>
       </div>
     </div>
   </div>
