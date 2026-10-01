@@ -57,6 +57,9 @@
     <!-- SquadDesignations.cs — the designation format, slot numbering and the slot move behind
          SQD's ▲/▼ (docs/squad-callsign-names.md). Pure BCL. -->
     <Compile Include="..\..\src\plugin\Squad\SquadDesignations.cs" Link="Source\SquadDesignations.cs" />
+    <!-- FactionIdentity.cs — the faction-wide identity record, its table, merge and duplicate
+         detection (issue #106, docs/faction-broadcast.md). Pure BCL; uses JsonLite and SquadDesignations. -->
+    <Compile Include="..\..\src\plugin\Squad\FactionIdentity.cs" Link="Source\FactionIdentity.cs" />
     <!-- PresetSlots.cs (shared by HudPresetStore.cs/TgtPresetStore.cs) — BCL-only through the same
          LogWarning seam RouteStore.cs uses above; ConfigBackup.cs/JsonLite.cs are already linked. -->
     <Compile Include="..\..\src\plugin\Stores\PresetSlots.cs" Link="Source\PresetSlots.cs" />
