@@ -109,26 +109,27 @@
   --no-afm-damaged-light: rgb(255, 255, 0);
   --no-afm-damaged-heavy: rgb(255, 0, 0);
 
-  /* Controls and cards: the near-black fills, borders and greys shared by the lit panel
-     (lit-panel.css), LYT, SQD, the UI page and the layout dialogs. Calculated so a theme carries
-     them: each dark shade is the background tinted by a fixed share of green and white (fitted to
-     the original hand-picked values, which a black background reproduces), and the text greys sit a
-     fixed share of the way from the background to instrument white, so they keep their contrast on
-     any background. */
-  --no-control-bg:       color-mix(in oklab, var(--no-bg), color-mix(in oklab, var(--no-green) 7%, var(--no-white)) 13.9%);
-  --no-control-bg-on:    color-mix(in oklab, var(--no-bg), color-mix(in oklab, var(--no-green) 22%, var(--no-white)) 17.4%);
+  /* Controls and cards: the fills, borders and greys shared by the lit panel (lit-panel.css), LYT,
+     SQD, the UI page and the layout dialogs, derived so a theme carries them. The fills (controls,
+     cards, tiles, forms, and their "on" states) are the background itself; a control's state shows
+     in its lamp, border and text. The lines, borders and unlit lamp are the background tinted by a
+     fixed share of green and white (fitted to the original hand-picked values, which a black
+     background reproduces). The text greys sit a fixed share of the way from the background to
+     instrument white, so they keep their contrast on any background. */
+  --no-control-bg:       var(--no-bg);
+  --no-control-bg-on:    var(--no-bg);
   --no-control-text-off: color-mix(in oklab, var(--no-bg), var(--no-white) 65.6%);
   --no-lamp-off:         color-mix(in oklab, var(--no-bg), color-mix(in oklab, var(--no-green) 15%, var(--no-white)) 26.2%);
   --no-line:             color-mix(in oklab, var(--no-bg), color-mix(in oklab, var(--no-green) 10%, var(--no-white)) 34.1%);
   --no-icon-border:      color-mix(in oklab, var(--no-bg), color-mix(in oklab, var(--no-green) 14%, var(--no-white)) 28.5%);
   --no-text-faint:       color-mix(in oklab, var(--no-bg), var(--no-white) 51.8%);
   --no-text-soft:        color-mix(in oklab, var(--no-bg), var(--no-white) 85.7%);
-  --no-card-bg:          color-mix(in oklab, var(--no-bg), color-mix(in oklab, var(--no-green) 15%, var(--no-white)) 12.5%);
-  --no-card-bg-on:       color-mix(in oklab, var(--no-bg), color-mix(in oklab, var(--no-green) 32%, var(--no-white)) 17.7%);
+  --no-card-bg:          var(--no-bg);
+  --no-card-bg-on:       var(--no-bg);
   --no-card-line:        color-mix(in oklab, var(--no-bg), color-mix(in oklab, var(--no-green) 27%, var(--no-white)) 25.1%);
   --no-card-line-faint:  color-mix(in oklab, var(--no-bg), color-mix(in oklab, var(--no-green) 28%, var(--no-white)) 24.7%);
-  --no-tile-bg:          color-mix(in oklab, var(--no-bg), color-mix(in oklab, var(--no-green) 10%, var(--no-white)) 13.3%);   /* LYT's shell cards */
-  --no-form-bg:          color-mix(in oklab, var(--no-bg), color-mix(in oklab, var(--no-green) 18%, var(--no-white)) 13.8%);   /* SQD's CREATE SQUAD panel */
+  --no-tile-bg:          var(--no-bg);   /* LYT's shell cards */
+  --no-form-bg:          var(--no-bg);   /* SQD's CREATE SQUAD panel */
   --no-green-mid:        oklch(from var(--no-green) calc(l * 0.667) calc(c * 0.489) h);   /* KEY's dim green, between --no-green-dim and --no-green-deep */
   --no-green-rule:       color-mix(in oklab, var(--no-bg), oklch(from var(--no-green) calc(l * 0.890) calc(c * 0.530) h) 30%);   /* KEY's table row divider */
   --no-green-line:       color-mix(in oklab, var(--no-bg), oklch(from var(--no-green) calc(l * 0.844) calc(c * 0.556) h) 50%);   /* TGT's source-tag border */
@@ -199,17 +200,11 @@
     --no-scrim: rgba(0, 0, 0, 0.6);
     --no-panel-bg: rgba(0, 0, 0, 0.78);
     --no-scrim-deep: rgba(0, 0, 0, 0.72);
-    --no-control-bg: #060807;
-    --no-control-bg-on: #0a0f0b;
     --no-lamp-off: #1b221e;
     --no-line: #2c3431;
     --no-icon-border: #1f2723;
-    --no-card-bg: #040604;
-    --no-card-bg-on: #07100a;
     --no-card-line: #15201a;
     --no-card-line-faint: #10201a;
-    --no-tile-bg: #050706;
-    --no-form-bg: #050806;
     --no-text-faint: #5a6066;
     --no-control-text-off: #7d868d;
     --no-text-soft: #b8c0c6;
