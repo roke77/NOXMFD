@@ -3,14 +3,18 @@
    name here first; page CSS and JS only ever read var(--no-*). Canvas code, which can't resolve
    var(), reads the computed value once (map.js's theme()). */
 :root {
+  /* A family's shades (dim, dark, line, …) are calculated from its base colour with relative
+     oklch: lightness and chroma scaled by factors fitted to the original hand-picked shades, hue
+     kept, so a player-chosen base colour carries its whole family. The @supports block at the end
+     holds the fitted values for browsers without relative colour syntax. */
   /* Primary tokens are RGB triples first, hex-equivalent second — the triple is what a glow/wash
      effect composes with an alpha (rgba(var(--no-green-rgb), 0.08)), so it's the one source;
      defining the solid colour separately from it would just duplicate the same value. */
   --no-green-rgb:  57, 255, 20;
   --no-green:      rgb(var(--no-green-rgb));  /* primary text / icons */
-  --no-green-dim:  #4aaa4a;  /* secondary text (ammo, page-ind) */
-  --no-green-dark: #1a4a1a;  /* depleted / hollow / borders */
-  --no-green-deep: #2e7a2e;  /* page-name placeholder heading */
+  --no-green-dim:  oklch(from var(--no-green) calc(l * 0.756) calc(c * 0.566) h);  /* secondary text (ammo, page-ind) */
+  --no-green-dark: oklch(from var(--no-green) calc(l * 0.418) calc(c * 0.325) h);  /* depleted / hollow / borders */
+  --no-green-deep: oklch(from var(--no-green) calc(l * 0.590) calc(c * 0.469) h);  /* page-name placeholder heading */
   --no-red-rgb:    255, 64, 64;
   --no-red:        rgb(var(--no-red-rgb));    /* empty / alert state */
   --no-amber-rgb:  255, 170, 0;
@@ -23,8 +27,11 @@
      not read — reporting-white needs its own name. */
   --no-white-rgb:  230, 235, 239;
   --no-white:      rgb(var(--no-white-rgb));  /* primary — needle, value, label */
-  --no-white-dim:  #8a949c;  /* secondary — major ticks */
-  --no-white-dark: #3c444b;  /* depleted / hollow / dial face — rim, track, minor ticks */
+  /* ponytail: chroma factors above 1 fit the near-grey default white's slightly bluer shades; a
+     strongly coloured base gets oversaturated shades, clipped to gamut. Cap the chroma with min()
+     if a player-chosen white looks wrong. */
+  --no-white-dim:  oklch(from var(--no-white) calc(l * 0.705) calc(c * 2.176) h);  /* secondary — major ticks */
+  --no-white-dark: oklch(from var(--no-white) calc(l * 0.408) calc(c * 2.090) h);  /* depleted / hollow / dial face — rim, track, minor ticks */
   --no-label-rgb:  212, 216, 220;
   --no-label:      rgb(var(--no-label-rgb));  /* off-white, not the screen's green — the bezel's
                                 key labels, and the F-35 strip's URL lines */
@@ -112,18 +119,18 @@
   --no-card-line-faint:  #10201a;
   --no-tile-bg:          #050706;   /* LYT's shell cards */
   --no-form-bg:          #050806;   /* SQD's CREATE SQUAD panel */
-  --no-green-mid:        #3f8f3f;   /* KEY's dim green, between --no-green-dim and --no-green-deep */
-  --no-green-rule:       #0f230f;   /* KEY's table row divider */
-  --no-green-line:       #1f4a24;   /* TGT's source-tag border */
-  --no-green-glow:       #0f4a0f;   /* SQD's large-button glow */
-  --no-green-halo:       #0a3a0a;   /* LYT's selected shell card glow */
-  --no-purple-line:      #5a4a80;
+  --no-green-mid:        oklch(from var(--no-green) calc(l * 0.667) calc(c * 0.489) h);   /* KEY's dim green, between --no-green-dim and --no-green-deep */
+  --no-green-rule:       oklch(from var(--no-green) calc(l * 0.267) calc(c * 0.159) h);   /* KEY's table row divider */
+  --no-green-line:       oklch(from var(--no-green) calc(l * 0.422) calc(c * 0.278) h);   /* TGT's source-tag border */
+  --no-green-glow:       oklch(from var(--no-green) calc(l * 0.412) calc(c * 0.374) h);   /* SQD's large-button glow */
+  --no-green-halo:       oklch(from var(--no-green) calc(l * 0.351) calc(c * 0.318) h);   /* LYT's selected shell card glow */
+  --no-purple-line:      oklch(from var(--no-purple) calc(l * 0.627) calc(c * 0.512) h);
   --no-label-line:       #5a5f66;
-  --no-red-line:         #5a2323;
-  --no-amber-bg:         #0c0a04;   /* SQD's squad card while being edited */
-  --no-squad-line:       #1f4a4a;
-  --no-squad-bg:         #040808;
-  --no-squad-faint:      #2e4a4a;   /* an open roster slot's tag */
+  --no-red-line:         oklch(from var(--no-red) calc(l * 0.510) calc(c * 0.359) h);
+  --no-amber-bg:         oklch(from var(--no-amber) calc(l * 0.180) calc(c * 0.091) h);   /* SQD's squad card while being edited */
+  --no-squad-line:       oklch(from var(--no-squad) calc(l * 0.493) calc(c * 0.441) h);
+  --no-squad-bg:         oklch(from var(--no-squad) calc(l * 0.167) calc(c * 0.083) h);
+  --no-squad-faint:      oklch(from var(--no-squad) calc(l * 0.504) calc(c * 0.313) h);   /* an open roster slot's tag */
   /* LYT's slot numbers and F-35 thumbnail: a page's copy of the F-35 teal, its own token for the
      same reason as --no-squad (--no-teal is shell-only). */
   --no-layout-teal-rgb:  78, 201, 201;
@@ -157,4 +164,28 @@
   --no-key-hover-lo:    #393c42;
   --no-key-pressed-hi:  #2a2c30;
   --no-key-pressed-lo:  #3a3e44;
+}
+
+/* Browsers without relative colour syntax (Chrome < 119, Safari < 16.4, Firefox < 128) get the
+   default shades as fixed values: a custom property never falls back on its own, since an
+   unsupported value is only rejected where it is used. These don't follow a changed base colour. */
+@supports not (color: oklch(from red l c h)) {
+  :root {
+    --no-green-dim: #4aaa4a;
+    --no-green-dark: #1a4a1a;
+    --no-green-deep: #2e7a2e;
+    --no-green-mid: #3f8f3f;
+    --no-green-rule: #0f230f;
+    --no-green-line: #1f4a24;
+    --no-green-glow: #0f4a0f;
+    --no-green-halo: #0a3a0a;
+    --no-white-dim: #8a949c;
+    --no-white-dark: #3c444b;
+    --no-red-line: #5a2323;
+    --no-amber-bg: #0c0a04;
+    --no-purple-line: #5a4a80;
+    --no-squad-line: #1f4a4a;
+    --no-squad-bg: #040808;
+    --no-squad-faint: #2e4a4a;
+  }
 }
