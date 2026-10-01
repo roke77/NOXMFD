@@ -1,25 +1,24 @@
-// Extended-keybinds page. Renders the plugin's bind registry (/keybinds-config) as a table and
-// writes changes back over keybind.* commands. Keyboard capture happens here in the browser
-// (KeyboardEvent.code → Unity KeyCode name); joystick capture is armed plugin-side and the result
-// arrives via the shell's relayed SSE snapshot. See keybinds.html header + docs/keybinds-page.md.
+// Extended-keybinds page. Renders the plugin's bind registry (/keybinds-config) as grouped tables
+// beside a section rail, with the plain on/off settings as tiles above them, and writes changes
+// back over keybind.* commands. Keyboard capture happens here in the browser (KeyboardEvent.code →
+// Unity KeyCode name); joystick capture is armed plugin-side and the result arrives via the shell's
+// relayed SSE snapshot. See keybinds.html header + docs/keybinds-page.md.
 
 var rowsEl  = document.getElementById('kb-rows');
-// Immersion options (docs/radar-master-arms.md) is a true second section, not a continuation of
-// the table above — its 8 binds render into their own container, under their own header row.
-var IMMERSION_SECTION = 'IMMERSION OPTIONS';
-var immersionRowsEl = document.getElementById('kb-immersion-rows');
 var panelEl = document.getElementById('kb-panel');
+var mainEl  = document.getElementById('kb-main');
+var findEl  = document.getElementById('kb-find');
 
 // Embedded in a shell (classic #page-frame or an F-35 portal) rather than opened standalone? Then
 // the shell's own MAIN key is the way back, so drop the in-page back link — it's redundant, and it
 // points at '/', which would reload the whole shell instead of just closing the page.
 if (window.parent !== window) {
   var back = document.querySelector('.kb-back');
-  if (back) back.remove();
+  if (back) back.parentNode.remove();   // its slot too, so the title sits at the edge
 }
 
 var binds     = [];      // last /keybinds-config payload
-var notes     = {};      // per-section shared-behaviour note, keyed by section title
+var notes     = {};      // per-section shared-behaviour note, keyed by the server's section title
 var capturing = null;    // plugin-side joy/axis capture: bind id or null (server state, mirrored)
 var capturingKind = null; // 'joy' | 'axis' | null — which capture `capturing` refers to
 var kbCapture = null;    // browser-side keyboard capture: bind id or null (local state)
@@ -27,16 +26,15 @@ var kbPending = null;    // modifiers held so far during that capture ("ALT+…"
 var bgInput   = false;   // InputWhenGameUnfocused — a plain setting, not a bind (server state)
 var remoteKeybinds = false;  // per-browser remote-listening toggle (localStorage, not server state)
 var remoteKeybindsSamePc = false;
-// Immersion start-state settings (docs/radar-master-arms.md, docs/power-toggle.md) — same shape
-// as bgInput above: plain settings, not binds, default true (today's behaviour) until the first
-// /keybinds-config bootstrap.
+// Start-state settings (docs/radar-master-arms.md, docs/power-toggle.md) — plain settings, not
+// binds, default true (today's behaviour) until the first /keybinds-config bootstrap.
 var radarOnOnStart      = true;
 var engineOnOnStart     = true;
 var masterArmsOnOnStart = true;
 var powerOnOnStart      = true;
-// HudCombatModeFilters' own on/off switch — default OFF, unlike the four above, so it starts
-// false rather than true until the first /keybinds-config snapshot.
+// HudCombatModeFilters' own on/off switch — default OFF, unlike the four above.
 var hudFiltersOnCombatMode = false;
+var query     = '';      // lower-cased search text; '' shows everything
 var lastJson  = '';      // skip re-render when nothing changed
 var rejectSeq = null;    // last seen cfg.rejected.seq (KeybindConflict.cs refusals)
 var lastSetKind = {};    // bind id → 'key' | 'joy': which cell the last assignment came from
@@ -52,23 +50,11 @@ function sendConfigCommand(cmd, args) {
   return request;
 }
 
-// ── Input-when-unfocused toggle ──────────────────────────────────────────────────────────────
-var bgInputBtn = document.getElementById('kb-bg-input-btn');
-function renderBgToggle() {
-  bgInputBtn.textContent = bgInput ? 'ON' : 'OFF';
-  bgInputBtn.classList.toggle('on', bgInput);
-}
-bgInputBtn.onclick = function () {
-  var next = !bgInput;
-  sendConfigCommand('keybind.set-bg-input', { on: next }).catch(function () {});
-  bgInput = next;   // optimistic: the follow-up snapshot reconciles server truth
-  renderBgToggle();
-};
-
-// ── Remote keybind listener toggle (docs/remote-keybinds.md) ────────────────────────────────
+// ── Settings tiles ───────────────────────────────────────────────────────────────────────────
+// Plain on/off settings, one tile each. `cmd` is the server command that persists it; the remote
+// listener has none — it's per browser (localStorage, docs/remote-keybinds.md), so it still works
+// while the panel is .unavailable.
 var REMOTE_KEYBINDS_STORAGE = 'noxmfd.remoteKeybinds.enabled';
-var remoteKeybindsBtn = document.getElementById('kb-remote-keybinds-btn');
-var remoteWarning = document.getElementById('kb-remote-same-pc-warning');
 
 function readRemoteKeybinds() {
   try { return localStorage.getItem(REMOTE_KEYBINDS_STORAGE) === '1'; }
@@ -82,48 +68,231 @@ function writeRemoteKeybinds(on) {
   }
 }
 
-function renderRemoteKeybindsToggle() {
-  remoteKeybindsBtn.textContent = remoteKeybinds ? 'ON' : 'OFF';
-  remoteKeybindsBtn.classList.toggle('on', remoteKeybinds);
-  remoteWarning.classList.toggle('shown', remoteKeybindsSamePc);
-}
+var SETTING_GROUPS = [
+  { t: 'INPUT & HUD', note: '' },
+  { t: 'ON AT SPAWN', note: 'Which systems start on in a new aircraft. The ON/OFF binds are in 01 Systems.' }
+];
+var SETTINGS = [
+  { grp: 1, label: 'RADAR', icon: 'radar', cmd: 'keybind.set-radar-on-start',
+    desc: 'OFF: radar starts off, arm it yourself.',
+    get: function () { return radarOnOnStart; }, set: function (v) { radarOnOnStart = v; } },
+  { grp: 1, label: 'ENGINE', icon: 'engine', cmd: 'keybind.set-engine-on-start',
+    desc: 'OFF: engine starts off, start it yourself.',
+    get: function () { return engineOnOnStart; }, set: function (v) { engineOnOnStart = v; } },
+  { grp: 1, label: 'MASTER ARM', icon: 'arm', cmd: 'keybind.set-master-arms-on-start',
+    desc: 'OFF: guns, missiles and bombs blocked until you arm.',
+    get: function () { return masterArmsOnOnStart; }, set: function (v) { masterArmsOnOnStart = v; } },
+  { grp: 1, label: 'POWER', icon: 'power', cmd: 'keybind.set-power-on-start',
+    desc: 'OFF: no in-cockpit HUD until you power up.',
+    get: function () { return powerOnOnStart; }, set: function (v) { powerOnOnStart = v; } },
+  { grp: 0, label: 'UNFOCUSED INPUT', icon: 'stick', cmd: 'keybind.set-bg-input', title: 'Input when game unfocused',
+    desc: 'Keeps your HOTAS live while this browser has focus. ON on the game PC, OFF on a tablet or phone.',
+    get: function () { return bgInput; }, set: function (v) { bgInput = v; } },
+  { grp: 0, label: 'REMOTE KEYBINDS', icon: 'remote', title: 'Listen for keybinds (remote)',
+    desc: 'This browser sends your keybinds to the game. For a second device; enable on one browser only.',
+    warn: 'This browser appears to be on the game PC. Enabling can double-fire inputs.',
+    get: function () { return remoteKeybinds; },
+    set: function (v) { remoteKeybinds = v; writeRemoteKeybinds(v); } },
+  { grp: 0, label: 'HUD BY MODE', icon: 'filter', cmd: 'keybind.set-hud-filters-on-combat-mode', title: 'Combat mode drives HUD filters',
+    desc: 'A/A or A/G forces the HUD page preset; idle restores your own.',
+    get: function () { return hudFiltersOnCombatMode; }, set: function (v) { hudFiltersOnCombatMode = v; } }
+];
 
-remoteKeybindsBtn.onclick = function () {
-  remoteKeybinds = !remoteKeybinds;
-  writeRemoteKeybinds(remoteKeybinds);
-  renderRemoteKeybindsToggle();
+var SVG_NS = 'http://www.w3.org/2000/svg';
+var ICON_PATHS = {
+  radar:  ['M4 20a16 16 0 0 1 16-16', 'M8.5 20A11.5 11.5 0 0 1 20 8.5', 'M13 20a7 7 0 0 1 7-7'],
+  engine: ['M12 3c1 3.5 5 5.5 5 10a5 5 0 0 1-10 0c0-2.6 1.4-4.2 2.6-5.4.4 1.9 1.4 2.9 2.4 3.4-.6-3 .1-5.6 0-8z'],
+  arm:    ['M12 2v5M12 17v5M2 12h5M17 12h5'],
+  power:  ['M12 3v8', 'M6.6 6.6a7.5 7.5 0 1 0 10.8 0'],
+  stick:  ['M5 21h14', 'M8 21v-3h8v3', 'M12 18V8'],
+  remote: ['M8.5 9.5a5 5 0 0 0 0 7M15.5 9.5a5 5 0 0 1 0 7M5.6 6.6a9 9 0 0 0 0 12.8M18.4 6.6a9 9 0 0 1 0 12.8'],
+  filter: ['M4 7h10M18 7h2M4 17h4M12 17h8']
+};
+// Circles that finish an icon's path set: [cx, cy, r]
+var ICON_CIRCLES = {
+  radar: [[20, 20, 1.2]], arm: [[12, 12, 7]], stick: [[12, 6, 3]], remote: [[12, 13, 1.6]],
+  filter: [[16, 7, 2], [10, 17, 2]]
 };
 
-// ── Immersion start-state toggles (docs/radar-master-arms.md, docs/power-toggle.md) ─────────
-// Four settings, identical shape to the one above — a tiny factory instead of repeating it 4x.
-function makeSettingToggle(btnId, cmd, get, set) {
-  var btn = document.getElementById(btnId);
-  function render() {
-    btn.textContent = get() ? 'ON' : 'OFF';
-    btn.classList.toggle('on', get());
-  }
-  btn.onclick = function () {
-    var next = !get();
-    sendConfigCommand(cmd, { on: next }).catch(function () {});
-    set(next);   // optimistic: the follow-up snapshot reconciles server truth
-    render();
-  };
-  return render;
+function svgEl(tag, attrs) {
+  var el = document.createElementNS(SVG_NS, tag);
+  for (var k in attrs) el.setAttribute(k, attrs[k]);
+  return el;
 }
-var renderRadarOnStart = makeSettingToggle('kb-radar-on-start-btn', 'keybind.set-radar-on-start',
-  function () { return radarOnOnStart; }, function (v) { radarOnOnStart = v; });
-var renderEngineOnStart = makeSettingToggle('kb-engine-on-start-btn', 'keybind.set-engine-on-start',
-  function () { return engineOnOnStart; }, function (v) { engineOnOnStart = v; });
-var renderMasterArmsOnStart = makeSettingToggle('kb-master-arms-on-start-btn', 'keybind.set-master-arms-on-start',
-  function () { return masterArmsOnOnStart; }, function (v) { masterArmsOnOnStart = v; });
-var renderPowerOnStart = makeSettingToggle('kb-power-on-start-btn', 'keybind.set-power-on-start',
-  function () { return powerOnOnStart; }, function (v) { powerOnOnStart = v; });
-var renderHudFiltersOnCombatMode = makeSettingToggle('kb-hud-filters-on-combat-mode-btn', 'keybind.set-hud-filters-on-combat-mode',
-  function () { return hudFiltersOnCombatMode; }, function (v) { hudFiltersOnCombatMode = v; });
+
+function iconEl(name) {
+  var svg = svgEl('svg', { width: 20, height: 20, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor',
+    'stroke-width': 1.8, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'aria-hidden': 'true' });
+  (ICON_PATHS[name] || []).forEach(function (d) { svg.appendChild(svgEl('path', { d: d })); });
+  (ICON_CIRCLES[name] || []).forEach(function (c) { svg.appendChild(svgEl('circle', { cx: c[0], cy: c[1], r: c[2] })); });
+  return svg;
+}
+
+function textEl(tag, cls, text) {
+  var el = document.createElement(tag);
+  el.className = cls;
+  el.textContent = text;
+  return el;
+}
+
+function settingTile(st) {
+  var on = st.get();
+  var wrap = document.createElement('div');
+  wrap.className = 'kb-set';
+
+  var tile = document.createElement('button');
+  tile.className = 'lit kb-tile' + (on ? ' on' : '');
+  tile.title = st.title || st.label;
+  tile.setAttribute('aria-pressed', on ? 'true' : 'false');
+  var lbl = document.createElement('span');
+  lbl.className = 'lbl';
+  lbl.appendChild(iconEl(st.icon));
+  lbl.appendChild(document.createTextNode(st.label));
+  tile.appendChild(lbl);
+  tile.onclick = function () {
+    var next = !st.get();
+    if (st.cmd) sendConfigCommand(st.cmd, { on: next }).catch(function () {});
+    st.set(next);   // optimistic: the follow-up snapshot reconciles server truth
+    renderSettings();
+  };
+  wrap.appendChild(tile);
+
+  wrap.appendChild(textEl('div', 'kb-set-desc', st.desc));
+  if (st.warn) {
+    var warn = textEl('div', 'kb-warning' + (remoteKeybindsSamePc ? ' shown' : ''), st.warn);
+    wrap.appendChild(warn);
+  }
+  return wrap;
+}
+
+function renderSettings() {
+  var host = document.getElementById('kb-settings');
+  host.textContent = '';
+  if (query) return;   // searching is for binds; the tiles would only get in the way
+  host.appendChild(groupHead('', '00', 'SETTINGS', SETTINGS.length + ''));
+  SETTING_GROUPS.forEach(function (g, gi) {
+    var box = document.createElement('div');
+    box.className = 'kb-set-group';
+    var head = document.createElement('div');
+    head.className = 'kb-section-head';
+    head.appendChild(textEl('h3', 'kb-section-t', g.t));
+    if (g.note) head.appendChild(textEl('span', 'kb-note', g.note));
+    box.appendChild(head);
+    var tiles = document.createElement('div');
+    tiles.className = 'kb-set-tiles';
+    SETTINGS.forEach(function (st) { if (st.grp === gi) tiles.appendChild(settingTile(st)); });
+    box.appendChild(tiles);
+    host.appendChild(box);
+  });
+  fitTiles();
+}
+
+// Sizes every tile to the widest label plus the tile's own side padding (2 x 18px + 2px border).
+// Measured rather than declared because the label width depends on the loaded font; the font-ready
+// hook below re-fits once it arrives.
+function fitTiles() {
+  var widest = 0;
+  document.querySelectorAll('#kb-settings .kb-tile .lbl').forEach(function (l) {
+    widest = Math.max(widest, Math.ceil(l.getBoundingClientRect().width));
+  });
+  if (!widest) return;
+  document.querySelectorAll('#kb-settings .kb-set-tiles').forEach(function (t) {
+    t.style.setProperty('--kb-tile-w', (widest + 38) + 'px');
+  });
+}
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitTiles);
 
 // Key naming (KeyboardEvent.code → Unity KeyCode name, and its compact display form) lives in
 // keybinds-keymap.js, pure and unit-checked.
 var displayName = KeybindsKeymap.displayName;
+
+// ── Grouping ─────────────────────────────────────────────────────────────────────────────────
+// The registry's sections are persistence-shaped; the page reads them in flight order instead.
+// Each group lists sub-sections that claim binds by server section title or by id. `note` names
+// the server section whose shared-behaviour note applies when it isn't the sub-section's own
+// title. A bind no sub-section claims lands in a trailing OTHER group under its own section, so a
+// newly registered keybind shows up without touching this table.
+function sec(t, pick, noteFrom) { return { t: t, pick: pick, noteFrom: noteFrom || t }; }
+function inSection(title) { return function (b) { return b.section === title; }; }
+function idMatches(re) { return function (b) { return re.test(b.id); }; }
+
+var GROUPS = [
+  { id: 'systems', n: '01', t: 'SYSTEMS', secs: [
+    sec('POWER · ENGINE · RADAR', idMatches(/^(power|engine|radar)-/)),
+    sec('MASTER ARM', idMatches(/^master-arms-/)),
+    sec('GEAR', inSection('GEAR')) ] },
+  { id: 'combat', n: '02', t: 'COMBAT', secs: [
+    sec('COMBAT MODE', idMatches(/^combat-mode-/), 'IMMERSION OPTIONS'),
+    sec('WEAPONS', inSection('WEAPONS')),
+    sec('COUNTERMEASURES', inSection('COUNTERMEASURES')) ] },
+  { id: 'sensors', n: '03', t: 'SENSORS', secs: [
+    sec('TGT', inSection('TGT')),
+    sec('TGP', inSection('TGP')) ] },
+  { id: 'displays', n: '04', t: 'DISPLAY CONTROL', secs: [
+    sec('SOI', inSection('SOI')),
+    sec('CURSOR', inSection('CURSOR')) ] },
+  { id: 'nav', n: '05', t: 'NAVIGATION', secs: [
+    sec('MAP', inSection('MAP')) ] },
+  { id: 'setup', n: '06', t: 'MFD SETUP', secs: [
+    sec('LAYOUT', inSection('LAYOUT')),
+    sec('LAYOUT PRESETS', inSection('LAYOUT PRESETS')),
+    sec('HUD PRESETS', inSection('HUD PRESETS')),
+    sec('TGT PRESETS', inSection('TGT PRESETS')),
+    sec('MISC', function (b) { return b.id === 'units-toggle' || b.id === 'internal-mfd-poc-toggle'; }) ] }
+];
+
+function isBound(b) {
+  return !!b.key || (b.joyButton !== undefined && b.joyButton >= 0) || (b.axis !== undefined && b.axis >= 0);
+}
+
+function joyText(b) {
+  return b.joyNum > 0 ? 'J' + b.joyNum + ' B' + b.joyButton : 'JOY ' + b.joyButton;
+}
+
+function axisText(b) {
+  return b.axisNum > 0 ? 'J' + b.axisNum + ' A' + b.axis : 'AXIS ' + b.axis;
+}
+
+// What the search box matches against: label, description and whichever bindings are set.
+function searchText(b) {
+  var parts = [b.label, b.description || ''];
+  if (b.key) parts.push(displayName(b.key));
+  if (b.joyButton >= 0) parts.push(joyText(b));
+  if (b.axis >= 0) parts.push(axisText(b));
+  return parts.join(' ').toLowerCase();
+}
+
+// binds → [{id, n, t, secs:[{id, t, note, rows}], bound, all}] — unfiltered, so the rail and the
+// header count stay the same while searching.
+function buildModel() {
+  var claimed = {};
+  var groups = GROUPS.map(function (g) {
+    return { id: g.id, n: g.n, t: g.t, secs: g.secs.map(function (s, i) {
+      var rows = binds.filter(function (b) {
+        if (claimed[b.id] || !s.pick(b)) return false;
+        claimed[b.id] = true;
+        return true;
+      });
+      return { id: g.id + '-' + i, t: s.t, note: notes[s.noteFrom] || '', rows: rows };
+    }) };
+  });
+  var rest = binds.filter(function (b) { return !claimed[b.id]; });
+  if (rest.length) {
+    var titles = [];
+    rest.forEach(function (b) { if (titles.indexOf(b.section) < 0) titles.push(b.section); });
+    groups.push({ id: 'other', n: '07', t: 'OTHER', secs: titles.map(function (t, i) {
+      return { id: 'other-' + i, t: t, note: notes[t] || '',
+               rows: rest.filter(function (b) { return b.section === t; }) };
+    }) });
+  }
+  groups.forEach(function (g) {
+    g.secs = g.secs.filter(function (s) { return s.rows.length; });
+    g.secs.forEach(function (s) { s.bound = s.rows.filter(isBound).length; });
+    g.all = g.secs.reduce(function (n, s) { return n + s.rows.length; }, 0);
+    g.bound = g.secs.reduce(function (n, s) { return n + s.bound; }, 0);
+  });
+  return groups.filter(function (g) { return g.secs.length; });
+}
 
 // ── Render ───────────────────────────────────────────────────────────────────────────────────
 function cell(bind, kind) {
@@ -139,8 +308,7 @@ function cell(bind, kind) {
   else if (!bound)                             { val.textContent = '—';               val.className += ' unbound'; }
   // joystick display carries the device number when pinned ("J2 B55") — with a multi-stick
   // HOTAS the button index alone is ambiguous
-  else val.textContent = kind === 'key' ? displayName(bind.key)
-    : (bind.joyNum > 0 ? 'J' + bind.joyNum + ' B' + bind.joyButton : 'JOY ' + bind.joyButton);
+  else val.textContent = kind === 'key' ? displayName(bind.key) : joyText(bind);
   val.onclick = function () { (kind === 'key' ? keyCellClick : joyCellClick)(bind.id); };
 
   var clear = document.createElement('button');
@@ -162,9 +330,9 @@ function cell(bind, kind) {
   return wrap;
 }
 
-// An axis-only row (docs/map-cursor.md — MAP Cursor Horizontal/Vertical): no key/joy cells make
-// sense for a continuous value, so this renders one wide cell (spanning both value columns, see
-// render()) with the axis value, an invert toggle, and clear.
+// An axis-only row (docs/map-cursor.md — Cursor Horizontal/Vertical/Zoom): a continuous value has
+// no keyboard side, so the row says so and this cell sits in the joystick column with the axis
+// value, an invert toggle, and clear.
 function axisCell(bind) {
   var wrap = document.createElement('div');
   wrap.className = 'kb-cell';
@@ -176,12 +344,12 @@ function axisCell(bind) {
   else if (!bound)                                       { val.textContent = '—';              val.className += ' unbound'; }
   // carries the device number when pinned ("J2 A3") — with a multi-stick HOTAS the axis index
   // alone is ambiguous, same reasoning as the joystick button cell.
-  else val.textContent = bind.axisNum > 0 ? 'J' + bind.axisNum + ' A' + bind.axis : 'AXIS ' + bind.axis;
+  else val.textContent = axisText(bind);
   val.onclick = function () { axisCellClick(bind.id); };
 
   var invert = document.createElement('button');
   invert.className = 'kb-invert' + (bind.axisInvert ? ' on' : '');
-  invert.textContent = 'INVERT';
+  invert.textContent = 'INV';
   invert.title = 'flip axis polarity';
   invert.onclick = function (e) {
     e.stopPropagation();
@@ -206,33 +374,24 @@ function axisCell(bind) {
   return wrap;
 }
 
-// One bind row — shared by the main table and the Immersion options table below it.
 function buildRow(b) {
   var row = document.createElement('div');
   row.className = 'kb-row';
-  row.dataset.bindId = b.id;   // lets flashRejected find this row without assuming which table
+  row.dataset.bindId = b.id;   // lets flashRejected find this row
   var fn = document.createElement('div');
-  var name = document.createElement('div');
-  name.className = 'kb-name';
-  name.textContent = b.label.toUpperCase();
-  fn.appendChild(name);
-  var desc = document.createElement('div');
-  desc.className = 'kb-desc';
-  desc.textContent = b.description || '';
+  fn.className = 'kb-fn';
+  fn.appendChild(textEl('span', 'kb-name', b.label.toUpperCase()));
+  var desc = textEl('span', 'kb-desc', b.description || '');
+  desc.title = b.description || '';
   fn.appendChild(desc);
   row.appendChild(fn);
   if (b.axis !== undefined && b.key === undefined) {
-    // Axis-only row: one wide cell spanning both value columns, rather than an always-empty
-    // key cell next to an always-empty joy cell.
-    var wide = axisCell(b);
-    wide.style.gridColumn = '2 / span 2';
-    row.appendChild(wide);
+    row.appendChild(textEl('span', 'kb-na', 'AXIS ONLY'));
+    row.appendChild(axisCell(b));
   } else if (b.key !== undefined && b.joyButton === undefined) {
-    // Key-only row (e.g. SAVE/LOAD LAYOUT): browser-side only, deliberately no joystick/HOTAS
-    // option, so there's no joyButton field to render a second cell for.
-    var wideKey = cell(b, 'key');
-    wideKey.style.gridColumn = '2 / span 2';
-    row.appendChild(wideKey);
+    // Key-only row (e.g. SAVE/LOAD LAYOUT): browser-side only, deliberately no joystick/HOTAS option.
+    row.appendChild(cell(b, 'key'));
+    row.appendChild(textEl('span', 'kb-na', 'KEYBOARD ONLY'));
   } else {
     row.appendChild(cell(b, 'key'));
     row.appendChild(cell(b, 'joy'));
@@ -240,41 +399,139 @@ function buildRow(b) {
   return row;
 }
 
-function render() {
-  rowsEl.textContent = '';
-  var section = null;
-  binds.forEach(function (b) {
-    if (b.section === IMMERSION_SECTION) return;   // its own table — see renderImmersionRows
-    if (b.section !== section) {
-      section = b.section;
-      var h = document.createElement('div');
-      h.className = 'kb-section';
-      h.textContent = section;
-      rowsEl.appendChild(h);
-      if (notes[section]) {
-        var note = document.createElement('div');
-        note.className = 'kb-note';
-        note.textContent = notes[section];
-        rowsEl.appendChild(note);
-      }
-    }
-    rowsEl.appendChild(buildRow(b));
-  });
-  renderImmersionRows();
+// A numbered group header: the rail links to it by id.
+function groupHead(id, n, t, count) {
+  var head = document.createElement('div');
+  head.className = 'kb-group-head';
+  if (id) head.id = id;
+  head.appendChild(textEl('span', 'kb-group-n', n));
+  head.appendChild(textEl('h2', 'kb-group-t', t));
+  head.appendChild(textEl('span', 'kb-group-c', count));
+  return head;
 }
 
-// Immersion options (docs/radar-master-arms.md) — a true second section (its own title/description/
-// settings in keybinds.html), so its binds get their own table here instead of a header inside the
-// main one. No per-row section heading needed (there's only ever the one section); the server's
-// shared-behaviour note still shows, just above this table's header instead of inside it.
-function renderImmersionRows() {
-  immersionRowsEl.textContent = '';
-  document.getElementById('kb-immersion-note').textContent = notes[IMMERSION_SECTION] || '';
-  binds.forEach(function (b) {
-    if (b.section !== IMMERSION_SECTION) return;
-    immersionRowsEl.appendChild(buildRow(b));
+function railLink(cls, targetId, parts) {
+  var a = document.createElement('a');
+  a.className = cls;
+  if (cls === 'kb-rail-g') a.title = parts[1][1];   // the collapsed strip shows only the number
+  a.href = '#' + targetId;
+  parts.forEach(function (p) { a.appendChild(textEl('span', p[0], p[1])); });
+  return a;
+}
+
+function renderRail(groups) {
+  var rail = document.getElementById('kb-rail-links');
+  rail.textContent = '';
+  var set = document.createElement('div');
+  set.className = 'kb-rail-group';
+  set.appendChild(railLink('kb-rail-g', 'kb-settings', [['n', '00'], ['t', 'SETTINGS'], ['c', SETTINGS.length + '']]));
+  SETTING_GROUPS.forEach(function (g, gi) {
+    var n = SETTINGS.filter(function (s) { return s.grp === gi; }).length;
+    set.appendChild(railLink('kb-rail-s', 'kb-settings', [['', g.t], ['', n + '']]));
+  });
+  rail.appendChild(set);
+  groups.forEach(function (g) {
+    var box = document.createElement('div');
+    box.className = 'kb-rail-group';
+    box.appendChild(railLink('kb-rail-g', 'kb-g-' + g.id, [['n', g.n], ['t', g.t], ['c', g.bound + '/' + g.all]]));
+    var bar = document.createElement('div');
+    bar.className = 'kb-rail-bar';
+    var fill = document.createElement('div');
+    fill.style.width = Math.round(100 * g.bound / g.all) + '%';
+    bar.appendChild(fill);
+    box.appendChild(bar);
+    g.secs.forEach(function (s) {
+      box.appendChild(railLink('kb-rail-s', 'kb-s-' + s.id, [['', s.t], ['', s.bound + '/' + s.rows.length]]));
+    });
+    rail.appendChild(box);
   });
 }
+
+function render() {
+  var groups = buildModel();
+  var all = 0, bound = 0;
+  groups.forEach(function (g) { all += g.all; bound += g.bound; });
+  document.getElementById('kb-count').textContent = bound + ' / ' + all + ' BOUND';
+  renderRail(groups);
+  renderSettings();
+
+  rowsEl.textContent = '';
+  var shown = 0;
+  groups.forEach(function (g) {
+    var secs = g.secs.map(function (s) {
+      return { s: s, rows: query ? s.rows.filter(function (b) { return searchText(b).indexOf(query) >= 0; }) : s.rows };
+    }).filter(function (x) { return x.rows.length; });
+    if (!secs.length) return;
+
+    var box = document.createElement('section');
+    box.className = 'kb-group';
+    box.appendChild(groupHead('kb-g-' + g.id, g.n, g.t, g.bound + ' BOUND'));
+    var cols = document.createElement('div');
+    cols.className = 'kb-head';
+    ['FUNCTION', 'KEYBOARD', 'JOYSTICK / HOTAS'].forEach(function (t) { cols.appendChild(textEl('span', '', t)); });
+    box.appendChild(cols);
+    secs.forEach(function (x) {
+      var s = document.createElement('div');
+      s.className = 'kb-section';
+      s.id = 'kb-s-' + x.s.id;
+      var head = document.createElement('div');
+      head.className = 'kb-section-head';
+      head.appendChild(textEl('h3', 'kb-section-t', x.s.t));
+      if (x.s.note) head.appendChild(textEl('span', 'kb-note', x.s.note));
+      s.appendChild(head);
+      x.rows.forEach(function (b) { s.appendChild(buildRow(b)); shown++; });
+      box.appendChild(s);
+    });
+    rowsEl.appendChild(box);
+  });
+  document.getElementById('kb-none').classList.toggle('shown', !!query && !shown);
+}
+
+// The rail's collapsed state is the pane's choice once made: the toggle saves it (per browser,
+// localStorage) and a saved value wins over the width. With nothing saved, the rail starts
+// collapsed on a pane 1152px wide or less and open otherwise, following the width as it changes.
+var RAIL_STORAGE = 'noxmfd.keybinds.railCollapsed';
+var railEl = document.getElementById('kb-rail');
+var railToggle = document.getElementById('kb-rail-toggle');
+var narrow = window.matchMedia('(max-width: 1152px)');
+
+function readRailPref() {
+  try {
+    var v = localStorage.getItem(RAIL_STORAGE);
+    return v === '1' ? true : v === '0' ? false : null;
+  } catch (e) { return null; }
+}
+
+function setRailCollapsed(collapsed) {
+  railEl.classList.toggle('collapsed', collapsed);
+  railToggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+}
+function applyRailDefault() {
+  var pref = readRailPref();
+  setRailCollapsed(pref === null ? narrow.matches : pref);
+}
+railToggle.onclick = function () {
+  var collapsed = !railEl.classList.contains('collapsed');
+  try { localStorage.setItem(RAIL_STORAGE, collapsed ? '1' : '0'); } catch (e) {}
+  setRailCollapsed(collapsed);
+};
+narrow.addEventListener('change', applyRailDefault);
+applyRailDefault();
+
+// The rail's links scroll the column rather than navigate: the page is usually inside a shell
+// frame, where a hash change has nothing useful to do.
+document.querySelector('.kb-rail').addEventListener('click', function (e) {
+  var a = e.target.closest && e.target.closest('a');
+  if (!a) return;
+  e.preventDefault();
+  var target = document.getElementById(a.getAttribute('href').slice(1));
+  if (target) target.scrollIntoView({ block: 'start' });
+});
+
+findEl.addEventListener('input', function () {
+  query = findEl.value.trim().toLowerCase();
+  render();
+});
 
 // ── Keyboard capture (browser-side) ──────────────────────────────────────────────────────────
 function keyCellClick(id) {
@@ -309,11 +566,9 @@ document.addEventListener('keydown', onCaptureKey);
 document.addEventListener('keyup', onCaptureKey);
 
 // brief red flash on the keyboard cell of a bind whose captured key can't be mapped. Looks the row
-// up by id (row.dataset.bindId, set in buildRow) rather than a positional index into `binds` — an
-// index counts every bind including the Immersion section's, which renders into its own table
-// (immersionRowsEl), so a positional lookup into rowsEl's rows was wrong for any Immersion bind.
-// Also names the bind already using a refused key/button (text = 'USED BY …'); kind picks which
-// of the row's two cells shows it.
+// up by id (row.dataset.bindId, set in buildRow) rather than a positional index. Also names the
+// bind already using a refused key/button (text = 'USED BY …'); kind picks which of the row's two
+// cells shows it.
 function flashRejected(id, text, kind) {
   render();
   var row = document.querySelector('.kb-row[data-bind-id="' + id + '"]');
@@ -362,20 +617,13 @@ function applyConfig(cfg) {
     capturing = cfg.capturing || null;
     capturingKind = cfg.capturingKind || null;
     bgInput = !!cfg.bgInput;
-    renderBgToggle();
     remoteKeybinds = readRemoteKeybinds();
     remoteKeybindsSamePc = !!cfg.remoteKeybindsSamePc;
-    renderRemoteKeybindsToggle();
     radarOnOnStart      = cfg.radarOnOnStart      !== false;
     engineOnOnStart     = cfg.engineOnOnStart     !== false;
     masterArmsOnOnStart = cfg.masterArmsOnOnStart !== false;
     powerOnOnStart      = cfg.powerOnOnStart      !== false;
     hudFiltersOnCombatMode = !!cfg.hudFiltersOnCombatMode;   // defaults OFF, not ON like the four above
-    renderRadarOnStart();
-    renderEngineOnStart();
-    renderMasterArmsOnStart();
-    renderPowerOnStart();
-    renderHudFiltersOnCombatMode();
     render();
     updateCaptureFallback();
     var r = cfg.rejected;
@@ -404,12 +652,7 @@ window.addEventListener('message', function (e) {
   if (m && m.mfd === true && m.type === 'keybinds-config-push') applyConfig(m.data || {});
 });
 
-renderBgToggle();   // OFF until the first fetch resolves, rather than a blank button
 remoteKeybinds = readRemoteKeybinds();
-renderRemoteKeybindsToggle();
-renderRadarOnStart();          // ON until the first fetch resolves — true is the actual default
-renderEngineOnStart();
-renderMasterArmsOnStart();
-renderHudFiltersOnCombatMode();   // OFF until the first snapshot resolves — false is the actual default
+render();   // settings tiles at their defaults until the first fetch resolves
 if (window.parent === window) refresh();
 else window.parent.postMessage({ mfd: true, type: 'keybinds-config-request' }, '*');

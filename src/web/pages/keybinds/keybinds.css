@@ -1,69 +1,199 @@
-/* Extended-keybinds page — an in-game-menu style table: function | keyboard | joystick.
-   Colors from theme.css tokens only. Page chrome (.kb-back, the scrollbar rules) lives in
-   shared/page-chrome.css now; .kb-panel/.kb-title keep their own rules below since this page's
-   wider panel (720px vs the shared 620px) and taller title margin are real, deliberate
-   differences, not copy-paste drift. */
+/* Extended-keybinds page — header, section rail and one scrolling column: SETTINGS tiles, then the
+   binds as function | keyboard | joystick tables grouped in flight order. Colors from theme.css
+   tokens. The --kb-* literals below are two shades between theme tokens (a dimmer green and the
+   row divider) that no other page uses, so they stay local to this page. */
 
-.kb-panel { max-width: 720px; }
+:root {
+  --kb-dim: #3f8f3f;
+  --kb-row-line: #0f230f;
+}
 
-.kb-title { margin-bottom: 22px; }
+/* The panel fills the pane and the column scrolls inside it, so the rail stays put. The side
+   padding is the same on both edges and just clears the bezel's upright nav labels (TGT's value). */
+html, body { overflow: hidden; }
+.kb-panel {
+  max-width: none;
+  height: 100vh;
+  margin: 0;
+  padding: 0 clamp(34px, 5vw, 48px);
+  display: flex;
+  flex-direction: column;
+}
+
+.kb-sr { position: absolute; left: -9999px; }
+
+/* Descriptions and notes read in the neutral instrument white LYT uses, so the green stays on names and values. */
+
+/* ── header ─────────────────────────────────────────────────────────────────────────────────── */
+.kb-top {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  height: 56px;
+  border-bottom: 1px solid var(--no-panel-border);
+}
+.kb-top-side { display: flex; align-items: center; gap: 16px; }
+.kb-count { font-size: 12px; letter-spacing: 2px; color: var(--no-green-dim); }
+.kb-back { float: none; padding: 0; font-size: 13px; letter-spacing: 1px; }
+/* Left-aligned in TGT's title size, like the other pages. */
+.kb-title { flex: 1; margin: 0; text-align: left; font-size: clamp(13px, 2.6vmin, 22px); letter-spacing: 0.08em; }
+
+.kb-body { flex: 1; min-height: 0; display: flex; }
+
+/* ── rail ───────────────────────────────────────────────────────────────────────────────────── */
+.kb-rail {
+  box-sizing: border-box;
+  flex: none;
+  width: 250px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 14px 8px 32px;
+  border-right: 1px solid var(--no-panel-border);
+  overflow-x: hidden;
+  overflow-y: auto;
+  /* shadcn's icon-collapsible sidebar: the width eases linearly over 200ms and the labels are
+     clipped by it; the section rows (which have no icon form) drop out. */
+  transition: width 200ms linear;
+}
+.kb-rail.collapsed { width: 48px; }
+.kb-rail a, .kb-rail-g .t, .kb-rail-g .c { white-space: nowrap; }
+.kb-rail.collapsed .kb-rail-s,
+.kb-rail.collapsed .kb-rail-bar { display: none; }
+.kb-rail-toggle {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid transparent;
+  background: none;
+  color: var(--no-green-dim);
+  cursor: pointer;
+}
+.kb-rail-toggle:hover { border-color: var(--no-green-dark); color: var(--no-amber); }
+
+#kb-rail-links { display: flex; flex-direction: column; gap: 16px; }
+.kb-rail-group { display: flex; flex-direction: column; gap: 3px; }
+.kb-rail a {
+  display: flex;
+  justify-content: space-between;
+  color: var(--no-green-dim);
+  text-decoration: none;
+  cursor: pointer;
+}
+.kb-rail a:hover { color: var(--no-amber); }
+.kb-rail a.kb-rail-g {
+  align-items: baseline;
+  gap: 10px;
+  font-size: 13px;
+  letter-spacing: 2px;
+  color: var(--no-green);
+  padding-right: 8px;
+}
+.kb-rail-g .n { flex: none; width: 32px; text-align: center; color: var(--no-green-dim); }
+.kb-rail-g .t { flex: 1; }
+.kb-rail-g .c { font-size: 11px; color: var(--no-green-dim); }
+.kb-rail a.kb-rail-s { padding: 3px 0 3px 42px; font-size: 11px; letter-spacing: 1px; }
+.kb-rail-bar { margin-left: 42px; height: 2px; background: var(--kb-row-line); }
+.kb-rail-bar > div { height: 2px; background: var(--no-green-deep); }
+
+/* ── column ─────────────────────────────────────────────────────────────────────────────────── */
+.kb-content { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.kb-find { flex: none; padding: 12px 18px 12px 32px; border-bottom: 1px solid var(--no-panel-border); }
+.kb-find input {
+  width: 100%;
+  height: 34px;
+  padding: 0 12px;
+  background: var(--no-ink);
+  border: 1px solid var(--no-green-dark);
+  color: var(--no-green);
+  font-family: var(--no-font);
+  font-size: 12px;
+  letter-spacing: 1px;
+}
+/* The browser's own clear button is blue; Escape clears a search field. */
+.kb-find input::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; }
+.kb-find input::placeholder { color: var(--kb-dim); }
+.kb-find input:focus { outline: 1px solid var(--no-amber); outline-offset: -1px; }
+.kb-main {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 18px 100px 32px;
+}
+
+/* The slim grey scrollbar TGT's list uses (tgt.css). */
+.kb-rail, .kb-main {
+  scrollbar-width: thin;
+  scrollbar-color: var(--no-gray) transparent;
+}
+.kb-rail::-webkit-scrollbar, .kb-main::-webkit-scrollbar { width: 6px; height: 6px; }
+.kb-rail::-webkit-scrollbar-track, .kb-main::-webkit-scrollbar-track { background: transparent; }
+.kb-rail::-webkit-scrollbar-thumb, .kb-main::-webkit-scrollbar-thumb { background: var(--no-gray); border-radius: 3px; }
+
+.kb-group { padding-top: 34px; }
+.kb-group-head {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--no-panel-border);
+}
+.kb-group-n { font-size: 24px; color: var(--no-green-deep); }
+.kb-group-t { flex: 1; font-size: 18px; letter-spacing: 4px; color: var(--no-green); }
+.kb-group-c { font-size: 12px; letter-spacing: 1px; color: var(--no-green-dim); }
 
 /* header + rows share one grid template so the columns line up */
 .kb-head, .kb-row {
   display: grid;
-  grid-template-columns: 1fr 170px 170px;
-  gap: 8px;
+  grid-template-columns: minmax(0, 1fr) 180px 200px;
+  gap: 12px;
   align-items: center;
 }
 .kb-head {
-  padding: 0 10px 6px;
-  font-size: 11px;
+  padding: 12px 12px 0;
+  font-size: 10px;
   letter-spacing: 2px;
   color: var(--no-green-dim);
-  border-bottom: 1px solid var(--no-panel-border);
 }
 .kb-head span:not(:first-child) { text-align: center; }
 
+.kb-section { padding-top: 14px; }
+.kb-section-head { display: flex; align-items: baseline; gap: 14px; padding: 0 12px 6px; }
+/* A bind section's note always sits under its title; the settings groups keep theirs inline. */
+.kb-section .kb-section-head { flex-direction: column; align-items: flex-start; gap: 4px; }
+.kb-section-t { margin: 0; white-space: nowrap; font-size: 12px; font-weight: 400; letter-spacing: 3px; color: var(--no-green-dim); }
+.kb-note { font-size: 11px; letter-spacing: 0.5px; color: var(--no-white-dim); }
 
 .kb-row {
-  padding: 7px 10px;
-  border-bottom: 1px solid var(--no-panel-border);
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--kb-row-line);
 }
-.kb-row:hover { background: var(--no-panel-bg); }
+.kb-row:hover { background: rgba(var(--no-green-rgb), 0.045); }
 
-.kb-section {
-  margin: 18px 10px 6px;
-  font-size: 12px;
-  letter-spacing: 2px;
-  color: var(--no-green-deep);
+.kb-fn { display: flex; align-items: baseline; gap: 14px; min-width: 0; }
+.kb-name { font-size: 14px; letter-spacing: 1px; color: var(--no-green); white-space: nowrap; }
+.kb-desc {
+  font-size: 11px;
+  color: var(--no-white-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-
-/* shared-behaviour note under a section header (e.g. how the WEAPONS cycle keys work) */
-.kb-note {
-  margin: 0 10px 8px;
-  font-size: 10px;
-  letter-spacing: 0.5px;
-  color: var(--no-green-dim);
-  max-width: 620px;
-}
-
-.kb-name  { font-size: 14px; letter-spacing: 1px; color: var(--no-green); }
-.kb-desc  { font-size: 10px; letter-spacing: 0.5px; color: var(--no-green-dim); margin-top: 3px; padding-right: 8px; }
-.kb-warning {
-  display: none;
-  margin-top: 7px;
-  font-size: 10px;
-  letter-spacing: 0.5px;
-  color: var(--no-amber);
-}
-.kb-warning.shown { display: block; }
+.kb-na { text-align: center; font-size: 10px; letter-spacing: 2px; color: var(--kb-dim); }
 
 /* a bind cell: the clickable current-value box + its clear button */
 .kb-cell { display: flex; align-items: center; gap: 5px; }
 .kb-val {
   flex: 1;
-  padding: 5px 8px;
-  border: 1px solid var(--no-green-dark);
+  min-width: 48px;
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--no-green-deep);
   background: none;
   color: var(--no-green);
   font-family: var(--no-font);
@@ -75,7 +205,7 @@
   overflow: hidden;
 }
 .kb-val:hover { border-color: var(--no-green-dim); }
-.kb-val.unbound { color: var(--no-green-dark); }
+.kb-val.unbound { border-color: var(--no-panel-border); color: var(--kb-dim); }
 .kb-val.capturing {
   color: var(--no-amber);
   border-color: var(--no-amber);
@@ -97,75 +227,58 @@
 .kb-row:hover .kb-clear.bound { visibility: visible; }
 .kb-clear:hover { color: var(--no-red); }
 
-/* Axis-only rows' invert toggle (docs/map-cursor.md) — always visible (not hover-only like
-   kb-clear): unlike a binding, whether it's flipped is state worth seeing at a glance. */
+/* Axis rows' invert toggle (docs/map-cursor.md) — always visible (not hover-only like kb-clear):
+   unlike a binding, whether it's flipped is state worth seeing at a glance. */
 .kb-invert {
+  height: 30px;
+  min-width: 44px;
+  padding: 0 8px;
   border: 1px solid var(--no-green-dark);
   background: none;
-  color: var(--no-green-dark);
+  color: var(--no-green-dim);
   font-family: var(--no-font);
   font-size: 10px;
-  letter-spacing: 0.5px;
-  cursor: pointer;
-  padding: 4px 7px;
-  white-space: nowrap;
-}
-.kb-invert:hover { border-color: var(--no-green-dim); color: var(--no-green-dim); }
-.kb-invert.on    { border-color: var(--no-green); color: var(--no-green); }
-
-/* The one plain on/off setting (InputWhenGameUnfocused) — sits above the bind table since it has no
-   key/joy/axis source of its own. Same row shape as .kb-row (name+desc left, control right) but its
-   own class: it's one fixed row, not part of the repeating grid the table shares with its header. */
-.kb-setting {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 10px 14px;
-  margin-bottom: 4px;
-  border-bottom: 1px solid var(--no-panel-border);
-}
-.kb-setting-text { flex: 1; }
-.kb-toggle {
-  flex: none;
-  min-width: 64px;
-  padding: 6px 10px;
-  border: 1px solid var(--no-green-dark);
-  background: none;
-  color: var(--no-green-dark);
-  font-family: var(--no-font);
-  font-size: 12px;
   letter-spacing: 1px;
   cursor: pointer;
 }
-.kb-toggle:hover { border-color: var(--no-green-dim); color: var(--no-green-dim); }
-.kb-toggle.on    { border-color: var(--no-amber); color: var(--no-amber); }
+.kb-invert:hover { border-color: var(--no-green-dim); }
+.kb-invert.on    { border-color: var(--no-amber); color: var(--no-amber); }
 
-/* IMMERSION OPTIONS (docs/radar-master-arms.md) — a true second section: its own EXTENDED-
-   KEYBINDS-sized title (.kb-title, reused as-is), a description, the 3 start-state settings, then
-   its own table (own .kb-head + .kb-rows, not shared with the main one above). The top border/
-   margin sets the whole section apart from the main table, the way a fresh page section should.
-   No horizontal margin — it nests its own .kb-head/.kb-row, whose border-bottom lines should span
-   the same width .kb-panel's padding already gives the main table's, not sit inset from them. */
-.kb-immersion {
-  margin: 32px 0 0;
-  padding-top: 24px;
-  border-top: 1px solid var(--no-panel-border);
+/* ── settings tiles ─────────────────────────────────────────────────────────────────────────── */
+#kb-settings { padding-top: 24px; }
+.kb-set-group { padding-top: 18px; }
+.kb-set-group .kb-section-head { padding-left: 0; padding-right: 0; }
+/* Every tile is as wide as the widest label (keybinds.js sets --kb-tile-w); a description wraps
+   inside that width instead of stretching it. */
+.kb-set-tiles { --kb-tile-w: 160px; display: grid; grid-template-columns: repeat(auto-fill, var(--kb-tile-w)); gap: 12px; }
+.kb-set { display: flex; flex-direction: column; gap: 10px; }
+.kb-tile {
+  /* the lamp, off/on colours and press feedback come from shared/lit-panel.css (.lit), as on HUD/TGT */
+  --lamp-w: 3.4em;
+  width: 100%;
+  height: 84px;
+  gap: 14px;
+  padding: 0 18px;
+  font-size: 15px;
 }
-.kb-immersion .kb-title { margin-bottom: 10px; }
-.kb-immersion-desc {
-  font-size: 12px;
-  letter-spacing: 0.5px;
-  color: var(--no-green-dim);
-  text-align: center;
-  max-width: 560px;
-  margin: 0 auto 20px;
-}
-.kb-immersion .kb-setting:last-child { border-bottom: none; margin-bottom: 0; }
-.kb-immersion .kb-head { margin-top: 18px; }
-#kb-immersion-note:empty { display: none; }
+.kb-tile::before { height: 0.3em; }
+.kb-tile .lbl { white-space: nowrap; display: flex; align-items: center; gap: 12px; letter-spacing: 3px; }
+.kb-set-desc { padding: 0 2px; font-size: 11px; line-height: 1.45; color: var(--no-white-dim); }
+.kb-warning { display: none; padding: 0 2px; font-size: 11px; color: var(--no-amber); }
+.kb-warning.shown { display: block; }
+
+button:focus-visible, a:focus-visible { outline: 1px solid var(--no-amber); outline-offset: 2px; }
+
+.kb-none { display: none; padding: 40px 0; text-align: center; font-size: 12px; letter-spacing: 3px; color: var(--kb-dim); }
+.kb-none.shown { display: block; }
 
 #kb-empty { display: none; }
-.kb-panel.unavailable .kb-head,
-.kb-panel.unavailable .kb-rows,
-.kb-panel.unavailable .kb-immersion { display: none; }
+.kb-panel.unavailable .kb-body { display: none; }
 .kb-panel.unavailable #kb-empty { display: block; }
+
+/* A narrow pane drops the rail (it's only a jump list) and tightens the table. */
+@media (max-width: 860px) {
+  .kb-head, .kb-row { grid-template-columns: minmax(0, 1fr) 140px 150px; gap: 8px; }
+  .kb-desc { display: none; }
+  .kb-top { gap: 10px; }
+}

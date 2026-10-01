@@ -9,8 +9,9 @@
   for (dedicated gear up/down, direct countermeasures, ...). See docs/keybinds-page.md.
 
   Fetch-driven like /hud: polls /keybinds-config (the plugin's bind registry) and POSTs
-  keybind.* commands (send-command.js → CommandDispatcher). One table row per function:
-  name | keyboard key | joystick/HOTAS button.
+  keybind.* commands (send-command.js → CommandDispatcher). Layout: a header, a section rail
+  (search + group/section links) and one scrolling column — SETTINGS tiles first, then the
+  binds grouped into numbered flight-order groups. All of it is built by keybinds.js.
 
   Capture is split by source:
     keyboard — captured HERE (focus is on the browser, the game never sees the key): click the
@@ -20,120 +21,51 @@
     joystick — captured by the PLUGIN (only Rewired's button numbering matches playback):
                clicking the cell POSTs keybind.arm-joy; the next stick button pressed lands in
                the bind and comes back through the /keybinds-config poll.
-    axis     — a few MAP-cursor rows only (docs/map-cursor.md), same plugin-side capture as
-               joystick but for a continuous HOTAS axis (keybind.arm-axis) — the row shows one
-               wide cell (no separate key/joy cells) with an invert toggle alongside.
+    axis     — a few cursor rows only (docs/map-cursor.md), same plugin-side capture as
+               joystick but for a continuous HOTAS axis (keybind.arm-axis) — the row shows the
+               axis cell in the joystick column with an invert toggle alongside.
 -->
 <link rel="stylesheet" href="/assets/shared/font.css">
 <link rel="stylesheet" href="/assets/shared/theme.css">
 <link rel="stylesheet" href="/assets/shared/page-chrome.css">
+<link rel="stylesheet" href="/assets/shared/lit-panel.css">
 <link rel="stylesheet" href="/assets/pages/keybinds/keybinds.css">
 </head>
 <body>
 
 <div class="kb-panel" id="kb-panel">
-  <!-- Way back to the display, for when this page is opened standalone (typed /keybinds, bookmarked).
-       Hidden when embedded in a shell (classic #page-frame or an F-35 portal), where the shell's own
-       MAIN key is the way back — see keybinds.js. '/' rather than a remembered shell: the
-       sticky-layout head guard there redirects to whichever one is current. -->
-  <a class="kb-back" href="/">&lt; MAIN</a>
-  <div class="kb-title">EXTENDED KEYBINDS</div>
-  <!-- A plain on/off setting, not a bind — no key/joy/axis source of its own, so it sits above the
-       table instead of as a row in it. Built by keybinds.js from /keybinds-config's "bgInput". -->
-  <div class="kb-setting" id="kb-bg-input">
-    <div class="kb-setting-text">
-      <div class="kb-name">INPUT WHEN GAME UNFOCUSED</div>
-      <div class="kb-desc">Keeps your HOTAS live while another window (like this page's browser) has
-        focus. Turn this ON if you run the MFD in a browser on the same PC as the game — otherwise
-        the game must stay focused for the stick to work, which throttles the browser in the
-        background and makes the MAP cursor stutter. Leave OFF for a tablet or phone, where the game
-        keeps focus anyway. While ON, your stick still flies the aircraft even while you're clicking
-        around in another window.</div>
-    </div>
-    <button class="kb-toggle" id="kb-bg-input-btn"></button>
-  </div>
-  <!-- Also a plain on/off setting, not a bind — and unlike every other setting/toggle on this page,
-       it's purely client-side (localStorage, docs/remote-keybinds.md), not server config, so it
-       still works even while #kb-panel is .unavailable. Kept right after INPUT WHEN GAME
-       UNFOCUSED — the two most commonly-toggled settings — rather than down with IMMERSION
-       OPTIONS below, which it isn't one of. -->
-  <div class="kb-setting" id="kb-remote-keybinds">
-    <div class="kb-setting-text">
-      <div class="kb-name">LISTEN FOR KEYBINDS (REMOTE)</div>
-      <div class="kb-desc">Lets this browser send your configured keybinds to the game. Use this for
-        a second device or WSO station, and keep it enabled on only the browser you intend to use for
-        input.</div>
-      <div class="kb-warning" id="kb-remote-same-pc-warning">This browser appears to be on the game
-        PC. The game already listens for these keys there, so enabling this can double-fire inputs.</div>
-    </div>
-    <button class="kb-toggle" id="kb-remote-keybinds-btn"></button>
-  </div>
-  <div class="kb-head">
-    <span>FUNCTION</span><span>KEYBOARD</span><span>JOYSTICK / HOTAS</span>
-  </div>
-  <div class="kb-rows" id="kb-rows"><!-- built by keybinds.js from /keybinds-config, excluding the
-    "IMMERSION OPTIONS" section — that one renders in its own block below, not this table --></div>
+  <header class="kb-top">
+    <!-- Way back to the display, for when this page is opened standalone (typed /keybinds, bookmarked).
+         Removed when embedded in a shell (classic #page-frame or an F-35 portal), where the shell's own
+         MAIN key is the way back — see keybinds.js. '/' rather than a remembered shell: the
+         sticky-layout head guard there redirects to whichever one is current. -->
+    <div class="kb-top-side"><a class="kb-back" href="/">&lt; MAIN</a></div>
+    <div class="kb-title">EXTENDED KEYBINDS</div>
+    <div class="kb-top-side kb-count" id="kb-count"></div>
+  </header>
 
-  <!-- Immersion options (docs/radar-master-arms.md, docs/power-toggle.md) — a true second section,
-       not appended content: its own EXTENDED-KEYBINDS-sized title, a description, the 4 start-state
-       settings, THEN its own table for the section's 10 binds (own header row, own rows container —
-       doesn't share #kb-head/#kb-rows above). -->
-  <div class="kb-immersion" id="kb-immersion">
-    <div class="kb-title">IMMERSION OPTIONS</div>
-    <div class="kb-immersion-desc">Cold-start controls: whether radar, engine, master arm, and power
-      start on or off when you spawn in a new aircraft, and dedicated binds to change any of them —
-      plus combat mode — in flight. Also whether combat mode drives the HUD page's own filters.</div>
+  <div class="kb-body">
+    <nav class="kb-rail" id="kb-rail" aria-label="Sections">
+      <button class="kb-rail-toggle" id="kb-rail-toggle" aria-controls="kb-rail" aria-expanded="true" title="Toggle sidebar">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"></rect><path d="M9 4v16"></path></svg>
+      </button>
+      <div id="kb-rail-links"><!-- built by keybinds.js --></div>
+    </nav>
 
-    <div class="kb-setting" id="kb-radar-on-start">
-      <div class="kb-setting-text">
-        <div class="kb-name">ENABLE RADAR ON START</div>
-        <div class="kb-desc">Radar starts ON when spawning in a new aircraft (the game's own default).
-          Turn OFF for more immersion: radar starts off, arm it yourself.</div>
-      </div>
-      <button class="kb-toggle" id="kb-radar-on-start-btn"></button>
+    <div class="kb-content">
+    <!-- Fixed above the scrolling column: it filters the binds below, not the rail. -->
+    <div class="kb-find">
+      <label class="kb-sr" for="kb-find">Find a function</label>
+      <input id="kb-find" type="search" placeholder="FIND FUNCTION OR KEY" autocomplete="off" spellcheck="false">
     </div>
-    <div class="kb-setting" id="kb-engine-on-start">
-      <div class="kb-setting-text">
-        <div class="kb-name">ENABLE ENGINE ON START</div>
-        <div class="kb-desc">Engine starts ON when spawning in a new aircraft (the game's own
-          default). Turn OFF for more immersion: engine starts off, start it yourself.</div>
-      </div>
-      <button class="kb-toggle" id="kb-engine-on-start-btn"></button>
+    <main class="kb-main" id="kb-main">
+      <!-- Plain on/off settings, not binds — no key/joy/axis source of their own, so they're
+           tiles above the tables. Built by keybinds.js from /keybinds-config. -->
+      <section id="kb-settings"></section>
+      <div id="kb-rows"><!-- built by keybinds.js from /keybinds-config --></div>
+      <div class="kb-none" id="kb-none">NO MATCHING FUNCTION</div>
+    </main>
     </div>
-    <div class="kb-setting" id="kb-master-arms-on-start">
-      <div class="kb-setting-text">
-        <div class="kb-name">ENABLE MASTER ARM ON START</div>
-        <div class="kb-desc">Master Arm starts ON (unrestricted, today's behaviour) when spawning in
-          a new aircraft. Turn OFF for more immersion: guns/missiles/bombs are blocked until you arm.</div>
-      </div>
-      <button class="kb-toggle" id="kb-master-arms-on-start-btn"></button>
-    </div>
-    <div class="kb-setting" id="kb-power-on-start">
-      <div class="kb-setting-text">
-        <div class="kb-name">ENABLE POWER ON START</div>
-        <div class="kb-desc">Power starts ON (full HUD, today's behaviour) when spawning in a new
-          aircraft. Turn OFF for more immersion: no in-cockpit HUD until you power up.</div>
-      </div>
-      <button class="kb-toggle" id="kb-power-on-start-btn"></button>
-    </div>
-    <div class="kb-setting" id="kb-hud-filters-on-combat-mode">
-      <div class="kb-setting-text">
-        <div class="kb-name">FORCE HUD FILTERS ON COMBAT MODE</div>
-        <div class="kb-desc">Switching to A/A or A/G forces the HUD page's matching preset, restoring
-          your own values on returning to idle. Off by default (today's behaviour) — turn ON to have
-          combat mode drive the HUD automatically.</div>
-      </div>
-      <button class="kb-toggle" id="kb-hud-filters-on-combat-mode-btn"></button>
-    </div>
-
-    <!-- Shared-behaviour note for this section's binds (A/A-A/G tap/hold) — same server-provided
-         notes[] text the main table's section notes use, just rendered above this table instead. -->
-    <div class="kb-note" id="kb-immersion-note"></div>
-    <div class="kb-head">
-      <span>FUNCTION</span><span>KEYBOARD</span><span>JOYSTICK / HOTAS</span>
-    </div>
-    <div class="kb-rows" id="kb-immersion-rows"><!-- built by keybinds.js: just the
-      "IMMERSION OPTIONS" section's binds --></div>
   </div>
 
   <!-- shown while /keybinds-config is unreachable (plugin not running) -->

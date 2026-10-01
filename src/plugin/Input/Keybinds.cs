@@ -155,10 +155,10 @@ namespace NOXMFD
             const string gear = "Landing Gear Keybinds";
 
             Def(config, "flares", cm, "DispenseFlares", "Flares", edge: false,
-                "Select + deploy IR flares. Tap to pop a set, hold to keep popping. No-op if the aircraft has no flares.",
+                "Deploy flares. Tap for one set, hold to keep going.",
                 ac => { var mgr = ac.countermeasureManager; if (mgr != null) Drive(ac, mgr, Flare); });
             Def(config, "jammer", cm, "ActivateRadarJammer", "Jammer", edge: false,
-                "Select + activate the radar jammer. HOLD to jam (a tap only jams ~0.1s). No-op if the aircraft has no jammer.",
+                "Activate the radar jammer. Hold to jam.",
                 ac => { var mgr = ac.countermeasureManager; if (mgr != null) Drive(ac, mgr, Jammer); });
             // A weapon-mounted ECM pod (e.g. the Medusa's Radar Jamming Pod) — a WeaponStation, not the
             // countermeasureManager-driven RadarJammer above, so it goes through WeaponSelectors like the
@@ -166,7 +166,7 @@ namespace NOXMFD
             // countermeasure-flavoured binds since there's exactly one soft selection and no cycle key
             // (see WeaponSelectors.cs).
             _jammerPod = Def(config, "jammer-pod", cm, "ActivateJammerPod", "Jamming Pod", edge: false,
-                "Select + activate a weapon-mounted radar jamming pod. HOLD to keep jamming. With another weapon selected, the first press only switches to it — press again to activate. No-op if the aircraft has no jamming pod.",
+                "Activate the jamming pod. Hold to keep jamming.",
                 WeaponSelectors.FireJammerPod);
 
             // Weapon soft-selector binds — see WeaponSelectors.cs for the model (two background
@@ -182,10 +182,10 @@ namespace NOXMFD
                 "Select a bomb.",
                 WeaponSelectors.CycleBomb);
             _gunTrigger = Def(config, "gun-trigger", wpn, "GunTrigger", "Gun Trigger", edge: false,
-                "Fire your gun; HOLD for continuous fire. With a non-gun selected, the first press only switches to the gun — press again to fire.",
+                "Fire the gun. Hold for continuous fire.",
                 WeaponSelectors.FireGun);
             _weaponRelease = Def(config, "weapon-release", wpn, "WeaponRelease", "Weapon Release", edge: false,
-                "Release your missile/bomb; HOLD to keep releasing. With a gun selected, the first press only switches to it — press again to release.",
+                "Release a missile or bomb. Hold to keep releasing.",
                 WeaponSelectors.FireRelease);
             // Single Target Weapon Release (issue #68, docs/single-target-weapon-release.md): the
             // stock trigger above fires one round per LOCKED target when 2+ are locked
@@ -197,47 +197,47 @@ namespace NOXMFD
             // IsCombinedFireBind, so a remote press fires it exactly like a local one instead of
             // being silently swallowed.
             _weaponReleaseSingle = Def(config, "weapon-release-single", wpn, "WeaponReleaseSingle", "Single Target Weapon Release", edge: false,
-                "Release one missile/bomb at only the focused locked target, even with others also locked. HOLD to keep releasing at that same target. Same switch-then-fire arbitration as Weapon Release.",
+                "Release at only the focused locked target.",
                 WeaponSelectors.FireReleaseSingle);
 
             Def(config, "gear-up", gear, "GearUp", "Gear Up", edge: true,
-                "Raise the landing gear. No-op if the gear is already up, still moving, or while on the ground.",
+                "Raise the landing gear.",
                 ac => DriveGear(ac, up: true, down: false));
             Def(config, "gear-down", gear, "GearDown", "Gear Down", edge: true,
-                "Lower the landing gear. No-op if the gear is already down, still moving, or while on the ground.",
+                "Lower the landing gear.",
                 ac => DriveGear(ac, up: false, down: true));
 
             // MAP binds — act on the focused MAP display, so DefFree like SOI. Docs/map-cursor.md.
             const string map = "MAP Keybinds";
             DefFree(config, "map-follow", map, "MapFollow", "Follow", edge: true,
-                "Toggle FLW on the focused MAP display.",
+                "Toggle FLW on the focused MAP.",
                 () => TelemetryServer.MapAction("toggle-follow"));
             // MAP has no dedicated Zoom In/Out bind here — that's the shared Cursor Zoom In/Out
             // pair (Cursor Keybinds), which also drives the manual TGP camera while it holds SOI
             // (see Poll()'s tgpSoi branch), so a HOTAS needs only one zoom control bound to reach
             // either target.
             DefFree(config, "map-route-next", map, "MapRouteNext", "Next Route", edge: true,
-                "Switch the focused MAP display's active waypoint route to the next one (R+).",
+                "Next waypoint route (R+).",
                 () => TelemetryServer.MapAction("route-next"));
             DefFree(config, "map-route-prev", map, "MapRoutePrev", "Previous Route", edge: true,
-                "Switch the focused MAP display's active waypoint route to the previous one (R-).",
+                "Previous waypoint route (R-).",
                 () => TelemetryServer.MapAction("route-prev"));
             DefFree(config, "map-waypoint-next", map, "MapWaypointNext", "Next Waypoint / Steer Point", edge: true,
-                "Step the active route to its next waypoint (W+), or select the next steer point (S+) when no route is active.",
+                "Next waypoint (W+), or steer point (S+) with no route.",
                 () => TelemetryServer.MapAction("waypoint-next"));
             // edge:false + PollTapHold (below), not a plain DefFree action — tap and hold do
             // different things, same shape as the combat-mode/TD-assign binds above.
             _mapWaypointPrev = DefFree(config, "map-waypoint-prev", map, "MapWaypointPrev", "Previous Waypoint / Steer Point", edge: false,
-                "Step the active route to its previous waypoint (W-), or select the previous steer point (S-) when no route is active. Hold to reset the active route back to its first waypoint — no-op with no active route.",
+                "Previous waypoint (W-) or steer point (S-); hold to reset the route.",
                 () => { });
 
             // TGP map/grid slew (issue #103) — the keybind twins of MAP's SLEW bezel key: slew the pod
             // to the PAD cursor at once, or open the grid keypad.
             DefFree(config, "map-slew", map, "MapSlew", "TGP Slew to Cursor", edge: true,
-                "On the focused MAP display, point the TGP at the ground under the PAD cursor (turns on manual TGP control if needed).",
+                "Point the TGP at the ground under the cursor.",
                 () => TelemetryServer.MapAction("slew-cursor"));
             DefFree(config, "map-slew-grid", map, "MapSlewGrid", "TGP Slew Grid Entry", edge: true,
-                "On the focused MAP display, open the grid keypad; ENTER points the TGP at the centre of the typed grid square.",
+                "Open the grid keypad to point the TGP at a grid square.",
                 () => TelemetryServer.MapAction("slew-keypad"));
 
             // TGT binds are DefFree like MAP above because they drive mod displays, not the aircraft.
@@ -245,20 +245,16 @@ namespace NOXMFD
             // also treats the press as a handoff from PAD-cursor hit-testing to direct row Select.
             const string tgt = "TGT Keybinds";
             DefFree(config, "tgt-next", tgt, "TgtNext", "Next Target", edge: true,
-                "Focus the next locked target across TGT/FCR/HSD; on the focused TGT display, " +
-                "Cursor Select deselects that focused row without aiming the crosshair.",
+                "Focus the next locked target.",
                 () => { TelemetryServer.MapAction("tgt-next"); CycleTargetFocus(1); });
             DefFree(config, "tgt-prev", tgt, "TgtPrev", "Previous Target", edge: true,
-                "Focus the previous locked target across TGT/FCR/HSD; on the focused TGT display, " +
-                "Cursor Select deselects that focused row without aiming the crosshair.",
+                "Focus the previous locked target.",
                 () => { TelemetryServer.MapAction("tgt-prev"); CycleTargetFocus(-1); });
             DefFree(config, "tgt-datalink", tgt, "TgtDatalink", "Clear Datalink", edge: true,
-                "Deselect every datalink-only lock, same as tapping DATALINK on a TGT display — works " +
-                "regardless of which display (if any) is focused.",
+                "Deselect every datalink-only lock.",
                 () => { TelemetryServer.MapAction("tgt-datalink"); CommandDispatcher.ClearDatalinkTargets(); });
             DefFree(config, "tgt-stale", tgt, "TgtStale", "Clear Stale", edge: true,
-                "Deselect every stale lock, same as tapping STALE on a TGT display — works regardless " +
-                "of which display (if any) is focused.",
+                "Deselect every stale lock.",
                 () => { TelemetryServer.MapAction("tgt-stale"); CommandDispatcher.ClearStaleTargets(); });
 
             // SOI binds — they drive the mod's own displays rather than the aeroplane, so they are
@@ -277,7 +273,7 @@ namespace NOXMFD
                 "Move the cursor down the focused display's key labels.",
                 () => TelemetryServer.SoiAction("down"));
             DefFree(config, "soi-select", soi, "SoiSelect", "Nav Select", edge: true,
-                "Press the label the cursor is on, as if you had clicked that key.",
+                "Press the label the cursor is on.",
                 () => TelemetryServer.SoiAction("select"));
 
             // Cursor binds — a separate section from MAP's own view controls above, since a cursor
@@ -289,19 +285,19 @@ namespace NOXMFD
             // intentionally a no-op — only Edge/held-vs-tap and the config entries matter for them.
             const string cursor = "Cursor Keybinds";
             _cursorUp    = DefFree(config, "cursor-up", cursor, "CursorUp", "Cursor Up", edge: false,
-                "Move the cursor up. Only acts while a display with a cursor is focused.", () => { });
+                "Move the cursor up.", () => { });
             _cursorDown  = DefFree(config, "cursor-down", cursor, "CursorDown", "Cursor Down", edge: false,
-                "Move the cursor down. Only acts while a display with a cursor is focused.", () => { });
+                "Move the cursor down.", () => { });
             _cursorLeft  = DefFree(config, "cursor-left", cursor, "CursorLeft", "Cursor Left", edge: false,
-                "Move the cursor left. Only acts while a display with a cursor is focused.", () => { });
+                "Move the cursor left.", () => { });
             _cursorRight = DefFree(config, "cursor-right", cursor, "CursorRight", "Cursor Right", edge: false,
-                "Move the cursor right. Only acts while a display with a cursor is focused.", () => { });
+                "Move the cursor right.", () => { });
             // edge:true still drives the instant-select edge (CursorSelect/cursorSelSeq) MAP relies
             // on; Poll() separately reads this same bind's LIVE (non-edge) held state every frame via
             // the reference below, for pages that need to tell a tap from a hold (docs/page-cursor.md
             // — TGT's PAD-cursor Select mirrors its tap/long-press cell behaviour).
             _cursorSelect = DefFree(config, "cursor-select", cursor, "CursorSelect", "Cursor Select", edge: true,
-                "Select whatever the cursor is on. In manual TGP Area or Point Track, locks a nearby unit and returns to the normal target camera.",
+                "Select whatever the cursor is on.",
                 () =>
                 {
                     TelemetryServer.CursorSelect();
@@ -315,7 +311,7 @@ namespace NOXMFD
             // has its own dedicated deselect path via row tap / focused-lock Select,
             // docs/tgt-cycle-focus.md).
             _cursorDeselect = DefFree(config, "cursor-deselect", cursor, "CursorDeselect", "Cursor Deselect", edge: true,
-                "On MAP/FCR/HSD, deselects whatever the cursor is on (Cursor Select there only ever adds a lock, never removes one). No effect elsewhere.",
+                "Deselect on MAP/FCR/HSD.",
                 () => TelemetryServer.MapAction("cursor-deselect"));
             // Analog alternative to the four direction keys above — a HOTAS mini-stick/hat gives full
             // diagonal control the keys can't (only one axis can be held "active" at a time on a
@@ -323,19 +319,19 @@ namespace NOXMFD
             // so these use AddAxis rather than DefFree — no Drive/DriveFree at all; Poll() reads
             // their live value via ReadAxis(bind), used inline rather than stored on the bind.
             _cursorAxisH = AddAxis(config, "cursor-axis-h", cursor, "CursorAxisH", "Cursor Horizontal",
-                "Analog axis (HOTAS mini-stick/hat) driving the cursor left/right — overrides Cursor Left/Right when deflected. Only acts while a display with a cursor is focused.");
+                "Analog axis for cursor left/right.");
             _cursorAxisV = AddAxis(config, "cursor-axis-v", cursor, "CursorAxisV", "Cursor Vertical",
-                "Analog axis driving the cursor up/down — overrides Cursor Up/Down when deflected. Only acts while a display with a cursor is focused.");
+                "Analog axis for cursor up/down.");
             // PAD zoom (docs/tgp-manual-control.md's PAD Cursor consolidation plan) — the manual
             // TGP camera's zoom and every other display's MAP-style zoom share this one bind pair;
             // Poll() routes it to whichever one applies to the current SOI target (see the field
             // comment above).
             _cursorZoomIn  = DefFree(config, "cursor-zoom-in", cursor, "CursorZoomIn", "Cursor Zoom In", edge: false,
-                "Zoom in the manual TGP camera while it holds SOI. Otherwise, zooms in on the focused MAP display — on a scrollable page, scrolls it up instead.", () => { });
+                "Zoom in (TGP camera or MAP).", () => { });
             _cursorZoomOut = DefFree(config, "cursor-zoom-out", cursor, "CursorZoomOut", "Cursor Zoom Out", edge: false,
-                "Zoom out the manual TGP camera while it holds SOI. Otherwise, zooms out on the focused MAP display — on a scrollable page, scrolls it down instead.", () => { });
+                "Zoom out (TGP camera or MAP).", () => { });
             _cursorZoomAxis = AddAxis(config, "cursor-zoom-axis", cursor, "CursorZoomAxis", "Cursor Zoom Axis",
-                "Calibrated analog axis (e.g. a HOTAS slider) — moving the axis jumps the manual TGP camera's zoom to that absolute position, min to max. Cursor Zoom In/Out still work while the axis is stationary. Only acts while the manual TGP camera holds SOI.");
+                "Slider axis for absolute TGP camera zoom.");
 
             // TGP manual control binds (docs/tgp-manual-control.md) — lifecycle only; pan/tilt/zoom
             // live on the PAD Cursor set above instead (the PAD Cursor consolidation plan), so a
@@ -344,47 +340,31 @@ namespace NOXMFD
             // TargetCam.
             const string tgp = "TGP Keybinds";
             DefFree(config, "tgp-manual-toggle", tgp, "TgpManualToggle", "Manual Control Toggle", edge: true,
-                "Toggle manual TGP pointing on/off. Centers on the aircraft's nose at minimum zoom on entry, and claims PAD Cursor SOI immediately. Auto-exits on a real target lock, aircraft loss, or a landing-gear/cam conflict.",
+                "Manual TGP pointing on/off; claims the cursor.",
                 () => TgpManualControl.Toggle());
             DefFree(config, "tgp-manual-reset", tgp, "TgpManualReset", "Manual Control Reset", edge: true,
-                "Recenter the TGP manual camera on the aircraft's forward direction at minimum zoom.",
+                "Recenter forward at minimum zoom.",
                 () => TgpManualControl.Reset());
             DefFree(config, "tgp-point-track", tgp, "TgpPointTrack", "Point Track", edge: true,
-                "Lock the TGP manual camera onto whatever it's currently pointed at — it holds that " +
-                "world point steady as the aircraft moves, instead of a fixed direction. Press again " +
-                "to release; Pan/Tilt nudges the point and redesignates on release. Only acts while " +
-                "TGP manual control is on.",
+                "Lock the camera onto the point it is aimed at.",
                 () => TgpManualControl.TogglePointTrack());
             DefFree(config, "tgp-manual-snap-headtracker", tgp, "TgpManualSnapHeadTracker", "Snap To Head Tracker", edge: true,
-                "Point the TGP manual camera wherever your own view currently looks — TrackIR, VR " +
-                "head tracking, or plain mouse-look. Releases Point Track if it was active. Only " +
-                "acts while TGP manual control is on.",
+                "Point the camera where your view looks.",
                 () => TgpManualControl.SnapToHeadTracker());
             DefFree(config, "tgp-manual-ir-toggle", tgp, "TgpManualIrToggle", "Toggle IR", edge: true,
-                "Switch the active TGP camera between COLOR and IR — the manual camera, or a real " +
-                "unit lock. The game normally switches this automatically by time of day/distance/" +
-                "the \"always IR\" setting; this bind overrides that with your own choice, which " +
-                "sticks until you flip it again.",
+                "Switch the camera between COLOR and IR.",
                 () => TgpManualControl.ToggleIR());
             DefFree(config, "tgp-view-toggle", tgp, "TgpViewToggle", "Toggle View", edge: true,
-                "Switch the TGP page's VIEW between WTV (wide target view, the default — a 2+ " +
-                "target lock zooms out to fit all of them) and STV (single target view — frames " +
-                "just whichever target Next/Previous Target currently has focused). No effect " +
-                "with 0-1 locked targets.",
+                "Switch the TGP view between WTV and STV.",
                 () => TgpSingleTargetView.ToggleStv());
             DefFree(config, "tgp-mark-steerpoint", tgp, "TgpMarkSteerPoint", "Mark Steer Point", edge: true,
-                "Mark whatever the TGP camera is currently showing — a real unit lock's position, or " +
-                "the manual camera's current aim point — as a new steer point (see WPT). Does nothing " +
-                "with neither a lock nor manual control on.",
+                "Mark what the camera shows as a steer point.",
                 () => TgpManualControl.MarkSteerPoint());
             DefFree(config, "tgp-fullscreen-toggle", tgp, "TgpFullscreenToggle", "Full Screen Toggle", edge: true,
-                "Show the TGP camera feed full screen — a cinematic, independently rendered view, " +
-                "not a stretch of the small in-cockpit screen. Auto-exits on aircraft loss, a " +
-                "landing-gear/cam conflict, or opening the pause menu/map.",
+                "Show the TGP feed full screen.",
                 () => TgpFullScreen.Toggle());
             DefFree(config, "tgp-fullscreen-hud-toggle", tgp, "TgpFullscreenHudToggle", "Full Screen HUD Toggle", edge: true,
-                "Show or hide the readout overlay (range/altitude/heading/mode) while TGP full " +
-                "screen is active — off for a clean, unobstructed view of the feed itself.",
+                "Show or hide the full-screen readout overlay.",
                 () => TgpFullScreen.ToggleHud());
 
             // Layout keybinds (issue #51 follow-up) — SAVE/LOAD LAYOUT. Unlike every bind above, the
@@ -394,9 +374,9 @@ namespace NOXMFD
             // connected browser via /keybinds-config, instead of each browser guessing its own.
             const string layout = "Layout Keybinds";
             DefKeyOnly(config, "layout-save", layout, "LayoutSave", "Save Layout",
-                "Save the current screen layout under a name.");
+                "Save the current layout.");
             DefKeyOnly(config, "layout-load", layout, "LayoutLoad", "Load Layout",
-                "Load a previously saved screen layout.");
+                "Open the saved layouts list.");
 
             // Layout preset keybinds (issue #90) — slot N loads the Nth saved layout of whichever view
             // (CLASSIC/F-35) the receiving browser shows: position-based, not tied to one layout. A
@@ -409,7 +389,7 @@ namespace NOXMFD
                 // Literal id (not the LayoutSlotPrefix const) so tools/keybinds_source.py can read it.
                 string act = "layout-preset-" + p;
                 DefFree(config, "layout-preset-" + p, layoutPresets, "LayoutPreset" + p, "Layout " + p, edge: true,
-                    "Load saved layout " + p + " of the view the browser is showing.",
+                    "Load saved layout " + p + ".",
                     () => TelemetryServer.MapAction(act));
             }
 
@@ -424,7 +404,7 @@ namespace NOXMFD
             {
                 int presetIndex = p;   // capture per-iteration, not the loop variable
                 DefFree(config, "hud-preset-" + p, hudPresets, "HudPreset" + p, "HUD Preset " + p, edge: true,
-                    "Load HUD preset " + p + "'s saved filters onto the HUD page.",
+                    "Load HUD preset " + p + ".",
                     () => HudPresetStore.LoadPreset(presetIndex));
             }
 
@@ -435,7 +415,7 @@ namespace NOXMFD
             {
                 int presetIndex = p;   // capture per-iteration, not the loop variable
                 DefFree(config, "tgt-preset-" + p, tgtPresets, "TgtPreset" + p, "TGT Preset " + p, edge: true,
-                    "Load TGT preset " + p + "'s saved filters onto the TGT page.",
+                    "Load TGT preset " + p + ".",
                     () => TgtPresetStore.LoadPreset(presetIndex));
             }
 
@@ -454,16 +434,16 @@ namespace NOXMFD
             // fire exactly once, not repeatedly.
             const string immersion = "Immersion Keybinds";
             DefFree(config, "master-arms-on", immersion, "MasterArmsOn", "Master Arm ON", edge: true,
-                "Arm — guns/missiles/bombs free to fire.",
+                "Arm — guns, missiles and bombs free to fire.",
                 () => ImmersionState.MasterArmsOn = true);
             DefFree(config, "master-arms-off", immersion, "MasterArmsOff", "Master Arm OFF", edge: true,
-                "Disarm — guns/missiles/bombs blocked.",
+                "Disarm — guns, missiles and bombs blocked.",
                 () => ImmersionState.MasterArmsOn = false);
             DefFree(config, "power-on", immersion, "PowerOn", "Power ON", edge: true,
                 "Restore power — the in-cockpit HUD reappears.",
                 () => ImmersionState.PowerOn = true);
             DefFree(config, "power-off", immersion, "PowerOff", "Power OFF", edge: true,
-                "Cut power — the entire in-cockpit HUD disappears (no display, no symbology).",
+                "Cut power — the entire in-cockpit HUD disappears.",
                 () => ImmersionState.PowerOn = false);
             Def(config, "radar-on", immersion, "RadarOn", "Radar ON", edge: true,
                 "Turn the radar on.",
@@ -478,21 +458,15 @@ namespace NOXMFD
                 "Turn the engine off.",
                 ac => SetEngine(ac, on: false));
             _combatModeAa = DefFree(config, "combat-mode-aa", immersion, "CombatModeAA", "A/A", edge: false,
-                "Tap to restrict Cycle Missile to air-to-air missiles only, and disable Cycle Bombs — " +
-                "also switches away from a currently selected bomb or A/G missile: first available A/A " +
-                "missile, else first gun (guns already selected are left alone). Hold to reset to ALL " +
-                "(unrestricted).", () => { });
+                "Air-to-air missiles only; disables Cycle Bombs.", () => { });
             _combatModeAg = DefFree(config, "combat-mode-ag", immersion, "CombatModeAG", "A/G", edge: false,
-                "Tap to restrict Cycle Missile to air-to-ground missiles only — also switches away from " +
-                "a currently selected A/A missile: first available A/G missile, else first bomb, else " +
-                "first gun (guns already selected are left alone). Hold to reset to ALL (unrestricted).",
+                "Air-to-ground missiles only.",
                 () => { });
 
             // issue #84 — see ToggleUnits() below for what it does and why.
             const string units = "Units Keybinds";
             DefFree(config, "units-toggle", units, "UnitsToggle", "Toggle Units", edge: true,
-                "Switch every readout (cockpit HUD, NOXMFD pages) between Metric and Imperial — the " +
-                "same setting as the pause menu's Gameplay options.",
+                "Switch every readout between Metric and Imperial.",
                 ToggleUnits);
 
             // issue #43 proof-of-concept only (docs/internal-mfd.md) — toggles native NOXMFD page
@@ -500,8 +474,7 @@ namespace NOXMFD
             // own cockpit TacScreen canvas.
             const string mfd = "Internal MFD Keybinds";
             DefFree(config, "internal-mfd-poc-toggle", mfd, "InternalMfdPocToggle", "Internal MFD POC Toggle", edge: true,
-                "POC only: show/hide native HSD/RWR/TGP content on the cockpit's tactical screen, " +
-                "instead of only serving pages to an external browser.",
+                "POC: native pages on the cockpit tactical screen.",
                 () => InternalMfdController.Toggle());
 
             // Hidden like the binds above — the /keybinds page owns this one too now (rendered as a
@@ -645,55 +618,23 @@ namespace NOXMFD
         internal static string? SectionNote(string section) => section switch
         {
             "MAP Keybinds" =>
-                "Follow / Next & Previous Route / Next & Previous Waypoint or Steer Point are direct " +
-                "binds for what the bezel's FLW, R+/R-, and context-sensitive W+/W- or S+/S- keys do " +
-                "on the focused MAP display. The waypoint pair steps an active route; with no route " +
-                "active, the same pair cycles saved steer points. Zoom " +
-                "In/Out moved to the shared Cursor Zoom In/Out (see Cursor Keybinds).",
+                "Direct binds for the bezel's FLW, R+/R-, W+/W- (S+/S-) on the focused MAP.",
             "TGT Keybinds" =>
-                "All four act regardless of which display is focused (or whether one is). Next/Previous " +
-                "focus a locked target across TGT/FCR/HSD; on the focused TGT display, they also hide " +
-                "the crosshair and hand Cursor Select to the focused row — moving Cursor Up/Down/Left/" +
-                "Right (or its axis) hands Select back to the crosshair. Datalink/Stale deselect those " +
-                "locks everywhere, same as tapping the DATALINK/STALE buttons.",
+                "These act regardless of which display is focused.",
             "SOI Keybinds" =>
-                "One display at a time is the sensor of interest — it rings itself in white, and these " +
-                "keys drive it. Nothing is focused until you press SOI Next or Prev; from there they " +
-                "cycle through the open displays.",
+                "One display at a time is the sensor of interest, ringed in white.",
             "Cursor Keybinds" =>
-                "Moves a cursor over whichever focused display has one (MAP, for now) and selects what " +
-                "it's on. Cursor Horizontal/Vertical are the same movement as an analog HOTAS axis — " +
-                "bind either or both; a deflected axis overrides its two keys. Cursor Zoom In/Out zoom " +
-                "the manual TGP camera (see TGP Keybinds) while it holds SOI, and otherwise zoom the " +
-                "focused MAP display (or scroll a scrollable page) — the same behavior MAP's old " +
-                "dedicated Zoom In/Out gave. Zoom Axis is camera-only: a calibrated slider whose moved " +
-                "position jumps the camera's zoom to that absolute level, while Zoom In/Out still work " +
-                "between axis moves.",
+                "A deflected axis overrides its two keys. Zoom drives the TGP camera while it holds SOI, otherwise the focused MAP.",
             "Weapon Keybinds" =>
-                "Cycle keys select the last soft-selected weapon of their type, or the first in the list. " +
-                "Repeated presses cycle to the next one, skipping depleted weapons. " +
-                "Cycling to a different type leaves the current one soft-selected.",
+                "Cycle keys pick the last soft-selected weapon of their type, then step through, skipping depleted ones.",
             "TGP Keybinds" =>
-                "Manual pointing of the targeting-pod camera, independent of the game's own auto-lock. " +
-                "Pointing itself uses the shared PAD Cursor binds (see Cursor Keybinds), not a " +
-                "dedicated pan/tilt/zoom of its own — toggling manual control on claims PAD Cursor SOI " +
-                "immediately, and SOI Next/Prev can tab away to another display and back without " +
-                "exiting manual mode. Point Track locks the camera onto whatever it's aimed at; the " +
-                "cursor nudges and redesignates on release. Off by default; toggling on centers at " +
-                "minimum zoom, and auto-exits the moment a real target locks, the aircraft is lost, or " +
-                "gear/landing cam takes over.",
+                "Manual pointing uses the shared Cursor binds and exits when a real target locks.",
             "Layout Keybinds" =>
-                "Keyboard only, no joystick/HOTAS. Acts on whichever browser window has focus when " +
-                "pressed, and applies to every connected browser. Also settable on the LYT page.",
+                "Keyboard only. Applies to every connected browser.",
             "Layout Preset Keybinds" =>
-                "Layout N loads the Nth saved layout for the view (CLASSIC or F-35) the browser is " +
-                "showing; also settable on the LYT page's saved layouts (CLASSIC) or in the F-35's " +
-                "LOAD LAYOUT list. A key pressed in a browser " +
-                "loads there; a joystick button (or a key while the game window has focus) loads in " +
-                "the browser holding SOI. A key or button already used by another bind is refused.",
+                "Layout N loads the Nth saved layout for the view shown.",
             "Immersion Keybinds" =>
-                "A/A and A/G each restrict Cycle Missile on a tap; hold either one to reset to ALL " +
-                "(unrestricted). Every other bind here is a plain dedicated action.",
+                "Tap to restrict Cycle Missiles; hold either to reset to ALL.",
             _ => null,
         };
 

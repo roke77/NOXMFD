@@ -935,18 +935,49 @@ def _soi_command(env):
 # deadline — no threads).
 keybinds_source.self_check(REPO)
 KEYBINDS, _KEYBIND_NOTES = keybinds_source.load_keybinds(REPO)
-# Seed already-bound examples so the preview shows what a bound row looks like: a key plus a
-# joystick button, SAVE LAYOUT as a chord (stored "LeftShift+S" form), Layout 1 on a key and Layout 2
-# on a joystick button. LOAD LAYOUT stays unbound so the unset state shows too.
+# Seed already-bound examples so the preview shows what a bound row looks like: keys, joystick
+# buttons pinned to a stick ("J1" = stick, "J2" = throttle), chords (stored "LeftShift+S" form), an
+# inverted axis, and a mix of unbound rows so the unset state shows too.
+# Each button number is used once per stick, as a real setup would have it.
+_KEYBIND_SEEDS = {
+    # 01 Systems
+    "power-on": {"key": "P"}, "power-off": {"key": "LeftShift+P"},
+    "radar-on": {"key": "R"}, "radar-off": {"key": "LeftShift+R"},
+    "engine-on": {"key": "E", "joyButton": 11, "joyNum": 2},
+    "master-arms-on": {"key": "M", "joyButton": 12, "joyNum": 2},
+    "gear-up": {"key": "LeftShift+G", "joyButton": 14, "joyNum": 1}, "gear-down": {"key": "G", "joyButton": 15, "joyNum": 1},
+    # 02 Combat
+    "combat-mode-aa": {"key": "Alpha1", "joyButton": 9, "joyNum": 1}, "combat-mode-ag": {"key": "Alpha2", "joyButton": 10, "joyNum": 1},
+    "cycle-guns": {"joyButton": 5, "joyNum": 1}, "cycle-missiles": {"joyButton": 6, "joyNum": 1},
+    "gun-trigger": {"joyButton": 1, "joyNum": 1}, "weapon-release": {"key": "Space", "joyButton": 2, "joyNum": 1},
+    "weapon-release-single": {"joyButton": 3, "joyNum": 1},
+    "flares": {"key": "F", "joyButton": 4, "joyNum": 1}, "jammer": {"key": "J", "joyButton": 3, "joyNum": 2},
+    # 03 Sensors
+    "tgt-next": {"key": "RightBracket", "joyButton": 7, "joyNum": 2}, "tgt-prev": {"key": "LeftBracket", "joyButton": 8, "joyNum": 2},
+    "tgp-manual-toggle": {"key": "T", "joyButton": 9, "joyNum": 2}, "tgp-point-track": {"joyButton": 10, "joyNum": 2},
+    "tgp-manual-ir-toggle": {"key": "I"}, "tgp-fullscreen-toggle": {"key": "F9"},
+    # 04 Display control
+    "soi-next": {"key": "Tab", "joyButton": 5, "joyNum": 2}, "soi-prev": {"key": "LeftShift+Tab", "joyButton": 6, "joyNum": 2},
+    "soi-nav-up": {"joyButton": 16, "joyNum": 2}, "soi-nav-down": {"joyButton": 17, "joyNum": 2},
+    "soi-select": {"joyButton": 18, "joyNum": 2},
+    "cursor-up": {"key": "UpArrow"}, "cursor-down": {"key": "DownArrow"},
+    "cursor-left": {"key": "LeftArrow"}, "cursor-right": {"key": "RightArrow"},
+    "cursor-select": {"key": "Return", "joyButton": 1, "joyNum": 2},
+    "cursor-deselect": {"key": "Backspace", "joyButton": 2, "joyNum": 2},
+    "cursor-zoom-in": {"key": "Equals"}, "cursor-zoom-out": {"key": "Minus"},
+    "cursor-axis-h": {"axis": 3, "axisNum": 2}, "cursor-axis-v": {"axis": 4, "axisNum": 2, "axisInvert": True},
+    # 05 Navigation
+    "map-follow": {"key": "L"}, "map-waypoint-next": {"key": "Period"}, "map-waypoint-prev": {"key": "Comma"},
+    # 06 MFD setup
+    "layout-save": {"key": "LeftShift+S"}, "layout-load": {"key": "LeftShift+L"},
+    "layout-preset-1": {"key": "F1"}, "layout-preset-2": {"joyButton": 7, "joyNum": 1},
+    "layout-preset-3": {"key": "LeftControl+Alpha3"},
+    "hud-preset-1": {"joyButton": 19, "joyNum": 2}, "hud-preset-2": {"joyButton": 20, "joyNum": 2},
+    "tgt-preset-1": {"key": "F5"}, "tgt-preset-2": {"key": "F6"},
+    "units-toggle": {"key": "U"},
+}
 for _b in KEYBINDS:
-    if _b["id"] == "jammer":
-        _b["key"], _b["joyButton"], _b["joyNum"] = "J", 3, 2
-    elif _b["id"] == "layout-save":
-        _b["key"] = "LeftShift+S"
-    elif _b["id"] == "layout-preset-1":
-        _b["key"] = "F1"
-    elif _b["id"] == "layout-preset-2":
-        _b["joyButton"], _b["joyNum"] = 7, 1
+    _b.update(_KEYBIND_SEEDS.get(_b["id"], {}))
 KB_STATE = {"capturing": None, "capturingKind": None, "armed_at": 0.0, "bgInput": False,
             "rejected": {"seq": 0, "bind": "", "by": ""},
             "radarOnOnStart": True, "engineOnOnStart": True, "masterArmsOnOnStart": True,
