@@ -8,7 +8,7 @@
   cursor: pointer;
   user-select: none;
 }
-.doc-row:hover { background: rgba(255, 255, 255, 0.06); }
+.doc-row:hover { background: var(--no-hover-wash); }
 
 #doc-empty { position: absolute; }
 

@@ -5,7 +5,7 @@
 // Contacts: each 'rwr' postMessage carries nose-up plot data, already converted by ClientPage —
 // { az (deg clockwise from nose), d (0..1 radius), tr (tier 0 search / 1 track / 2 lock),
 // fr (0..1 ping freshness), n (label), k (kind) }.
-var RWR_COL = ['#dcdcdc', '#ffd21e', '#ff3b30'];
+var RWR_COL = ['var(--no-threat-white)', 'var(--no-threat-yellow)', 'var(--no-threat-red)'];
 var rwrItems = [];
 function rwrShort(n) {
   if (!n) return '';
@@ -66,7 +66,7 @@ function renderThreats() {
       var na = m.nb * Math.PI / 180, ns = Math.sin(na), nc = Math.cos(na);
       out += '<line x1="' + (cx + ns * R).toFixed(1) + '" y1="' + (cy - nc * R).toFixed(1) +
              '" x2="' + (cx - ns * R).toFixed(1) + '" y2="' + (cy + nc * R).toFixed(1) +
-             '" stroke="#ffd21e" stroke-width="3" stroke-dasharray="14 12"/>';
+             '" stroke="var(--no-threat-yellow)" stroke-width="3" stroke-dasharray="14 12"/>';
     }
     // Missile at a proximity radius (closer -> nearer centre), so the line shortens as it closes.
     var frac = Math.max(0, Math.min(1, (typeof m.rng === 'number' ? m.rng : RMAX) / RMAX));
@@ -74,14 +74,14 @@ function renderThreats() {
     var mx = cx + sn * tr,  my = cy - cs * tr;
     var ix = cx + sn * RIN, iy = cy - cs * RIN;
     out += '<line x1="' + mx.toFixed(1) + '" y1="' + my.toFixed(1) + '" x2="' + ix.toFixed(1) +
-           '" y2="' + iy.toFixed(1) + '" stroke="#ff3b30" stroke-width="3" stroke-linecap="round"/>';
+           '" y2="' + iy.toFixed(1) + '" stroke="var(--no-threat-red)" stroke-width="3" stroke-linecap="round"/>';
     var ux = -sn, uy = cs, qx = cs, qy = sn, HL = 36, HB = 8, HW = 10;   // slender dart (currentColor, flickers)
     out += '<polygon points="' + (mx + ux * HL).toFixed(1) + ',' + (my + uy * HL).toFixed(1) + ' ' +
            (mx - ux * HB + qx * HW).toFixed(1) + ',' + (my - uy * HB + qy * HW).toFixed(1) + ' ' +
            (mx - ux * HB - qx * HW).toFixed(1) + ',' + (my - uy * HB - qy * HW).toFixed(1) + '" fill="currentColor"/>';
     var lr = tr + 34, lx = cx + sn * lr, ly = cy - cs * lr;
     var label = (m.st ? m.st + ' ' : '') + (typeof m.rng === 'number' ? fmtMwRng(m.rng) : '');
-    out += '<text x="' + lx.toFixed(1) + '" y="' + (ly + 10).toFixed(1) + '" fill="#ff3b30" text-anchor="' +
+    out += '<text x="' + lx.toFixed(1) + '" y="' + (ly + 10).toFixed(1) + '" fill="var(--no-threat-red)" text-anchor="' +
            (sn >= 0 ? 'start' : 'end') + '">' + label + '</text>';
   });
   g.innerHTML = out;
@@ -102,7 +102,7 @@ if (typeof window !== 'undefined' && window.addEventListener) {
     var g = document.getElementById('rwr-threats');
     if (!g || !g.firstChild) return;
     mwFlip = !mwFlip;
-    g.style.color = mwFlip ? '#ffd21e' : '#ff3b30';
+    g.style.color = mwFlip ? 'var(--no-threat-yellow)' : 'var(--no-threat-red)';
   }, 130);
   renderRwr();
   renderThreats();

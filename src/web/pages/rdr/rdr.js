@@ -11,13 +11,13 @@ var DEF_CONE = 60;                             // fallback azimuth half-angle wh
 // scope's range unit; M_TO_FT is the plain metres->feet factor UnitConverter.AltitudeReading uses.
 var M_PER_NM = 1852, M_PER_KM = 1000, M_TO_FT = 3.28084;
 
-// Mirror theme.css's --no-white/--no-red/--no-amber/--no-purple/--no-blue — SVG string-building
-// here can't use CSS var(), so these are plain literals kept in sync by hand.
+// Theme colours (shared/colors.css) as var() strings, resolved by the inline SVG they're written
+// into.
 // CURSOR_WHITE is the PAD cursor gate's own color (drawCursor/bar below), matching HSD's own
 // cursor — unrelated to RED, the enemy-air own-radar contact color (not green, which stays free
 // to mean "friendly" if that symbology is ever added).
-var CURSOR_WHITE = '#e6ebef', RED = '#ff4040', AMBER = '#ffaa00', PURPLE = 'rgb(179, 136, 255)';
-var BLUE = '#4d9fff';   // pitbull missile triangle fill (issue #40) — the "this is MY missile" cue,
+var CURSOR_WHITE = 'var(--no-white)', RED = 'var(--no-red)', AMBER = 'var(--no-amber)', PURPLE = 'var(--no-purple)';
+var BLUE = 'var(--no-blue)';   // pitbull missile triangle fill (issue #40) — the "this is MY missile" cue,
                          // distinct from RWR's inbound-threat red/yellow
 var state = { present: false, range: 0, cone: 0, metric: false, radarOn: false, levelTime: 0, items: [], pb: [], focusedTargetId: 0 };
 
@@ -233,10 +233,10 @@ function renderGrid() {
   var topHalf = Math.tan(ch * Math.PI / 180) * HGT;   // horizontal spread of the cone at scope top
   var lx = Math.max(L, MIDX - topHalf), rx = Math.min(R, MIDX + topHalf);
   var out = '';
-  out += line(MIDX, BOT, lx, TOP, 'rgba(255,255,255,0.22)', 1.5);
-  out += line(MIDX, BOT, rx, TOP, 'rgba(255,255,255,0.22)', 1.5);
-  out += line(MIDX, BOT, MIDX, TOP, 'rgba(255,255,255,0.14)', 1);
-  out += line(L, TOP + HGT / 2, R, TOP + HGT / 2, 'rgba(255,255,255,0.28)', 1.5, '6 12');
+  out += line(MIDX, BOT, lx, TOP, 'rgba(var(--no-pure-white-rgb),0.22)', 1.5);
+  out += line(MIDX, BOT, rx, TOP, 'rgba(var(--no-pure-white-rgb),0.22)', 1.5);
+  out += line(MIDX, BOT, MIDX, TOP, 'rgba(var(--no-pure-white-rgb),0.14)', 1);
+  out += line(L, TOP + HGT / 2, R, TOP + HGT / 2, 'rgba(var(--no-pure-white-rgb),0.28)', 1.5, '6 12');
   g.innerHTML = out;
 }
 
@@ -276,7 +276,7 @@ function renderContacts() {
     // Hover highlight: a soft ring under whatever the cursor is nearest (docs/rdr-page.md).
     if (c.id === hoveredId)
       out += '<circle cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) +
-             '" r="22" fill="none" stroke="rgba(255,255,255,0.55)" stroke-width="2"/>';
+             '" r="22" fill="none" stroke="rgba(var(--no-pure-white-rgb),0.55)" stroke-width="2"/>';
     // Brick.
     out += '<rect x="' + (p.x - 8).toFixed(1) + '" y="' + (p.y - 8).toFixed(1) +
            '" width="16" height="16" fill="' + col + '"/>';
@@ -398,7 +398,7 @@ if (typeof window !== 'undefined' && window.addEventListener) {
     var g = document.getElementById('rdr-pitbull');
     if (!g || !g.querySelector('line')) return;
     pbFlip = !pbFlip;
-    g.style.color = pbFlip ? '#ffd21e' : '#ff3b30';
+    g.style.color = pbFlip ? 'var(--no-threat-yellow)' : 'var(--no-threat-red)';
   }, 130);
 
   // The PAD acquisition cursor (two vertical bars) reuses the shared pad-cursor integrator. Loaded

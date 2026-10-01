@@ -333,14 +333,15 @@ function paintAfmDamage() {
     const data = map[name];
     const rt = +el.dataset.rt || 30;
     if (data && data.d) {
-      el.style.backgroundColor = 'rgb(178, 0, 64)';
+      el.style.backgroundColor = 'var(--no-afm-destroyed)';
       el.style.opacity = '1';
       continue;
     }
     const hp = data ? data.hp : 100;
     const cond = Math.max((hp - rt) / (100 - rt), 0);
     const g = Math.min(cond * 2, 1);
-    el.style.backgroundColor = 'rgb(255,' + Math.round(g * 255) + ',0)';
+    el.style.backgroundColor = 'color-mix(in srgb, var(--no-afm-damaged-light) ' + Math.round(g * 100) +
+      '%, var(--no-afm-damaged-heavy))';
     el.style.opacity = (1 - cond).toFixed(3);
   }
 }

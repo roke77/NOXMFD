@@ -73,9 +73,10 @@ telemetry stream (optionally replaying a real capture — see `tools/capture_ass
 so most UI work can be iterated on without Nuclear Option open at all. It reads files
 off disk per request, so edits show up on refresh with no restart needed.
 
-Use the shared color tokens in `src/web/shared/theme.css` (`var(--no-green)`,
-`--no-red`, `--no-bg`, etc.) instead of hardcoding hex values, unless there's a specific
-reason not to (call it out if so).
+Every color lives in `src/web/shared/colors.css` as a named token (`var(--no-green)`,
+`--no-red`, `--no-bg`, etc.). Page CSS and JS read those tokens and never hardcode a color;
+a color that isn't there yet gets a name in `colors.css` first. Canvas code, which can't
+resolve `var()`, reads the computed value (see `theme()` in `pages/map/map.js`).
 
 ## Testing
 

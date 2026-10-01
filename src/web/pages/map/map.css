@@ -72,7 +72,7 @@ main { flex: 1; display: flex; overflow: hidden; }
   position: absolute;
   inset: 0;
   z-index: 40;
-  background: rgba(0, 0, 0, 0.72);
+  background: var(--no-scrim-deep);
   display: flex;
   align-items: center;
   justify-content: center;

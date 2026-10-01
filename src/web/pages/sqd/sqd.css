@@ -115,13 +115,13 @@ html, body { height: 100%; overflow: hidden; }
   cursor: pointer;
 }
 .sqd-btn:hover { background: var(--no-green); color: var(--no-ink); }
-.sqd-btn-red { border-color: #5a2323; color: var(--no-red); }
+.sqd-btn-red { border-color: var(--no-red-line); color: var(--no-red); }
 .sqd-btn-red:hover { background: var(--no-red); color: var(--no-ink); }
-.sqd-btn-dim { border-color: #2c3431; color: var(--no-white-dim); }
+.sqd-btn-dim { border-color: var(--no-line); color: var(--no-white-dim); }
 .sqd-btn-dim:hover { background: var(--no-white-dim); color: var(--no-ink); }
 .sqd-btn-squad { border-color: var(--no-squad); color: var(--no-squad); }
 .sqd-btn-squad:hover { background: var(--no-squad); color: var(--no-ink); }
-.sqd-btn-lg { height: 46px; padding: 0 26px; font-size: 15px; letter-spacing: 3px; box-shadow: 0 0 8px #0f4a0f; }
+.sqd-btn-lg { height: 46px; padding: 0 26px; font-size: 15px; letter-spacing: 3px; box-shadow: 0 0 8px var(--no-green-glow); }
 /* CREATE while our own incoming invite(s) await a decision: Squad.cs's CreateSquad refuses until
    they're answered, so it reads as unavailable (the title carries why). */
 .sqd-btn:disabled { color: var(--no-gray); border-color: var(--no-panel-border); box-shadow: none; cursor: default; }
@@ -136,12 +136,12 @@ html, body { height: 100%; overflow: hidden; }
   min-height: 62px;
   padding: 0 10px 0 12px;
   box-sizing: border-box;
-  border: 1px solid #1f4a4a;
+  border: 1px solid var(--no-squad-line);
   border-radius: 4px;
-  background: #040808;
+  background: var(--no-squad-bg);
   margin-bottom: 14px;
 }
-.sqd-squad-card.sqd-editing { border-color: var(--no-amber); background: #0c0a04; gap: 10px; }
+.sqd-squad-card.sqd-editing { border-color: var(--no-amber); background: var(--no-amber-bg); gap: 10px; }
 .sqd-squad-title { font-size: 30px; line-height: 1; letter-spacing: 4px; color: var(--no-squad); white-space: nowrap; }
 .sqd-squad-card .sqd-note { flex: none; font-size: 13px; color: var(--no-white-dim); }
 
@@ -149,8 +149,8 @@ select {
   height: 40px;
   min-width: 170px;
   padding: 0 10px;
-  background: #060807;
-  border: 1px solid #2e7a2e;
+  background: var(--no-control-bg);
+  border: 1px solid var(--no-green-deep);
   border-radius: 3px;
   color: var(--no-green);
   font-family: var(--no-font);
@@ -165,16 +165,16 @@ select:focus { outline: 1px solid var(--no-green-dim); }
   width: 34px;
   height: 40px;
   padding: 0;
-  border: 1px solid #2c3431;
+  border: 1px solid var(--no-line);
   border-radius: 3px;
-  background: #060807;
+  background: var(--no-control-bg);
   color: var(--no-white-dim);
   font-family: var(--no-font);
   font-size: 16px;
   cursor: pointer;
 }
 .sqd-flight-btn:hover { border-color: var(--no-green-dim); color: var(--no-green); }
-.sqd-flight-btn.on { border-color: var(--no-green); background: #0a0f0b; color: var(--no-green); box-shadow: 0 0 6px var(--no-green); }
+.sqd-flight-btn.on { border-color: var(--no-green); background: var(--no-control-bg-on); color: var(--no-green); box-shadow: 0 0 6px var(--no-green); }
 
 /* ── CREATE SQUAD panel ── */
 .sqd-create {
@@ -182,9 +182,9 @@ select:focus { outline: 1px solid var(--no-green-dim); }
   flex-direction: column;
   gap: 16px;
   padding: 16px 18px;
-  border: 1px solid #2c3431;
+  border: 1px solid var(--no-line);
   border-radius: 4px;
-  background: #050806;
+  background: var(--no-form-bg);
 }
 .sqd-create-title { font-size: 13px; letter-spacing: 4px; color: var(--no-green-dim); }
 .sqd-form-line { display: flex; align-items: center; gap: 12px; }
@@ -201,9 +201,9 @@ select:focus { outline: 1px solid var(--no-green-dim); }
   min-height: 58px;
   padding: 0 10px 0 12px;
   box-sizing: border-box;
-  border: 1px solid #1f4a4a;
+  border: 1px solid var(--no-squad-line);
   border-radius: 4px;
-  background: #040808;
+  background: var(--no-squad-bg);
 }
 .sqd-invite-card + .sqd-invite-card { margin-top: 8px; }
 .sqd-invite-key { font-size: 24px; letter-spacing: 3px; color: var(--no-squad); white-space: nowrap; }
@@ -231,22 +231,22 @@ select:focus { outline: 1px solid var(--no-green-dim); }
   padding: 0 12px 6px 10px;
   font-size: 11px;
   letter-spacing: 3px;
-  color: #5a6066;
+  color: var(--no-text-faint);
 }
 .sqd-squad-row {
   min-height: 52px;
   margin-bottom: 6px;
   padding: 0 8px 0 10px;
   box-sizing: border-box;
-  border: 1px solid #15201a;
+  border: 1px solid var(--no-card-line);
   border-radius: 4px;
-  background: #040604;
+  background: var(--no-card-bg);
 }
-.sqd-squad-row.self { border-color: #2e7a2e; background: #07100a; }
-.sqd-squad-row.open { border-style: dashed; border-color: #2c3431; background: transparent; }
+.sqd-squad-row.self { border-color: var(--no-green-deep); background: var(--no-card-bg-on); }
+.sqd-squad-row.open { border-style: dashed; border-color: var(--no-line); background: transparent; }
 
 .sqd-row-tag { font-size: 16px; letter-spacing: 2px; color: var(--no-squad); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.sqd-squad-row.open .sqd-row-tag { color: #2e4a4a; }
+.sqd-squad-row.open .sqd-row-tag { color: var(--no-squad-faint); }
 .sqd-row-name { font-size: 20px; letter-spacing: 1px; color: var(--no-green-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sqd-squad-row.self .sqd-row-name { color: var(--no-green); }
 .sqd-squad-row.open .sqd-row-name { color: var(--no-white-dark); }
@@ -282,7 +282,7 @@ select:focus { outline: 1px solid var(--no-green-dim); }
   width: 34px;
   height: 34px;
   padding: 0;
-  border: 1px solid #1f2723;
+  border: 1px solid var(--no-icon-border);
   border-radius: 3px;
   background: none;
   color: var(--no-white-dim);
@@ -302,9 +302,9 @@ select:focus { outline: 1px solid var(--no-green-dim); }
   min-height: 46px;
   padding: 0 8px 0 10px;
   box-sizing: border-box;
-  border-bottom: 1px solid #10201a;
+  border-bottom: 1px solid var(--no-card-line-faint);
 }
-.sqd-player-name { font-size: 18px; letter-spacing: 1px; color: #b8c0c6; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sqd-player-name { font-size: 18px; letter-spacing: 1px; color: var(--no-text-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sqd-player-row.invited .sqd-player-name { color: var(--no-squad); }
 .sqd-player-tag { font-size: 12px; letter-spacing: 2px; color: var(--no-squad); white-space: nowrap; }
 .sqd-player-row .sqd-btn { height: 32px; font-size: 12px; margin-left: auto; }

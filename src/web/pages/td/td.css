@@ -145,7 +145,7 @@
 .td-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: clamp(11px, 2vmin, 20px); letter-spacing: 0.05em; }
 .td-dist { flex: 0 0 auto; font-size: clamp(10px, 1.7vmin, 17px); color: var(--no-green-dim); font-variant-numeric: tabular-nums; white-space: nowrap; }
 /* Faction tint on the name, same convention TGT uses. */
-.td-row.f-friendly .td-name { color: #4aa3ff; }
+.td-row.f-friendly .td-name { color: var(--no-friendly-blue); }
 .td-row.f-neutral  .td-name { color: var(--no-label); }
 .td-row.f-enemy    .td-name { color: var(--no-red); }
 

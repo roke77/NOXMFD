@@ -1,0 +1,160 @@
+/* Every colour the web frontend uses, and nothing else. theme.css imports this, so a page (or an
+   extension) that links theme.css gets these tokens. A colour a page needs that isn't here gets a
+   name here first; page CSS and JS only ever read var(--no-*). Canvas code, which can't resolve
+   var(), reads the computed value once (map.js's theme()). */
+:root {
+  /* Primary tokens are RGB triples first, hex-equivalent second — the triple is what a glow/wash
+     effect composes with an alpha (rgba(var(--no-green-rgb), 0.08)), so it's the one source;
+     defining the solid colour separately from it would just duplicate the same value. */
+  --no-green-rgb:  57, 255, 20;
+  --no-green:      rgb(var(--no-green-rgb));  /* primary text / icons */
+  --no-green-dim:  #4aaa4a;  /* secondary text (ammo, page-ind) */
+  --no-green-dark: #1a4a1a;  /* depleted / hollow / borders */
+  --no-green-deep: #2e7a2e;  /* page-name placeholder heading */
+  --no-red-rgb:    255, 64, 64;
+  --no-red:        rgb(var(--no-red-rgb));    /* empty / alert state */
+  --no-amber-rgb:  255, 170, 0;
+  --no-amber:      rgb(var(--no-amber-rgb));  /* selected / waiting state */
+  --no-gray-rgb:   90, 90, 90;
+  --no-gray:       rgb(var(--no-gray-rgb));  /* inactive / off annunciator (AVN status tiles) */
+  /* Neutral instrument white, in the same primary/dim/dark triplet as the greens above and used the
+     same way: a readout that reports in white rather than green (AVN's gauge dials). Distinct from
+     --no-label below, which is a LAYOUT's chrome colour (the bezel's key labels) that a page must
+     not read — reporting-white needs its own name. */
+  --no-white-rgb:  230, 235, 239;
+  --no-white:      rgb(var(--no-white-rgb));  /* primary — needle, value, label */
+  --no-white-dim:  #8a949c;  /* secondary — major ticks */
+  --no-white-dark: #3c444b;  /* depleted / hollow / dial face — rim, track, minor ticks */
+  --no-label-rgb:  212, 216, 220;
+  --no-label:      rgb(var(--no-label-rgb));  /* off-white, not the screen's green — the bezel's
+                                key labels, and the F-35 strip's URL lines */
+  /* The F-35 layout's chrome: the frame around each portal, the labels it draws on the glass, the
+     corner grips, the master strip. Its real display frames itself in teal where the bezel uses
+     --no-label above. A layout's colour, not a page's: only shell/f35/ may read it, so a page
+     still renders the same under either shell. The triplet is the source — the wash under a
+     pressed WPN band needs the same colour with an alpha, and one source is one thing to tune. */
+  --no-teal-rgb:   78, 201, 201;
+  --no-teal:       rgb(var(--no-teal-rgb));
+  /* Squadron feature colour (docs/squadron-transport.md): SQD's own LEADER mark and WPT's SQD
+     label share this one token, so "shared with the squad" reads as the same colour everywhere a
+     page shows it. A close visual match to --no-teal above is deliberate (both read as
+     light blue/cyan) but this is its own token, not a reuse of it — --no-teal is the F-35 shell's
+     chrome colour (see its own comment: shell-only, a page must not read it, or it stops
+     rendering the same under the classic shell). Any PAGE wanting this colour reads --no-squad. */
+  --no-squad-rgb:  78, 201, 201;
+  --no-squad:      rgb(var(--no-squad-rgb));
+  --no-purple-rgb: 179, 136, 255;  /* mod-only controls that aren't real game filters (e.g. TGT's DATALINK) */
+  --no-purple:     rgb(var(--no-purple-rgb));
+  --no-hsd-pink-rgb: 121, 21, 81;   /* #791551 — F-16 HSD-style dark pink/magenta symbology */
+  --no-hsd-pink:     rgb(var(--no-hsd-pink-rgb));
+  --no-hsd-yellow-rgb: 224, 194, 0;   /* F-16 HSD-style yellow AA threat rings (docs/rdr-fcr-hsd.md) */
+  --no-hsd-yellow:     rgb(var(--no-hsd-yellow-rgb));
+  --no-nuclear-orange-rgb: 232, 100, 44;  /* #e8642c — nuclear exclusion zone ring (MAP), matching the in-game map */
+  --no-nuclear-orange:     rgb(var(--no-nuclear-orange-rgb));
+  --no-blue-rgb:   77, 159, 255;
+  --no-blue:       rgb(var(--no-blue-rgb));  /* mod-only decorative accent (WPN's MODE label, docs/radar-master-arms.md) */
+  --no-bg:         var(--no-black);
+  --no-panel-bg-rgb: 6, 10, 6;
+  --no-panel-bg:   rgba(var(--no-panel-bg-rgb), 0.78);
+  --no-panel-border: #1a3a1a;
+  --no-ink:        #060a06;  /* text on a green fill */
+
+  /* Pure black and white, as triples for the shadows, scrims and washes that compose them with an
+     alpha. --no-white above is the instrument white; these are the absolute ends. */
+  --no-black-rgb: 0, 0, 0;
+  --no-black:     rgb(var(--no-black-rgb));
+  --no-pure-white-rgb: 255, 255, 255;
+  --no-pure-white:     rgb(var(--no-pure-white-rgb));
+  --no-scrim:      rgba(var(--no-black-rgb), 0.6);    /* translucent pill behind an overlay label */
+  --no-scrim-deep: rgba(var(--no-black-rgb), 0.72);   /* dim layer behind a modal dialog */
+  --no-hover-wash:       rgba(var(--no-pure-white-rgb), 0.06);  /* hover / PAD-cursor feedback */
+  --no-hover-wash-faint: rgba(var(--no-pure-white-rgb), 0.04);
+
+  /* Threat tiers (RWR search / track / lock), also the missile-warning flicker on RWR and FCR and
+     MAP's missile tooltip. */
+  --no-threat-white:  #dcdcdc;
+  --no-threat-yellow: #ffd21e;
+  --no-threat-red:    #ff3b30;
+  --no-jam-yellow-rgb: 255, 221, 0;   /* radar jamming: MAP's jam lines, TGP's JAMMED box */
+
+  /* Friendly-unit blues, each matching a different game screen: TGT/TD match the game's target
+     list, HUD matches its HUD OPTIONS screen. Neither is --no-blue (a mod-only accent). */
+  --no-friendly-blue: #4aa3ff;
+  --no-hud-friendly:  #33ccff;
+
+  /* MAP canvas symbology. Plain hex: map.js does hex math on unit colours (dimHex). */
+  --no-route-cyan:    #39d0ff;   /* route line and markers not yet reached */
+  --no-reached-gray:  #a0a0a0;   /* route already flown; --no-gray nearly vanishes on dark terrain */
+  --no-target-orange: #ff8000;   /* ring on the player's targeted unit(s) */
+  --no-neutral-gray:  #9aa0a6;   /* neutral faction until the game's HUD colours arrive */
+  --no-grid-label:    rgba(196, 255, 176, 0.75);
+
+  /* AFM damage silhouette. */
+  --no-afm-marker:    #808080;   /* pylon marker until the first live pylon colour arrives */
+  --no-afm-destroyed: rgb(178, 0, 64);
+  /* A damaged part blends between these by remaining condition (afm.js paintAfmDamage). */
+  --no-afm-damaged-light: rgb(255, 255, 0);
+  --no-afm-damaged-heavy: rgb(255, 0, 0);
+
+  /* Controls and cards: the near-black fills, borders and greys shared by the lit panel
+     (lit-panel.css), LYT, SQD and the layout dialogs. */
+  --no-control-bg:       #060807;
+  --no-control-bg-on:    #0a0f0b;
+  --no-control-text-off: #7d868d;
+  --no-lamp-off:         #1b221e;
+  --no-line:             #2c3431;
+  --no-icon-border:      #1f2723;
+  --no-text-faint:       #5a6066;
+  --no-text-soft:        #b8c0c6;
+  --no-card-bg:          #040604;
+  --no-card-bg-on:       #07100a;
+  --no-card-line:        #15201a;
+  --no-card-line-faint:  #10201a;
+  --no-tile-bg:          #050706;   /* LYT's shell cards */
+  --no-form-bg:          #050806;   /* SQD's CREATE SQUAD panel */
+  --no-green-mid:        #3f8f3f;   /* KEY's dim green, between --no-green-dim and --no-green-deep */
+  --no-green-rule:       #0f230f;   /* KEY's table row divider */
+  --no-green-line:       #1f4a24;   /* TGT's source-tag border */
+  --no-green-glow:       #0f4a0f;   /* SQD's large-button glow */
+  --no-green-halo:       #0a3a0a;   /* LYT's selected shell card glow */
+  --no-purple-line:      #5a4a80;
+  --no-label-line:       #5a5f66;
+  --no-red-line:         #5a2323;
+  --no-amber-bg:         #0c0a04;   /* SQD's squad card while being edited */
+  --no-squad-line:       #1f4a4a;
+  --no-squad-bg:         #040808;
+  --no-squad-faint:      #2e4a4a;   /* an open roster slot's tag */
+  /* LYT's slot numbers and F-35 thumbnail: a page's copy of the F-35 teal, its own token for the
+     same reason as --no-squad (--no-teal is shell-only). */
+  --no-layout-teal-rgb:  78, 201, 201;
+  --no-layout-teal:      rgb(var(--no-layout-teal-rgb));
+  --no-layout-teal-line: #1f4a4a;
+  --no-gauge-trough:     #050a05;   /* F-35 strip gauge trough, a shade off the display's black */
+
+  /* LYT's miniature shells. */
+  --no-thumb-bezel: #2a2d31;
+  --no-thumb-edge:  #3a3e44;
+  --no-thumb-rim:   #17191c;
+  --no-thumb-key:   #4a4f55;
+  --no-thumb-strip: #0c1a1a;
+  --no-thumb-glass: #061212;
+
+  /* The CLASSIC shell's bezel hardware. A layout's colours like --no-label: only shell/classic/
+     reads them. */
+  --no-bezel-backdrop:  #0d0f11;
+  --no-bezel-hi:        #3b3f45;
+  --no-bezel-lo:        #26282c;
+  --no-bezel-highlight: #5a5f66;
+  --no-bezel-shadow:    #15161a;
+  --no-key-border:      #202225;
+  --no-key-text:        #c8ccd0;
+  --no-key-tick:        #e8eaed;
+  --no-key-sep:         #16181b;
+  --no-key-hi:          #4b4f56;
+  --no-key-lo:          #313438;
+  --no-key-highlight:   #62666d;
+  --no-key-hover-hi:    #565b63;
+  --no-key-hover-lo:    #393c42;
+  --no-key-pressed-hi:  #2a2c30;
+  --no-key-pressed-lo:  #3a3e44;
+}

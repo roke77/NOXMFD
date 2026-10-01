@@ -48,7 +48,7 @@
 .afm-front-marker {
   position: absolute;
   transform: translate(-50%, -50%);
-  background-color: #808080;   /* until the first live pylon color arrives */
+  background-color: var(--no-afm-marker);   /* until the first live pylon color arrives */
   pointer-events: none;
 }
 .afm-frame {
@@ -69,7 +69,7 @@
 .afm-part {
   position: absolute;
   transform: translate(-50%, -50%);
-  background-color: #ffffff;
+  background-color: var(--no-pure-white);
   -webkit-mask-repeat: no-repeat;
           mask-repeat: no-repeat;
   -webkit-mask-size: 100% 100%;

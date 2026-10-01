@@ -3,24 +3,15 @@
    Also the preset cards built by services/preset-cards.js (their SAVE PRESET dialog is
    preset-dialog.css). A page sets the font size and spacing of its own buttons. */
 
-:root {
-  --lit-fill: #0a0f0b;
-  --lit-off-fill: #060807;
-  --lit-off-text: #7d868d;
-  --lit-off-lamp: #1b221e;
-  --lit-border: #2c3431;
-  --lit-empty-text: #5a6066;
-}
-
 .lit {
   --accent: var(--no-green);
   font-family: var(--no-font);
   font-weight: bold;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   min-width: 0;
-  background: var(--lit-off-fill);
-  color: var(--lit-off-text);
-  border: 1px solid var(--lit-border);
+  background: var(--no-control-bg);
+  color: var(--no-control-text-off);
+  border: 1px solid var(--no-line);
   border-radius: 5px;
   cursor: pointer;
   text-align: center;
@@ -32,10 +23,10 @@
   flex: none;
   height: 0.24em; width: var(--lamp-w, 2.3em);
   border-radius: 2px;
-  background: var(--lit-off-lamp);
+  background: var(--no-lamp-off);
 }
 .lit.on, .lit[aria-pressed="true"] {
-  background: var(--lit-fill);
+  background: var(--no-control-bg-on);
   color: var(--no-white);
 }
 .lit.on::before, .lit[aria-pressed="true"]::before {
@@ -60,4 +51,4 @@
   touch-action: none;   /* a long press must not turn into a scroll/pan */
 }
 .preset-name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.preset-card.empty { border-style: dashed; color: var(--lit-empty-text); }
+.preset-card.empty { border-style: dashed; color: var(--no-text-faint); }

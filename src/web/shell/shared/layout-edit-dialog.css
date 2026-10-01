@@ -20,16 +20,16 @@
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
   min-width: 0; padding: 10px 0.3em;
   font: inherit; font-size: 14px; font-weight: bold; letter-spacing: 2px; line-height: 1.05;
-  color: #7d868d; background: #060807;
-  border: 1px solid #2c3431; border-radius: 5px;
+  color: var(--no-control-text-off); background: var(--no-control-bg);
+  border: 1px solid var(--no-line); border-radius: 5px;
   cursor: pointer; -webkit-tap-highlight-color: transparent;
 }
 .led-toggle::before {
   content: ''; display: block; flex: none;
   height: 0.24em; width: 2.25em; border-radius: 2px;
-  background: #1b221e;
+  background: var(--no-lamp-off);
 }
-.led-toggle[aria-pressed="true"] { color: var(--no-white); background: #0a0f0b; }
+.led-toggle[aria-pressed="true"] { color: var(--no-white); background: var(--no-control-bg-on); }
 .led-toggle[aria-pressed="true"]::before { background: var(--no-green); box-shadow: 0 0 8px var(--no-green), 0 0 2px var(--no-green); }
 .led-toggle:focus-visible { outline: 2px solid var(--no-amber); outline-offset: 2px; }
 
@@ -43,11 +43,11 @@
 .preset-kp.led-wide { width: min(720px, 94%); max-height: 94vh; overflow-y: auto; }
 .led-list ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 .led-list .lyt-row { cursor: pointer; }
-.led-list .lyt-row.picked { border-color: var(--no-green); background: #0a0f0b; }
+.led-list .lyt-row.picked { border-color: var(--no-green); background: var(--no-control-bg-on); }
 .led-pick {
   flex: none; width: 22px; height: 22px; margin: 0 6px 0 auto;
   appearance: none; -webkit-appearance: none;
-  border: 1px solid var(--no-green-deep); border-radius: 50%; background: #000;
+  border: 1px solid var(--no-green-deep); border-radius: 50%; background: var(--no-black);
   display: grid; place-items: center; cursor: pointer;
 }
 .led-pick::after {

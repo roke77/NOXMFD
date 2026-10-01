@@ -1,6 +1,7 @@
 /* TGP page — targeting-pod MJPEG feed. Single source of truth for BOTH layouts (full-screen
    iframe + split pane); no 'full' profile needed — the centred 3:2 feed renders identically
-   at any container size (like MAP). Base reset / colour tokens / font come from theme.css. */
+   at any container size (like MAP). Base reset and font come from theme.css, colour tokens from
+   colors.css. */
 
 /* Centred 3:2 box sized to the source (TargetCam renders 360x240). Shrinking the panel drops
    the upscale ratio, which cuts the bilinear blur. The surrounding screen stays black.
@@ -71,7 +72,7 @@
 .tgp-ch-arm {
   position: absolute;
   background: var(--no-white);
-  box-shadow: 0 0 2px #000;
+  box-shadow: 0 0 2px var(--no-black);
 }
 /* Top/bottom: length runs along height (11.25%), thickness along width (0.5% / 1.5 = 0.3333%). */
 .tgp-ch-top    { left: 49.8333%; width: 0.3333%; top: 35.9375%; height: 11.25%; }
@@ -129,7 +130,7 @@
 
 .tgp-ov-stat, .tgp-ov-title {
   display: inline-block;
-  background: rgba(0, 0, 0, 0.6);
+  background: var(--no-scrim);
   padding: 2px 8px;
   margin-bottom: 3px;
   border-radius: 2px;
@@ -179,7 +180,7 @@
   border-radius: 50%;
   /* Same translucent pill background as the stat lines (.tgp-ov-stat etc.) — the ring alone
      read poorly over a bright/busy patch of the picture. */
-  background: rgba(0, 0, 0, 0.6);
+  background: var(--no-scrim);
 }
 .tgp-ov-needle {
   position: absolute;
@@ -192,7 +193,7 @@
   margin-left: -1px;
 }
 .tgp-ov-brg {
-  background: rgba(0, 0, 0, 0.6);
+  background: var(--no-scrim);
   padding: 2px 8px;
   border-radius: 2px;
 }
@@ -208,12 +209,12 @@
   height: var(--tgp-box-size);
   transform: translate(-50%, -50%);
   border: 2px solid var(--no-red);
-  box-shadow: 0 0 2px #000;
+  box-shadow: 0 0 2px var(--no-black);
 }
 .tgp-ov-box.friendly { border-color: var(--no-blue); }
 /* Same yellow the MAP page's JammedMarker line already uses (map.js's drawJamLines) — kept
    consistent rather than reusing --no-amber, which lased/outdated also need to stay distinct. */
-.tgp-ov-box.jammed   { border-color: rgba(255, 221, 0, 0.85); }
+.tgp-ov-box.jammed   { border-color: rgba(var(--no-jam-yellow-rgb), 0.85); }
 .tgp-ov-box.outdated { border-color: var(--no-white); border-style: dashed; }
 .tgp-ov-box.lased    { border-color: var(--no-amber); }
 
@@ -263,7 +264,7 @@
   border-radius: 50%;
   border: 2px solid var(--no-white-dark);
   /* Same translucent pill background as the stat overlay text (.tgp-ov-stat, .tgp-ov-compass). */
-  background: rgba(0, 0, 0, 0.6);
+  background: var(--no-scrim);
   opacity: 0.35;
   pointer-events: none;
   touch-action: none;

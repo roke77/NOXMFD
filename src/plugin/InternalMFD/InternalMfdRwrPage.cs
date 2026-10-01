@@ -59,7 +59,7 @@ namespace NOXMFD
         private const float StrokeWidthFrac = 3f / 460f;
 
         // rwr.html's own rgba(255,255,255,*) values — this page's whole scope is the same white
-        // family AVN's gauge dials use (theme.css: "Neutral instrument white... AVN's gauge
+        // family AVN's gauge dials use (colors.css: "Neutral instrument white... AVN's gauge
         // dials"), not this mod's HUD green.
         private static readonly Color RingColor = new Color(1f, 1f, 1f, 0.5f);
         private static readonly Color TickColor = new Color(1f, 1f, 1f, 0.5f);
