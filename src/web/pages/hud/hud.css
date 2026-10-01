@@ -30,11 +30,10 @@ html, body {
   /* A classic scrollbar takes width from the right edge only; reserving the gutter on both edges
      keeps the content centred whether or not the panel scrolls. */
   scrollbar-gutter: stable both-edges;
-  /* HUD's bezel label stays horizontal (unlike TGT/BDF), so this only needs to clear it, not stand
-     it upright. The page doesn't know which edge the shell's MAIN/HUD/KEY/LYT/RTS label lands on
-     (varies by split/portal layout), so both sides get the inset. 88px clears the widest label
-     (MAIN, unscaled by portal width) with margin to spare. */
-  --edge-pad: clamp(88px, 6vw, 100px);
+  /* The shell stands its nav labels upright on this page. The page doesn't know which edge they
+     land on (varies by split/portal layout), so both sides get the inset — TGT's value, enough to
+     clear an upright label. */
+  --edge-pad: clamp(34px, 5vw, 48px);
   padding-left: var(--edge-pad);
   padding-right: var(--edge-pad);
   /* max-width includes the edge padding, not just the content width: otherwise a wide bezel/portal

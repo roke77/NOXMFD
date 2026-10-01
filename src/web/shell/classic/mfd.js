@@ -110,8 +110,9 @@ function fullViewSlot(i) { return i < 6 ? { bank: 'left', index: i } : { bank: '
 // this choice from its own master strip, so a NAV entry would put it on that layout's MAIN a second
 // time.
 //
-// LAYOUT is one left-bank label, MAIN: the /lyt page in #page-frame carries the shell cards and the
-// saved layouts, and SAVE/LOAD LAYOUT are the keyboard shortcuts (dialogs: layout-keydown.js).
+// LAYOUT's left-bank labels are the CFG group's switch (MAIN/HUD/KEY/LYT, as NAV.hud/NAV.keys carry
+// it): the /lyt page in #page-frame carries the shell cards and the saved layouts, and SAVE/LOAD
+// LAYOUT are the keyboard shortcuts (dialogs: layout-keydown.js).
 const BEZEL_EXTRAS = {
   // CFG, MD, RDR, AFM and SQD — the layout-owned MAIN items the six shared NAV items don't
   // cover. CFG opens the CFG group (HUD/KEY/LYT/RTS — cfg-rates experiment issue #39, HUD joined
@@ -137,10 +138,13 @@ const BEZEL_EXTRAS = {
     // EXT is NOT here — it's a real, shared NAV.main entry (docs/extensions-api.md), not a
     // layout-owned stub; a second entry here would render a duplicate "EXT" label.
   ],
-  // The /lyt page carries everything else (shell cards, saved layouts); the bezel only offers the
-  // way back to MAIN. Saving is the keyboard shortcut.
+  // The /lyt page carries everything else (shell cards, saved layouts); the bezel offers the way
+  // back to MAIN and the other CFG pages. Saving is the keyboard shortcut.
   lyt:  [
     { label: 'MAIN', action: 'main', bank: 'left', index: 0 },
+    { label: 'HUD',  action: 'hud',  bank: 'left', index: 1 },
+    { label: 'KEY',  action: 'keys', bank: 'left', index: 2 },
+    { label: 'LYT',  action: 'lyt',  bank: 'left', index: 3, mark: true },
   ],
 };
 
@@ -456,18 +460,16 @@ function placeSplitKey(m, label, action, paneTag, mark, pending) {
 // on a narrow display the panel widens to the edge and a horizontal MAIN would sit over that
 // header. All are split-capable.
 // RDR/HSD are not in this list: their MAIN + FCR/HSD + R+ + R- row reads fine horizontal, not
-// cramped enough to need the narrow vertical treatment. KEY is not in this list either: the CFG
-// group's nav labels read fine horizontal — its table header sits far enough from the bezel edge.
-// HUD is not in this list either: hud.css instead reserves left/right padding sized to a
-// horizontal label's own width, so the panel clears it without needing the narrow vertical
-// treatment.
+// cramped enough to need the narrow vertical treatment. KEY is in it: its section rail starts at the
+// left edge, where a horizontal label would cover it.
+// HUD is in it too; hud.css reserves left/right padding just wide enough for the upright label.
 // Every extension page gets this treatment too, unconditionally — NOXMFD has no way to ask a
 // third-party extension whether its own page has top-left content (RegisterExtension declares no
 // such flag, EXTENSIONS.md), and the one item every extension page's own NAV[<id>] ever carries is
 // this same lone MAIN label (ext-nav.js), so there's no per-extension list to hardcode here the
 // way TGT/AKF/etc. are — this either clears real content (ATC's own table header, the reason this
 // was added) or costs nothing on a page with none.
-function isVmainPage(p) { return p === 'tgt' || p === 'td' || p === 'sqd' || p === 'akf' || p === 'bdf' || p === 'pal' || p === 'mis' || p === 'obj' || p === 'lyt' || ExtNav.isExtensionPage(p); }
+function isVmainPage(p) { return p === 'tgt' || p === 'td' || p === 'sqd' || p === 'akf' || p === 'bdf' || p === 'pal' || p === 'mis' || p === 'obj' || p === 'lyt' || p === 'keys' || p === 'hud' || ExtNav.isExtensionPage(p); }
 
 // The item count on each MAIN split page. Unlike WPN, MAIN reserves no fixed back-slot: PREV anchors
 // the first key only on pages past the first, NEXT the last key only on pages before the last, and
