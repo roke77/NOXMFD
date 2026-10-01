@@ -45,27 +45,62 @@
       <button type="button" class="ui-btn pad-hoverable" id="ui-reset-all">RESET ALL</button>
     </div>
 
-    <!-- A static mock of the TGT page drawn with the same colour tokens, so it repaints with every
-         edit. Display only: nothing inside is focusable or clickable. -->
-    <div class="ui-heading">PREVIEW: TGT</div>
-    <div class="pv" role="img" aria-label="Preview of the TGT page in the current colours">
-      <div class="pv-head"><span class="pv-title">TARGETS</span><span class="pv-count">4 LOCKED</span></div>
-      <div class="pv-filters">
-        <div class="lit on pv-lit" style="--accent: var(--no-friendly-blue)">FRIENDLY</div>
-        <div class="lit on pv-lit" style="--accent: var(--no-red)">ENEMY</div>
-        <div class="lit pv-lit">GROUND</div>
-        <div class="lit on pv-lit" style="--accent: var(--no-purple)">DATALINK</div>
-      </div>
-      <div class="pv-list">
-        <div class="pv-row pv-cols"><span>NAME</span><span>SRC</span><span>DIST</span><span>WPN</span><span>TD</span></div>
-        <div class="pv-row f-enemy focused"><span class="pv-name">SA-6 GAINFUL</span><span class="pv-src">RDR</span><span class="pv-dist">12.4</span><span class="pv-wpn">AGM-88</span><span class="pv-td">2-1</span></div>
-        <div class="pv-row f-enemy datalink"><span class="pv-name">T-80U</span><span class="pv-src">DL</span><span class="pv-dist">18.0</span><span class="pv-wpn">0:42</span><span class="pv-td"></span></div>
-        <div class="pv-row f-friendly inactive"><span class="pv-name">F-16C VIPER</span><span class="pv-src">VIS</span><span class="pv-dist">6.1</span><span class="pv-wpn"></span><span class="pv-td">2-2</span></div>
-        <div class="pv-row f-neutral stale"><span class="pv-name">CARGO TRUCK</span><span class="pv-src">STALE</span><span class="pv-dist">24.7</span><span class="pv-wpn"></span><span class="pv-td"></span></div>
-      </div>
-      <div class="pv-actions">
-        <span class="pv-action reset">RESET</span><span class="pv-action clear">CLEAR</span><span class="pv-action datalink">DATALINK</span>
-      </div>
+    <!-- Static mocks of the TGT and MAP pages, drawn with the same colour tokens those pages use, so
+         they repaint with every edit. Each sits in a fake MFD bezel in fixed greys, so it reads as a
+         picture of a page whatever the theme. Display only: nothing inside is focusable or clickable. -->
+    <div class="ui-heading">PREVIEW</div>
+    <div class="ui-previews">
+      <figure class="pv-frame">
+        <figcaption class="pv-label">TGT</figcaption>
+        <div class="pv" role="img" aria-label="Preview of the TGT page in the current colours">
+          <div class="pv-head"><span class="pv-title">TARGETS</span><span class="pv-count">4 LOCKED</span></div>
+          <div class="pv-filters">
+            <div class="lit on pv-lit" style="--accent: var(--no-friendly-blue)">FRIENDLY</div>
+            <div class="lit on pv-lit" style="--accent: var(--no-red)">ENEMY</div>
+            <div class="lit pv-lit">GROUND</div>
+            <div class="lit on pv-lit" style="--accent: var(--no-purple)">DATALINK</div>
+          </div>
+          <div class="pv-list">
+            <div class="pv-row pv-cols"><span>NAME</span><span>SRC</span><span>DIST</span><span>WPN</span><span>TD</span></div>
+            <div class="pv-row f-enemy focused"><span class="pv-name">SA-6 GAINFUL</span><span class="pv-src">RDR</span><span class="pv-dist">12.4</span><span class="pv-wpn">AGM-88</span><span class="pv-td">2-1</span></div>
+            <div class="pv-row f-enemy datalink"><span class="pv-name">T-80U</span><span class="pv-src">DL</span><span class="pv-dist">18.0</span><span class="pv-wpn">0:42</span><span class="pv-td"></span></div>
+            <div class="pv-row f-friendly inactive"><span class="pv-name">F-16C VIPER</span><span class="pv-src">VIS</span><span class="pv-dist">6.1</span><span class="pv-wpn"></span><span class="pv-td">2-2</span></div>
+            <div class="pv-row f-neutral stale"><span class="pv-name">CARGO TRUCK</span><span class="pv-src">STALE</span><span class="pv-dist">24.7</span><span class="pv-wpn"></span><span class="pv-td"></span></div>
+          </div>
+          <div class="pv-actions">
+            <span class="pv-action reset">RESET</span><span class="pv-action clear">CLEAR</span><span class="pv-action datalink">DATALINK</span>
+          </div>
+        </div>
+      </figure>
+      <figure class="pv-frame">
+        <figcaption class="pv-label">MAP</figcaption>
+        <div class="pv pv-map" role="img" aria-label="Preview of the MAP page in the current colours">
+          <svg class="pv-map-svg" viewBox="0 0 400 300" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+            <path class="pv-grid-minor" d="M-380 -300V600M-360 -300V600M-340 -300V600M-320 -300V600M-280 -300V600M-260 -300V600M-240 -300V600M-220 -300V600M-180 -300V600M-160 -300V600M-140 -300V600M-120 -300V600M-80 -300V600M-60 -300V600M-40 -300V600M-20 -300V600M20 -300V600M40 -300V600M60 -300V600M80 -300V600M120 -300V600M140 -300V600M160 -300V600M180 -300V600M220 -300V600M240 -300V600M260 -300V600M280 -300V600M320 -300V600M340 -300V600M360 -300V600M380 -300V600M420 -300V600M440 -300V600M460 -300V600M480 -300V600M520 -300V600M540 -300V600M560 -300V600M580 -300V600M620 -300V600M640 -300V600M660 -300V600M680 -300V600M720 -300V600M740 -300V600M760 -300V600M780 -300V600M-400 -280H800M-400 -260H800M-400 -240H800M-400 -220H800M-400 -180H800M-400 -160H800M-400 -140H800M-400 -120H800M-400 -80H800M-400 -60H800M-400 -40H800M-400 -20H800M-400 20H800M-400 40H800M-400 60H800M-400 80H800M-400 120H800M-400 140H800M-400 160H800M-400 180H800M-400 220H800M-400 240H800M-400 260H800M-400 280H800M-400 320H800M-400 340H800M-400 360H800M-400 380H800M-400 420H800M-400 440H800M-400 460H800M-400 480H800M-400 520H800M-400 540H800M-400 560H800M-400 580H800"/>
+            <path class="pv-grid-major" d="M-400 -300V600M-300 -300V600M-200 -300V600M-100 -300V600M0 -300V600M100 -300V600M200 -300V600M300 -300V600M400 -300V600M500 -300V600M600 -300V600M700 -300V600M800 -300V600M-400 -300H800M-400 -200H800M-400 -100H800M-400 0H800M-400 100H800M-400 200H800M-400 300H800M-400 400H800M-400 500H800M-400 600H800"/>
+            <text class="pv-grid-label" x="104" y="12">Hc</text><text class="pv-grid-label" x="204" y="12">Hd</text><text class="pv-grid-label" x="304" y="12">He</text>
+            <text class="pv-grid-label" x="4" y="96">87</text><text class="pv-grid-label" x="4" y="196">86</text>
+            <circle class="pv-nuke" cx="330" cy="70" r="38"/>
+            <polyline class="pv-route-reached" points="40,260 110,205"/>
+            <polyline class="pv-route" points="110,205 215,150 300,195 360,250"/>
+            <circle class="pv-wp reached" cx="40" cy="260" r="5"/><circle class="pv-wp reached" cx="110" cy="205" r="5"/>
+            <circle class="pv-wp next" cx="215" cy="150" r="6"/><circle class="pv-wp" cx="300" cy="195" r="5"/><circle class="pv-wp" cx="360" cy="250" r="5"/>
+            <line class="pv-jam" x1="250" y1="235" x2="345" y2="140"/>
+            <rect class="pv-unit neutral" x="45" y="160" width="11" height="11"/>
+            <path class="pv-unit friendly" d="M90 112l7 16h-14z"/>
+            <path class="pv-unit squad" d="M185 80l7 16h-14z"/>
+            <path class="pv-unit enemy" d="M345 132l7 16h-14z"/>
+            <rect class="pv-unit enemy" x="244" y="229" width="12" height="12"/>
+            <path class="pv-target" d="M236 229v-8h8M256 221h8v8M264 241v8h-8M244 249h-8v-8"/>
+            <path class="pv-threat" d="M196 262l4 -12l4 12z"/>
+            <path class="pv-player" d="M150 200l9 22l-9 -6l-9 6z"/>
+          </svg>
+          <div class="pv-map-chips">
+            <span class="mfd-chip">GRID: Hc87</span>
+            <span class="mfd-chip">ROUTE: CAP 3/5</span>
+          </div>
+        </div>
+      </figure>
     </div>
 
     <!-- One group per UiTokens.GROUPS entry, built by ui.js. -->

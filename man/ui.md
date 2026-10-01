@@ -25,9 +25,12 @@ Up to 20 themes can be saved.
 
 ### PREVIEW
 
-A small mock of the [TGT](tgt.md) page above the colour rows, drawn with the colours being edited:
-faction filters, a target list with focused, datalink and stale rows, and the action buttons. It
-follows a picker or hex value as it changes, before the change is applied.
+Small mocks of the [TGT](tgt.md) and [MAP](map.md) pages above the colour rows, each in a grey MFD
+frame, drawn with the colours being edited. TGT shows the faction filters, a target list with
+focused, datalink and stale rows, and the action buttons; MAP shows the grid, a route, units of each
+faction, a target, a nuclear zone, a jamming line and the readout chips. They sit side by side, or
+stacked on a narrow screen, and follow a picker or hex value as it changes, before the change is
+applied.
 
 ### Colour rows
 

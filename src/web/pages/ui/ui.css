@@ -73,15 +73,51 @@ html, body { height: 100%; margin: 0; }
 .ui-btn:disabled { color: var(--no-white-dark); border-color: var(--no-line); cursor: default; }
 .ui-btn:focus-visible { outline: 2px solid var(--no-amber); outline-offset: 2px; }
 
-/* TGT preview: the same tokens tgt.css uses for each element, at a smaller scale. */
+/* Previews: TGT and MAP side by side, stacked when the pane is narrow. */
+.ui-previews { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.8em; }
+@media (max-width: 720px) { .ui-previews { grid-template-columns: minmax(0, 1fr); } }
+
+/* A fake MFD bezel in the LYT thumbnails' fixed greys (not editable), so the mock inside reads as
+   a page on a display whatever the theme. Three key stubs down each side, drawn as backgrounds. */
+.pv-frame {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0.5em 1.6em 1.1em;
+  background: var(--no-thumb-bezel);
+  border-radius: 10px;
+  box-shadow: inset 0 0 0 1px var(--no-thumb-edge);
+}
+.pv-frame::before, .pv-frame::after {
+  content: '';
+  position: absolute;
+  top: 2.2em; bottom: 1.6em;
+  width: 0.65em;
+  background:
+    linear-gradient(var(--no-thumb-key), var(--no-thumb-key)) 0 20% / 100% 1.2em no-repeat,
+    linear-gradient(var(--no-thumb-key), var(--no-thumb-key)) 0 50% / 100% 1.2em no-repeat,
+    linear-gradient(var(--no-thumb-key), var(--no-thumb-key)) 0 80% / 100% 1.2em no-repeat;
+}
+.pv-frame::before { left: 0.45em; }
+.pv-frame::after { right: 0.45em; }
+.pv-label {
+  margin-bottom: 0.4em;
+  text-align: center;
+  font-size: 0.7em;
+  letter-spacing: 0.35em;
+  color: var(--no-text-soft);
+}
+
+/* The screen: the same tokens tgt.css / map.js use for each element, at a smaller scale. */
 .pv {
+  flex: 1;
   display: flex;
   flex-direction: column;
   gap: 0.55em;
   padding: 0.7em 0.8em;
   background: var(--no-bg);
-  border: 1px solid var(--no-panel-border);
-  border-radius: 4px;
+  box-shadow: 0 0 0 1px var(--no-thumb-rim);
   font-size: 0.8em;
   color: var(--no-green);
   pointer-events: none;
@@ -119,6 +155,31 @@ html, body { height: 100%; margin: 0; }
 .pv-action.reset { color: var(--no-amber); }
 .pv-action.clear { color: var(--no-red); }
 .pv-action.datalink { color: var(--no-purple); }
+
+/* MAP mock: grid, route, units and overlays, styled from the same tokens map.js reads for its
+   canvas. The chips are the real .mfd-chip class MAP's readouts use. */
+.pv-map { position: relative; min-height: 15em; padding: 0; overflow: hidden; }
+.pv-map-svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.pv-grid-minor { stroke: rgba(var(--no-green-rgb), 0.10); stroke-width: 1; fill: none; }
+.pv-grid-major { stroke: rgba(var(--no-green-rgb), 0.30); stroke-width: 1; fill: none; }
+.pv-grid-label { fill: var(--no-grid-label); font-family: var(--no-font); font-size: 10px; }
+.pv-nuke { fill: rgba(var(--no-nuclear-orange-rgb), 0.35); stroke: var(--no-nuclear-orange); stroke-width: 3; }
+.pv-route, .pv-route-reached { fill: none; stroke-width: 2; stroke-dasharray: 6 5; }
+.pv-route { stroke: var(--no-route-cyan); }
+.pv-route-reached { stroke: var(--no-reached-gray); }
+.pv-wp { fill: none; stroke: var(--no-route-cyan); stroke-width: 2; }
+.pv-wp.reached { stroke: var(--no-reached-gray); }
+.pv-wp.next { stroke: var(--no-amber); }
+.pv-jam { stroke: rgba(var(--no-jam-yellow-rgb), 0.85); stroke-width: 1.5; stroke-linecap: round; }
+.pv-unit.neutral { fill: var(--no-neutral-gray); }
+.pv-unit.friendly { fill: var(--no-green); }
+.pv-unit.squad { fill: var(--no-squad); }
+.pv-unit.enemy { fill: var(--no-red); }
+.pv-target { fill: none; stroke: var(--no-target-orange); stroke-width: 2; }
+.pv-threat { fill: var(--no-threat-red); }
+.pv-player { fill: var(--no-green); }
+.pv-map-chips { position: absolute; left: 0.6em; top: 0.6em; display: flex; flex-direction: column; align-items: flex-start; gap: 0.3em; }
+.pv-map-chips .mfd-chip { font-size: 0.85em; }
 
 /* Colour rows: swatch picker | label | hex | reset. */
 .ui-groups { display: flex; flex-direction: column; gap: 0.3em; }
