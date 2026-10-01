@@ -169,7 +169,7 @@ html, body { height: 100%; margin: 0; }
 }
 .pv-frame::before { left: 0.45em; }
 .pv-frame::after { right: 0.45em; }
-/* TGT / MAP / HSD / RWR tabs along the bezel's top edge, in the bezel's fixed greys. */
+/* HSD / MAP / RWR / TGT tabs (alphabetical) along the bezel's top edge, in the bezel's fixed greys. */
 .pv-tabs { display: flex; justify-content: center; gap: 0.4em; margin-bottom: 0.4em; }
 .pv-tab {
   min-width: 5em;
