@@ -11,7 +11,8 @@ var DEF_CONE = 60;                             // fallback azimuth half-angle wh
 // scope's range unit; M_TO_FT is the plain metres->feet factor UnitConverter.AltitudeReading uses.
 var M_PER_NM = 1852, M_PER_KM = 1000, M_TO_FT = 3.28084;
 
-// Theme colours (shared/colors.css) as var() strings, resolved by the inline SVG they're written into.
+// Theme colours (shared/colors.css) as var() strings, resolved by the inline SVG they're written
+// into.
 // CURSOR_WHITE is the PAD cursor gate's own color (drawCursor/bar below), matching HSD's own
 // cursor — unrelated to RED, the enemy-air own-radar contact color (not green, which stays free
 // to mean "friendly" if that symbology is ever added).

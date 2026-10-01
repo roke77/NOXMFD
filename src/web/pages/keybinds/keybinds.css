@@ -1,5 +1,5 @@
 /* Extended-keybinds page — header, section rail and one scrolling column: SETTINGS tiles, then the
-   binds as function | keyboard | joystick tables grouped in flight order. Colors from colors.css tokens. */
+   binds as function | keyboard | joystick tables grouped in flight order. */
 
 /* The panel fills the pane and the column scrolls inside it, so the rail stays put. The side
    padding is the same on both edges and just clears the bezel's upright nav labels (TGT's value). */

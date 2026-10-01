@@ -1,6 +1,7 @@
 /* TGP page — targeting-pod MJPEG feed. Single source of truth for BOTH layouts (full-screen
    iframe + split pane); no 'full' profile needed — the centred 3:2 feed renders identically
-   at any container size (like MAP). Base reset and font come from theme.css, colour tokens from colors.css. */
+   at any container size (like MAP). Base reset and font come from theme.css, colour tokens from
+   colors.css. */
 
 /* Centred 3:2 box sized to the source (TargetCam renders 360x240). Shrinking the panel drops
    the upscale ratio, which cuts the bilinear blur. The surrounding screen stays black.

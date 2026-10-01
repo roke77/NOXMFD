@@ -190,9 +190,8 @@ html, body {
 .ms-gauge-num { width: 3.2em; text-align: right; }
 
 /* ── The tube ──────────────────────────────────────────────────────────────────────────
-   AVN's gauge tube (avn.css .avn-vbar-tube), turned on its side: the 2px green frame around a
-   near-black trough (--no-gauge-trough, a shade off the display's black), and the fill inset
-   within it.
+   A horizontal gauge tube: the 2px green frame around a near-black trough (--no-gauge-trough, a
+   shade off the display's black), and the fill inset within it.
 
    The loader's .ms-bar is left alone: it is a progress bar, and these are instruments now.
    flex-basis 0 hands the trough whatever the label and number don't take; min-width floors it so a
