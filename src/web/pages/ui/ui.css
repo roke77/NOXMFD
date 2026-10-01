@@ -294,11 +294,10 @@ html, body { height: 100%; margin: 0; }
 .pv-hsd-lock { fill: var(--no-amber); }
 
 /* Colour rows in two columns (one on a narrow pane): swatch picker | label | hex | reset, each group
-   under a heading with its count of changed colours. */
+   under its heading. */
 .ui-groups { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 1.3em; }
 .ui-col { display: flex; flex-direction: column; min-width: 0; }
-.ui-group-head { display: flex; justify-content: space-between; padding-bottom: 0.3em; border-bottom: 1px solid var(--no-green-dark); }
-.ui-group-count { letter-spacing: 0.1em; color: var(--no-amber); }
+.ui-group-head { padding-bottom: 0.3em; border-bottom: 1px solid var(--no-green-dark); }
 .ui-rows { display: flex; flex-direction: column; }
 .ui-row {
   display: grid;

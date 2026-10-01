@@ -69,6 +69,5 @@ a picker or hex value as it changes, before the change is applied.
 
 Each row is one colour: tap the swatch to pick a new one, or type a hex value (`#rrggbb`, the `#`
 optional) and press Enter. **↺** puts that colour back to its default. Rows are grouped as CORE PALETTE
-and ACCENTS in one column, THREATS and MAP & SCOPE in the other (one column on a narrow screen); each
-group's heading counts the colours the active theme changes in it. Changing a base
+and ACCENTS in one column, THREATS and MAP & SCOPE in the other (one column on a narrow screen). Changing a base
 colour such as PRIMARY GREEN also recolours its dimmer and darker shades.

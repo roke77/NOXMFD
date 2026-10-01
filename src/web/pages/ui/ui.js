@@ -103,7 +103,6 @@ function cssValue(token, hex) {
 
 // ── colour rows ──────────────────────────────────────────────────────────────────────────────
 var rows = {};   // token → { row, input, hex, reset }
-var groupCounts = [];   // { el, tokens } per group: its heading's "n CHANGED"
 
 // Two columns: CORE PALETTE + ACCENTS, then THREATS + MAP & SCOPE (13 and 11 rows).
 var columns = [document.createElement('div'), document.createElement('div')];
@@ -113,10 +112,6 @@ UiTokens.GROUPS.forEach(function (group, gi) {
   var heading = document.createElement('div');
   heading.className = 'ui-heading ui-group-head';
   heading.textContent = group.title;
-  var count = document.createElement('span');
-  count.className = 'ui-group-count';
-  heading.appendChild(count);
-  groupCounts.push({ el: count, tokens: group.tokens.map(function (pair) { return pair[0]; }) });
   var list = document.createElement('div');
   list.className = 'ui-rows';
   group.tokens.forEach(function (pair) {
@@ -259,10 +254,6 @@ function render() {
     r.row.classList.toggle('overridden', overridden);
     r.reset.hidden = !overridden || readOnly;
   }
-  groupCounts.forEach(function (g) {
-    var n = g.tokens.filter(function (token) { return Object.prototype.hasOwnProperty.call(colors, token); }).length;
-    g.el.textContent = n ? n + ' CHANGED' : '';
-  });
 }
 
 // ── dialog ───────────────────────────────────────────────────────────────────────────────────
