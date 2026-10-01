@@ -96,6 +96,21 @@ namespace NOXMFD
             return SquadDesignations.Build(_callsign, _flight, leader, _members.ConvertAll(m => (m.Id, m.Slot)));
         }
 
+        // What this pilot tells the faction about itself (Presence.cs, issue #106,
+        // docs/faction-broadcast.md): the squad's callsign and flight, the pilot's own slot and its
+        // leader. Outside a squad the callsign is empty. A member's slot comes from the leader's
+        // roster, which lists the member too; 2 stands in until that roster has arrived.
+        internal static FactionIdentity.Identity SelfIdentity(float? fuel)
+        {
+            if (_role == Role.None) return new FactionIdentity.Identity(string.Empty, 0, 0, 0, fuel);
+            ulong self = Squadron.SelfId();
+            string callsign = string.IsNullOrEmpty(_callsign) ? "SQD" : _callsign;   // same stand-in Designations() shows
+            if (_role == Role.Leader) return new FactionIdentity.Identity(callsign, _flight, 1, self, fuel);
+            int slot = 2;
+            foreach (var m in _members) if (m.Id == self) { slot = m.Slot; break; }
+            return new FactionIdentity.Identity(callsign, _flight, slot, _leaderId, fuel);
+        }
+
         // For RouteStore.cs to attribute an incoming shared route without the client having to pass
         // it through the payload itself — HandleData already only accepts data FROM the current
         // leader (from != _leaderId is rejected), so the leader's identity is already known

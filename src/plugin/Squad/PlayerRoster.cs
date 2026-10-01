@@ -145,12 +145,11 @@ namespace NOXMFD
                 foreach (ulong id in left) { _factionSince.Remove(id); Squadron.LinkLog($"faction roster: {id} left"); }
             Presence.LogTransitions();
 
-            Presence.Tick(peerIds);
-            // Same peer list, same 1 Hz caller — FuelBroadcast.cs (docs/atc-extension-support.md
-            // item 1) rides the exact spot Presence does above, just its own message type.
+            // The beat carries this pilot's own fuel reading (docs/atc-extension-support.md item 1):
+            // the game has no networked value for another aircraft's true fuel.
             float? myFuel = GameManager.GetLocalAircraft(out Aircraft localAircraft) && localAircraft != null
                 ? localAircraft.GetFuelLevel() : (float?)null;
-            FuelBroadcast.Tick(peerIds, myFuel);
+            Presence.Tick(peerIds, myFuel);
 
             // issue #48 — rebuilt fresh every tick rather than incrementally, so a squad ending or a
             // squadmate switching/losing their aircraft clears or updates the tint on the very next

@@ -220,8 +220,9 @@ namespace NOXMFD
                 // the squad leader to invite. 1 Hz is ample; player join/leave isn't latency-sensitive.
                 PlayerRoster.Refresh();
                 // Squad designations as in-game names (docs/squad-callsign-names.md) — after the
-                // roster refresh above, which must still read Steam names.
-                PlayerNameOverride.Reconcile(Squad.Designations());
+                // roster refresh above, which must still read Steam names. Own squad plus every
+                // other squad the faction broadcasts (docs/faction-broadcast.md).
+                PlayerNameOverride.Reconcile(FactionIdentity.Merge(Squad.Designations(), Presence.Designations()));
                 // Detects a leader/member who crashed or force-quit without a graceful sqd.leave/
                 // disband/kick (Squad.cs's own header comment) — same 1 Hz cadence as the roster
                 // refresh above, since it depends on Presence's data that refresh just fed.
@@ -1718,9 +1719,9 @@ namespace NOXMFD
                     pilotSteamName = PlayerNameOverride.SteamNameIfRenamed(ac.pilots[0].player.SteamID);
                     // Peer-reported fuel (docs/atc-extension-support.md item 1) — this pilot's own
                     // NOXMFD instance broadcasting its own accurate reading; null when we haven't
-                    // heard from them within FuelBroadcast's TTL (not running the mod, out of range
-                    // of the faction-wide broadcast's freshness window, or simply hasn't sent one yet).
-                    float? reported = FuelBroadcast.FuelFor(ac.pilots[0].player.SteamID);
+                    // heard from them within the fuel TTL (not running the mod, out of range of the
+                    // faction-wide broadcast's freshness window, or simply hasn't sent one yet).
+                    float? reported = Presence.FuelFor(ac.pilots[0].player.SteamID);
                     if (reported.HasValue) { hasPeerFuel = true; peerFuelRatio = reported.Value; }
                 }
 
