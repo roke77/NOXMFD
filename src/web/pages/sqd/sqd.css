@@ -143,8 +143,9 @@ html, body { height: 100%; overflow: hidden; }
 .sqd-squad.sqd-mine { border-color: var(--no-green); }
 .sqd-squad-card {
   display: flex;
+  flex-wrap: wrap;   /* the editors (pickers plus buttons) are wider than a mid-sized pane */
   align-items: center;
-  gap: 12px;
+  gap: 8px 12px;
   min-height: 56px;
   padding: 0 10px 0 12px;
   box-sizing: border-box;
@@ -214,7 +215,7 @@ select:focus { outline: 1px solid var(--no-green-dim); }
 /* ── YOUR CALLSIGN (issue #107): amber and open until a callsign is set ── */
 .sqd-self { border: 1px solid var(--no-green-dark); border-radius: 4px; margin-bottom: 14px; }
 .sqd-self.unset { border-color: var(--no-amber); }
-.sqd-self-line { display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 0 10px 0 12px; box-sizing: border-box; }
+.sqd-self-line { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; min-height: 52px; padding: 0 10px 0 12px; box-sizing: border-box; }
 .sqd-self-title { flex: none; width: 150px; font-size: 13px; letter-spacing: 3px; color: var(--no-green); }
 .sqd-self.unset .sqd-self-title { color: var(--no-amber); }
 .sqd-self-value { font-size: 22px; letter-spacing: 4px; color: var(--no-green); white-space: nowrap; }
@@ -234,7 +235,8 @@ select:focus { outline: 1px solid var(--no-green-dim); }
   border: 1px solid var(--no-green-dark);
   border-radius: 4px;
 }
-.sqd-create-line { display: flex; align-items: center; gap: 10px; }
+/* Wraps so CREATE drops to its own line, right-aligned, in a pane too narrow for the whole row (about 640-930px). */
+.sqd-create-line { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
 .sqd-create-title { flex: none; width: 150px; font-size: 13px; letter-spacing: 3px; color: var(--no-green); }
 .sqd-create.off { border-color: var(--no-panel-border); }
 .sqd-create.off .sqd-create-title { color: var(--no-gray); }
