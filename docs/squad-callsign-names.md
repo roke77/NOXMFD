@@ -99,7 +99,8 @@ Where each page shows what:
 | AKF kill feed | `TALON 1-3 (SteamName) [<type>]` (`PlayerNameOverride.WithSteamName`) |
 | TGP overlay pilot | `TALON 1-3` |
 | SQD rows | callsign column + Steam name column |
-| TD member columns, TGT's TD column | the member's callsign |
+| TD member columns | the member's callsign |
+| TGT's TD column | the number of the member's callsign (`2` for `ANVIL 1-2`), the full callsign as its tooltip |
 | ATC extension | `TALON 1-3` from `pn`; its SELECTED line can add `psn` in parentheses (ATC repo) |
 
 A unit in the telemetry frame carries `psn`, the pilot's Steam name, only while `pn` shows their

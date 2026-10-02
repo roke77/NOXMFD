@@ -37,7 +37,7 @@ Each column head shows how many targets that member has, and whether they've got
 ## Buttons
 
 - **DESIGNATE** sends every amber column, then returns you to TGT — where the **TD** column shows
-  the callsigns of the members you just assigned. It lights up when something is waiting and counts the
+  the numbers of the members you just assigned (`2` for `ANVIL 1-2`). It lights up when something is waiting and counts the
   lists that will go (`2 LISTS WAITING`); `ALL SENT` means there's nothing new. Each send replaces
   that member's whole list, and a list you emptied is sent too, so it withdraws what they had
   pending.

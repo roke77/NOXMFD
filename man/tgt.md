@@ -32,13 +32,11 @@ Every target you currently have selected, one row per target:
   available here for every locked target at once, not only the focused one. Blank when nothing is
   tracking the lock. With several weapons on one target, WPN and TTI both describe the one closest
   to impact.
-- **TD** — while you're leading a [squad](sqd.md), which member(s), by callsign, you've designated this
+- **TD** — while you're leading a [squad](sqd.md), which member(s), by the number of their callsign (`2` for `ANVIL 1-2`), you've designated this
   target to on the [Target Designator page](td.md) (blank if none). Only you see this column — it's
   your own in-progress/sent designation work, not visible to anyone else, and it doesn't appear at
   all unless you're currently the squad leader.
 
-A small teal **TD** after a target's name marks one that came from your squad leader's designation
-(see [Squad designations](#squad-designations) below).
 - **SRC** — where the lock is coming from: **SENSOR** (your own live sensors), **DATALINK**
   (relayed by your faction, still trustworthy), or **STALE** (relayed, but the game no longer
   trusts the position — the same check behind the TGP page's own "?" marker).

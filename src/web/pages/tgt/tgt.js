@@ -73,11 +73,17 @@ function squadOrder(id) {
   if (id === squadState.self) return -1;
   return (squadState.members || []).findIndex(function (x) { return x.id === id; });
 }
+// The short form the narrow TD column shows: the NUMBER of the member's callsign ("2" for
+// "ANVIL 1-2"). A member with no callsign shows their place in the squad instead (leader 1, then 2...).
+function memberNumber(id) {
+  const p = squadState && (squadState.pilots || {})[id];
+  const m = p && /-(\d)$/.exec(p.d);
+  return m ? m[1] : String(squadOrder(id) + 2);
+}
 function applyTdState(s) {
   const st = (s && s.state) || {};
   tdAssignments = st.assignments || {};
   tdDesignated = st.designated || [];
-  tdAccepted = new Set(st.accepted || []);
   renderDock();
   renderTargets();
 }
@@ -88,7 +94,6 @@ function applyTdState(s) {
 // `designated`, and the next td-state push hides it). `accepted` holds the ids that came in through
 // an answered designation, so their rows carry a TD tag. The drawer's open/closed state is local.
 let tdDesignated = [];
-let tdAccepted = new Set();
 let dockOpen = false;
 const dockEl = document.getElementById('tgt-td-dock');
 const dockDrawer = document.getElementById('tgt-td-drawer');
@@ -298,11 +303,9 @@ function renderTargets() {
       row.dataset.id = t.id;
       row.setAttribute('role', 'checkbox'); row.setAttribute('aria-checked', 'true');
       row.setAttribute('aria-label', 'deselect'); row.tabIndex = 0;
-      // NAME cell holds the name and, after it, the TD tag — see .tl-name's flex layout in tgt.css.
       const name = document.createElement('span'); name.className = 'tl-name';
       const nameText = document.createElement('span'); nameText.className = 'tl-name-text';
-      const tdTag = document.createElement('span'); tdTag.className = 'tl-td-tag';
-      name.appendChild(nameText); name.appendChild(tdTag);
+      name.appendChild(nameText);
       const wpn  = document.createElement('span'); wpn.className = 'tl-wpn';
       const tti  = document.createElement('span'); tti.className = 'tl-tti';
       const td   = document.createElement('span'); td.className = 'tl-td';
@@ -325,7 +328,6 @@ function renderTargets() {
     // in-flight guided weapons tracking it (telemetry-source.js only sets t.tti/t.wpn in that case).
     el.querySelector('.tl-wpn').textContent = typeof t.tti === 'number' && t.wpn ? t.wpn : '';
     el.querySelector('.tl-tti').textContent = typeof t.tti === 'number' ? fmtTti(t.tti) : '';
-    el.querySelector('.tl-td-tag').textContent = tdAccepted.has(t.id) ? 'TD' : '';
     el.querySelector('.tl-grid').textContent = t.g != null ? String(t.g) : '—';
     el.querySelector('.tl-dist').textContent = fmtRng(t.r, targetsMetric);
     // TD column (issue #47 follow-up) — blank when this target isn't currently assigned to anyone;
@@ -333,9 +335,9 @@ function renderTargets() {
     // empty cell here never shows for someone with no leader-side assignments to display anyway.
     const assigned = tdAssignments[String(t.id)] || [];
     const tdCell = el.querySelector('.tl-td');
-    const tdText = assigned.slice().sort(function (a, b) { return squadOrder(a) - squadOrder(b); }).map(memberLabel).join(', ');
-    tdCell.textContent = tdText;
-    tdCell.title = tdText;
+    const byOrder = assigned.slice().sort(function (a, b) { return squadOrder(a) - squadOrder(b); });
+    tdCell.textContent = byOrder.map(memberNumber).join(' ');
+    tdCell.title = byOrder.map(memberLabel).join(', ');   // the full callsigns, on hover
     // SPD/ALT/HDG (issue #88, only rendered while .has-flight-col is on): "—" when this target has
     // no HasDetail — a stale lock, or a non-aircraft/missile category — same gate/placeholder MAP's
     // hover tooltip already uses for the identical data.

@@ -133,16 +133,14 @@
          vertically but still tracks the rows horizontally.
          WPN / TTI (docs/hud-tti-estimate.md): the player's own in-flight guided weapon tracking that
          lock, and its time to impact as M:SS. Both blank when nothing is tracking it.
-         TD (issue #47 follow-up): a squad leader's own designations, the callsign of each
-         member this target is assigned to (blank if none). Leader-only — hidden entirely (both this
+         TD (issue #47 follow-up): a squad leader's own designations, the number of each
+         member's callsign this target is assigned to (blank if none; the full callsigns are its tooltip). Leader-only — hidden entirely (both this
          header cell and each row's .tl-td) via tgt.css's .has-td-col for anyone not currently
          leading a squad, including someone who never joined one, so it never shows a column of
          meaningless blanks.
          SPD / ALT / HDG (issue #88): flight data, hidden by default (COMPACT) and revealed by the
          DETAILED/COMPACT toggle below — tgt.css's .has-flight-col, same show/hide mechanics as
-         .has-td-col above, driven by tgt.js's own client-local toggle rather than squad state.
-         A row that arrived through an accepted squad designation carries a small TD tag after its
-         name, so a member can tell the leader's targets from their own. -->
+         .has-td-col above, driven by tgt.js's own client-local toggle rather than squad state. -->
     <div class="tgt-list" id="tgt-list">
       <div class="tgt-list-scroll">
         <div class="tgt-list-head">

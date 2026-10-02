@@ -245,8 +245,8 @@ were removed (Keybinds.cs, the remote-keybind map, the harness parser's self-che
 `.cfg` keeps its orphaned `[TD Keybinds]` entries, harmlessly.
 
 **Leader's TD column on TGT.** A row tap assigns every member at once, which overflowed the old
-column width; the column is wider, lists the assigned members' callsigns in squad order, and clips
-with an ellipsis (the full list is its tooltip).
+column width; the column lists the number of each assigned member's callsign in squad order (`2` for
+`ANVIL 1-2`), with the full callsigns as its tooltip.
 
 ### Verification
 
