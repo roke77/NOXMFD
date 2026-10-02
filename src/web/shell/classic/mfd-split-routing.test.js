@@ -71,4 +71,11 @@ assert.ok(vmainStart >= 0, 'could not isolate isVmainPage');
 assert.ok(source.slice(vmainStart, vmainEnd).includes('ExtNav.isExtensionPage(p)'),
   'isVmainPage must apply to every extension page, not just the hardcoded core-page list');
 
+// Entering a split seeds the first pane with the full-view page. An extension page has no
+// CLASSIC_SPLIT entry, so the seed must ask paneUrl (which resolves extensions too), not the raw table.
+const seedStart = source.indexOf('panePages = [', source.indexOf('splitMode = true;'));
+const seedLine = source.slice(seedStart, source.indexOf(';', seedStart));
+assert.ok(seedStart >= 0 && seedLine.includes('paneUrl(currentPage)') && !seedLine.includes('PAGE_URL['),
+  'setSplit must seed the first pane through paneUrl so an extension page survives entering a split');
+
 console.log('mfd-split-routing.test.js: OK');

@@ -376,7 +376,8 @@ function setSplit(variant) {
     return;
   }
   splitMode = true;
-  panePages = [PAGE_URL[currentPage] ? currentPage : 'main', 'main'];
+  // paneUrl, not PAGE_URL: an extension page has no PAGE_URL entry but still renders in a pane.
+  panePages = [paneUrl(currentPage) !== 'about:blank' ? currentPage : 'main', 'main'];
   applySplitMode();
 }
 
