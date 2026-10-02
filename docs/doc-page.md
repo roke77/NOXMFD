@@ -84,6 +84,16 @@ the moment the plugin loads, not only once they've opened DOC in-game.
   path-traversal name (`../../secrets.png`) simply doesn't match anything and 404s rather than
   resolving outside the kneeboard folder.
 
+## PAD cursor (issue #104)
+
+The index could only be clicked, so from the HOTAS a file could not be picked at all: INDX/NEXT/PREV
+only exist once an image is open. DOC carries the PAD cursor like TGT, SQD and WPT do
+([page-cursor.md](page-cursor.md)): `doc` is in `PAD_CURSOR_PAGES` in `mfd.js` and `f35.js`,
+`doc.js` creates a `createPadCursor` crosshair over the `.doc-row` file names (`pad-hoverable`, so the
+one under it highlights) and Cursor Select clicks it. Cursor Zoom In/Out scroll the page. Opening
+the first file by default was left out: the cursor makes every file one Select away, and the index
+stays the place a player chooses from.
+
 `doc.js` re-fetches `/doc-list` on INDX and on every NEXT/PREV (not cached client-side either, for
 the same reason); the wrap-around stepping itself is a pure function, `doc-cycle.js`
 (`doc-cycle.test.js`).

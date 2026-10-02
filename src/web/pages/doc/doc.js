@@ -1,4 +1,5 @@
 // DOM/fetch glue for DOC (issue #82). Stepping logic itself lives in doc-cycle.js (pure, tested).
+import { createPadCursor } from '/assets/services/pad-cursor.js';
 
 if (window.parent !== window) {
   var back = document.querySelector('.doc-back');
@@ -21,7 +22,7 @@ function renderRows(files) {
   rowsEl.innerHTML = '';
   files.forEach(function (name) {
     var row = document.createElement('div');
-    row.className = 'doc-row';
+    row.className = 'doc-row pad-hoverable';
     row.textContent = name;
     row.onclick = function () { showImage(name); };
     rowsEl.appendChild(row);
@@ -84,3 +85,45 @@ window.addEventListener('message', function (e) {
 });
 
 showIndexView();
+
+// ── PAD cursor (docs/page-cursor.md, issue #104) ──────────────────────────────────────
+// The same crosshair TGT/SQD use, live while DOC is the SOI's focused surface: move it with the
+// Cursor binds and press Select on a file name to open it. Every file row has a real onclick, so
+// Select is just a synthetic click at the crosshair's point. #pad-cursor is position:fixed
+// (doc.css), since this page scrolls as a whole.
+var CURSORABLE = '.pad-hoverable';
+var cursor = createPadCursor({
+  el: document.getElementById('pad-cursor'),
+  clampRect: function () { return { dx: 0, dy: 0, dw: window.innerWidth, dh: window.innerHeight }; },
+  onSelect: function (x, y) {
+    var raw = document.elementFromPoint(x, y);
+    var el = raw && raw.closest(CURSORABLE);
+    if (el) el.click();
+  },
+  onMove: padCursorMoveAt,
+});
+
+// Hover feedback: the shared .pad-hoverable/.pad-hover pair (theme.css). The index is rebuilt on
+// every visit, so a stale hoveredEl just fails the `===` check and is replaced on the next move.
+var hoveredEl = null;
+function padCursorMoveAt(x, y) {
+  var raw = x == null ? null : document.elementFromPoint(x, y);
+  var el = raw && raw.closest(CURSORABLE);
+  if (el === hoveredEl) return;
+  if (hoveredEl) hoveredEl.classList.remove('pad-hover');
+  hoveredEl = el;
+  if (hoveredEl) hoveredEl.classList.add('pad-hover');
+}
+
+// Cursor Zoom In/Out scroll the page (a long file list, or a diagram taller than the pane), as on
+// WPT/TGT/SQD. The shell forwards these only once DOC is in PAD_CURSOR_PAGES (mfd.js/f35.js).
+var SCROLL_STEP = 60;   // ponytail: flat constant tuned by feel, like pad-cursor.js's own SPEED
+window.addEventListener('message', function (e) {
+  var m = e.data;
+  if (!m || m.mfd !== true) return;
+  if (m.action === 'cursor-focus') cursor.setFocus(!!m.on, window.innerWidth / 2, window.innerHeight / 2);
+  else if (m.action === 'cursor') cursor.setVector(m.x, m.y);
+  else if (m.action === 'cursor-select') cursor.select();
+  else if (m.action === 'zoom-in') window.scrollBy({ top: SCROLL_STEP });
+  else if (m.action === 'zoom-out') window.scrollBy({ top: -SCROLL_STEP });
+});

@@ -112,7 +112,7 @@
   // doesn't use pad-cursor.js, but still wants the raw vector while focused — its on-screen
   // joystick uses it to detect physical PAD Cursor input and hide itself
   // (docs/tgp-manual-control.md's "On-screen joystick").
-  const PAD_CURSOR_PAGES = { map: true, tgt: true, td: true, hud: true, rdr: true, wpt: true, sqd: true, akf: true, hsd: true, tgp: true };
+  const PAD_CURSOR_PAGES = { map: true, tgt: true, td: true, hud: true, rdr: true, wpt: true, sqd: true, akf: true, doc: true, hsd: true, tgp: true };
 
   const WPN_MAX_DISPLAY = ROWS - 1;   // row 1 is the nav + CM band; rows 2..6 carry the weapons
   const WPN_ICON_INSET  = 20;         // keeps the image off its band edges, as the bezel does

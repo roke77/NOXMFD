@@ -318,14 +318,14 @@ to that zoom level; Zoom In/Out still work between axis moves.
 ### PAD cursor
 
 When a display's focused page is interactible — [MAP](map.md), [HUD](hud.md), [TGT](tgt.md),
-[FCR](rdr.md#fcr), [HSD](rdr.md#hsd), [WPT](wpt.md), or [AKF](akf.md) — a crosshair can move over
+[FCR](rdr.md#fcr), [HSD](rdr.md#hsd), [WPT](wpt.md), [AKF](akf.md) or [DOC](doc.md) — a crosshair can move over
 it and act on whatever's underneath, the same thing a mouse click or touch tap already does, but
 from the HOTAS, without touching the screen. The green crosshair on the map above is the PAD cursor.
 
 - **Cursor Up/Down/Left/Right** (or a bound analog axis) slews it.
 - **Cursor Select** picks whatever it's over: a contact on MAP, a toggle on HUD, a filter or
   target row on TGT (holding it also mirrors that page's own long-press action, where it has one),
-  a waypoint row or button on WPT, or the density toggle on AKF (holding it over AKF's pane divider
+  a waypoint row or button on WPT, a file name on DOC, or the density toggle on AKF (holding it over AKF's pane divider
   drags the split instead, and a tap there while collapsed restores it). On TGT specifically, after
   Next/Previous Target, Select instead deselects the focused row directly until the cursor moves
   again — see [Target list](#target-list) above.

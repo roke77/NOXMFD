@@ -2,6 +2,9 @@
    .doc-back lineage (WPT/SQD/KB's own pattern) — no page title, unlike those three, so both views
    clear the floated back-link themselves instead of relying on a title block to do it for them. */
 
+/* PAD cursor (docs/page-cursor.md): same override SQD/WPT use — position:fixed, since this page scrolls as a whole. */
+#pad-cursor { position: fixed; }
+
 #doc-index, #doc-image { clear: both; }
 
 .doc-row {

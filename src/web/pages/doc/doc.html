@@ -19,6 +19,9 @@
   personal set of reference images — airport diagrams, checklists), so the read is cheap, and it
   means a file a player adds or removes mid-session just starts/stops appearing rather than needing
   stale-list handling.
+
+  The index is also drivable from the HOTAS: DOC carries the PAD cursor (issue #104), so the
+  Cursor binds move a crosshair over the file names and Select opens one.
 -->
 <link rel="stylesheet" href="/assets/shared/font.css">
 <link rel="stylesheet" href="/assets/shared/theme.css">
@@ -31,6 +34,10 @@
   <!-- Way back to MAIN when opened standalone; hidden when embedded in a shell (classic #page-frame
        or an F-35 portal) — same check keybinds.js/mapcfg.js use (window.parent !== window). -->
   <a class="doc-back" href="/">&lt; MAIN</a>
+
+  <!-- PAD cursor (docs/page-cursor.md): the same fixed-position crosshair TGT/SQD use, driven while
+       DOC is the SOI's focused surface, so a file can be picked from the HOTAS. -->
+  <div id="pad-cursor" class="pad-cursor"></div>
 
   <div id="doc-index">
     <div class="doc-rows" id="doc-rows"></div>
@@ -48,6 +55,6 @@
 <script src="/assets/pages/keybinds/keybinds-keymap.js"></script>
 <script src="/assets/services/remote-keybinds.js"></script>
 <script src="/assets/pages/doc/doc-cycle.js"></script>
-<script src="/assets/pages/doc/doc.js"></script>
+<script type="module" src="/assets/pages/doc/doc.js"></script>
 </body>
 </html>

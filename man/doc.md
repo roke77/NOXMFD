@@ -14,7 +14,9 @@ Reached from [MAIN](main.md) via **MD**, alongside [AKF](akf.md)/[MIS](mis.md)/[
 
 ## Index
 
-DOC opens on an index of every image file in the folder. Click a file name to open it. An empty
+DOC opens on an index of every image file in the folder. Click a file name to open it, or move the
+[PAD cursor](keybinds.md#pad-cursor) over one with the Cursor binds and press **Cursor Select**.
+**Cursor Zoom In/Out** scrolls a long list, or a diagram taller than the page. An empty
 folder shows **NO FILES** instead of a list. Its only nav keys here are **MAIN** and **MD** (back to
 the mission-data hub) — INDX/NEXT/PREV only appear once an image is actually open.
 
