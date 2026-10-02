@@ -17,6 +17,15 @@ namespace NOXMFD.Tests
         }
 
         [Fact]
+        public void Label_adds_the_steam_name_to_a_callsign_and_falls_back_to_either()
+        {
+            Assert.Equal("VIPER 2-1 (DeckJockey)", SquadDesignations.Label("VIPER 2-1", "DeckJockey"));
+            Assert.Equal("DeckJockey", SquadDesignations.Label("", "DeckJockey"));
+            Assert.Equal("VIPER 2-1", SquadDesignations.Label("VIPER 2-1", ""));
+            Assert.Equal("", SquadDesignations.Label("", ""));
+        }
+
+        [Fact]
         public void InsertSteamName_matches_only_the_whole_shown_name()
         {
             Assert.Equal("TALON 1-3 (Roke) [F-16]", SquadDesignations.InsertSteamName("TALON 1-3 [F-16]", "TALON 1-3", "Roke"));

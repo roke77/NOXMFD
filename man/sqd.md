@@ -107,7 +107,8 @@ Creating a squad declines any invites you haven't answered.
 ![SQD page, invites pending](images/SQD_INVITED.png)
 
 An invite shows as a card under the CREATE SQUAD row with the squad's name, who sent it and how many
-pilots it has, for example `from DeckJockey · 3 pilots`.
+pilots it has, for example `from VIPER 2-1 (DeckJockey) · 3 pilots`: the sender's callsign with their
+Steam name in brackets, or just the Steam name until their callsign is known.
 
 - **ACCEPT** joins that squad and declines every other invite, since you can only be in one squad.
   It needs your callsign.
@@ -201,6 +202,8 @@ every other squad and pilots in no squad.
   the SQD tables show both names.
 
 ## Notices
+
+Pilots named in a notice, and as the sender of a shared route on [WPT](wpt.md#squad-sharing), show by callsign with their Steam name in brackets once the callsign is known, for example `VIPER 2-1 (DeckJockey)`.
 
 | Notice | Meaning |
 |---|---|

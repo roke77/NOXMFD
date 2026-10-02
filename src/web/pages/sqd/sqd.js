@@ -343,7 +343,9 @@ function renderInviteCards(invites) {
     const text = document.createElement('span');
     text.className = 'sqd-invite-text';
     const pilots = (inv.members || []).length + 1;   // its members plus the leader
-    text.textContent = 'from ' + (inv.leaderName || inv.leaderId) + ' · ' + pilots + (pilots === 1 ? ' pilot' : ' pilots');
+    // The sender by callsign, with their Steam name, once their callsign is known.
+    const sender = (pilot(inv.leaderId) ? pilot(inv.leaderId).d + ' (' + (inv.leaderName || inv.leaderId) + ')' : (inv.leaderName || inv.leaderId));
+    text.textContent = 'from ' + sender + ' · ' + pilots + (pilots === 1 ? ' pilot' : ' pilots');
 
     const actions = document.createElement('div');
     actions.className = 'sqd-invite-actions';

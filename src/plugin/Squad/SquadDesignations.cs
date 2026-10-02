@@ -9,6 +9,11 @@ namespace NOXMFD
         internal static string Format(string callsign, int flight, int number) =>
             (string.IsNullOrEmpty(callsign) ? "SQD" : callsign) + " " + flight + "-" + number;
 
+        // "VIPER 2-1 (DeckJockey)" for a pilot with a callsign, else just the Steam name; the callsign
+        // alone when there is no Steam name. For notices and shares that name a pilot.
+        internal static string Label(string designation, string steamName) =>
+            designation.Length == 0 ? steamName : steamName.Length == 0 ? designation : designation + " (" + steamName + ")";
+
         // "TALON 1-3 [F-16]" -> "TALON 1-3 (SteamName) [F-16]" when unitName is `shown`'s own label
         // (also "TALON 1-3 pilot" after an ejection); null when it isn't.
         internal static string? InsertSteamName(string unitName, string shown, string steamName) =>

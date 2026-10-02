@@ -101,6 +101,11 @@ namespace NOXMFD
             return new FactionIdentity.Identity(callsign, flight, number, squad, _flight, leader, FactionIdentity.SquadProtocolVersion, fuel);
         }
 
+        // A pilot named for a notice or a share: "VIPER 2-1 (DeckJockey)" once their callsign is known,
+        // else the Steam name.
+        private static string Labelled(ulong id, string steamName) =>
+            SquadDesignations.Label(Designations().TryGetValue(id, out string? d) ? d : string.Empty, steamName);
+
         // For RouteStore.cs to attribute an incoming shared route without the client having to pass
         // it through the payload itself — HandleData already only accepts data FROM the current
         // leader (from != _leaderId is rejected), so the leader's identity is already known
@@ -316,7 +321,7 @@ namespace NOXMFD
             // the next roster/message reveals the change) so that loop stays best-effort.
             if (!Squadron.SendTo(newLeader, "sqd.transfer", TransferEnvelope(remaining)))
             {
-                SetNotice($"Couldn't hand off leadership to {successor.Name} — they may be offline. Try again.");
+                SetNotice($"Couldn't hand off leadership to {Labelled(successor.Id, successor.Name)} — they may be offline. Try again.");
                 return false;
             }
             string leaderChanged = "{\"leaderId\":\"" + newLeader.ToString(CultureInfo.InvariantCulture) +
@@ -423,7 +428,7 @@ namespace NOXMFD
                     CleanupRemovedMember(m.Id);
                 }
                 BroadcastRoster();
-                string names = string.Join(", ", gone.ConvertAll(m => m.Name));
+                string names = string.Join(", ", gone.ConvertAll(m => Labelled(m.Id, m.Name)));
                 SetNotice($"Lost contact with {names} — they may have crashed or disconnected.");
             }
         }
@@ -536,7 +541,7 @@ namespace NOXMFD
             string currentLeader = Str(obj, "currentLeaderName");
             _pendingSent.Remove(from);
             Squadron.CloseSession(from);
-            SetNotice($"{pendingName} is already in {currentLeader}'s squad — invitation rejected.");
+            SetNotice($"{Labelled(from, pendingName)} is already in {currentLeader}'s squad — invitation rejected.");
         }
 
         private static void HandlePoach(ulong from, string payload)
@@ -546,7 +551,7 @@ namespace NOXMFD
             string memberName = Str(obj, "memberName");
             string byName     = Str(obj, "byName");
             if (!ContainsMember(from)) return;   // stale — not currently one of our members
-            SetNotice($"{byName} tried to recruit {memberName}, who is already in your squad.");
+            SetNotice($"{Labelled(ULongOf(Str(obj, "byId")), byName)} tried to recruit {Labelled(from, memberName)}, who is already in your squad.");
         }
 
         private static void HandleRoster(ulong from, string payload)
@@ -697,9 +702,9 @@ namespace NOXMFD
             string dataPayload = Str(obj, "payload");
             switch (dataType)
             {
-                case "wpt.route":              RouteStore.ReceiveSharedRoute(dataPayload, _leaderName); break;
+                case "wpt.route":              RouteStore.ReceiveSharedRoute(dataPayload, Labelled(_leaderId, _leaderName)); break;
                 case "wpt.route-deleted":      RouteStore.RemoveSharedRoute(dataPayload); break;
-                case "wpt.steerpoint":         RouteStore.ReceiveSharedSteerPoint(dataPayload, _leaderName); break;
+                case "wpt.steerpoint":         RouteStore.ReceiveSharedSteerPoint(dataPayload, Labelled(_leaderId, _leaderName)); break;
                 case "wpt.steerpoint-deleted": RouteStore.RemoveSharedSteerPoint(dataPayload); break;
                 case "td.designate":           TdStore.ReceiveDesignation(dataPayload); break;
                     // Unknown type — e.g. a squadmate on a newer mod version — has no handler to
