@@ -699,9 +699,10 @@ _SQD_SCENARIOS = {
                    {"id": "76561198000000004", "name": "Havoc",   "slot": 4, "aircraft": "FS-12 Revoker"}],
                "pendingInvites": []},
     "member": {"role": "member", "leaderId": "76561198000000010", "leaderName": "DeckJockey",
+               "leaderAircraft": "EW-25 Medusa",
                "callsign": "VIPER", "flight": 2,
                "members": [
-                   {"id": _SQD_SELF, "name": "Falcon", "slot": 2, "aircraft": ""},
+                   {"id": _SQD_SELF, "name": "Falcon", "slot": 2, "aircraft": "FS-12 Revoker"},
                    {"id": "76561198000000012", "name": "nightjar", "slot": 3, "aircraft": "FS-20 Vortex"}],
                "pendingInvites": []},
     "invited": {"role": "none", "leaderId": "", "leaderName": "", "callsign": "", "flight": 1, "members": [],
@@ -756,7 +757,7 @@ def _squad_state():
         "leaderId": _SQD["leaderId"], "leaderName": _SQD["leaderName"],
         # Never actually exercised — this mock's role never flips to "member" (no simulated
         # incoming invite exists to accept), see the module comment above.
-        "leaderAircraft": "",
+        "leaderAircraft": _SQD.get("leaderAircraft", ""),
         "callsign": _SQD["callsign"],
         "flight": _SQD["flight"],
         "members": _SQD["members"],

@@ -38,6 +38,7 @@ html, body { height: 100%; overflow: hidden; }
   margin: 0 0 14px;
 }
 .sqd-title { font-size: 26px; letter-spacing: 6px; text-align: left; margin: 0; }
+.sqd-head .sqd-note { flex: none; }   /* squad and pilot counts, at the right end */
 
 .sqd-unavailable {
   margin: 0 0 19px;

@@ -1,89 +1,182 @@
-# SQD
+# SQD — Squadrons
 
-Squadron membership over Steam: form a squad with players in your current match, manage the
-roster, and see every other squad in the faction.
+Fly as a squadron with other NOXMFD pilots in your match. A squadron gives every member a callsign
+designation such as `TALON 1-2`, which replaces their Steam name in the game for everyone running
+NOXMFD. It also links its members for shared navigation, target hand-offs and squad marks on the
+map and HUD. The SQD page is where you form, join, lead and leave a squad, and where you see every
+squad flying in your faction.
 
-![SQD page](images/SQD.png)
+![SQD page, squad leader](images/SQD.png)
 
-## Creating a squad
+## What a squadron does
 
-While you have no squad the page opens with a **CREATE SQUAD** row: a callsign picker and a
-flight-number row (1-9) — pick both and press CREATE to become the leader. Callsigns are a fixed
-list of real military callsigns, not free text. Pending invites don't block it: creating a squad
-declines them. **EDIT** on your squad's header lets the leader change both the callsign and the
-flight number later — re-numbering the flight immediately updates every member's own designation.
+- **Callsigns everywhere.** Each member flies under their designation on the game's map, kill feed,
+  chat, scoreboard and HUD markers, and on every NOXMFD page. Every NOXMFD player in the faction
+  sees these names, including pilots in other squads or in no squad, such as an ATC controller.
+- **Shared navigation.** The leader can share routes and steer points from [WPT](wpt.md).
+- **Target hand-offs.** The leader assigns targets to specific members from [TD](td.md); members
+  answer them on [TGT](tgt.md#squad-designations).
+- **Squad marks.** Squadmates' planes show in teal on [MAP](map.md), and the HUD marks units your
+  squad has targeted (see [TD → HUD marks](td.md#hud-marks)).
 
-If another squad in the faction already flies the callsign and flight you pick, that flight is
-marked amber and a line under the row says so. You can still pick it; the two squads then carry an
-amber **SAME DESIGNATION** note.
+## Before you start
 
-## Your squad
+- Every pilot needs NOXMFD, a Steam copy of the game, and to be in the **same match and faction**.
+- Squads talk over Steam's own peer-to-peer messaging. There's no server and no account to create.
+  On a non-Steam launch the page shows *Squad requires Steam* and the squad feature is off.
+- Players without NOXMFD aren't affected: they can't join a squad and keep seeing Steam names.
+- A squad lasts until it's left or disbanded. It carries over a mission change or restart, but not
+  a game restart: after one, form the squad again.
 
-Your own squad is listed first, in a green box that always stays open. Members render as a table: each pilot's callsign designation, their Steam display name, and their
-current aircraft (blank when not flying one). A designation reads `CALLSIGN FLIGHT-MEMBER` — e.g.
-`TALON 1-2` — where FLIGHT is the squad's current flight number and MEMBER is the pilot's number
-in the squad (the leader is always 1). The leader's row carries an amber LEADER label; on every
-other row the leader sees ▲/▼ (move that pilot one number up or down, swapping with whoever has it),
-a star (promote) and an × (kick). Your own row is lit green.
+## The page
 
-Numbers stick. When a pilot leaves, is kicked or drops out, their number stays empty and shows as
-an OPEN row; nobody else's number changes. The next pilot to join takes the lowest open number, or
-the leader can move someone into it with ▲/▼. When the leader leaves, leadership passes to the
-lowest-numbered member (or whoever the leader promoted with the star), who becomes 1, and everyone
-else is renumbered from 2 in their current order.
+Top to bottom:
+
+1. **SQUADRONS**, with how many squads and pilots fly in your faction on the right.
+2. **CREATE SQUAD** — only while you're not in a squad.
+3. **Invites** you haven't answered — only while you're not in a squad.
+4. **Your squad**, in a green box that always stays open.
+5. **Every other squad** in your faction, each in a teal box. Click a box's header to fold or
+   unfold it.
+6. **UNASSIGNED PLAYERS**, docked at the bottom — not shown to squad members.
+
+An amber banner above the list reports anything that happened without you pressing a button,
+such as a lost squadmate (see [Notices](#notices)).
+
+## Callsigns and numbers
+
+A designation reads `CALLSIGN FLIGHT-NUMBER`, for example `TALON 1-2`:
+
+- **CALLSIGN** is the squad's name, picked from a fixed list of real military callsigns.
+- **FLIGHT** is the squad's flight number, 1 to 9.
+- **NUMBER** is the pilot's place in the squad. The leader is always `1`.
+
+Numbers stick. When a pilot leaves, is kicked or drops out, their number stays empty as an **OPEN**
+row and nobody else is renumbered, so no one's name changes mid-flight. The next pilot to join takes
+the lowest open number. When the leader leaves, the new leader becomes `1` and everyone else is
+renumbered from `2`, keeping their order.
+
+Two squads may fly the same callsign and flight. Both then show an amber **SAME DESIGNATION** note,
+and the pickers mark that pair in amber, but nothing stops you from using it. On comms, use a
+different flight number to keep the two apart.
+
+## Start a squad
+
+![SQD page, no squad](images/SQD_NO_SQUAD.png)
+
+While you're not in a squad, the page opens with the **CREATE SQUAD** row:
+
+1. Pick a callsign.
+2. Pick a flight number, 1 to 9. A flight another squad already flies under that callsign is marked
+   amber, and a line under the row names it.
+3. Press **CREATE**. You're the leader, `CALLSIGN FLIGHT-1`.
+
+Creating a squad declines any invites you haven't answered.
+
+## Join a squad
+
+![SQD page, invites pending](images/SQD_INVITED.png)
+
+An invite shows as a card under the CREATE SQUAD row with the squad's callsign and flight, who sent
+it, and the designation you'd get, for example `from DeckJockey · as VIPER 2-4`.
+
+- **ACCEPT** joins that squad and declines every other invite, since you can only be in one squad.
+- **DECLINE** turns that one invite down.
+
+Invites queue oldest first and never expire: one stays until you answer it. While invites wait you
+can still create your own squad, browse the other squads to see who's in them, and accept whichever
+you like.
+
+## Lead a squad
+
+As the leader, your squad's header has **EDIT**, **LEAVE** and **DISBAND**. Each member's row has
+four controls:
+
+| Control | What it does |
+|---|---|
+| ▲ / ▼ | Moves the pilot one number up or down, swapping with whoever has it, or into an OPEN number. |
+| ★ | Makes that pilot the leader. You leave the squad. |
+| × | Removes the pilot from the squad. Their number turns OPEN. |
+
+- **Invite** a pilot from the **UNASSIGNED PLAYERS** bar: open it and press **INVITE** on their row.
+  They show as *INVITED · AWAITING RESPONSE* until they answer; an invite can't be withdrawn.
+- **EDIT** opens the callsign and flight pickers in the header. **APPLY** renames the squad, and
+  every member's designation changes at once; each pilot keeps their number.
+- **DISBAND** ends the squad for every member.
+- **Share** routes and steer points from [WPT](wpt.md#squad-sharing), and hand targets to members
+  from [TD](td.md), which appears on TGT's nav row while you lead a squad.
+
+## Fly as a member
+
+![SQD page, squad member](images/SQD_MEMBER.png)
+
+As a member, you see your squad with your own row lit green and the leader marked **LEADER**. The
+header has only **LEAVE**. What the leader shares reaches you on your own pages:
+
+- Shared routes and steer points appear on [WPT](wpt.md#squad-sharing) with ACCEPT/REJECT.
+- Targets the leader assigns you pop up on [TGT](tgt.md#squad-designations).
+
+## Leave a squad
+
+- **LEAVE** as a member takes you out at once. Your number turns OPEN for the rest of the squad.
+- **LEAVE** as the leader hands the lead to the lowest-numbered member, then takes you out. Use ★ on
+  a member's row instead to pick who takes over.
+- **DISBAND** (leader only) ends the squad for everyone.
+
+Leaving brings your Steam name back for everyone.
+
+If a squadmate crashes or force-quits, the rest of the squad notices on its own within about 30
+seconds and drops them, with a notice. A pilot still loading after a mission restart gets about two
+minutes, so restarting a mission doesn't break the squad.
 
 ## Other squads
 
-Every other squad in your faction follows, each in its own teal box with its pilot count: click a
-header to fold or unfold it. They are read-only. The count at the top right is every squad and pilot
-in the faction. You see these squads whether or not you are in a squad yourself, so an ATC
-controller with no squad can still read every callsign.
+Every other squad in your faction is listed below your own, read-only, with each pilot's
+designation, Steam name and aircraft. You see them whether you're in a squad or not, so anyone
+coordinating several squads, such as an ATC controller, can read every callsign from one page.
 
-## Designations as in-game names
+The UNASSIGNED PLAYERS bar lists the faction's NOXMFD pilots who aren't in any squad.
 
-Every pilot in a squad shows under their designation instead of their Steam name in your game: the
-map, kill feed, chat, scoreboard and HUD markers, and every NOXMFD page. That holds for your own
-squad, for other squads, and whether or not you are in a squad yourself, as long as the pilot is
-running NOXMFD. Leaving a squad brings that pilot's Steam name back. Players without NOXMFD show
-under their Steam name. The NOXMFD AKF feed adds the Steam name in parentheses, e.g.
-`TALON 1-2 (Roke) [F/A-26]`, and the SQD tables keep both columns.
+## Names in the game
 
-## Unassigned players
+Every squad member's designation replaces their Steam name in your game: the map, kill feed, chat,
+scoreboard, HUD markers, and NOXMFD's own pages, including the ATC extension. That holds for your
+own squad and for every other squad.
 
-The bar docked at the bottom, `UNASSIGNED PLAYERS (n)`, lists faction-mates in the current match who
-are also running NOXMFD and aren't in any squad. Click it to open or close it; it opens upward and
-scrolls when long. It is open while you have no squad and collapsed once you lead one. As the leader,
-**INVITE** on a row sends an invite, and the player then shows there as INVITED until they answer.
-Squad members don't see the list.
+- Only players running NOXMFD see designations; everyone else sees Steam names.
+- A name changes within a couple of seconds of a join, leave, kick, rename or renumber.
+- The [AKF](akf.md) feed adds the Steam name in parentheses, e.g. `TALON 1-2 (Roke) [F/A-26]`, and
+  the SQD tables show both names.
 
-## Invites
+## Notices
 
-Incoming invites queue oldest-first under the CREATE SQUAD row and show ACCEPT/DECLINE, with the
-designation you would get; accepting one declines the rest, and so does creating a squad, since
-squad membership is exclusive. An invite never expires on its own — it stays pending until you
-answer it, however long that takes.
+| Notice | Meaning |
+|---|---|
+| *Your squad was disbanded by the leader.* | The squad ended. |
+| *You were removed from the squad by the leader.* | You were kicked. |
+| *Lost contact with your squad leader…* | Your leader went silent, probably a crash or disconnect. You're out of the squad. |
+| *Lost contact with NAME…* | A member went silent and was dropped. Their number turns OPEN. |
+| *NAME is already in LEADER's squad — invitation rejected.* | The pilot you invited is in another squad. |
+| *NAME tried to recruit MEMBER, who is already in your squad.* | Another leader invited one of your members. Nothing changes. |
+| *Couldn't hand off leadership to NAME…* | The pilot you promoted didn't answer. You're still the leader; try again. |
 
-## Leaving
+## Controls
 
-**LEAVE** always exits your own squad: immediate as a member; as the leader, it hands off to the
-oldest remaining member first, then exits. The star on any other member's row does the same
-hand-off-and-exit but lets you pick who takes over instead. **DISBAND** (leader only) ends the
-squad for every member at once, rather than just yourself.
+Everything on the page is a click or tap. With SQD as the [SOI](keybinds.md#sensor-of-interest-soi),
+the [PAD cursor](keybinds.md#pad-cursor) can press any button, and **Cursor Zoom In/Out** scrolls the
+page and the unassigned list.
 
-If a leader or member crashes or force-quits instead, the rest of the squad notices on its own
-within about 30 seconds and drops them, with a notice — no action needed on your end. Pilots
-still loading after a mission restart get a longer allowance, so restarting the mission doesn't
-break the squad.
+## Troubleshooting
 
-## Sharing waypoint routes
+- **A pilot isn't in UNASSIGNED PLAYERS.** They need NOXMFD running, the same faction, and no squad
+  of their own. A pilot who just launched shows up within a few seconds.
+- **Someone's name doesn't change.** They need to be in a squad and running NOXMFD. Allow a couple of
+  seconds after a squad change.
+- **The page says *Squad requires Steam*.** The game didn't start through Steam, so squads are off
+  for this session.
 
-Once you're a squad leader with at least one member, each route on the [WPT](wpt.md) page gets a
-share button. Sharing pushes the route to every member as a read-only entry with ACCEPT/REJECT;
-later edits re-broadcast automatically. A member's own progress through a shared route carries
-over across updates. Shared routes unlock for editing the moment the squad ends or the sharer
-stops being leader.
+## Privacy
 
-## Hand off targets
-
-While in a squad, a **TD** nav item appears on [TGT](tgt.md) — see [TD](td.md) for handing specific
-targets off to specific members.
+Squads exchange data over Steam with other players. Your designation parts, squad leader and fuel
+level go to every NOXMFD player in your faction; routes, target hand-offs and squad marks go only to
+your own squad. [SECURITY.md](../SECURITY.md) lists exactly what is sent and to whom.

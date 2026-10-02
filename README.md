@@ -103,7 +103,7 @@ pilot, with HOTAS-friendly keybinds to match.
   - **[FCR](man/rdr.md#fcr)** — Fire Control Radar
   - **[HSD](man/rdr.md#hsd)** — Horizontal Situation Display
 - **[RWR](man/rwr.md)** — radar warning receiver.
-- **[SQD](man/sqd.md)** — squadron membership and shared waypoint routes.
+- **[SQD](man/sqd.md)** — squadrons: form and lead a squad, fly under its callsigns, and see every squad in your faction.
 - **[TGP](man/tgp.md)** — targeting-pod camera.
   - **[CFG](man/tgpcfg.md)** — feed rate, resolution, and quality settings.
 - **[TGT](man/tgt.md)** — target-selection table.
