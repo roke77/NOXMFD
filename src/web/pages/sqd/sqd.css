@@ -247,9 +247,10 @@ select:focus { outline: 1px solid var(--no-green-dim); }
 
 /* ── Squad rows: designation | pilot | aircraft | trailing ──
    The same four tracks in every squad, so the columns line up down the whole page. */
+:root { --sqd-cols: 150px minmax(0, 1fr) 190px 156px; }
 .sqd-squad-row {
   display: grid;
-  grid-template-columns: 150px minmax(0, 1fr) 190px 156px;
+  grid-template-columns: var(--sqd-cols);
   align-items: center;
   column-gap: 12px;
   min-height: 42px;
@@ -258,6 +259,16 @@ select:focus { outline: 1px solid var(--no-green-dim); }
   border-top: 1px solid var(--no-card-line-faint);
 }
 .sqd-squad-row.self { background: var(--no-card-bg-on); }
+/* Column titles, on the pilot's own squad only: the same tracks as its rows. */
+.sqd-cols {
+  display: grid;
+  grid-template-columns: var(--sqd-cols);
+  column-gap: 12px;
+  padding: 0 10px 6px;
+  font-size: 11px;
+  letter-spacing: 3px;
+  color: var(--no-text-faint);
+}
 
 .sqd-row-tag { font-size: 15px; letter-spacing: 2px; color: var(--no-green-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sqd-squad-row.open .sqd-row-tag { color: var(--no-text-faint); }
@@ -332,6 +343,8 @@ select:focus { outline: 1px solid var(--no-green-dim); }
   .sqd-squad-card.sqd-editing .sqd-flights { flex: 1 1 100%; }
   .sqd-squad-card.sqd-editing .sqd-btn { flex: 1 1 0; }
 
+  /* Rows go two-line here, so the titles no longer sit over their columns. */
+  .sqd-cols { display: none; }
   .sqd-squad-row {
     grid-template-columns: minmax(110px, 42%) minmax(0, 1fr) auto;
     row-gap: 2px;
