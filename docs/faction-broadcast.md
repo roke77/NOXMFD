@@ -149,10 +149,12 @@ Mockups: `docs/images/sqd-d1-leader.png`, `sqd-d2-member.png`, `sqd-d3-invited.p
    `src/web/README.md`, the SQD manual in `man/`. Note in #94 that AWACS reads this table.
 7. `tools/ci-check.ps1`, then the in-game checks in the issue.
 
-## Open questions
+## Decisions
 
-- **Order of other squads.** By callsign then flight, or by size, or by when they formed?
-- **D3 order.** In the mockup, the squads that invited you are listed first. Keep that, or use the
-  normal order?
-- **Heartbeat cost.** The identity makes each beat about 100 B instead of empty. At 5 s to every
-  faction-mate that is negligible, but should a large server (30+ NOXMFD pilots) slow the beat?
+- **Order of other squads:** by callsign, then flight (then leader id), so squads sharing a
+  designation sit next to each other.
+- **Not in a squad, invited:** the squad list keeps its normal order; the invite cards above it
+  already name the inviting squads.
+- **Heartbeat:** 5 s on every server size. About 100 B per faction-mate per beat stays negligible,
+  and a squad change goes out within a second regardless.
+- **AWACS (#94):** reads this faction table for names; no separate roster feed.
