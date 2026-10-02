@@ -11,7 +11,7 @@ namespace NOXMFD.Tests
         // JavaScript holds exactly, so the state carries them as strings.
         private const ulong A = 76561198000000001, B = 76561198000000002, C = 76561198000000003, D = 76561198000000004;
         private static readonly List<ulong> Members = new List<ulong> { A, B, C };
-        private const string Empty = "{\"assignments\":{},\"sent\":{},\"accepted\":[],\"designated\":[]}";
+        private const string Empty = "{\"assignments\":{},\"sent\":{},\"designated\":[]}";
 
         public TdStoreTests()
         {
@@ -157,16 +157,14 @@ namespace NOXMFD.Tests
             TdStore.ReceiveDesignation("[{\"id\":1,\"n\":\"A\",\"g\":\"G1\",\"r\":1.0,\"f\":2,\"dl\":false}]");
             Assert.True(TdStore.ClearDesignated());
             Assert.Empty(TdStore.Designated);
-            Assert.Contains("\"accepted\":[]", TdStore.StateJson);
         }
 
         [Fact]
-        public void AcceptDesignated_closes_the_designation_and_remembers_its_ids()
+        public void AcceptDesignated_closes_the_designation()
         {
             TdStore.ReceiveDesignation("[{\"id\":4,\"n\":\"A\",\"g\":\"G1\",\"r\":1.0,\"f\":2,\"dl\":false}]");
             Assert.True(TdStore.AcceptDesignated());
             Assert.Empty(TdStore.Designated);
-            Assert.Contains("\"accepted\":[4]", TdStore.StateJson);
             Assert.False(TdStore.AcceptDesignated());   // nothing pending any more
         }
 
@@ -175,8 +173,6 @@ namespace NOXMFD.Tests
         {
             TdStore.ToggleCell(1, B);
             TdStore.MarkSent(B, new uint[] { 1 });
-            TdStore.ReceiveDesignation("[{\"id\":9,\"n\":\"X\",\"g\":\"G\",\"r\":1.0,\"f\":0,\"dl\":false}]");
-            TdStore.AcceptDesignated();
             TdStore.ReceiveDesignation("[{\"id\":8,\"n\":\"Y\",\"g\":\"G\",\"r\":1.0,\"f\":0,\"dl\":false}]");
 
             TdStore.OnSquadEnded();

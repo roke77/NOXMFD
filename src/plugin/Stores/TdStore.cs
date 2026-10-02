@@ -18,7 +18,7 @@ namespace NOXMFD
     // are entirely client-side, decoded from the telemetry frame the same way TGT's own list is
     // (src/web/services/telemetry-source.js). This class only owns what must survive a page reload:
     // the leader's assignment matrix and what each member was last sent, and the member's pending
-    // designation plus which targets came from an accepted one.
+    // designation.
     //
     // Deliberately 100% BCL, no Squad/Unit/CommandDispatcher touchpoint — same testability seam
     // RouteStore.cs keeps (tools/tests/NOXMFD.Tests.csproj compiles this file standalone). Callers
@@ -51,9 +51,6 @@ namespace NOXMFD
         // Replaced wholesale on every receipt (a repeat DESIGNATE replaces, never merges — see
         // ReceiveDesignation).
         private static List<Row> _designated = new List<Row>();
-
-        // Member-only: ids that arrived through an accepted designation, so TGT can tag those rows.
-        private static readonly HashSet<uint> _accepted = new HashSet<uint>();
 
         // Server-thread-readable cache, same threading contract as Squad.StateJson/RouteStore.RoutesJson:
         // every mutator below runs on the Unity main thread only, and rebuilds this string
@@ -190,12 +187,10 @@ namespace NOXMFD
         }
 
         // ADD/REPLACE on the member's TGT dock, after CommandDispatcher.TdAccept has selected the
-        // targets in-game: the pending designation closes, and its ids are remembered so TGT can
-        // tag those rows as the leader's.
+        // targets in-game: the pending designation closes.
         internal static bool AcceptDesignated()
         {
             if (_designated.Count == 0) return false;
-            foreach (Row row in _designated) _accepted.Add(row.Id);
             _designated = new List<Row>();
             RebuildState();
             return true;
@@ -214,11 +209,10 @@ namespace NOXMFD
         // squad session that produced them.
         internal static void OnSquadEnded()
         {
-            bool changed = _assignments.Count > 0 || _sent.Count > 0 || _designated.Count > 0 || _accepted.Count > 0;
+            bool changed = _assignments.Count > 0 || _sent.Count > 0 || _designated.Count > 0;
             _assignments.Clear();
             _sent.Clear();
             _designated = new List<Row>();
-            _accepted.Clear();
             if (changed) RebuildState();
         }
 
@@ -245,8 +239,7 @@ namespace NOXMFD
                 first = false;
                 sb.Append('"').Append(kv.Key.ToString(CultureInfo.InvariantCulture)).Append("\":[").Append(Csv(kv.Value)).Append(']');
             }
-            sb.Append("},\"accepted\":[").Append(Csv(_accepted)).Append(']');
-            sb.Append(",\"designated\":[");
+            sb.Append("},\"designated\":[");
             for (int i = 0; i < _designated.Count; i++)
             {
                 if (i > 0) sb.Append(',');
@@ -277,7 +270,6 @@ namespace NOXMFD
             _assignments.Clear();
             _sent.Clear();
             _designated = new List<Row>();
-            _accepted.Clear();
             StateJson = BuildStateJson();
         }
     }

@@ -43,7 +43,7 @@ densityToggleEl.addEventListener('click', function () {
 });
 
 // Squad state (issue #47): the leader-only TD column needs the squad role, and the designation dock
-// below needs the leader's callsign plus TdStore's pending/accepted lists — nothing else here tracks
+// below needs the leader's callsign plus TdStore's pending list — nothing else here tracks
 // either. Rides the shell's relayed 'sqd-state'/'td-state-push' pushes
 // (docs/sse-push-refactor.md) instead of its own poll — one bootstrap GET each on load for the
 // brief gap before the first push (and for standalone/preview contexts with no shell), then just
@@ -91,8 +91,7 @@ function applyTdState(s) {
 // ── Squad designation dock (docs/target-designator.md) ─────────────────────────────────
 // The leader's DESIGNATE lands here as TdStore's pending `designated` list; the dock floats over
 // the bottom of the target list until ADD / REPLACE / DISMISS answers it (the plugin then clears
-// `designated`, and the next td-state push hides it). `accepted` holds the ids that came in through
-// an answered designation, so their rows carry a TD tag. The drawer's open/closed state is local.
+// `designated`, and the next td-state push hides it). The drawer's open/closed state is local.
 let tdDesignated = [];
 let dockOpen = false;
 const dockEl = document.getElementById('tgt-td-dock');

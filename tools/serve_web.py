@@ -918,8 +918,8 @@ def _squad_command(env):
 # back to this same browser as a pending one — the TGT page's dock then shows it, and ADD /
 # REPLACE / DISMISS can be exercised here too (the leader never receives one in the real plugin).
 # With several member lists sent at once, the last one wins, same as a repeat DESIGNATE replacing
-# the previous one. ADD/REPLACE only record the ids as accepted: nothing is selected in-game here.
-_TD = {"assignments": {}, "sent": {}, "accepted": [], "designated": []}
+# the previous one. ADD/REPLACE just close the dock: nothing is selected in-game here.
+_TD = {"assignments": {}, "sent": {}, "designated": []}
 
 
 def _td_state():
@@ -978,7 +978,6 @@ def _td_command(env):
         _TD["sent"][peer] = sorted(r["id"] for r in rows if isinstance(r, dict) and "id" in r)
         _TD["designated"] = rows
     elif cmd == "td.accept":
-        _TD["accepted"] = sorted(set(_TD["accepted"]) | {r["id"] for r in _TD["designated"]})
         _TD["designated"] = []
     elif cmd == "td.dismiss":
         _TD["designated"] = []

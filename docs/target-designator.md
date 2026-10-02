@@ -236,8 +236,8 @@ absolutely positioned at the bottom of `.tgt-list`, layered over rows, sticky he
 so every row can still scroll clear of it. The label opens a drawer of names above the bar;
 targets already selected are dimmed LISTED, and ADD's count excludes them. `td.accept {on}` selects
 the designated units in-game through `TrySelectTarget` (so TGT filters still apply), after a
-`DeselectAll` when `on` (REPLACE); then `TdStore.AcceptDesignated` clears the pending list and
-remembers its ids in `accepted`, which TGT uses to tag those rows TD. `td.dismiss` clears the
+`DeselectAll` when `on` (REPLACE); then `TdStore.AcceptDesignated` clears the pending list.
+(It once also remembered the ids so TGT could tag those rows TD; the tag and that list are gone.) `td.dismiss` clears the
 pending list with nothing selected. `td.acquire-all` and `td.member-clear` are gone.
 
 **Keybinds.** The 9 `td-assign-N` binds assigned the old selection, which no longer exists; they
@@ -255,7 +255,7 @@ column width; the column lists the number of each assigned member's callsign in 
 harness, whose TD mock now loops a DESIGNATE back to the same browser: cell/row/column taps match the
 mock's state exactly, statuses move UNSENT → SENT → CHANGED, the TGT dock appears with the right
 ADD count and LISTED marks, the drawer and bar sit over a scrolling 17-row list, and ADD closes the
-dock and tags the accepted rows. Rendering the manual screenshots as a member caught a class
+dock. Rendering the manual screenshots as a member caught a class
 clash: the dock's label reused `.tgt-td-head`, TGT's existing leader-only TD column header class, so
 it was hidden for everyone but the leader; the dock's label is `.tgt-td-label` now.
 
