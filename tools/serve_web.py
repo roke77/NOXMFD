@@ -625,45 +625,64 @@ def _rates_config_merged():
 
 
 # Stateful mock of the plugin's /squad + /server-players + sqd.* commands
-# (docs/squadron-transport.md), so the SQD page can be exercised here without Steam or a second
-# real player. `ready` is True so the page renders; the real plugin reports False on a non-Steam
-# launch and shows the unavailable notice instead. The transport itself is NOT simulated between
-# separate processes — there's only one browser here — so an invited mock player "accepts" on a
-# short countdown (see _SQD["pending"]) rather than a real accept round-trip, just enough to
-# exercise both the "awaiting response" and "joined" UI states. sqd.send is accepted and dropped,
-# since there is no real peer here to receive it.
+# (docs/squadron-transport.md, docs/self-callsign.md), so the SQD page can be exercised here without
+# Steam or a second real player. `ready` is True so the page renders; the real plugin reports False
+# on a non-Steam launch and shows the unavailable notice instead. The transport itself is NOT
+# simulated between separate processes — there's only one browser here — so an invited mock player
+# "accepts" on a short countdown (see _SQD["pendingSent"]) rather than a real accept round-trip,
+# just enough to exercise both the "awaiting response" and "joined" UI states. sqd.send is accepted
+# and dropped, since there is no real peer here to receive it.
 #
-# Default state below is this pilot as the squad LEADER of a 4-player squad "TALON" flight 1
-# (self + 3 members) — exercises the leader-only UI (callsign section, INVITE roster, DISBAND, MAKE
-# LEADER on every member row) without any interaction needed. sqd.create's `index` field carries
-# the flight number (issue #42, Squadron Callsign System) the same way the real plugin's
-# CommandDispatcher reads it. NOTE this deliberately does NOT match
-# _wpt_options()'s own default scenario, which is a squad MEMBER who accepted a route from leader
-# "Foxtrot" — a leader can't hold a pending/accepted share from themselves, so once one of these
-# two mocks needs to show the leader's own view, "SQD and WPT agree on one persona" can't hold for
-# both at once. Foxtrot is kept as an ordinary member here (rather than invented as someone new)
-# so the SQD roster still visually connects to WPT's cast, even though the leadership assignment
-# itself now differs between the two pages' default states.
-_SERVER_PLAYERS = [
-    {"id": "76561198000000005", "name": "Widow"},
-    {"id": "76561198000000006", "name": "Reaper"},
-]
-# Aircraft for the match players, shown once one joins the squad (sample data, real captured icons).
-_SERVER_PLAYER_AIRCRAFT = {"Widow": "SAH-46 Chicane", "Reaper": "FS-20 Vortex"}
+# Every pilot flies under their own callsign (issue #107), whatever squad they are in: _CALLSIGNS maps
+# a SteamID to (callsign, flight, number), and this pilot's own is _SELF_CALLSIGN. The default state
+# below is this pilot as the squad LEADER of the squad "TALON 1" whose members fly under callsigns
+# that don't match it. sqd.create's `index` field carries the squad's flight number the same way the
+# real plugin's CommandDispatcher reads it; sqd.set-self-callsign carries the callsign in `name`, its
+# flight in `index` and its number in `n`.
+# NOTE this deliberately does NOT match _wpt_options()'s own default scenario, which is a squad
+# MEMBER who accepted a route from leader "Foxtrot" — a leader can't hold a pending/accepted share
+# from themselves, so once one of these two mocks needs to show the leader's own view, "SQD and WPT
+# agree on one persona" can't hold for both at once. Foxtrot is kept as an ordinary member here.
 _SQD_SELF = "76561198000000001"
 _SQD_SELF_NAME = "Falcon"   # only meaningful while role == leader — see _squad_state's selfName
-# Only meaningful while role == leader too (see _squad_state's selfAircraft). All four aircraft
-# below now have real captured icons in preview/assets/manifest.json (from actual in-game capture
-# sessions — see preview/captures/), pulled in from live captures rather than guessed names.
+# Only meaningful while role == leader too (see _squad_state's selfAircraft). All aircraft below
+# have real captured icons in preview/assets/manifest.json (from actual in-game capture sessions —
+# see preview/captures/), pulled in from live captures rather than guessed names.
 _SQD_SELF_AIRCRAFT = "EW-25 Medusa"
+_SELF_CALLSIGN = {"callsign": "TALON", "flight": 1, "number": 1}
+
+# Faction-mates in the match who aren't in this pilot's squad, as /server-players lists them.
+# `update` marks a NOXMFD too old to squad with this one.
+_SERVER_PLAYERS = [
+    {"id": "76561198000000005", "name": "Widow", "aircraft": "SAH-46 Chicane", "update": False},
+    {"id": "76561198000000006", "name": "Reaper", "aircraft": "FS-20 Vortex", "update": True},
+]
+_SERVER_PLAYER_AIRCRAFT = {"Widow": "SAH-46 Chicane", "Reaper": "FS-20 Vortex"}
+
+# SteamID -> (callsign, flight, number) for every pilot who has one. This pilot's own is added from
+# _SELF_CALLSIGN; Reaper has none (an older NOXMFD).
+_CALLSIGNS = {
+    "76561198000000002": ("TALON", 1, 2),      # Foxtrot
+    "76561198000000003": ("REAPER", 2, 1),     # Ghost: a TALON 1 member under another callsign
+    "76561198000000004": ("TALON", 1, 4),      # Havoc
+    "76561198000000005": ("COLT", 2, 1),       # Widow
+    "76561198000000010": ("VIPER", 2, 1),      # DeckJockey
+    "76561198000000011": ("VIPER", 2, 2),      # mav_rx
+    "76561198000000012": ("VIPER", 2, 3),      # nightjar
+    "76561198000000020": ("TALON", 1, 3),      # Hollowpoint
+    "76561198000000021": ("TALON", 1, 2),      # brickwall: shares TALON 1-2 with Foxtrot
+    "76561198000000030": ("ENFIELD", 3, 1),    # Ozone
+    "76561198000000031": ("ENFIELD", 3, 2),    # Pixel_Pete
+}
+
 _SQD = {
     # leaderId/leaderName stay "" while role == leader — Squad.cs never sets them for its own
     # leader (BuildStateJson), only for a MEMBER's view of who leads them.
     "role": "leader", "leaderId": "", "leaderName": "", "callsign": "TALON", "flight": 1,
     "members": [
-        {"id": "76561198000000002",   "name": "Foxtrot", "slot": 2, "aircraft": "KR-67 Ifrit"},
-        {"id": "76561198000000003",   "name": "Ghost",   "slot": 3, "aircraft": "FS-12 Revoker"},
-        {"id": "76561198000000004",   "name": "Havoc",   "slot": 4, "aircraft": "FS-12 Revoker"},
+        {"id": "76561198000000002", "name": "Foxtrot", "aircraft": "KR-67 Ifrit"},
+        {"id": "76561198000000003", "name": "Ghost",   "aircraft": "FS-12 Revoker"},
+        {"id": "76561198000000004", "name": "Havoc",   "aircraft": "FS-12 Revoker"},
     ],
     "pendingSent": {}, "pendingInvites": [],
     "noticeSeq": 0, "notice": "",
@@ -675,46 +694,76 @@ _SQD_ACCEPT_POLLS = 2   # how many /squad reads a pending mock invite stays "awa
 # the SAME DESIGNATION warnings show.
 _FACTION_SQUADS = [
     {"leader": "76561198000000010", "callsign": "VIPER", "flight": 2, "members": [
-        {"id": "76561198000000010", "name": "DeckJockey", "slot": 1, "aircraft": "EW-25 Medusa"},
-        {"id": "76561198000000011", "name": "mav_rx",     "slot": 2, "aircraft": "FS-12 Revoker"},
-        {"id": "76561198000000012", "name": "nightjar",   "slot": 3, "aircraft": "FS-20 Vortex"},
+        {"id": "76561198000000010", "name": "DeckJockey", "leader": True,  "aircraft": "EW-25 Medusa"},
+        {"id": "76561198000000011", "name": "mav_rx",     "leader": False, "aircraft": "FS-12 Revoker"},
+        {"id": "76561198000000012", "name": "nightjar",   "leader": False, "aircraft": "FS-20 Vortex"},
     ]},
     {"leader": "76561198000000020", "callsign": "TALON", "flight": 1, "members": [
-        {"id": "76561198000000020", "name": "Hollowpoint", "slot": 1, "aircraft": "KR-67 Ifrit"},
-        {"id": "76561198000000021", "name": "brickwall",   "slot": 2, "aircraft": "KR-67 Ifrit"},
+        {"id": "76561198000000020", "name": "Hollowpoint", "leader": True,  "aircraft": "KR-67 Ifrit"},
+        {"id": "76561198000000021", "name": "brickwall",   "leader": False, "aircraft": "KR-67 Ifrit"},
     ]},
     {"leader": "76561198000000030", "callsign": "ENFIELD", "flight": 3, "members": [
-        {"id": "76561198000000030", "name": "Ozone",      "slot": 1, "aircraft": "SAH-46 Chicane"},
-        {"id": "76561198000000031", "name": "Pixel_Pete", "slot": 2, "aircraft": "FS-12 Revoker"},
+        {"id": "76561198000000030", "name": "Ozone",      "leader": True,  "aircraft": "SAH-46 Chicane"},
+        {"id": "76561198000000031", "name": "Pixel_Pete", "leader": False, "aircraft": "FS-12 Revoker"},
     ]},
 ]
 
-# The four SQD states, switched from the browser console with
-# sendCommand('sqd.mock', {name: 'leader' | 'member' | 'invited' | 'none'}).
+# The SQD states, switched from the browser console with
+# sendCommand('sqd.mock', {name: 'leader' | 'member' | 'invited' | 'nocallsign' | 'none'}).
+# `self` is this pilot's own callsign in that scenario (None = none set); "invited" gives it the
+# same callsign as Widow so the duplicate warnings show.
 _SQD_SCENARIOS = {
     "leader": {"role": "leader", "leaderId": "", "leaderName": "", "callsign": "TALON", "flight": 1,
+               "self": {"callsign": "TALON", "flight": 1, "number": 1},
                "members": [
-                   {"id": "76561198000000002", "name": "Foxtrot", "slot": 2, "aircraft": "KR-67 Ifrit"},
-                   {"id": "76561198000000003", "name": "Ghost",   "slot": 3, "aircraft": "FS-12 Revoker"},
-                   {"id": "76561198000000004", "name": "Havoc",   "slot": 4, "aircraft": "FS-12 Revoker"}],
+                   {"id": "76561198000000002", "name": "Foxtrot", "aircraft": "KR-67 Ifrit"},
+                   {"id": "76561198000000003", "name": "Ghost",   "aircraft": "FS-12 Revoker"},
+                   {"id": "76561198000000004", "name": "Havoc",   "aircraft": "FS-12 Revoker"}],
                "pendingInvites": []},
     "member": {"role": "member", "leaderId": "76561198000000010", "leaderName": "DeckJockey",
                "leaderAircraft": "EW-25 Medusa",
                "callsign": "VIPER", "flight": 2,
+               "self": {"callsign": "MAGNUM", "flight": 4, "number": 1},
                "members": [
-                   {"id": _SQD_SELF, "name": "Falcon", "slot": 2, "aircraft": "FS-12 Revoker"},
-                   {"id": "76561198000000012", "name": "nightjar", "slot": 3, "aircraft": "FS-20 Vortex"}],
+                   {"id": _SQD_SELF, "name": "Falcon", "aircraft": "FS-12 Revoker"},
+                   {"id": "76561198000000012", "name": "nightjar", "aircraft": "FS-20 Vortex"}],
                "pendingInvites": []},
     "invited": {"role": "none", "leaderId": "", "leaderName": "", "callsign": "", "flight": 1, "members": [],
+                "self": {"callsign": "COLT", "flight": 2, "number": 1},
                 "pendingInvites": [
                     {"leaderId": "76561198000000010", "leaderName": "DeckJockey", "callsign": "VIPER", "flight": 2,
-                     "members": [{"id": "76561198000000011", "name": "mav_rx", "slot": 2},
-                                 {"id": "76561198000000012", "name": "nightjar", "slot": 3}]},
+                     "members": [{"id": "76561198000000011", "name": "mav_rx"},
+                                 {"id": "76561198000000012", "name": "nightjar"}]},
                     {"leaderId": "76561198000000030", "leaderName": "Ozone", "callsign": "ENFIELD", "flight": 3,
-                     "members": [{"id": "76561198000000031", "name": "Pixel_Pete", "slot": 2}]}]},
+                     "members": [{"id": "76561198000000031", "name": "Pixel_Pete"}]}]},
+    "nocallsign": {"role": "none", "leaderId": "", "leaderName": "", "callsign": "", "flight": 1, "members": [],
+                   "self": None,
+                   "pendingInvites": [
+                       {"leaderId": "76561198000000010", "leaderName": "DeckJockey", "callsign": "VIPER", "flight": 2,
+                        "members": [{"id": "76561198000000011", "name": "mav_rx"},
+                                    {"id": "76561198000000012", "name": "nightjar"}]},
+                       {"leaderId": "76561198000000030", "leaderName": "Ozone", "callsign": "ENFIELD", "flight": 3,
+                        "members": [{"id": "76561198000000031", "name": "Pixel_Pete"}]}]},
     "none": {"role": "none", "leaderId": "", "leaderName": "", "callsign": "", "flight": 1, "members": [],
+             "self": {"callsign": "COLT", "flight": 3, "number": 2},
              "pendingInvites": []},
 }
+
+
+def _own_callsign():
+    return _SELF_CALLSIGN if _SELF_CALLSIGN and _SELF_CALLSIGN.get("callsign") else None
+
+
+def _pilots_state():
+    """state.pilots: SteamID -> {"d": designation, "dup": another pilot flies the same}."""
+    designations = {pid: f"{c} {f}-{n}" for pid, (c, f, n) in _CALLSIGNS.items()}
+    own = _own_callsign()
+    if own:
+        designations[_SQD_SELF] = f"{own['callsign']} {own['flight']}-{own['number']}"
+    counts = {}
+    for d in designations.values():
+        counts[d.upper()] = counts.get(d.upper(), 0) + 1
+    return {pid: {"d": d, "dup": counts[d.upper()] > 1} for pid, d in designations.items()}
 
 
 def _faction_state():
@@ -745,20 +794,20 @@ def _squad_state():
     for peer in accepted:
         name = next((p["name"] for p in _SERVER_PLAYERS if p["id"] == peer), peer)
         if not any(m["id"] == peer for m in _SQD["members"]):
-            # Mirrors Squad.HandleAccept: the lowest free slot from 2 up, so a hole fills first.
-            taken = {m["slot"] for m in _SQD["members"]}
-            slot = next(n for n in range(2, len(taken) + 3) if n not in taken)
-            _SQD["members"].append({"id": peer, "name": name, "slot": slot, "aircraft": _SERVER_PLAYER_AIRCRAFT.get(name, "")})
-            _SQD["members"].sort(key=lambda m: m["slot"])
+            # Mirrors Squad.HandleAccept: new members go to the end, so the list is join order.
+            _SQD["members"].append({"id": peer, "name": name, "aircraft": _SERVER_PLAYER_AIRCRAFT.get(name, "")})
 
+    own = _own_callsign() or {"callsign": "", "flight": 1, "number": 1}
     state = {
         "role": _SQD["role"], "self": _SQD_SELF, "selfName": _SQD_SELF_NAME,
-        "selfAircraft": _SQD_SELF_AIRCRAFT if _SQD["role"] == "leader" else "",
+        "selfAircraft": _SQD_SELF_AIRCRAFT if _SQD["role"] == "leader" else "FS-12 Revoker",
         "leaderId": _SQD["leaderId"], "leaderName": _SQD["leaderName"],
         # Only meaningful while role == member (the "member" scenario, or accepting an invite).
         "leaderAircraft": _SQD.get("leaderAircraft", ""),
         "callsign": _SQD["callsign"],
         "flight": _SQD["flight"],
+        "me": {"callsign": own["callsign"], "flight": own["flight"], "number": own["number"]},
+        "pilots": _pilots_state(),
         "members": _SQD["members"],
         "pendingInvites": _SQD["pendingInvites"],
         "pendingSent": [
@@ -779,7 +828,15 @@ def _server_players():
     return json.dumps([p for p in _SERVER_PLAYERS if p["id"] not in taken]).encode("utf-8")
 
 
+def _clean_int(value):
+    try:
+        return int(value or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
 def _squad_command(env):
+    global _SELF_CALLSIGN
     cmd = env.get("cmd") or ""
     if not cmd.startswith("sqd."):
         return
@@ -788,17 +845,22 @@ def _squad_command(env):
         scenario = _SQD_SCENARIOS.get(str(env.get("name") or ""))
         if scenario:
             _SQD["leaderAircraft"] = ""   # only the member scenario sets it
-            _SQD.update(json.loads(json.dumps(scenario)))
+            scenario = json.loads(json.dumps(scenario))
+            _SELF_CALLSIGN = scenario.pop("self")
+            _SQD.update(scenario)
             _SQD["pendingSent"] = {}
         return
+    if cmd == "sqd.set-self-callsign":
+        name = str(env.get("name") or "").strip()[:20]
+        flight, number = _clean_int(env.get("index")), _clean_int(env.get("n"))
+        if name and 1 <= flight <= 9 and 1 <= number <= 9:
+            _SELF_CALLSIGN = {"callsign": name, "flight": flight, "number": number}
+        return
     if cmd == "sqd.create":
-        if _SQD["role"] != "none":
+        if _SQD["role"] != "none" or not _own_callsign():
             return
         name = str(env.get("name") or "").strip()[:20]
-        try:
-            flight = int(env.get("index") or 0)
-        except (TypeError, ValueError):
-            flight = 0
+        flight = _clean_int(env.get("index"))
         if name and 1 <= flight <= 9:
             _SQD["role"] = "leader"
             _SQD["callsign"] = name
@@ -807,16 +869,15 @@ def _squad_command(env):
     elif cmd == "sqd.invite":
         if _SQD["role"] != "leader":
             return
+        if any(p["id"] == peer and p.get("update") for p in _SERVER_PLAYERS):
+            return   # an older NOXMFD can't be invited
         if peer and peer not in _SQD["pendingSent"] and not any(m["id"] == peer for m in _SQD["members"]):
             _SQD["pendingSent"][peer] = _SQD_ACCEPT_POLLS
     elif cmd == "sqd.set-callsign":
         if _SQD["role"] == "member":
             return
         name = str(env.get("name") or "").strip()[:20]
-        try:
-            flight = int(env.get("index") or 0)
-        except (TypeError, ValueError):
-            flight = 0
+        flight = _clean_int(env.get("index"))
         if name and 1 <= flight <= 9:
             _SQD["callsign"] = name
             _SQD["flight"] = flight
@@ -824,26 +885,6 @@ def _squad_command(env):
         if _SQD["role"] != "leader":
             return
         _SQD["members"] = [m for m in _SQD["members"] if m["id"] != peer]
-    elif cmd == "sqd.move-member":
-        # Mirrors Squad.MoveMember: into the neighbouring slot one step up (-1) or down (+1),
-        # swapping with whoever holds it, within 2..the highest held slot.
-        if _SQD["role"] != "leader":
-            return
-        members = _SQD["members"]
-        member = next((m for m in members if m["id"] == peer), None)
-        try:
-            dir_ = int(env.get("index") or 0)
-        except (TypeError, ValueError):
-            return
-        if member is None or dir_ == 0:
-            return
-        target = member["slot"] + dir_
-        if 2 <= target <= members[-1]["slot"]:
-            other = next((m for m in members if m["slot"] == target), None)
-            if other:
-                other["slot"] = member["slot"]
-            member["slot"] = target
-            members.sort(key=lambda m: m["slot"])
     elif cmd in ("sqd.leave", "sqd.disband"):
         _SQD["role"] = "none"; _SQD["leaderId"] = ""; _SQD["leaderName"] = ""; _SQD["callsign"] = ""
         _SQD["flight"] = 1; _SQD["members"] = []; _SQD["pendingSent"] = {}
@@ -855,21 +896,21 @@ def _squad_command(env):
         _SQD["flight"] = 1; _SQD["members"] = []; _SQD["pendingSent"] = {}
     elif cmd in ("sqd.accept", "sqd.decline"):
         # Mirrors Squad.cs's queue: accepting joins that squad and declines the rest, declining
-        # removes just the acted-on invite by leaderId (peer). Only reachable from the "invited"
-        # scenario (sqd.mock), since nothing else queues an invite here.
+        # removes just the acted-on invite by leaderId (peer). Accepting needs the pilot's own
+        # callsign. Only reachable from the "invited" scenarios (sqd.mock), since nothing else queues
+        # an invite here.
         invite = next((i for i in _SQD["pendingInvites"] if i["leaderId"] == peer), None)
-        if cmd == "sqd.accept" and invite and _SQD["role"] == "none":
-            taken = {m["slot"] for m in invite["members"]}
-            slot = next(n for n in range(2, len(taken) + 3) if n not in taken)
-            _SQD.update(role="member", leaderId=invite["leaderId"], leaderName=invite["leaderName"],
-                        callsign=invite["callsign"], flight=invite["flight"], pendingInvites=[],
-                        members=sorted(invite["members"] + [{"id": _SQD_SELF, "name": _SQD_SELF_NAME, "slot": slot, "aircraft": ""}],
-                                       key=lambda m: m["slot"]))
+        if cmd == "sqd.accept":
+            if invite and _SQD["role"] == "none" and _own_callsign():
+                _SQD.update(role="member", leaderId=invite["leaderId"], leaderName=invite["leaderName"],
+                            callsign=invite["callsign"], flight=invite["flight"], pendingInvites=[],
+                            members=invite["members"] + [{"id": _SQD_SELF, "name": _SQD_SELF_NAME, "aircraft": ""}])
         else:
             _SQD["pendingInvites"] = [i for i in _SQD["pendingInvites"] if i["leaderId"] != peer]
 
 
 # Stateful mock of the plugin's /td-state + td.* commands (issue #47, docs/target-designator.md).
+# Members are keyed by SteamID (issue #107), the leader's own id included as a tag-only marker.
 # _SQD's default role is "leader" with 3 members (see its own comment), so TD shows the leader's
 # matrix. There's no second client to receive a designation, so the mock loops every td.designate
 # back to this same browser as a pending one — the TGT page's dock then shows it, and ADD /
@@ -883,20 +924,20 @@ def _td_state():
     return json.dumps({"ready": True, "state": _TD}).encode("utf-8")
 
 
-def _td_set(tid, slot, on):
+def _td_set(tid, member, on):
     # Mirrors TdStore.Set: an emptied target drops out entirely.
     key = str(tid)
-    slots = [s for s in _TD["assignments"].get(key, []) if s != slot]
+    members = [m for m in _TD["assignments"].get(key, []) if m != member]
     if on:
-        slots.append(slot)
-    if slots:
-        _TD["assignments"][key] = slots
+        members.append(member)
+    if members:
+        _TD["assignments"][key] = members
     else:
         _TD["assignments"].pop(key, None)
 
 
-def _td_has(tid, slot):
-    return slot in _TD["assignments"].get(str(tid), [])
+def _td_has(tid, member):
+    return member in _TD["assignments"].get(str(tid), [])
 
 
 def _td_command(env):
@@ -905,34 +946,34 @@ def _td_command(env):
         return
     try:
         tid = int(env.get("id") or 0)
-        slot = int(env.get("index") or 0)
     except (TypeError, ValueError):
         return
-    if cmd == "td.cell" and tid and slot > 0:
-        _td_set(tid, slot, not _td_has(tid, slot))
+    peer = str(env.get("peer") or "").strip()
+    squad_ids = [_SQD_SELF] + [m["id"] for m in _SQD["members"]]
+    if cmd == "td.cell" and tid and peer in squad_ids:
+        _td_set(tid, peer, not _td_has(tid, peer))
     elif cmd == "td.row" and tid:
-        # Mirrors TdStore.ToggleRow: every squad slot (leader = 1), all-or-nothing.
-        every = [1] + [m["slot"] for m in _SQD["members"]]
-        full = all(_td_has(tid, s) for s in every)
-        for s in every:
-            _td_set(tid, s, not full)
-    elif cmd == "td.column" and slot > 0:
+        # Mirrors TdStore.ToggleRow: every squad member (the leader too), all-or-nothing.
+        full = all(_td_has(tid, m) for m in squad_ids)
+        for m in squad_ids:
+            _td_set(tid, m, not full)
+    elif cmd == "td.column" and peer in squad_ids:
         # Mirrors TdStore.ToggleColumn over the page's own id list.
         try:
             ids = [int(i) for i in json.loads(env.get("text") or "[]")]
         except (TypeError, ValueError):
             return
-        full = all(_td_has(i, slot) for i in ids)
+        full = all(_td_has(i, peer) for i in ids)
         for i in ids:
-            _td_set(i, slot, not full)
+            _td_set(i, peer, not full)
     elif cmd == "td.clear":
         _TD["assignments"] = {}
-    elif cmd == "td.designate" and slot > 0:
+    elif cmd == "td.designate" and peer in squad_ids:
         try:
             rows = json.loads(env.get("text") or "[]")
         except ValueError:
             return
-        _TD["sent"][str(slot)] = sorted(r["id"] for r in rows if isinstance(r, dict) and "id" in r)
+        _TD["sent"][peer] = sorted(r["id"] for r in rows if isinstance(r, dict) and "id" in r)
         _TD["designated"] = rows
     elif cmd == "td.accept":
         _TD["accepted"] = sorted(set(_TD["accepted"]) | {r["id"] for r in _TD["designated"]})

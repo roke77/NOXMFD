@@ -66,7 +66,7 @@
 .td-list::-webkit-scrollbar-track { background: transparent; }
 .td-list::-webkit-scrollbar-thumb { background: var(--no-gray); border-radius: 3px; }
 
-/* [target name + range] [one track per squad slot] — td.js sets --td-cols from the slot count,
+/* [target name + range] [one track per squad member] — td.js sets --td-cols from the member count,
    since the number of columns follows the live roster. */
 .td-grid-row {
   display: grid;
@@ -88,7 +88,7 @@
 }
 .td-head-label span:first-child { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-/* Column head: lamp (status), callsign or YOU, slot number, "N · STATUS". Tapping it fills or
+/* Column head: lamp (status), callsign or YOU, flight-number, "N · STATUS". Tapping it fills or
    empties the whole column. */
 .td-col {
   position: relative;

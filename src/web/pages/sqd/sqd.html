@@ -24,10 +24,10 @@
 
   Callsign is a fixed picker (issue #42, callsigns.js — a real military callsign list), not free
   text, and CREATE SQUAD also picks a flight number 1-9 (Squadron Callsign System). Both are
-  editable later too (EDIT, sqd.set-callsign takes callsign + flight together). Every member's row
-  designation renders as "<CALLSIGN> <FLIGHT>-<MEMBER>" (e.g. "TALON 1-2"), where MEMBER is the
-  pilot's slot (1 = leader) — changing the flight re-numbers everyone's designation immediately,
-  since MEMBER doesn't change.
+  editable later too (EDIT, sqd.set-callsign takes callsign + flight together). They name the SQUAD
+  ("TALON 1"). Every pilot flies under their own callsign, "<CALLSIGN> <FLIGHT>-<NUMBER>" (e.g.
+  "TALON 1-2"), set in the YOUR CALLSIGN row (issue #107, docs/self-callsign.md, sqd.set-self-callsign)
+  in or out of a squad; a squad's members don't have to match its name.
 -->
 <link rel="stylesheet" href="/assets/shared/font.css">
 <link rel="stylesheet" href="/assets/shared/theme.css">
@@ -53,14 +53,37 @@
 
   <div class="sqd-notice" id="sqd-notice" style="display:none;"></div>
 
+  <!-- YOUR CALLSIGN (issue #107): this pilot's own callsign, in every state. Shows it with CHANGE,
+       or three dropdowns (callsign, flight, number) and SET; amber and open from the start until one
+       is set. CREATE SQUAD and ACCEPT wait for it. -->
+  <div class="sqd-self" id="sqd-self">
+    <div class="sqd-self-line" id="sqd-self-view">
+      <span class="sqd-self-title">YOUR CALLSIGN</span>
+      <span class="sqd-self-value" id="sqd-self-value"></span>
+      <span class="sqd-note-amber" id="sqd-self-dup" style="display:none;"></span>
+      <span class="sqd-spacer"></span>
+      <button class="sqd-btn pad-hoverable" id="sqd-self-change">CHANGE</button>
+    </div>
+    <div class="sqd-self-line" id="sqd-self-edit" style="display:none;">
+      <span class="sqd-self-title">YOUR CALLSIGN</span>
+      <select id="sqd-self-callsign" aria-label="Callsign"></select>
+      <label class="sqd-mini"><span>FLIGHT</span><select id="sqd-self-flight"></select></label>
+      <label class="sqd-mini"><span>NUMBER</span><select id="sqd-self-number"></select></label>
+      <span class="sqd-spacer"></span>
+      <button class="sqd-btn sqd-btn-dim pad-hoverable" id="sqd-self-cancel" style="display:none;">CANCEL</button>
+      <button class="sqd-btn sqd-btn-lg pad-hoverable" id="sqd-self-set">SET</button>
+    </div>
+  </div>
+
   <!-- Each block below shows or hides independently, purely off current state — none of them
        gate one another (docs/squadron-transport.md). The order is the page's design
        (docs/faction-broadcast.md): create row, incoming invites, the pilot's own squad, then every
        other squad in the faction. -->
 
   <!-- No squad yet (role "none"): Squad.cs's CreateSquad needs a callsign and a flight number up
-       front, so there is no unnamed-squad state to render. Pending invites don't disable it:
-       creating a squad declines them. The amber line appears when another squad already flies the
+       front, so there is no unnamed-squad state to render. The pickers start on the pilot's own
+       callsign and flight. Pending invites don't disable it (creating a squad declines them); having
+       no callsign of one's own does. The amber line appears when another squad already flies the
        selected callsign and flight. -->
   <div class="sqd-create" id="sqd-create-section" style="display:none;">
     <div class="sqd-create-line">
@@ -100,7 +123,7 @@
       <button class="sqd-btn sqd-btn-dim pad-hoverable" id="sqd-callsign-cancel">CANCEL</button>
     </div>
     <div class="sqd-cols" aria-hidden="true">
-      <span>DESIGNATION</span><span>PILOT</span><span>AIRCRAFT</span><span></span>
+      <span>CALLSIGN</span><span>PILOT</span><span>AIRCRAFT</span><span></span>
     </div>
     <div class="sqd-rows" id="sqd-squad-rows"></div>
   </div>

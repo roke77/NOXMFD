@@ -4,6 +4,9 @@
 // protocol logic (who can invite whom, single-squad enforcement, succession) lives plugin-side
 // (Squad.cs); this page only renders state and dispatches commands. state.faction carries every other
 // squad in the faction (docs/faction-broadcast.md), listed read-only below the pilot's own squad.
+// Every pilot flies under their own callsign (docs/self-callsign.md): state.me is this pilot's, and
+// state.pilots maps a SteamID to anyone's, so a squad's name and its members' callsigns are
+// independent.
 import { createPadCursor } from '/assets/services/pad-cursor.js';
 import { SQUAD_CALLSIGNS } from './callsigns.js';
 
@@ -16,6 +19,17 @@ const unavailableEl    = document.getElementById('sqd-unavailable');
 const noticeEl         = document.getElementById('sqd-notice');
 const panelEl          = document.getElementById('sqd-panel');
 const countEl          = document.getElementById('sqd-count');
+const selfBox          = document.getElementById('sqd-self');
+const selfView         = document.getElementById('sqd-self-view');
+const selfValue        = document.getElementById('sqd-self-value');
+const selfDup          = document.getElementById('sqd-self-dup');
+const selfChange       = document.getElementById('sqd-self-change');
+const selfEdit         = document.getElementById('sqd-self-edit');
+const selfCallsign     = document.getElementById('sqd-self-callsign');
+const selfFlight       = document.getElementById('sqd-self-flight');
+const selfNumber       = document.getElementById('sqd-self-number');
+const selfCancel       = document.getElementById('sqd-self-cancel');
+const selfSet          = document.getElementById('sqd-self-set');
 const createSection    = document.getElementById('sqd-create-section');
 const createCallsign   = document.getElementById('sqd-create-callsign');
 const createFlights    = document.getElementById('sqd-create-flights');
@@ -54,11 +68,45 @@ function fillOptions(select, values) {
     select.appendChild(opt);
   });
 }
+const ONE_TO_NINE = ['1', '2', '3', '4', '5', '6', '7', '8', '9'];
 fillOptions(createCallsign, SQUAD_CALLSIGNS);
 fillOptions(callsignSelect, SQUAD_CALLSIGNS);
+fillOptions(selfCallsign, SQUAD_CALLSIGNS);
+fillOptions(selfFlight, ONE_TO_NINE);
+fillOptions(selfNumber, ONE_TO_NINE);
 
 // Every OTHER squad in the faction (state.faction), never the pilot's own.
 function factionSquads() { return (state && state.faction && state.faction.squads) || []; }
+
+// This pilot's own callsign (state.me; empty callsign = none set), and anyone's by SteamID
+// (state.pilots[id] = {d: "VIPER 1-2", dup: another pilot flies the same}).
+function me() { return (state && state.me) || { callsign: '', flight: 1, number: 1 }; }
+function pilot(id) { return (state && state.pilots && state.pilots[id]) || null; }
+function pilotKey(id) { const p = pilot(id); return p ? p.d + (p.dup ? '!' : '') : ''; }
+
+// SteamID → Steam name for everyone this page has heard of, to name who else flies a callsign.
+function nameOf(id) {
+  if (state) {
+    if (id === state.self) return state.selfName || id;
+    if (id === state.leaderId && state.leaderName) return state.leaderName;
+    for (const m of state.members || []) if (m.id === id) return m.name || id;
+    for (const sq of factionSquads()) for (const m of sq.members) if (m.id === id) return m.name || id;
+    for (const inv of state.pendingInvites || []) for (const m of inv.members || []) if (m.id === id) return m.name || id;
+  }
+  for (const p of players) if (p.id === id) return p.name || id;
+  return id;
+}
+// The other pilots who fly the same callsign as `id`, by name.
+function sharers(id) {
+  const p = pilot(id);
+  if (!p || !p.dup) return [];
+  const want = p.d.toUpperCase();
+  return Object.keys(state.pilots).filter(function (k) { return k !== id && state.pilots[k].d.toUpperCase() === want; }).map(nameOf);
+}
+function sharedWith(id) {
+  const names = sharers(id).map(function (n) { return n.toUpperCase(); });
+  return names.length > 2 ? names.slice(0, 2).join(', ') + ' +' + (names.length - 2) : names.join(', ');
+}
 
 // Flight number 1-9 as a row of buttons, the chosen one lit. A flight that another squad already
 // flies under the picked callsign is marked amber but stays selectable (duplicate designations are
@@ -102,7 +150,8 @@ markFlights();
 let lastNoticeSeq = -1;
 let noticeTimer = null;
 let players = [];   // last-known /server-players list
-let editingCallsign = false;   // EDIT swaps the squad card for the callsign editor, in place
+let editingCallsign = false;   // EDIT swaps the squad card for the squad-name editor, in place
+let editingSelf = false;       // CHANGE swaps YOUR CALLSIGN for its editor; open from the start while none is set
 
 function acceptInvite(leaderId) { sendCommand('sqd.accept', { peer: leaderId }).catch(function () {}); }
 function declineInvite(leaderId) { sendCommand('sqd.decline', { peer: leaderId }).catch(function () {}); }
@@ -110,7 +159,7 @@ function declineInvite(leaderId) { sendCommand('sqd.decline', { peer: leaderId }
 // Creating a squad declines every pending invite plugin-side (Squad.cs's CreateSquad).
 createConfirmBtn.onclick = function () {
   const name = createCallsign.value;
-  if (name) sendCommand('sqd.create', { name: name, index: flights.create }).catch(function () {});
+  if (name && me().callsign) sendCommand('sqd.create', { name: name, index: flights.create }).catch(function () {});
 };
 
 disbandBtn.onclick = function () { sendCommand('sqd.disband', {}).catch(function () {}); };
@@ -141,6 +190,62 @@ callsignSet.onclick = function () {
   editingCallsign = false;
   render();
 };
+
+// ── YOUR CALLSIGN ────────────────────────────────────────────────────────────────────
+// "TALON 1-2": a callsign from the same list as squads, a flight and a number, each 1-9. Shown in
+// every state; amber until one is set. The dropdowns are seeded once when the editor opens, so a
+// state push never overwrites a pick in progress.
+let selfSeeded = false;
+function renderSelf() {
+  const m = me();
+  const has = !!m.callsign;
+  const editing = !has || editingSelf;
+  selfBox.classList.toggle('unset', !has);
+  selfView.style.display = editing ? 'none' : '';
+  selfEdit.style.display = editing ? '' : 'none';
+  selfCancel.style.display = has ? '' : 'none';
+  if (editing && !selfSeeded) {
+    selfSeeded = true;
+    if (has) selfCallsign.value = m.callsign;
+    selfFlight.value = String(has ? m.flight : 1);
+    selfNumber.value = String(has ? m.number : 1);
+  }
+  if (!editing) selfSeeded = false;
+  if (has) {
+    selfValue.textContent = m.callsign + ' ' + m.flight + '-' + m.number;
+    const also = sharedWith(state.self);
+    selfDup.style.display = also ? '' : 'none';
+    selfDup.textContent = also ? 'ALSO FLOWN BY ' + also : '';
+  }
+}
+selfChange.onclick = function () { editingSelf = true; render(); };
+selfCancel.onclick = function () { editingSelf = false; render(); };
+selfSet.onclick = function () {
+  const next = { callsign: selfCallsign.value, flight: Number(selfFlight.value), number: Number(selfNumber.value) };
+  if (!next.callsign) return;
+  sendCommand('sqd.set-self-callsign', { name: next.callsign, index: next.flight, n: next.number }).catch(function () {});
+  if (state) state.me = next;   // shown at once; the pushed state confirms it
+  editingSelf = false;
+  render();
+};
+
+// CREATE SQUAD's pickers start on the pilot's own callsign and flight, again whenever that changes;
+// picks the pilot makes in between stay. With no callsign yet the row is dimmed and CREATE is off.
+let createSeed = '';
+function renderCreate() {
+  const m = me();
+  const seed = m.callsign ? m.callsign + '|' + m.flight : '';
+  if (seed !== createSeed) {
+    createSeed = seed;
+    if (m.callsign) { createCallsign.value = m.callsign; flights.create = m.flight; }
+  }
+  const off = !m.callsign;
+  createSection.classList.toggle('off', off);
+  createCallsign.disabled = off;
+  createConfirmBtn.disabled = off;
+  createConfirmBtn.title = off ? 'Set your callsign first' : '';
+  Array.prototype.forEach.call(createFlights.children, function (btn) { btn.disabled = off; });
+}
 
 // Aircraft icon cache, keyed by unitName — same idea as MAP's own loadIcon (map.js), scaled down
 // (no canvas tinting needed here, just an <img>). Without this, addSquadRow created a fresh <img>
@@ -179,12 +284,6 @@ function kick(id) {
   sendCommand('sqd.kick', { peer: id }).catch(function () {});
 }
 
-// ▲/▼: move a member one number up (-1) or down (+1); the leader always stays 1
-// (docs/squad-callsign-names.md).
-function moveMember(id, dir) {
-  sendCommand('sqd.move-member', { peer: id, index: dir }).catch(function () {});
-}
-
 function render() {
   if (!state) return;
 
@@ -200,14 +299,16 @@ function render() {
   const noSquad = state.role === 'none';
   const inSquad = !noSquad;
 
-  // Top to bottom: CREATE SQUAD (only while role is "none", Squad.cs's CreateSquad requires it),
-  // incoming invites, the pilot's own squad, then every other squad in the faction.
+  // Top to bottom: YOUR CALLSIGN, CREATE SQUAD (only while role is "none", Squad.cs's CreateSquad
+  // requires it), incoming invites, the pilot's own squad, then every other squad in the faction.
+  renderSelf();
   createSection.style.display = noSquad ? '' : 'none';
+  renderCreate();
   renderInviteCards(noSquad ? (state.pendingInvites || []) : []);
   markFlights();
 
   squadSection.style.display = inSquad ? '' : 'none';
-  if (inSquad) renderSquad(); else editingCallsign = false;
+  if (inSquad) renderSquad(); else { editingCallsign = false; menuFor = null; }
   renderOthers();
   renderCount();
 
@@ -218,7 +319,7 @@ function render() {
   if (showRoster) renderRoster(state.role === 'leader'); else rosterRole = null;
 }
 
-// "4 SQUADS \u00b7 10 PILOTS" over the whole faction: the pilot's own squad plus every other one.
+// "4 SQUADS · 10 PILOTS" over the whole faction: the pilot's own squad plus every other one.
 function renderCount() {
   const others = factionSquads();
   let squads = others.length;
@@ -226,26 +327,17 @@ function renderCount() {
   others.forEach(function (sq) { pilots += sq.members.length; });
   if (state.role !== 'none') { squads++; pilots += 1 + state.members.length; }
   countEl.textContent = squads
-    ? squads + (squads === 1 ? ' SQUAD' : ' SQUADS') + ' \u00b7 ' + pilots + (pilots === 1 ? ' PILOT' : ' PILOTS')
+    ? squads + (squads === 1 ? ' SQUAD' : ' SQUADS') + ' · ' + pilots + (pilots === 1 ? ' PILOT' : ' PILOTS')
     : '';
-}
-
-// The slot a pilot joining a squad with these members takes: the lowest free one from 2 up
-// (SquadDesignations.FirstFreeSlot).
-function firstFreeSlot(members) {
-  const taken = {};
-  members.forEach(function (m) { taken[m.slot] = true; });
-  let n = 2;
-  while (taken[n]) n++;
-  return n;
 }
 
 // One card per queued incoming invite (state.pendingInvites, oldest first — Squad.cs's
 // _pendingReceived), each independently accept/decline-able by its own leaderId. Accepting any one
 // declines the rest server-side (Squad.cs's AcceptInvite), as does creating a squad, so the next
-// push just reflects the shorter list.
+// push just reflects the shorter list. ACCEPT waits for the pilot's own callsign.
 function renderInviteCards(invites) {
   inviteCards.innerHTML = '';
+  const hasCallsign = !!me().callsign;
   invites.forEach(function (inv) {
     const card = document.createElement('div');
     card.className = 'sqd-invite-card';
@@ -256,15 +348,15 @@ function renderInviteCards(invites) {
 
     const text = document.createElement('span');
     text.className = 'sqd-invite-text';
-    const from = 'from ' + (inv.leaderName || inv.leaderId);
-    text.textContent = inv.callsign
-      ? from + ' \u00b7 as ' + inv.callsign + ' ' + (inv.flight || 1) + '-' + firstFreeSlot(inv.members)
-      : from;
+    const pilots = (inv.members || []).length + 1;   // its members plus the leader
+    text.textContent = 'from ' + (inv.leaderName || inv.leaderId) + ' · ' + pilots + (pilots === 1 ? ' pilot' : ' pilots');
 
     const actions = document.createElement('div');
     actions.className = 'sqd-invite-actions';
     const accept = document.createElement('button');
     accept.className = 'sqd-btn sqd-btn-squad pad-hoverable'; accept.textContent = 'ACCEPT';
+    accept.disabled = !hasCallsign;
+    if (!hasCallsign) accept.title = 'Set your callsign first';
     accept.onclick = function () { acceptInvite(inv.leaderId); };
     const decline = document.createElement('button');
     decline.className = 'sqd-btn sqd-btn-dim pad-hoverable'; decline.textContent = 'DECLINE';
@@ -328,77 +420,76 @@ function renderRoster(showInvite) {
 
   const rows = [];
   const listed = {};
+  // Not in a squad: this pilot is one of the unassigned, listed first.
+  if (state.role === 'none') {
+    rows.push({ id: state.self, name: state.selfName || '—', aircraft: state.selfAircraft || '', self: true });
+  }
   players.forEach(function (p) {
     if (assigned[p.id]) return;
     listed[p.id] = true;
-    rows.push({ id: p.id, name: p.name || p.id, invited: p.id in invited });
+    rows.push({ id: p.id, name: p.name || p.id, aircraft: p.aircraft || '', invited: p.id in invited, update: !!p.update });
   });
   // An invitee who has since left the match's roster is still awaiting our invite.
   Object.keys(invited).forEach(function (id) {
-    if (!listed[id]) rows.push({ id: id, name: invited[id] || id, invited: true });
+    if (!listed[id]) rows.push({ id: id, name: invited[id] || id, aircraft: '', invited: true });
   });
 
-  const sig = showInvite + '|' + rows.map(function (r) { return r.id + ':' + r.name + ':' + (r.invited ? 1 : 0); }).join(',');
+  const sig = showInvite + '|' + iconStatusVersion + '|' + rows.map(function (r) {
+    return r.id + ':' + r.name + ':' + r.aircraft + ':' + (r.invited ? 1 : 0) + ':' + (r.update ? 1 : 0) + ':' + pilotKey(r.id);
+  }).join(',');
   if (sig === lastRosterSig) return;
   lastRosterSig = sig;
   rosterRows.innerHTML = '';
   rows.forEach(function (r) {
-    const row = document.createElement('div');
-    row.className = 'sqd-player-row' + (r.invited ? ' invited' : '');
-    const name = document.createElement('span');
-    name.className = 'sqd-player-name';
-    name.textContent = r.name;
-    row.appendChild(name);
-    if (r.invited) {
-      const tag = document.createElement('span');
-      tag.className = 'sqd-player-tag';
-      tag.textContent = 'INVITED \u00b7 AWAITING RESPONSE';
-      row.appendChild(tag);
-    } else if (showInvite) {
-      const btn = document.createElement('button');
-      btn.className = 'sqd-btn sqd-btn-squad pad-hoverable'; btn.textContent = 'INVITE';
-      btn.onclick = function () { invite(r.id, r.name); };
-      row.appendChild(btn);
-    }
-    rosterRows.appendChild(row);
+    addSquadRow(rosterRows, {
+      callsign: r.self ? (me().callsign ? me().callsign + ' ' + me().flight + '-' + me().number : '') : (pilot(r.id) || {}).d,
+      dupOf: r.id, name: r.name, aircraft: r.aircraft, self: r.self,
+      invited: r.invited, update: r.update,
+      invite: showInvite && !r.self && !r.invited && !r.update ? function () { invite(r.id, r.name); } : null,
+    });
   });
-  rosterTitle.textContent = 'UNASSIGNED PLAYERS (' + rows.length + ')';
+  rosterTitle.textContent = 'UNASSIGNED PLAYERS · ' + rows.length;
 }
 
-// Squadron Callsign System (issue #42) — "<CALLSIGN> <FLIGHT>-<MEMBER>", e.g. "TALON 1-2". FLIGHT
-// is Squad.cs's own number; MEMBER is the pilot's slot (1 = leader, each member's own `slot`
-// otherwise). TD's own squad buttons render the identical format off the same state fields — see
-// td.js's squadSlots/renderLeader. `designation` is the same format for any squad, the faction's
-// other squads included.
-function designation(callsign, flight, memberNumber) {
-  return (callsign || 'SQD') + ' ' + (flight || 1) + '-' + memberNumber;
+// The ⋮ menu of a member row (the leader's view): which member's menu is open, if any. Closed by
+// an outside click, Escape, or picking an item.
+let menuFor = null;
+const DOTS_SVG = '<svg width="4" height="16" viewBox="0 0 4 16" fill="currentColor" aria-hidden="true"><circle cx="2" cy="2" r="1.8"/><circle cx="2" cy="8" r="1.8"/><circle cx="2" cy="14" r="1.8"/></svg>';
+function closeMenu() {
+  if (menuFor === null) return;
+  menuFor = null;
+  lastSquadRowsSig = null;
+  if (state && state.role !== 'none') renderSquad();
 }
-function squadDesignation(memberNumber) { return designation(state.callsign, state.flight, memberNumber); }
+document.addEventListener('click', function (e) {
+  if (menuFor !== null && !(e.target.closest && e.target.closest('.sqd-menu, .sqd-dots'))) closeMenu();
+});
+document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeMenu(); });
 
-function iconBtn(cls, glyph, title, onclick) {
-  const btn = document.createElement('button');
-  btn.className = 'sqd-row-icon-btn pad-hoverable' + (cls ? ' ' + cls : '');
-  btn.textContent = glyph; btn.title = title;
-  btn.setAttribute('aria-label', title);
-  btn.onclick = onclick;
-  return btn;
+function noteSpan(text, title) {
+  const el = document.createElement('span');
+  el.className = 'sqd-note-amber';
+  el.textContent = text;
+  if (title) el.title = title;
+  return el;
 }
 
-// One row of a squad: [designation] [pilot] [aircraft] [LEADER label, or for the leader viewing
-// a subordinate in their own squad: ▲/▼ to renumber them (moveMember), a star to promote them
-// (relinquishTo) and a x to kick them (sqd.kick, docs/squadron-transport.md)]. Plain Unicode
-// symbols, not emoji — same rule the rest of the app's row icons follow: U+2605 BLACK STAR has no
-// emoji presentation, unlike U+2B50 "star" emoji, which does.
-// o: {tag, name, aircraft, leaderRow, self, controls, memberId, number}. aircraft is the unitName
-// (e.g. "F-16C") — "" whenever this pilot has nothing to report (dead, ejected, not spawned yet) or
-// isn't visible right now, which renders as a blank column rather than any placeholder.
+// One row of a squad (or of the unassigned list): [callsign] [pilot] [aircraft] [trailing]. The
+// trailing cell holds, as they apply: an amber SAME CALLSIGN or UPDATE NOXMFD note, the LEADER label,
+// an INVITE button or INVITED tag, or — the leader viewing a member of their own squad — the ⋮
+// button and its menu (PROMOTE TO LEADER / KICK FROM SQUADRON).
+// o: {callsign, dupOf, name, aircraft, leaderRow, self, controls, memberId, invited, update, invite}.
+// callsign is "" when the pilot has none (NO CALLSIGN); dupOf is the SteamID to look the SAME
+// CALLSIGN flag up for. aircraft is the unitName (e.g. "F-16C") — "" whenever this pilot has nothing
+// to report (dead, ejected, not spawned yet) or isn't visible right now, which renders as a blank
+// column rather than any placeholder.
 function addSquadRow(container, o) {
   const row = document.createElement('div');
   row.className = 'sqd-squad-row' + (o.self ? ' self' : '');
 
   const tag = document.createElement('span');
-  tag.className = 'sqd-row-tag';
-  tag.textContent = o.tag;
+  tag.className = 'sqd-row-tag' + (o.callsign ? '' : ' none');
+  tag.textContent = o.callsign || 'NO CALLSIGN';
 
   const nameEl = document.createElement('span');
   nameEl.className = 'sqd-row-name';
@@ -424,49 +515,64 @@ function addSquadRow(container, o) {
 
   row.appendChild(tag); row.appendChild(nameEl); row.appendChild(aircraftEl);
 
-  const trailing = document.createElement('span');
-  if (o.leaderRow) {
-    trailing.className = 'sqd-row-mark'; trailing.textContent = 'LEADER';
-  } else if (o.controls) {
-    // Both arrows on every row, the unusable one hidden rather than left out, so the star and x
-    // line up down the table.
-    trailing.className = 'sqd-row-ctl';
-    [[-1, '\u25b2', 'Move up', o.number > 2], [1, '\u25bc', 'Move down', o.number < lastSlot()]]
-      .forEach(function (a) {
-        const btn = iconBtn('', a[1], a[2], a[3] ? function () { moveMember(o.memberId, a[0]); } : null);
-        if (!a[3]) { btn.disabled = true; btn.style.visibility = 'hidden'; }
-        trailing.appendChild(btn);
-      });
-    trailing.appendChild(iconBtn('star', '\u2605', 'Make leader', function () { relinquishTo(o.memberId); }));
-    trailing.appendChild(iconBtn('kick', '\u00d7', 'Kick from squad', function () { kick(o.memberId); }));
+  const end = document.createElement('span');
+  end.className = 'sqd-row-end';
+  const p = o.dupOf ? pilot(o.dupOf) : null;
+  if (p && p.dup) end.appendChild(noteSpan('SAME CALLSIGN', 'Also flown by ' + sharers(o.dupOf).join(', ')));
+  if (o.update) end.appendChild(noteSpan('UPDATE NOXMFD', 'Running a NOXMFD too old to squad with this one'));
+  if (o.invited) {
+    const t = document.createElement('span');
+    t.className = 'sqd-player-tag'; t.textContent = 'INVITED'; t.title = 'Awaiting response';
+    end.appendChild(t);
   }
-  row.appendChild(trailing);
+  if (o.invite) {
+    const btn = document.createElement('button');
+    btn.className = 'sqd-btn sqd-btn-squad pad-hoverable'; btn.textContent = 'INVITE';
+    btn.onclick = o.invite;
+    end.appendChild(btn);
+  }
+  if (o.leaderRow) {
+    const mark = document.createElement('span');
+    mark.className = 'sqd-row-mark'; mark.textContent = 'LEADER';
+    end.appendChild(mark);
+  } else if (o.controls) {
+    const open = menuFor === o.memberId;
+    const dots = document.createElement('button');
+    dots.type = 'button';
+    dots.className = 'sqd-dots pad-hoverable' + (open ? ' on' : '');
+    dots.innerHTML = DOTS_SVG;
+    dots.setAttribute('aria-label', 'Actions for ' + o.name);
+    dots.setAttribute('aria-haspopup', 'menu');
+    dots.setAttribute('aria-expanded', open ? 'true' : 'false');
+    dots.onclick = function () {
+      menuFor = open ? null : o.memberId;
+      lastSquadRowsSig = null;
+      renderSquad();
+    };
+    end.appendChild(dots);
+    row.appendChild(end);
+    if (open) row.appendChild(buildMenu(o.memberId));
+    container.appendChild(row);
+    return;
+  }
+  row.appendChild(end);
   container.appendChild(row);
 }
 
-// Highest held slot — state.members arrives sorted by slot (Squad.cs's SortMembers). ▼ stops here,
-// and empty slots below it render as OPEN rows.
-function lastSlot() {
-  return state.members.length ? state.members[state.members.length - 1].slot : 1;
-}
-
-// A slot left empty by a departure (docs/squad-callsign-names.md): stays until someone joins into
-// it or the leader moves a member there with ▲/▼.
-function addOpenRow(number) {
-  const row = document.createElement('div');
-  row.className = 'sqd-squad-row open';
-  const tag = document.createElement('span');
-  tag.className = 'sqd-row-tag';
-  tag.textContent = squadDesignation(number);
-  const nameEl = document.createElement('span');
-  nameEl.className = 'sqd-row-name';
-  nameEl.textContent = 'OPEN';
-  const hint = document.createElement('span');
-  hint.className = 'sqd-row-aircraft';
-  hint.textContent = 'next pilot to join takes this number';
-  row.appendChild(tag); row.appendChild(nameEl); row.appendChild(hint);
-  row.appendChild(document.createElement('span'));
-  squadRows.appendChild(row);
+function buildMenu(memberId) {
+  const menu = document.createElement('div');
+  menu.className = 'sqd-menu';
+  menu.setAttribute('role', 'menu');
+  [['PROMOTE TO LEADER', '', relinquishTo], ['KICK FROM SQUADRON', ' red', kick]].forEach(function (item) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'sqd-menu-item pad-hoverable' + item[1];
+    btn.setAttribute('role', 'menuitem');
+    btn.textContent = item[0];
+    btn.onclick = function () { item[2](memberId); menuFor = null; lastSquadRowsSig = null; renderSquad(); };
+    menu.appendChild(btn);
+  });
+  return menu;
 }
 
 // Memoized by content signature, same reasoning as lastRosterSig above — renderSquad() runs on
@@ -476,8 +582,9 @@ let lastSquadRowsSig = null;
 function renderSquad() {
   const isLeader = state.role === 'leader';
 
-  // Card title: callsign + flight ("TALON 1"), and the pilot count. Swapped for the editor while
-  // EDIT is active (leader only). SAME DESIGNATION shows while another squad flies the same pair.
+  // Card title: the squad's name (callsign + flight, "TALON 1") and the pilot count. Swapped for the
+  // editor while EDIT is active (leader only). SAME DESIGNATION shows while another squad flies the
+  // same pair.
   squadHead.textContent = (state.callsign || 'YOUR') + ' ' + (state.flight || 1);
   const pilots = 1 + state.members.length;
   squadNote.textContent = pilots + (pilots === 1 ? ' PILOT' : ' PILOTS');
@@ -489,31 +596,36 @@ function renderSquad() {
   callsignEdit.style.display = showEdit ? '' : 'none';
   disbandBtn.style.display = isLeader ? '' : 'none';
 
-  // Number 1 is always the leader — this pilot themselves when leading (state.selfName, since a
-  // leader has no reason to appear in their own state.members list), or state.leaderName when a
-  // member. Every other row is a slot from 2 up to the highest held one: its member, or OPEN when
-  // a departure left it empty.
-  const leaderName = isLeader ? (state.selfName || '\u2014') : (state.leaderName || state.leaderId);
+  // The leader first: this pilot themselves when leading (state.selfName, since a leader has no
+  // reason to appear in their own state.members list), or state.leaderName when a member. Then the
+  // members, in the order they joined.
+  const leaderId = isLeader ? state.self : state.leaderId;
+  const leaderName = isLeader ? (state.selfName || '—') : (state.leaderName || state.leaderId);
   const leaderAircraft = isLeader ? state.selfAircraft : state.leaderAircraft;
+  if (menuFor !== null && !state.members.some(function (m) { return m.id === menuFor; })) menuFor = null;
   const rowsSig = isLeader + '|' + leaderName + '|' + leaderAircraft + '|' + state.self + '|' + iconStatusVersion + '|' +
-    state.callsign + '|' + state.flight + '|' +
-    state.members.map(function (m) { return m.id + ':' + m.slot + ':' + (m.name || '') + ':' + (m.aircraft || ''); }).join(',');
+    menuFor + '|' + pilotKey(leaderId) + '|' +
+    state.members.map(function (m) { return m.id + ':' + (m.name || '') + ':' + (m.aircraft || '') + ':' + pilotKey(m.id); }).join(',');
   if (rowsSig === lastSquadRowsSig) return;
   lastSquadRowsSig = rowsSig;
   squadRows.innerHTML = '';
 
-  addSquadRow(squadRows, { tag: squadDesignation(1), name: leaderName, aircraft: leaderAircraft, leaderRow: true, self: isLeader });
+  const calls = function (id) { return (pilot(id) || {}).d; };
+  addSquadRow(squadRows, { callsign: calls(leaderId), dupOf: leaderId, name: leaderName, aircraft: leaderAircraft, leaderRow: true, self: isLeader });
+  state.members.forEach(function (m) {
+    addSquadRow(squadRows, {
+      callsign: calls(m.id), dupOf: m.id, name: m.name || m.id, aircraft: m.aircraft,
+      self: m.id === state.self, controls: isLeader, memberId: m.id,
+    });
+  });
 
-  const bySlot = {};
-  state.members.forEach(function (m) { bySlot[m.slot] = m; });
-  for (let n = 2; n <= lastSlot(); n++) {
-    const m = bySlot[n];
-    if (m) {
-      addSquadRow(squadRows, {
-        tag: squadDesignation(n), name: m.name || m.id, aircraft: m.aircraft,
-        self: m.id === state.self, controls: isLeader, memberId: m.id, number: n,
-      });
-    } else addOpenRow(n);
+  // A menu near the bottom of the pane opens upward instead of off the page.
+  const menuEl = squadRows.querySelector('.sqd-menu');
+  if (menuEl) {
+    const r = menuEl.getBoundingClientRect();
+    if (r.bottom > window.innerHeight - 4) menuEl.classList.add('up');
+    const first = menuEl.querySelector('.sqd-menu-item');
+    if (first && !menuEl.contains(document.activeElement)) first.focus({ preventScroll: true });
   }
 }
 
@@ -532,7 +644,7 @@ function renderOthers() {
   const squads = factionSquads();
   const sig = iconStatusVersion + '|' + squads.map(function (sq) {
     return sq.leader + ':' + sq.callsign + ':' + sq.flight + ':' + sq.dup + ':' + (isOpen(sq.leader) ? 1 : 0) + ':' +
-      sq.members.map(function (m) { return m.id + '.' + m.slot + '.' + m.name + '.' + m.aircraft; }).join(',');
+      sq.members.map(function (m) { return m.id + '.' + m.leader + '.' + m.name + '.' + m.aircraft + '.' + pilotKey(m.id); }).join(',');
   }).join(';');
   if (sig === lastOthersSig) return;
   lastOthersSig = sig;
@@ -561,7 +673,7 @@ function renderOthers() {
     const rows = document.createElement('div');
     rows.className = 'sqd-rows';
     sq.members.forEach(function (m) {
-      addSquadRow(rows, { tag: designation(sq.callsign, sq.flight, m.slot), name: m.name || m.id, aircraft: m.aircraft, leaderRow: m.slot === 1 });
+      addSquadRow(rows, { callsign: (pilot(m.id) || {}).d, dupOf: m.id, name: m.name || m.id, aircraft: m.aircraft, leaderRow: !!m.leader });
     });
     box.appendChild(head); box.appendChild(rows);
     othersEl.appendChild(box);
@@ -623,10 +735,11 @@ const cursor = createPadCursor({
   onMove: padCursorMoveAt,
 });
 
+// A select that lands outside any control also closes an open ⋮ menu: the PAD has no Escape.
 function padCursorSelectAt(x, y) {
   const raw = document.elementFromPoint(x, y);
   const el = raw && raw.closest(CURSORABLE);
-  if (el) el.click();
+  if (el) el.click(); else closeMenu();
 }
 
 // Hover feedback (docs/page-cursor.md #2): the shared .pad-hoverable/.pad-hover pair (theme.css).

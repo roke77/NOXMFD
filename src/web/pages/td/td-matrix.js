@@ -1,10 +1,11 @@
 // TD assignment matrix — the pure rules behind td.js (docs/target-designator.md), split out per
 // src/web/README.md's "pure sibling module" pattern so they're checkable without a DOM.
 //
-// `assignments` is TdStore's own served shape: { "<target id>": [slot, ...] }. The toggles mirror
-// TdStore.ToggleCell/ToggleRow/ToggleColumn exactly — td.js applies them locally for instant
-// feedback, then the plugin's pushed td-state replaces the local copy. Each returns a new object
-// and never mutates its input.
+// `assignments` is TdStore's own served shape: { "<target id>": ["<member SteamID>", ...] }. Members
+// are keyed by SteamID, passed around as strings (a 17-digit id overflows a JS number; issue #107).
+// The toggles mirror TdStore.ToggleCell/ToggleRow/ToggleColumn exactly — td.js applies them locally
+// for instant feedback, then the plugin's pushed td-state replaces the local copy. Each returns a
+// new object and never mutates its input.
 
 function copy(assignments) {
   const out = {};
@@ -12,52 +13,52 @@ function copy(assignments) {
   return out;
 }
 
-export function has(assignments, id, slot) {
-  const slots = (assignments || {})[String(id)];
-  return !!slots && slots.indexOf(slot) !== -1;
+export function has(assignments, id, member) {
+  const members = (assignments || {})[String(id)];
+  return !!members && members.indexOf(member) !== -1;
 }
 
-function set(out, id, slot, on) {
+function set(out, id, member, on) {
   const key = String(id);
-  const slots = (out[key] || []).filter(function (s) { return s !== slot; });
-  if (on) slots.push(slot);
-  if (slots.length) out[key] = slots; else delete out[key];
+  const members = (out[key] || []).filter(function (m) { return m !== member; });
+  if (on) members.push(member);
+  if (members.length) out[key] = members; else delete out[key];
 }
 
-export function toggleCell(assignments, id, slot) {
+export function toggleCell(assignments, id, member) {
   const out = copy(assignments);
-  set(out, id, slot, !has(assignments, id, slot));
+  set(out, id, member, !has(assignments, id, member));
   return out;
 }
 
-// All-or-nothing: fills the gaps, or empties a row that already has every slot.
-export function toggleRow(assignments, id, slots) {
-  const full = slots.every(function (s) { return has(assignments, id, s); });
+// All-or-nothing: fills the gaps, or empties a row that already has every member.
+export function toggleRow(assignments, id, members) {
+  const full = members.every(function (m) { return has(assignments, id, m); });
   const out = copy(assignments);
-  slots.forEach(function (s) { set(out, id, s, !full); });
+  members.forEach(function (m) { set(out, id, m, !full); });
   return out;
 }
 
 // Same rule down a column, over the targets currently on the table.
-export function toggleColumn(assignments, slot, ids) {
-  const full = ids.every(function (id) { return has(assignments, id, slot); });
+export function toggleColumn(assignments, member, ids) {
+  const full = ids.every(function (id) { return has(assignments, id, member); });
   const out = copy(assignments);
-  ids.forEach(function (id) { set(out, id, slot, !full); });
+  ids.forEach(function (id) { set(out, id, member, !full); });
   return out;
 }
 
-// The target ids assigned to one slot, in table order.
-export function slotIds(assignments, slot, ids) {
-  return ids.filter(function (id) { return has(assignments, id, slot); });
+// The target ids assigned to one member, in table order.
+export function memberIds(assignments, member, ids) {
+  return ids.filter(function (id) { return has(assignments, id, member); });
 }
 
-// A slot's DESIGNATE status for its column head. Slot 1 is the leader's own marker and is never
-// sent. `sent` is TdStore's { "<slot>": [ids] } of what each member was last sent; a member counts
-// as SENT only while the table's assignment for them matches that list exactly.
-export function slotStatus(assignments, sent, slot, ids) {
-  const mine = slotIds(assignments, slot, ids);
-  if (slot === 1) return { n: mine.length, status: 'MARKER', waiting: false };
-  const last = (sent || {})[String(slot)];
+// A member's DESIGNATE status for its column head. The leader's own column (`marker`) is a tag and is
+// never sent. `sent` is TdStore's { "<SteamID>": [ids] } of what each member was last sent; a member
+// counts as SENT only while the table's assignment for them matches that list exactly.
+export function memberStatus(assignments, sent, member, ids, marker) {
+  const mine = memberIds(assignments, member, ids);
+  if (marker) return { n: mine.length, status: 'MARKER', waiting: false };
+  const last = (sent || {})[member];
   let status;
   if (!last) status = mine.length ? 'UNSENT' : 'EMPTY';
   else status = sameSet(last, mine) ? 'SENT' : 'CHANGED';

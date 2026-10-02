@@ -1,5 +1,5 @@
 // TD page (issue #47, docs/target-designator.md) — the squad leader's assignment matrix: targets
-// from the leader's own TGT list down the side, squad slots across the top, one tap per
+// from the leader's own TGT list down the side, squad members across the top, one tap per
 // assignment (td.html's header has the full interaction model). Members never use this page; a
 // designation reaches them on TGT (tgt.js's dock).
 //
@@ -11,7 +11,7 @@
 import { createPadCursor } from '/assets/services/pad-cursor.js';
 import { fmtRng } from '/assets/services/range-format.js';
 import { idsKey, tgtTargetsRedraw } from '/assets/pages/td/td-redraw-gate.js';
-import { has, toggleCell, toggleRow, toggleColumn, slotIds, slotStatus } from '/assets/pages/td/td-matrix.js';
+import { has, toggleCell, toggleRow, toggleColumn, memberIds, memberStatus } from '/assets/pages/td/td-matrix.js';
 
 if (window.parent !== window) {
   const back = document.querySelector('.td-back');
@@ -30,7 +30,7 @@ const designateSub  = document.getElementById('td-designate-sub');
 const refreshBtn    = document.getElementById('td-refresh');
 const clearBtn      = document.getElementById('td-clear');
 
-const HINT = 'cell = one target to one slot · name = every slot · column head = every target';
+const HINT = 'cell = one target to one pilot · name = every pilot · column head = every target';
 
 let squad = null;      // last-known GET /squad {ready, state}
 let td = null;          // last-known GET /td-state {ready, state}
@@ -49,16 +49,28 @@ function send(cmd, args) { sendCommand(cmd, args).catch(function () {}); }
 
 function factionClass(f) { return f === 1 ? 'f-friendly' : f === 0 ? 'f-neutral' : 'f-enemy'; }
 
-// Squad slots in column order — 1 is the leader/self, every member carries its own `slot`
-// (Squad.cs's Member.Slot, kept when others leave). Same numbers sqd.js's roster shows.
-function squadSlots(state) {
-  const slots = [{ num: 1, id: null }];
-  (state.members || []).forEach(function (m) { slots.push({ num: m.slot, id: m.id }); });
-  return slots.sort(function (a, b) { return a.num - b.num; });
+// Squad members in column order — the leader (this pilot) first, then everyone else in the order
+// they joined (state.members). Columns are keyed by SteamID (issue #107): squads no longer number
+// their members, and each flies under their own callsign (state.pilots[id].d, "VIPER 1-2").
+function squadMembers(state) {
+  const out = [{ id: state.self, name: state.selfName || '', leader: true }];
+  (state.members || []).forEach(function (m) { out.push({ id: m.id, name: m.name || '', leader: false }); });
+  return out;
 }
-function slotNums() { return squadSlots(squad.state).map(function (s) { return s.num; }); }
+function memberIdList() { return squadMembers(squad.state).map(function (m) { return m.id; }); }
 function tableIds() { return tableTargets.map(function (t) { return t.id; }); }
-function slotLabel(state, num) { return num === 1 ? 'YOU' : (state.flight || 1) + '-' + num; }
+function isLeaderId(state, id) { return id === state.self; }
+function callsignOf(state, id) { const p = (state.pilots || {})[id]; return p ? p.d : ''; }
+// "VIPER 1-2" → ["VIPER", "1-2"]; a pilot without a callsign shows their Steam name over a blank.
+function splitCallsign(d, fallback) {
+  const i = d.lastIndexOf(' ');
+  return i > 0 ? [d.slice(0, i), d.slice(i + 1)] : [fallback, ''];
+}
+function memberLabel(state, id) {
+  if (isLeaderId(state, id)) return 'YOU';
+  const m = squadMembers(state).find(function (x) { return x.id === id; });
+  return callsignOf(state, id) || (m && m.name) || 'pilot';
+}
 
 function render() {
   if (!squad || !squad.ready || !td || !td.ready) { showUnavailable('— UNAVAILABLE —'); return; }
@@ -84,28 +96,31 @@ function showUnavailable(text) {
 
 // ── Column heads ────────────────────────────────────────────────────────────────────────
 // Rebuilt only when the roster/callsign changes (memoized by signature); applyState fills in the
-// per-slot count/status.
+// per-member count/status.
 let lastSquadSig = null;
 function buildHeads() {
   const state = squad.state;
-  const slots = squadSlots(state);
-  const sig = state.callsign + '|' + state.flight + '|' + slots.map(function (s) { return s.num; }).join(',');
+  const members = squadMembers(state);
+  const sig = state.callsign + '|' + state.flight + '|' + members.map(function (m) {
+    return m.id + ':' + m.name + ':' + callsignOf(state, m.id);
+  }).join(',');
   if (sig === lastSquadSig) return;
   lastSquadSig = sig;
-  // Slot tracks stay at their full width up to three slots, then share what the name column leaves.
+  // Member tracks stay at their full width up to three members, then share what the name column leaves.
   listEl.style.setProperty('--td-cols',
-    'minmax(clamp(120px, 30vw, 240px), 1fr) repeat(' + slots.length + ', minmax(clamp(40px, 6vw, 56px), clamp(64px, 13vw, 120px)))');
+    'minmax(clamp(120px, 30vw, 240px), 1fr) repeat(' + members.length + ', minmax(clamp(40px, 6vw, 56px), clamp(64px, 13vw, 120px)))');
   headEl.querySelectorAll('.td-col').forEach(function (el) { el.remove(); });
-  slots.forEach(function (s) {
+  members.forEach(function (m) {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'td-col pad-hoverable';
-    btn.dataset.slot = s.num;
-    btn.setAttribute('aria-label', 'Every target to ' + slotLabel(state, s.num) + ', or empty that column');
+    btn.dataset.member = m.id;
+    btn.setAttribute('aria-label', 'Every target to ' + memberLabel(state, m.id) + ', or empty that column');
     btn.innerHTML = '<span class="td-col-lamp"></span><span class="td-col-top"></span><span class="td-col-num"></span><span class="td-col-st"></span>';
-    btn.querySelector('.td-col-top').textContent = s.num === 1 ? 'YOU' : (state.callsign || 'SQD');
-    btn.querySelector('.td-col-num').textContent = (state.flight || 1) + '-' + s.num;
-    btn.addEventListener('click', function () { tapColumn(s.num); });
+    const parts = splitCallsign(callsignOf(state, m.id), m.name || 'PILOT');
+    btn.querySelector('.td-col-top').textContent = m.leader ? 'YOU' : parts[0];
+    btn.querySelector('.td-col-num').textContent = parts[1];
+    btn.addEventListener('click', function () { tapColumn(m.id); });
     headEl.appendChild(btn);
   });
   // A roster change adds or drops a column in every row too.
@@ -124,7 +139,7 @@ function buildRows() {
   if (!squad || squad.state.role !== 'leader') return;
   tableTargets = liveTargets.slice();
   lastAppliedIdsKey = idsKey(tableTargets);
-  const slots = slotNums();
+  const members = memberIdList();
   rowsEl.innerHTML = '';
   tableTargets.forEach(function (t) {
     const row = document.createElement('div');
@@ -133,18 +148,18 @@ function buildRows() {
     const name = document.createElement('button');
     name.type = 'button';
     name.className = 'td-name-btn pad-hoverable';
-    name.setAttribute('aria-label', (t.n || 'Target') + ' to every slot');
+    name.setAttribute('aria-label', (t.n || 'Target') + ' to every pilot');
     const n = document.createElement('span'); n.className = 'td-name'; n.textContent = t.n || '—';
     const r = document.createElement('span'); r.className = 'td-dist'; r.textContent = fmtRng(t.r, liveTargetsMetric);
     name.appendChild(n); name.appendChild(r);
     name.addEventListener('click', function () { tapRow(t); });
     row.appendChild(name);
-    slots.forEach(function (slot) {
+    members.forEach(function (member) {
       const cell = document.createElement('button');
       cell.type = 'button';
       cell.className = 'td-cell pad-hoverable';
-      cell.dataset.slot = slot;
-      cell.addEventListener('click', function () { tapCell(t, slot); });
+      cell.dataset.member = member;
+      cell.addEventListener('click', function () { tapCell(t, member); });
       row.appendChild(cell);
     });
     rowsEl.appendChild(row);
@@ -159,23 +174,23 @@ function applyState() {
   const a = assignments();
   const sent = td.state.sent || {};
   const ids = tableIds();
-  const slots = slotNums();
+  const members = memberIdList();
   rowsEl.querySelectorAll('.td-row').forEach(function (row) {
     const id = Number(row.dataset.id);
     const t = tableTargets.find(function (x) { return x.id === id; });
-    row.querySelector('.td-name-btn').classList.toggle('full', slots.every(function (s) { return has(a, id, s); }));
+    row.querySelector('.td-name-btn').classList.toggle('full', members.every(function (m) { return has(a, id, m); }));
     row.querySelectorAll('.td-cell').forEach(function (cell) {
-      const slot = Number(cell.dataset.slot);
-      const on = has(a, id, slot);
+      const member = cell.dataset.member;
+      const on = has(a, id, member);
       cell.classList.toggle('on', on);
       cell.textContent = on ? '●' : '';
       cell.setAttribute('aria-pressed', on ? 'true' : 'false');
-      cell.setAttribute('aria-label', (on ? 'Unassign ' : 'Assign ') + ((t && t.n) || 'target') + (on ? ' from ' : ' to ') + slotLabel(state, slot));
+      cell.setAttribute('aria-label', (on ? 'Unassign ' : 'Assign ') + ((t && t.n) || 'target') + (on ? ' from ' : ' to ') + memberLabel(state, member));
     });
   });
   let waiting = 0;
   headEl.querySelectorAll('.td-col').forEach(function (btn) {
-    const st = slotStatus(a, sent, Number(btn.dataset.slot), ids);
+    const st = memberStatus(a, sent, btn.dataset.member, ids, isLeaderId(state, btn.dataset.member));
     if (st.waiting) waiting++;
     const lamp = btn.querySelector('.td-col-lamp');
     lamp.classList.toggle('waiting', st.waiting);
@@ -193,29 +208,29 @@ function applyState() {
 }
 
 // ── Taps: applied locally at once (td-matrix.js mirrors TdStore's rules), then sent ──────
-function tapCell(t, slot) {
-  assignmentsOverride = toggleCell(assignments(), t.id, slot);
+function tapCell(t, member) {
+  assignmentsOverride = toggleCell(assignments(), t.id, member);
   flash = '';
   applyState();
-  send('td.cell', { id: t.id, index: slot });
+  send('td.cell', { id: t.id, peer: member });
 }
 function tapRow(t) {
-  const slots = slotNums();
-  const full = slots.every(function (s) { return has(assignments(), t.id, s); });
-  assignmentsOverride = toggleRow(assignments(), t.id, slots);
-  flash = full ? (t.n || 'Target') + ' removed from every slot' : (t.n || 'Target') + ' → every slot';
+  const members = memberIdList();
+  const full = members.every(function (m) { return has(assignments(), t.id, m); });
+  assignmentsOverride = toggleRow(assignments(), t.id, members);
+  flash = full ? (t.n || 'Target') + ' removed from every pilot' : (t.n || 'Target') + ' → every pilot';
   applyState();
   send('td.row', { id: t.id });
 }
-function tapColumn(slot) {
+function tapColumn(member) {
   const ids = tableIds();
   if (!ids.length) return;
-  const full = ids.every(function (id) { return has(assignments(), id, slot); });
-  assignmentsOverride = toggleColumn(assignments(), slot, ids);
-  const label = slotLabel(squad.state, slot);
+  const full = ids.every(function (id) { return has(assignments(), id, member); });
+  assignmentsOverride = toggleColumn(assignments(), member, ids);
+  const label = memberLabel(squad.state, member);
   flash = full ? label + ' emptied' : 'every target → ' + label;
   applyState();
-  send('td.column', { index: slot, text: JSON.stringify(ids) });
+  send('td.column', { peer: member, text: JSON.stringify(ids) });
 }
 
 // DESIGNATE sends every member whose list is waiting (UNSENT or CHANGED) — an emptied list too, so
@@ -230,13 +245,13 @@ designateBtn.addEventListener('click', function () {
   const byId = {};
   tableTargets.forEach(function (t) { byId[t.id] = t; });
   let count = 0;
-  squadSlots(squad.state).forEach(function (s) {
-    if (s.num === 1 || !slotStatus(a, sent, s.num, ids).waiting) return;
-    const rows = slotIds(a, s.num, ids).map(function (id) {
+  squadMembers(squad.state).forEach(function (m) {
+    if (m.leader || !memberStatus(a, sent, m.id, ids, false).waiting) return;
+    const rows = memberIds(a, m.id, ids).map(function (id) {
       const t = byId[id];
       return { id: t.id, n: t.n, g: t.g, r: t.r, f: t.f, dl: !!t.dl };
     });
-    send('td.designate', { peer: s.id, index: s.num, text: JSON.stringify(rows) });
+    send('td.designate', { peer: m.id, text: JSON.stringify(rows) });
     count++;
   });
   if (!count) { flash = 'nothing new to send'; applyState(); return; }

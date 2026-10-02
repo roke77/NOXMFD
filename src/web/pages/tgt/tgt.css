@@ -161,9 +161,9 @@ html, body {
   --tl-td-col: ;
   --tl-min: 352px;   /* 80+48+34+56+60+46 + 5*4 gaps + 2*4 padding */
 }
-.tgt-panel.has-td-col      { --tl-td-col: clamp(36px, 8vw, 80px); --tl-min: 392px; }
+.tgt-panel.has-td-col      { --tl-td-col: clamp(60px, 14vw, 150px); --tl-min: 470px; }
 .tgt-panel.has-flight-col  { --tl-min: calc(116px + 33 * var(--tl-fs)); }   /* 80 name + 7*4 gaps + 8 padding */
-.tgt-panel.has-td-col.has-flight-col { --tl-td-col: calc(2.4 * var(--tl-fs)); --tl-min: calc(120px + 35.4 * var(--tl-fs)); }
+.tgt-panel.has-td-col.has-flight-col { --tl-td-col: calc(7 * var(--tl-fs)); --tl-min: calc(120px + 40 * var(--tl-fs)); }
 .tgt-list-head, .tl-row {
   display: grid;
   grid-template-columns: minmax(80px, 1fr) clamp(48px, 10vw, 100px) clamp(34px, 5.5vw, 56px) var(--tl-td-col)

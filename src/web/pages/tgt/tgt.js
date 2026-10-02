@@ -47,7 +47,8 @@ densityToggleEl.addEventListener('click', function () {
 // either. Rides the shell's relayed 'sqd-state'/'td-state-push' pushes
 // (docs/sse-push-refactor.md) instead of its own poll — one bootstrap GET each on load for the
 // brief gap before the first push (and for standalone/preview contexts with no shell), then just
-// message listeners. assignments maps target id (string) -> [slot, ...].
+// message listeners. assignments maps target id (string) -> [SteamID, ...] (issue #107: squad members
+// are keyed by SteamID, not by a member number).
 let squadRole = 'none';
 let squadState = null;
 let tdAssignments = {};
@@ -56,6 +57,21 @@ function applySquad(s) {
   squadRole = (squadState && squadState.role) || 'none';
   panel.classList.toggle('has-td-col', squadRole === 'leader');
   renderDock();
+}
+// A squad member's callsign ("VIPER 1-2", state.pilots), else their Steam name.
+function memberLabel(id) {
+  if (!squadState) return String(id);
+  const p = (squadState.pilots || {})[id];
+  if (p) return p.d;
+  if (id === squadState.self) return squadState.selfName || 'YOU';
+  const m = (squadState.members || []).find(function (x) { return x.id === id; });
+  return (m && m.name) || (id === squadState.leaderId && squadState.leaderName) || String(id);
+}
+// Squad order for the TD column: the leader first, then members as they joined.
+function squadOrder(id) {
+  if (!squadState) return 0;
+  if (id === squadState.self) return -1;
+  return (squadState.members || []).findIndex(function (x) { return x.id === id; });
 }
 function applyTdState(s) {
   const st = (s && s.state) || {};
@@ -87,7 +103,7 @@ function renderDock() {
   if (!pending) { dockOpen = false; return; }
   const listed = new Set(targets.map(function (t) { return t.id; }));
   const fresh = tdDesignated.filter(function (t) { return !listed.has(t.id); }).length;
-  const leader = squadState ? (squadState.callsign || 'SQD') + ' ' + (squadState.flight || 1) + '-1' : 'LEADER';
+  const leader = squadState ? (memberLabel(squadState.leaderId) || 'LEADER') : 'LEADER';
   dockHead.textContent = leader + ' DESIGNATED ' + tdDesignated.length;
   dockShow.textContent = dockOpen ? 'HIDE ▾' : 'SHOW ▴';
   dockToggle.setAttribute('aria-expanded', dockOpen ? 'true' : 'false');
@@ -316,7 +332,10 @@ function renderTargets() {
     // the column itself is hidden entirely for a non-leader (see .has-td-col in tgt.css), so an
     // empty cell here never shows for someone with no leader-side assignments to display anyway.
     const assigned = tdAssignments[String(t.id)] || [];
-    el.querySelector('.tl-td').textContent = assigned.length ? assigned.slice().sort(function (a, b) { return a - b; }).join(' ') : '';
+    const tdCell = el.querySelector('.tl-td');
+    const tdText = assigned.slice().sort(function (a, b) { return squadOrder(a) - squadOrder(b); }).map(memberLabel).join(', ');
+    tdCell.textContent = tdText;
+    tdCell.title = tdText;
     // SPD/ALT/HDG (issue #88, only rendered while .has-flight-col is on): "—" when this target has
     // no HasDetail — a stale lock, or a non-aircraft/missile category — same gate/placeholder MAP's
     // hover tooltip already uses for the identical data.

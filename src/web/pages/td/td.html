@@ -9,11 +9,11 @@
   while leading a squad — see its own header comment), not MAIN. Members never come here — a
   designation reaches them as the dock on their own TGT page (tgt.js).
 
-  An assignment matrix: one row per target on the leader's TGT list, one column per squad slot
+  An assignment matrix: one row per target on the leader's TGT list, one column per squad member
   (1 = the leader's own marker, never sent). Every control acts on what it names, with no selection
-  step: a cell gives that target to that slot (or takes it back), a target's name gives it to every
-  slot, and a column head gives every target to that slot — row and column fill the gaps, or empty
-  when already full (td-matrix.js). Each column head shows how many targets that slot has and
+  step: a cell gives that target to that pilot (or takes it back), a target's name gives it to every
+  pilot, and a column head gives every target to that pilot — row and column fill the gaps, or empty
+  when already full (td-matrix.js). Each column head shows how many targets that pilot has and
   whether its list is SENT, CHANGED since the last send, or UNSENT. DESIGNATE sends every waiting
   list over the squad transport, replacing what each member had, then returns to TGT.
 
@@ -23,7 +23,7 @@
   where they'd drop below a comfortable tap height.
 
   All state round-trips through the plugin: GET /squad (role/roster, same as SQD) and GET /td-state
-  (assignments + what each slot was last sent — TdStore.cs) once on load, then the shell's
+  (assignments + what each pilot was last sent — TdStore.cs) once on load, then the shell's
   SSE-relayed 'sqd-state'/'td-state-push'. POST /command: td.cell / td.row / td.column / td.clear /
   td.designate.
 -->
@@ -50,7 +50,7 @@
          cells whatever width the scrollbar takes. -->
     <div class="td-list" id="td-list">
       <div class="td-grid-row td-matrix-head" id="td-matrix-head">
-        <span class="td-head-label"><span>TARGET · TAP FOR ALL SLOTS</span><span>RNG</span></span>
+        <span class="td-head-label"><span>TARGET · TAP FOR ALL PILOTS</span><span>RNG</span></span>
       </div>
       <div class="td-rows" id="td-rows"></div>
       <div class="td-empty" id="td-empty">&mdash; NO TARGETS SELECTED &mdash;</div>
