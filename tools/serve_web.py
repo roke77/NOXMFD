@@ -656,21 +656,23 @@ _SELF_CALLSIGN = {"callsign": "TALON", "flight": 1, "number": 1}
 _SERVER_PLAYERS = [
     {"id": "76561198000000005", "name": "Widow", "aircraft": "SAH-46 Chicane", "update": False},
     {"id": "76561198000000006", "name": "Reaper", "aircraft": "FS-20 Vortex", "update": True},
+    {"id": "76561198000000007", "name": "Nightingale", "aircraft": "FS-12 Revoker", "update": False},
 ]
-_SERVER_PLAYER_AIRCRAFT = {"Widow": "SAH-46 Chicane", "Reaper": "FS-20 Vortex"}
+_SERVER_PLAYER_AIRCRAFT = {"Widow": "SAH-46 Chicane", "Reaper": "FS-20 Vortex", "Nightingale": "FS-12 Revoker"}
 
 # SteamID -> (callsign, flight, number) for every pilot who has one. This pilot's own is added from
 # _SELF_CALLSIGN; Reaper has none (an older NOXMFD).
 _CALLSIGNS = {
     "76561198000000002": ("TALON", 1, 2),      # Foxtrot
     "76561198000000003": ("REAPER", 2, 1),     # Ghost: a TALON 1 member under another callsign
-    "76561198000000004": ("TALON", 1, 4),      # Havoc
+    "76561198000000004": ("TALON", 1, 4),      # Havoc: shares TALON 1-4 with brickwall
     "76561198000000005": ("COLT", 2, 1),       # Widow
+    "76561198000000007": ("PYTHON", 5, 2),     # Nightingale
     "76561198000000010": ("VIPER", 2, 1),      # DeckJockey
     "76561198000000011": ("VIPER", 2, 2),      # mav_rx
     "76561198000000012": ("VIPER", 2, 3),      # nightjar
     "76561198000000020": ("TALON", 1, 3),      # Hollowpoint
-    "76561198000000021": ("TALON", 1, 2),      # brickwall: shares TALON 1-2 with Foxtrot
+    "76561198000000021": ("TALON", 1, 4),      # brickwall: shares TALON 1-4 with Havoc
     "76561198000000030": ("ENFIELD", 3, 1),    # Ozone
     "76561198000000031": ("ENFIELD", 3, 2),    # Pixel_Pete
 }

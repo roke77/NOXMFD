@@ -141,5 +141,3 @@ invited, and its invites are declined. Players still see each other's names and 
 - Promote and kick from the ⋮ menu; TD assignments reach the right member and follow SteamID when
   someone leaves.
 - An older client can't be invited and its invite to this one is declined.
-- `man/images/TD_SQD_LEADER.png` still shows the old slot labels; retake it with the classic bezel
-  harness.

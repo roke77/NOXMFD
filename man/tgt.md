@@ -151,7 +151,7 @@ list, over the rows, and stays until you answer it:
 
 ![A leader's designation waiting at the bottom of TGT](images/TGT_TD_DOCK.png)
 
-- **`TALON 1-1 DESIGNATED 3`** says who sent it and how many targets. Tap it (**SHOW ▴**) to list
+- **`VIPER 2-1 DESIGNATED 6`** says who sent it (your leader's callsign) and how many targets. Tap it (**SHOW ▴**) to list
   their names, ranges and grid squares above the bar; tap again (**HIDE ▾**) to fold them away.
   Targets you already have are dimmed and marked **LISTED**.
 

@@ -66,12 +66,14 @@ Afterwards it shows your callsign with **CHANGE**, which reopens the pickers; **
 you had. You can change it at any time, in or out of a squad. It is saved, so it survives a game
 restart, and everyone running NOXMFD sees it within a few seconds.
 
+![Changing your callsign](images/SQD_CALLSIGN_CHANGE.png)
+
 - Without a callsign you show under your Steam name, and **CREATE** and **ACCEPT** stay disabled
   until you set one.
 - Joining or leaving a squad doesn't change your callsign.
 - Two pilots may fly the same callsign. Both then show an amber note, **ALSO FLOWN BY** on your own
-  row and **SAME CALLSIGN** on the other pilot's row, but nothing stops you. On comms, change a
-  number to keep them apart.
+  row and **SAME CALLSIGN** on the other pilot's row, in a squad, in another squad or in the
+  unassigned list, but nothing stops you. On comms, change a number to keep them apart.
 
 ## A squad's name
 
@@ -82,6 +84,10 @@ you.
 
 Two squads may fly the same name. Both then show an amber **SAME DESIGNATION** note, and the squad
 pickers mark that pair in amber, but nothing stops you from using it.
+
+Each row of a squad shows the pilot's own callsign, their Steam name, their aircraft, and at the end
+an amber note, the **LEADER** label or, for the leader viewing a member, the ⋮ button. Only your own
+squad has the CALLSIGN / PILOT / AIRCRAFT column titles.
 
 ## Start a squad
 
@@ -123,10 +129,13 @@ the order they joined, with you first. Each member's row has a **⋮** button th
 
 The menu closes when you click elsewhere, press Escape or pick an item.
 
-- **Invite** a pilot from the **UNASSIGNED PLAYERS** bar: open it and press **INVITE** on their row.
-  They show as *INVITED* until they answer; an invite can't be withdrawn.
-- **EDIT** opens the callsign and flight pickers in the header. **APPLY** renames the squad. Members
-  keep their own callsigns.
+- **Invite** a pilot from the **UNASSIGNED PLAYERS** bar: open it and press **INVITE** on their row
+  (see [Unassigned players](#unassigned-players)). They show as *INVITED* until they answer; an
+  invite can't be withdrawn.
+- **EDIT** opens the squad's callsign and flight pickers in the header. **APPLY** renames the squad,
+  **CANCEL** keeps its name. Members keep their own callsigns.
+
+  ![Renaming the squad](images/SQD_EDIT_SQUAD.png)
 - **DISBAND** ends the squad for every member.
 - **Share** routes and steer points from [WPT](wpt.md#squad-sharing), and hand targets to members
   from [TD](td.md), which appears on TGT's nav row while you lead a squad.
@@ -136,7 +145,8 @@ The menu closes when you click elsewhere, press Escape or pick an item.
 ![SQD page, squad member](images/SQD_MEMBER.png)
 
 As a member, you see your squad with your own row lit green and the leader marked **LEADER**. The
-header has only **LEAVE**. What the leader shares reaches you on your own pages:
+header has only **LEAVE**, and rows have no ⋮ button: only the leader promotes or kicks. What the
+leader shares reaches you on your own pages:
 
 - Shared routes and steer points appear on [WPT](wpt.md#squad-sharing) with ACCEPT/REJECT.
 - Targets the leader assigns you pop up on [TGT](tgt.md#squad-designations).
@@ -156,13 +166,28 @@ minutes, so restarting a mission doesn't break the squad.
 
 ## Other squads
 
+![Other squads, opened](images/SQD_OTHER_SQUADS.png)
+
 Every other squad in your faction is listed below your own, read-only. Each box starts collapsed
 with the squad's name and pilot count; open it to see each pilot's callsign, Steam name and aircraft,
 the leader first. You see them whether you're in a squad or not, so anyone coordinating several
 squads, such as an ATC controller, can read every callsign from one page.
 
-The UNASSIGNED PLAYERS bar lists the faction's NOXMFD pilots who aren't in any squad, you included
-while you're not in one, with their callsign, Steam name and aircraft.
+## Unassigned players
+
+![The unassigned list, as a leader](images/SQD_UNASSIGNED.png)
+
+The **UNASSIGNED PLAYERS** bar lists the faction's NOXMFD pilots who aren't in any squad, you
+included while you're not in one, with the same columns as a squad: callsign, Steam name and
+aircraft. The last column tells you what you can do with each pilot:
+
+| Shown | Meaning |
+|---|---|
+| **INVITE** | Press it to invite the pilot. Only a squad leader sees it. |
+| **INVITED** | You've invited them and they haven't answered yet. |
+| **UPDATE NOXMFD** | Their NOXMFD is too old to squad with this one. No INVITE. |
+| **SAME CALLSIGN** | Another pilot flies the same callsign. |
+| **NO CALLSIGN** (in the first column) | They haven't set one; you see their Steam name only. |
 
 ## Names in the game
 
