@@ -675,6 +675,34 @@ reachable, not a report of what it costs. The RTS page itself was later split ap
 per source page (MAP's own `/mapcfg`, TGP's own `/tgpcfg`); the 60 Hz ceiling carried over to
 `/tgpcfg`'s slider unchanged.
 
+## 2026-10-02 — post-0.50.0 code scan: no significant new cost, small fixes shipped
+
+Code inspection of every change from 0.50.0 to 0.69.3 against the checklist's performance item. No
+new instrumentation. The steady-state picture above still holds: nothing added a per-frame scan or a
+large per-tick cost. Shipped:
+
+- **Contacts JSON cached by array reference** (`TelemetryJson.UnitsArray`): the per-contact
+  formatting runs once per contact scan instead of on every fast frame.
+- **`ac`/`pf` only when set**: the two contact fields added for ATC were sent on every contact every
+  frame (`"ac":0,"pf":-1.000`, ~17 B each); they are now omitted when false / absent.
+- **TGT**: the open TD dock drawer rebuilds only when its content changes (it rebuilt at 10 Hz); row
+  cells are written only when their text changes; a cursor deflection re-renders only when Select
+  hands back to the crosshair.
+- **MAP**: `themeHex`/`dimHex` are memoized (they ran per contact per redraw).
+- **Shells**: `ThemeLive.update` skips re-applying an unchanged theme on every SSE reconnect.
+- **`PlayerNameOverride`**: one pass over all aircraft per 1 Hz reconcile instead of one per renamed
+  player.
+
+Left as found:
+
+- **`Keybinds.Shadowed`/`ModifiersHeld` LINQ** allocates a couple of iterators per frame, only while
+  a bound key is held. A correct cache needs a change hook on every key entry (ConfigurationManager
+  edits included); not worth it at that size.
+- **`TargetListSelector.CheckExclusions`** runs per unit in the 4 Hz contact scan. Not decompiled
+  here, so its cost is unconfirmed; the game calls it per map icon itself.
+- **DIAG98** (issue 98) builds a string with three reflection reads on every snapshot push. It is
+  temporary and goes with the rest of the DIAG98 lines.
+
 ## Marginal polish — implemented
 
 - **#4 — split rates.** Contacts at map scale no longer rebuild at the full

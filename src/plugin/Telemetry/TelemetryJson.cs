@@ -602,8 +602,8 @@ namespace NOXMFD
                     JsonLite.EscapeJson(u.SpeedReading ?? string.Empty),
                     JsonLite.EscapeJson(u.AltReading ?? string.Empty));
                 // ac / pf are true / present for few contacts, so both are left off otherwise: a
-                // missing "ac" reads as not-an-aircraft and a missing "pf" as no fuel data, the same
-                // as the old 0 / -1 values for any `!u.ac` / `pf >= 0` reader.
+                // reader treats a missing "ac" as not-an-aircraft (`!u.ac`) and a missing "pf" as no
+                // fuel data (`pf >= 0` fails).
                 if (u.IsAircraft) sb.Append(",\"ac\":1");
                 if (u.HasPeerFuel)
                     sb.Append(",\"pf\":").Append(u.PeerFuelRatio.ToString("0.000", CultureInfo.InvariantCulture));
