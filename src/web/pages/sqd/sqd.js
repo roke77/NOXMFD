@@ -9,6 +9,7 @@
 // independent.
 import { createPadCursor } from '/assets/services/pad-cursor.js';
 import { SQUAD_CALLSIGNS } from './callsigns.js';
+import { sharerIds, sharedWithText } from './sqd-pilots.js';
 
 if (window.parent !== window) {
   const back = document.querySelector('.sqd-back');
@@ -83,6 +84,7 @@ function factionSquads() { return (state && state.faction && state.faction.squad
 function me() { return (state && state.me) || { callsign: '', flight: 1, number: 1 }; }
 function pilot(id) { return (state && state.pilots && state.pilots[id]) || null; }
 function pilotKey(id) { const p = pilot(id); return p ? p.d + (p.dup ? '!' : '') : ''; }
+function meDesignation() { const m = me(); return m.callsign ? m.callsign + ' ' + m.flight + '-' + m.number : ''; }
 
 // SteamID → Steam name for everyone this page has heard of, to name who else flies a callsign.
 function nameOf(id) {
@@ -96,17 +98,9 @@ function nameOf(id) {
   for (const p of players) if (p.id === id) return p.name || id;
   return id;
 }
-// The other pilots who fly the same callsign as `id`, by name.
-function sharers(id) {
-  const p = pilot(id);
-  if (!p || !p.dup) return [];
-  const want = p.d.toUpperCase();
-  return Object.keys(state.pilots).filter(function (k) { return k !== id && state.pilots[k].d.toUpperCase() === want; }).map(nameOf);
-}
-function sharedWith(id) {
-  const names = sharers(id).map(function (n) { return n.toUpperCase(); });
-  return names.length > 2 ? names.slice(0, 2).join(', ') + ' +' + (names.length - 2) : names.join(', ');
-}
+// The other pilots who fly the same callsign as `id`, by name (sqd-pilots.js).
+function sharers(id) { return sharerIds(state && state.pilots, id).map(nameOf); }
+function sharedWith(id) { return sharedWithText(sharers(id)); }
 
 // Flight number 1-9 as a row of buttons, the chosen one lit. A flight that another squad already
 // flies under the picked callsign is marked amber but stays selectable (duplicate designations are
@@ -212,7 +206,7 @@ function renderSelf() {
   }
   if (!editing) selfSeeded = false;
   if (has) {
-    selfValue.textContent = m.callsign + ' ' + m.flight + '-' + m.number;
+    selfValue.textContent = meDesignation();
     const also = sharedWith(state.self);
     selfDup.style.display = also ? '' : 'none';
     selfDup.textContent = also ? 'ALSO FLOWN BY ' + also : '';
@@ -442,7 +436,7 @@ function renderRoster(showInvite) {
   rosterRows.innerHTML = '';
   rows.forEach(function (r) {
     addSquadRow(rosterRows, {
-      callsign: r.self ? (me().callsign ? me().callsign + ' ' + me().flight + '-' + me().number : '') : (pilot(r.id) || {}).d,
+      callsign: r.self ? meDesignation() : (pilot(r.id) || {}).d,
       dupOf: r.id, name: r.name, aircraft: r.aircraft, self: r.self,
       invited: r.invited, update: r.update,
       invite: showInvite && !r.self && !r.invited && !r.update ? function () { invite(r.id, r.name); } : null,

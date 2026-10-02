@@ -264,7 +264,7 @@ select:disabled { color: var(--no-gray); border-color: var(--no-panel-border); }
 .sqd-invite-text { flex: 1; font-size: 13px; letter-spacing: 1px; color: var(--no-white-dim); }
 .sqd-invite-actions { display: flex; gap: 8px; }
 
-/* ── Squad rows: designation | pilot | aircraft | trailing ──
+/* ── Squad rows: callsign | pilot | aircraft | trailing ──
    The same four tracks in every squad, so the columns line up down the whole page. */
 :root { --sqd-cols: 150px minmax(0, 1fr) 190px 156px; }
 .sqd-squad-row {
@@ -364,7 +364,7 @@ select:disabled { color: var(--no-gray); border-color: var(--no-panel-border); }
 
 /* ── Narrow / portrait panes (F-35 columns, split panes, phones) ──
    The wide layout needs roughly 700px. Below that the squad header and forms wrap, and each row
-   becomes two lines: designation and pilot on the first, aircraft and the label or leader's
+   becomes two lines: callsign and pilot on the first, aircraft and the label or leader's
    controls on the second. */
 @media (max-width: 640px) {
   .sqd-title { font-size: 22px; letter-spacing: 5px; }
