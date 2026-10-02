@@ -219,10 +219,10 @@ namespace NOXMFD
                 // SQD's roster picker (docs/squadron-transport.md) — who else is in this match, for
                 // the squad leader to invite. 1 Hz is ample; player join/leave isn't latency-sensitive.
                 PlayerRoster.Refresh();
-                // Squad designations as in-game names (docs/squad-callsign-names.md) — after the
-                // roster refresh above, which must still read Steam names. Own squad plus every
-                // other squad the faction broadcasts (docs/faction-broadcast.md).
-                PlayerNameOverride.Reconcile(FactionIdentity.Merge(Squad.Designations(), Presence.Designations()));
+                // Pilot callsigns as in-game names (docs/squad-callsign-names.md, docs/self-callsign.md)
+                // — after the roster refresh above, which must still read Steam names. This pilot's
+                // own plus every one the faction broadcasts (docs/faction-broadcast.md).
+                PlayerNameOverride.Reconcile(Squad.Designations());
                 // Detects a leader/member who crashed or force-quit without a graceful sqd.leave/
                 // disband/kick (Squad.cs's own header comment) — same 1 Hz cadence as the roster
                 // refresh above, since it depends on Presence's data that refresh just fed.

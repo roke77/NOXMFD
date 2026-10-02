@@ -137,8 +137,12 @@ namespace NOXMFD
                 if (!Presence.HasNoxmfd(id)) continue;   // only offer players actually running NOXMFD
                 if (!first) sb.Append(',');
                 first = false;
+                // `update`: running a NOXMFD too old to squad with this one (issue #107), so SQD tags the
+                // row UPDATE NOXMFD and offers no INVITE.
                 sb.Append("{\"id\":\"").Append(id).Append("\",\"name\":\"")
-                  .Append(TelemetryServer.EscapeJson(name)).Append("\"}");
+                  .Append(TelemetryServer.EscapeJson(name)).Append("\",\"aircraft\":\"")
+                  .Append(TelemetryServer.EscapeJson(_aircraftBySteamId[id])).Append("\",\"update\":")
+                  .Append(Presence.SquadVersion(id) < FactionIdentity.SquadProtocolVersion ? "true" : "false").Append('}');
             }
             sb.Append(']');
             Json = sb.ToString();

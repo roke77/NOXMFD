@@ -31,14 +31,9 @@ namespace NOXMFD
 
         internal sealed class Member
         {
-            internal Member(ulong id, string name, int slot) { Id = id; Name = name; Slot = slot; }
+            internal Member(ulong id, string name) { Id = id; Name = name; }
             internal ulong  Id   { get; }
             internal string Name { get; }
-            // The MEMBER half of "<CALLSIGN> <FLIGHT>-<MEMBER>" (2..n; the leader is 1 and never in
-            // _members). Kept when others leave, so a departure leaves a hole instead of renumbering
-            // the squad (docs/squad-callsign-names.md); only MoveMember and a leadership handoff
-            // change it.
-            internal int    Slot { get; set; }
         }
 
         private struct PendingInvite
@@ -58,15 +53,11 @@ namespace NOXMFD
         // (SetCallsign, the SQD page's EDIT button). Carried through every roster broadcast and a
         // leadership handoff so it's never lost partway through a squad's life; cleared in
         // ResetToNone like everything else here, by the same no-persistence design the whole class
-        // already has.
+        // already has. It names the squad only: members fly under their own callsigns
+        // (SelfCallsign, issue #107).
         private static string _callsign = string.Empty;
 
-        // Squadron Callsign System (docs/squadron-transport.md's numbering section) — the flight
-        // number the leader picks at CreateSquad time, 1-9. Editable later too (SetCallsign,
-        // issue #47 follow-up) — re-numbering it re-numbers every member's own designation
-        // immediately, since MEMBER never changes. Every member's own designation renders as
-        // "<CALLSIGN> <FLIGHT>-<MEMBER>" (e.g. "TALON 1-2"), where MEMBER is the pilot's slot
-        // (1 = leader, Member.Slot for everyone else) — this field only supplies the FLIGHT half.
+        // The squad's flight number, 1-9, picked at CreateSquad time and editable later (SetCallsign).
         // Carried through every roster/invite/transfer envelope alongside the callsign.
         private static int _flight = 1;
 
@@ -85,30 +76,29 @@ namespace NOXMFD
             if (_role == Role.Member) yield return _leaderId;
         }
 
-        // SteamID → "<CALLSIGN> <FLIGHT>-<MEMBER>" for everyone in this pilot's squad, self included
-        // (docs/squad-callsign-names.md); empty outside a squad. The leader numbers 1 and is absent
-        // from their own _members, while a member's _members is the leader's roster verbatim —
-        // either way every entry carries its own slot.
+        // SteamID -> "<CALLSIGN> <FLIGHT>-<NUMBER>": this pilot's own callsign plus every one the
+        // faction announced (Presence.cs), squadmates included - a pilot's callsign has nothing to do
+        // with the squad they are in (issue #107, docs/self-callsign.md). Pilots without one are absent.
         internal static Dictionary<ulong, string> Designations()
         {
-            if (_role == Role.None) return new Dictionary<ulong, string>();
-            ulong leader = _role == Role.Leader ? Squadron.SelfId() : _leaderId;
-            return SquadDesignations.Build(_callsign, _flight, leader, _members.ConvertAll(m => (m.Id, m.Slot)));
+            var own = new Dictionary<ulong, string>();
+            if (SelfCallsign.IsSet && Squadron.SelfId() != 0) own[Squadron.SelfId()] = SelfCallsign.Designation;
+            return FactionIdentity.Merge(own, Presence.Designations());
         }
 
-        // What this pilot tells the faction about itself (Presence.cs, issue #106,
-        // docs/faction-broadcast.md): the squad's callsign and flight, the pilot's own slot and its
-        // leader. Outside a squad the callsign is empty. A member's slot comes from the leader's
-        // roster, which lists the member too; 2 stands in until that roster has arrived.
+        // What this pilot tells the faction about itself (Presence.cs, docs/faction-broadcast.md):
+        // their own callsign, the squad's callsign and flight with its leader (the squad part empty
+        // outside a squad), and the squad protocol version.
         internal static FactionIdentity.Identity SelfIdentity(float? fuel)
         {
-            if (_role == Role.None) return new FactionIdentity.Identity(string.Empty, 0, 0, 0, fuel);
-            ulong self = Squadron.SelfId();
-            string callsign = string.IsNullOrEmpty(_callsign) ? "SQD" : _callsign;   // same stand-in Designations() shows
-            if (_role == Role.Leader) return new FactionIdentity.Identity(callsign, _flight, 1, self, fuel);
-            int slot = 2;
-            foreach (var m in _members) if (m.Id == self) { slot = m.Slot; break; }
-            return new FactionIdentity.Identity(callsign, _flight, slot, _leaderId, fuel);
+            string callsign = SelfCallsign.IsSet ? SelfCallsign.Name : string.Empty;
+            int flight = SelfCallsign.IsSet ? SelfCallsign.Flight : 0;
+            int number = SelfCallsign.IsSet ? SelfCallsign.Number : 0;
+            if (_role == Role.None)
+                return new FactionIdentity.Identity(callsign, flight, number, string.Empty, 0, 0, FactionIdentity.SquadProtocolVersion, fuel);
+            ulong leader = _role == Role.Leader ? Squadron.SelfId() : _leaderId;
+            string squad = string.IsNullOrEmpty(_callsign) ? "SQD" : _callsign;
+            return new FactionIdentity.Identity(callsign, flight, number, squad, _flight, leader, FactionIdentity.SquadProtocolVersion, fuel);
         }
 
         // For RouteStore.cs to attribute an incoming shared route without the client having to pass
@@ -128,15 +118,15 @@ namespace NOXMFD
         internal static bool IsMember => _role == Role.Member;
 
         // Leader: who they lead. Member: the rest of the squad (not the leader, not self) — kept
-        // current by the leader's sqd.roster broadcasts. Always sorted by Slot (SortMembers).
+        // current by the leader's sqd.roster broadcasts. In join order, oldest first.
         private static readonly List<Member> _members = new List<Member>();
 
-        // Every squad slot, leader (1) first — TD's "<CALLSIGN> ALL" assigns to all of them.
-        internal static List<int> AllSlots()
+        // Every squad member's SteamID, this pilot (the leader) first - TD's "ALL" assigns to all of them.
+        internal static List<ulong> AllMemberIds()
         {
-            var slots = new List<int> { 1 };
-            foreach (Member m in _members) slots.Add(m.Slot);
-            return slots;
+            var ids = new List<ulong> { Squadron.SelfId() };
+            foreach (Member m in _members) ids.Add(m.Id);
+            return ids;
         }
 
         // Leader only: invites sent, awaiting sqd.accept/sqd.decline/sqd.conflict — id -> the
@@ -214,10 +204,9 @@ namespace NOXMFD
         // they are declined.
         internal static bool CreateSquad(string callsign, int flight)
         {
-            if (_role != Role.None) return false;
-            string name = (callsign ?? string.Empty).Trim();
-            if (name.Length == 0 || name.Length > 20) return false;
-            if (flight < 1 || flight > 9) return false;
+            if (_role != Role.None || !SelfCallsign.IsSet) return false;   // a squad needs the pilot's own callsign first
+            string? name = PilotCallsign.CleanName(callsign);
+            if (name == null || !PilotCallsign.NumberOk(flight)) return false;
             // Leading a squad of our own turns every outstanding offer down, like accepting one does:
             // a pilot is in at most one squad, and the senders would otherwise wait forever.
             foreach (var other in _pendingReceived) Squadron.SendTo(other.LeaderId, "sqd.decline", "{}");
@@ -238,6 +227,7 @@ namespace NOXMFD
             if (!Squadron.Ready || targetId == 0 || targetId == Squadron.SelfId()) return false;
             if (_role != Role.Leader) return false;
             if (ContainsMember(targetId) || _pendingSent.ContainsKey(targetId)) return true;   // idempotent
+            if (Presence.SquadVersion(targetId) < FactionIdentity.SquadProtocolVersion) return false;   // older NOXMFD: can't squad
 
             _pendingSent[targetId] = targetName ?? string.Empty;
             Squadron.OpenSession(targetId);
@@ -248,6 +238,7 @@ namespace NOXMFD
 
         internal static bool AcceptInvite(ulong leaderId)
         {
+            if (!SelfCallsign.IsSet) return false;   // joining a squad needs the pilot's own callsign first
             int idx = _pendingReceived.FindIndex(p => p.LeaderId == leaderId);
             if (idx < 0) return false;
             var inv = _pendingReceived[idx];
@@ -306,9 +297,7 @@ namespace NOXMFD
         }
 
         // Leader leaving while members remain — hands off leadership first. successorId == null
-        // means auto-pick: _members[0], the lowest-numbered member (-2 unless that slot is empty).
-        // The successor becomes -1 and everyone else is renumbered -2.. in slot order, closing any
-        // holes — the one path that renumbers the squad, since everyone's number shifts anyway.
+        // means auto-pick: _members[0], the member who has been in the squad longest.
         internal static bool RelinquishLeadership(ulong? successorId)
         {
             if (_role != Role.Leader || _members.Count == 0) return false;
@@ -317,7 +306,7 @@ namespace NOXMFD
             if (successor == null) return false;
 
             var remaining = new List<Member>();
-            foreach (var m in _members) if (m.Id != newLeader) remaining.Add(new Member(m.Id, m.Name, remaining.Count + 2));
+            foreach (var m in _members) if (m.Id != newLeader) remaining.Add(new Member(m.Id, m.Name));
 
             // The decisive message: if the successor never gets it, they never become leader, so
             // this pilot must NOT abandon leadership either — that would leave the squad with nobody
@@ -333,8 +322,8 @@ namespace NOXMFD
             string leaderChanged = "{\"leaderId\":\"" + newLeader.ToString(CultureInfo.InvariantCulture) +
                                     "\",\"leaderName\":\"" + Esc(successor.Name) + "\"}";
             foreach (var m in remaining) Squadron.SendTo(m.Id, "sqd.leader-changed", leaderChanged);
-            PlayerNameOverride.SquadLog($"handed lead to {successor.Name} ({newLeader}); rest renumbered: " +
-                                        string.Join(", ", remaining.ConvertAll(m => m.Slot + ":" + m.Name)));
+            PlayerNameOverride.SquadLog($"handed lead to {successor.Name} ({newLeader}); rest: " +
+                                        string.Join(", ", remaining.ConvertAll(m => m.Name)));
 
             // No CloseSessions here — same reasoning as Leave(): sqd.transfer/sqd.leader-changed are
             // the messages this whole handoff depends on, and closing these sessions immediately
@@ -345,18 +334,16 @@ namespace NOXMFD
             return true;
         }
 
-        // Renames the squadron and/or re-numbers its flight. Leader-only — CreateSquad already
-        // requires both up front, so the only remaining use for this is the SQD page's EDIT button
-        // on an existing squad. Re-numbering the flight re-numbers every member's own
-        // "<CALLSIGN> <FLIGHT>-<MEMBER>" designation immediately, since MEMBER (the slot) doesn't
-        // change.
+        // Renames the squadron and/or changes its flight. Leader-only — CreateSquad already requires
+        // both up front, so the only remaining use for this is the SQD page's EDIT button on an
+        // existing squad. The squad's name is separate from its members' own callsigns, so nobody's
+        // designation changes.
         internal static bool SetCallsign(string name, int flight)
         {
             if (_role != Role.Leader) return false;
-            name = (name ?? string.Empty).Trim();
-            if (name.Length == 0 || name.Length > 20) return false;
-            if (flight < 1 || flight > 9) return false;
-            _callsign = name;
+            string? clean = PilotCallsign.CleanName(name);
+            if (clean == null || !PilotCallsign.NumberOk(flight)) return false;
+            _callsign = clean;
             _flight = flight;
             PlayerNameOverride.SquadLog($"callsign set to {_callsign} {_flight}");
             RebuildState();
@@ -364,35 +351,22 @@ namespace NOXMFD
             return true;
         }
 
-        // Moves a member one slot up (dir -1) or down (+1) — the SQD roster's ▲/▼. Leader-only; the
-        // leader is always 1 and isn't in _members, so only slots 2..n move. An empty neighbouring
-        // slot is moved into, a held one is swapped with. TD slot assignments follow the member to
-        // their new number.
-        internal static bool MoveMember(ulong memberId, int dir)
+        // The SQD page's YOUR CALLSIGN row: this pilot's own callsign, in or out of a squad. Saved to
+        // the config, sent to the faction on the next presence tick (Presence.cs sees the change).
+        internal static bool SetSelfCallsign(string name, int flight, int number)
         {
-            if (_role != Role.Leader) return false;
-            Member? member = FindMember(memberId);
-            if (member == null) return false;
-            int target = SquadDesignations.MoveTarget(member.Slot, dir, _members[_members.Count - 1].Slot);
-            if (target < 0) return false;
-            Member? other = _members.Find(m => m.Slot == target);
-            PlayerNameOverride.SquadLog($"move {member.Name} slot {member.Slot} -> {target}" +
-                                        (other != null ? $" (swapped with {other.Name})" : " (into open slot)"));
-            if (other != null) other.Slot = member.Slot;
-            TdStore.SwapSlots(member.Slot, target);
-            member.Slot = target;
-            SortMembers();
-            BroadcastRoster();
+            if (!SelfCallsign.Set(name, flight, number)) return false;
+            PlayerNameOverride.SquadLog($"own callsign set to {SelfCallsign.Designation}");
             RebuildState();
             return true;
         }
 
         // Shared by every path that shrinks the roster by one (Kick, HandleLeave, CheckLiveness):
-        // drops TD assignments to the departed member's slot (it stays empty until someone takes
-        // it) and their entry from the squad-target-lock aggregate.
-        private static void CleanupRemovedMember(int slot, ulong id)
+        // drops TD assignments to the departed member and their entry from the squad-target-lock
+        // aggregate.
+        private static void CleanupRemovedMember(ulong id)
         {
-            TdStore.ClearSlot(slot);
+            TdStore.ClearMember(id);
             SquadTargetsStore.RemoveMember(id);   // issue #49 — drop their entry from the aggregate
         }
 
@@ -405,10 +379,9 @@ namespace NOXMFD
         internal static bool Kick(ulong memberId)
         {
             if (_role != Role.Leader) return false;
-            int slot = RemoveMember(memberId);
-            if (slot < 0) return false;
-            PlayerNameOverride.SquadLog($"kicked {memberId}; slot {slot} open: {RosterSummary()}");
-            CleanupRemovedMember(slot, memberId);
+            if (!RemoveMember(memberId)) return false;
+            PlayerNameOverride.SquadLog($"kicked {memberId}: {RosterSummary()}");
+            CleanupRemovedMember(memberId);
             // No CloseSession here — same reasoning as Leave(): sqd.kick must arrive, and closing this
             // session immediately after queuing it risks Steam dropping it before it flushes. The
             // kicked member closes their own end once HandleKick actually receives it.
@@ -445,10 +418,9 @@ namespace NOXMFD
                 if (gone == null) return;
                 foreach (var m in gone)
                 {
-                    int slot = RemoveMember(m.Id);
-                    if (slot < 0) continue;
-                    PlayerNameOverride.SquadLog($"lost contact with {m.Name} ({m.Id}); slot {slot} open: {RosterSummary()}");
-                    CleanupRemovedMember(slot, m.Id);
+                    if (!RemoveMember(m.Id)) continue;
+                    PlayerNameOverride.SquadLog($"lost contact with {m.Name} ({m.Id}): {RosterSummary()}");
+                    CleanupRemovedMember(m.Id);
                 }
                 BroadcastRoster();
                 string names = string.Join(", ", gone.ConvertAll(m => m.Name));
@@ -499,6 +471,15 @@ namespace NOXMFD
             string callsign = Str(obj, "callsign");
             List<Member> members = ParseMembers(obj != null && obj.TryGetValue("members", out object? mv) ? mv : null);
 
+            // An older build numbers its squad members and can't share a squad with this one: turn the
+            // invite down at once, naming the sender, rather than leaving it to be accepted into a mess.
+            if (IntFieldOr(obj, "sv", 0) < FactionIdentity.SquadProtocolVersion)
+            {
+                Squadron.SendTo(from, "sqd.decline", "{}");
+                SetNotice($"{(leaderName.Length > 0 ? leaderName : from.ToString(CultureInfo.InvariantCulture))} is on an older NOXMFD, so their squad invite was declined. They need to update to squad with you.");
+                return;
+            }
+
             if (_role != Role.None)
             {
                 // Already in a squad (as leader or member) — reject, and if we're a MEMBER, warn our
@@ -534,8 +515,7 @@ namespace NOXMFD
             _pendingSent.Remove(from);
             if (!ContainsMember(from))
             {
-                _members.Add(new Member(from, name, SquadDesignations.FirstFreeSlot(_members.ConvertAll(m => m.Slot))));
-                SortMembers();
+                _members.Add(new Member(from, name));
                 PlayerNameOverride.SquadLog($"{name} ({from}) joined: {RosterSummary()}");
             }
             BroadcastRoster();
@@ -585,10 +565,9 @@ namespace NOXMFD
         private static void HandleLeave(ulong from)
         {
             if (_role != Role.Leader) return;
-            int slot = RemoveMember(from);
-            if (slot < 0) return;
-            PlayerNameOverride.SquadLog($"{from} left; slot {slot} open: {RosterSummary()}");
-            CleanupRemovedMember(slot, from);
+            if (!RemoveMember(from)) return;
+            PlayerNameOverride.SquadLog($"{from} left: {RosterSummary()}");
+            CleanupRemovedMember(from);
             Squadron.CloseSession(from);
             BroadcastRoster();
             RebuildState();
@@ -783,21 +762,18 @@ namespace NOXMFD
             return null;
         }
 
-        // Returns the removed member's slot, or -1 if not found — callers clear TD assignments to it.
-        private static int RemoveMember(ulong id)
+        private static bool RemoveMember(ulong id)
         {
             for (int i = 0; i < _members.Count; i++)
             {
-                if (_members[i].Id == id) { int slot = _members[i].Slot; _members.RemoveAt(i); return slot; }
+                if (_members[i].Id == id) { _members.RemoveAt(i); return true; }
             }
-            return -1;
+            return false;
         }
 
         // ponytail: part of the temporary SquadLog diagnostics — remove with them.
         private static string RosterSummary() =>
-            _members.Count == 0 ? "no members" : string.Join(", ", _members.ConvertAll(m => m.Slot + ":" + m.Name));
-
-        private static void SortMembers() => _members.Sort((a, b) => a.Slot.CompareTo(b.Slot));
+            _members.Count == 0 ? "no members" : string.Join(", ", _members.ConvertAll(m => m.Name));
 
         private static IEnumerable<ulong> MemberIds()
         {
@@ -830,8 +806,7 @@ namespace NOXMFD
                 if (!first) sb.Append(',');
                 first = false;
                 sb.Append("{\"id\":\"").Append(m.Id.ToString(CultureInfo.InvariantCulture))
-                  .Append("\",\"name\":\"").Append(Esc(m.Name))
-                  .Append("\",\"slot\":").Append(m.Slot.ToString(CultureInfo.InvariantCulture)).Append('}');
+                  .Append("\",\"name\":\"").Append(Esc(m.Name)).Append("\"}");
             }
             sb.Append(']');
             return sb.ToString();
@@ -853,8 +828,7 @@ namespace NOXMFD
                 first = false;
                 sb.Append("{\"id\":\"").Append(m.Id.ToString(CultureInfo.InvariantCulture))
                   .Append("\",\"name\":\"").Append(Esc(m.Name))
-                  .Append("\",\"slot\":").Append(m.Slot.ToString(CultureInfo.InvariantCulture))
-                  .Append(",\"aircraft\":\"").Append(Esc(PlayerRoster.AircraftFor(m.Id))).Append("\"}");
+                  .Append("\",\"aircraft\":\"").Append(Esc(PlayerRoster.AircraftFor(m.Id))).Append("\"}");
             }
             sb.Append(']');
             return sb.ToString();
@@ -873,8 +847,11 @@ namespace NOXMFD
             "\",\"flight\":" + _flight.ToString(CultureInfo.InvariantCulture) +
             ",\"members\":" + MembersJson(_members) + "}";
 
+        // "sv" is the squad protocol version: a receiver on an older build declines the invite on
+        // sight (HandleInvite), and an older build's invite carries none.
         private static string InviteEnvelope() =>
-            "{\"leaderId\":\"" + Squadron.SelfId().ToString(CultureInfo.InvariantCulture) +
+            "{\"sv\":" + FactionIdentity.SquadProtocolVersion.ToString(CultureInfo.InvariantCulture) +
+            ",\"leaderId\":\"" + Squadron.SelfId().ToString(CultureInfo.InvariantCulture) +
             "\",\"leaderName\":\"" + Esc(SelfName()) +
             "\",\"callsign\":\"" + Esc(_callsign) +
             "\",\"flight\":" + _flight.ToString(CultureInfo.InvariantCulture) +
@@ -890,14 +867,10 @@ namespace NOXMFD
                     if (item is Dictionary<string, object?> d)
                     {
                         ulong id = ULongOf(Str(d, "id"));
-                        // A peer on a version without slots sends none: fall back to its position,
-                        // the numbering that version shows.
-                        int slot = d.TryGetValue("slot", out object? sv) && sv is double sd && sd >= 2 ? (int)sd : result.Count + 2;
-                        if (id != 0) result.Add(new Member(id, Str(d, "name"), slot));
+                        if (id != 0) result.Add(new Member(id, Str(d, "name")));
                     }
                 }
             }
-            result.Sort((a, b) => a.Slot.CompareTo(b.Slot));
             return result;
         }
 
@@ -910,6 +883,9 @@ namespace NOXMFD
         // something CreateSquad itself would have accepted.
         private static int IntField(Dictionary<string, object?>? obj, string key) =>
             obj != null && obj.TryGetValue(key, out object? v) && v is double d ? (int)d : 1;
+
+        private static int IntFieldOr(Dictionary<string, object?>? obj, string key, int fallback) =>
+            obj != null && obj.TryGetValue(key, out object? v) && v is double d ? (int)d : fallback;
 
         private static ulong ULongOf(string s) =>
             ulong.TryParse(s, NumberStyles.None, CultureInfo.InvariantCulture, out ulong v) ? v : 0;
@@ -956,6 +932,12 @@ namespace NOXMFD
               .Append(Esc(_role == Role.Member ? PlayerRoster.AircraftFor(_leaderId) : string.Empty)).Append('"');
             sb.Append(",\"callsign\":\"").Append(Esc(_callsign)).Append('"');
             sb.Append(",\"flight\":").Append(_flight.ToString(CultureInfo.InvariantCulture));
+            // This pilot's own callsign (YOUR CALLSIGN row); empty name = none set. Everyone's callsign,
+            // this pilot's included, is in `pilots` by SteamID, with whether another pilot flies the same.
+            sb.Append(",\"me\":{\"callsign\":\"").Append(Esc(SelfCallsign.Name))
+              .Append("\",\"flight\":").Append(SelfCallsign.Flight.ToString(CultureInfo.InvariantCulture))
+              .Append(",\"number\":").Append(SelfCallsign.Number.ToString(CultureInfo.InvariantCulture)).Append('}');
+            sb.Append(",\"pilots\":").Append(FactionIdentity.PilotsJson(Designations()));
             sb.Append(",\"members\":").Append(MembersJsonServed(_members));
             sb.Append(",\"pendingInvites\":[");
             bool firstInv = true;

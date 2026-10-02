@@ -17,11 +17,12 @@ namespace NOXMFD
     // its own longer allowance (IsLost), to detect a leader/member who crashed or force-quit with no
     // graceful sqd.leave/kick/disband to send.
     //
-    // The beat also carries the sender's own identity (FactionIdentity.cs, issue #106,
-    // docs/faction-broadcast.md): its squad callsign/flight/slot, its leader and its fuel. Every
-    // instance keeps what it hears in a table, which is how a pilot sees designations from squads
-    // it isn't in. An older client sends and ignores an empty payload, so mixed versions still see
-    // each other as running NOXMFD.
+    // The beat also carries the sender's own identity (FactionIdentity.cs, issues #106 and #107,
+    // docs/faction-broadcast.md, docs/self-callsign.md): its own callsign, its squad's callsign/flight
+    // and leader, its fuel and its squad protocol version. Every instance keeps what it hears in a
+    // table, which is how a pilot sees every callsign and every squad. An older client sends and
+    // ignores a payload this build can't read, so mixed versions still see each other as running
+    // NOXMFD (and the table tells them apart, SquadVersion).
     //
     // Rides Squadron.cs's transport (same channel, same trust model) with its own independent
     // drain cursor — Squadron.Since() is designed for exactly this: Squad.cs and this class each
@@ -55,8 +56,9 @@ namespace NOXMFD
         private static readonly Dictionary<ulong, float> _lastSeen = new Dictionary<ulong, float>();
         private static readonly FactionIdentity.Table _identities = new FactionIdentity.Table();
 
-        // The squad half of the identity last sent. A change is announced on the next tick instead
-        // of waiting out the 5 s beat, so a join, leave or rename reaches other squads within a second.
+        // The identity last sent, minus fuel. A change (a new callsign, a join, leave or rename) is
+        // announced on the next tick instead of waiting out the 5 s beat, so it reaches the faction
+        // within a second.
         private static string _lastSquadKey = string.Empty;
 
         // Called once per second from TelemetryReader's slow tick, alongside PlayerRoster.Refresh —
@@ -70,7 +72,7 @@ namespace NOXMFD
         {
             if (!Squadron.Ready) return;
             FactionIdentity.Identity me = Squad.SelfIdentity(myFuel);
-            string squadKey = me.InSquad ? me.Designation + "/" + me.LeaderId : string.Empty;
+            string squadKey = me.Designation + "/" + me.SquadCallsign + me.SquadFlight + "/" + me.LeaderId;
             bool changed = squadKey != _lastSquadKey;
             if (!changed && Time.unscaledTime < _nextBroadcast) return;
             _lastSquadKey = squadKey;
@@ -125,13 +127,12 @@ namespace NOXMFD
                 if (m.Type != MessageType) continue;
                 _lastSeen[m.From] = Time.unscaledTime;
                 // An empty or unparseable payload (an older client, a bad record) is still a beat.
-                if (FactionIdentity.TryParse(m.Payload, m.From, out FactionIdentity.Identity id))
+                if (FactionIdentity.TryParse(m.Payload, out FactionIdentity.Identity id))
                     _identities.Note(m.From, id, Time.unscaledTime);
             }
         }
 
-        // SteamID → designation for every pilot heard in a squad, own squad included. The caller merges
-        // it with Squad.Designations(), which wins for squadmates.
+        // SteamID -> designation for every pilot heard with a callsign. Squad.Designations() adds our own.
         internal static Dictionary<ulong, string> Designations() =>
             _identities.Designations(Time.unscaledTime, PlayerRoster.InFaction);
 
@@ -139,6 +140,10 @@ namespace NOXMFD
         // `excludeLeader`, comes from Squad.cs's roster instead).
         internal static List<FactionIdentity.FactionSquad> Squads(ulong excludeLeader) =>
             _identities.Squads(Time.unscaledTime, PlayerRoster.InFaction, excludeLeader);
+
+        // The squad protocol a pilot announced; below FactionIdentity.SquadProtocolVersion (0 when never
+        // heard from, or heard only through an older client) means they can't join a squad with us.
+        internal static int SquadVersion(ulong steamId) => _identities.SquadVersion(steamId);
 
         // A faction-mate's fuel: its own broadcast in the identity record, else the `fuel` message an
         // older client still sends (FuelBroadcast.cs; removable once those clients are gone).

@@ -44,7 +44,7 @@ namespace NOXMFD
                                 // sqd.create / sqd.set-callsign : the squad's flight number 1-9
                                 // (Squadron Callsign System, docs/squadron-transport.md) — editable
                                 // later via sqd.set-callsign too, not fixed for the squad's life
-                                // sqd.move-member : -1 = one number up, +1 = one number down
+                                // sqd.set-self-callsign : the pilot's own callsign flight 1-9 (issue #107)
                                 // tgp.zoom.set : +1 = zoom in, -1 = zoom out (TgpManualControl.SetZoom's
                                 // dir). tgp.zoom.step : same +1/-1 meaning, routed by mode to
                                 // TgpManualControl.StepZoom or TgpLockZoom.StepZoom (issue #83)
@@ -67,13 +67,14 @@ namespace NOXMFD
         public string? cid;    // soi.panes / soi.page / soi.include : which instance is reporting
                                 // (a POST isn't tied to its /stream)
         public int    n;       // soi.panes : how many focusable surfaces that instance now shows
+                                // sqd.set-self-callsign : the pilot's own callsign number 1-9
                                 // soi.page / soi.include : which of that instance's surfaces (pane index)
                                 // wpt.reorder-waypoint : the "to" index
         public float  hz;      // rates.set : desired rate in Hz (group picks which — "fast" | "contact" | "tgp")
         public float  x;       // cursor.set : live cursor velocity X [-1,1]
         public float  y;       // cursor.set : live cursor velocity Y [-1,1]
         public string peer;    // sqd.invite / sqd.relinquish / sqd.accept / sqd.decline / sqd.kick /
-                               // sqd.move-member : a SteamID64,
+                               // td.cell / td.column / td.designate : a SteamID64,
                                // as text — a string, not a long, because a 17-digit SteamID64 exceeds
                                // what JavaScript's Number can represent exactly
                                // (docs/squadron-transport.md). Empty on sqd.relinquish means
@@ -83,6 +84,7 @@ namespace NOXMFD
                                 // and pendingSent list — cosmetic, the target's own client is
                                 // authoritative about its own name)
                                 // sqd.create / sqd.set-callsign : the squadron's chosen callsign
+                                // sqd.set-self-callsign : the pilot's own callsign
         public string type;    // sqd.send : payload type ("wpt.route", ...)
         public string payload; // sqd.send : the payload itself (small text only)
         public float  wx;      // wpt.add-waypoint / wpt.add-navigation-point / wpt.add-steerpoint / tgp.slew : floating-origin-corrected X
@@ -144,7 +146,7 @@ namespace NOXMFD
                 { "sqd.relinquish", e => Squad.RelinquishLeadership(TryPeer(e.peer, out ulong p) ? (ulong?)p : null) },
                 { "sqd.disband",    e => Squad.Disband() },
                 { "sqd.kick",       e => { if (TryPeer(e.peer, out ulong p)) Squad.Kick(p); } },
-                { "sqd.move-member", e => { if (TryPeer(e.peer, out ulong p)) Squad.MoveMember(p, e.index); } },
+                { "sqd.set-self-callsign", e => Squad.SetSelfCallsign(e.name ?? string.Empty, e.index, e.n) },
                 { "sqd.send",       e => Squad.SendData(e.type, e.payload) },
                 // Target Designator (issue #47, docs/target-designator.md) — reuses existing
                 // envelope fields rather than adding new ones: `id` (target.select's own field) for
@@ -154,9 +156,9 @@ namespace NOXMFD
                 // Leader-only actions gated here (Squad.IsLeader), same trust-boundary reasoning the
                 // sqd.* group's own header comment gives for parsing peer ids at this layer rather
                 // than inside Squad/TdStore themselves.
-                { "td.cell",                e => { if (Squad.IsLeader) TdStore.ToggleCell(unchecked((uint)e.id), e.index); } },
-                { "td.row",                 e => { if (Squad.IsLeader) TdStore.ToggleRow(unchecked((uint)e.id), Squad.AllSlots()); } },
-                { "td.column",              e => { if (Squad.IsLeader) TdStore.ToggleColumn(e.index, ParseIds(e.text)); } },
+                { "td.cell",                e => { if (Squad.IsLeader && TryPeer(e.peer, out ulong p) && Squad.AllMemberIds().Contains(p)) TdStore.ToggleCell(unchecked((uint)e.id), p); } },
+                { "td.row",                 e => { if (Squad.IsLeader) TdStore.ToggleRow(unchecked((uint)e.id), Squad.AllMemberIds()); } },
+                { "td.column",              e => { if (Squad.IsLeader && TryPeer(e.peer, out ulong p) && Squad.AllMemberIds().Contains(p)) TdStore.ToggleColumn(p, ParseIds(e.text)); } },
                 { "td.clear",               e => { if (Squad.IsLeader) TdStore.ClearOwn(); } },
                 { "td.designate",           TdDesignate },
                 { "td.accept",              e => TdAccept(replace: e.on) },
@@ -869,10 +871,10 @@ namespace NOXMFD
                     if (item is Dictionary<string, object?> d && d.TryGetValue("id", out object? idv) && idv is double idd)
                         ids.Add(unchecked((uint)idd));
             bool sent = Squad.SendDataTo(p, "td.designate", e.text ?? "[]");
-            // `index` is the member's slot, so the matrix can show that slot as SENT from now on.
-            if (sent) TdStore.MarkSent(e.index, ids);
+            // So the matrix can show this member as SENT from now on.
+            if (sent) TdStore.MarkSent(p, ids);
             Plugin.Log?.LogInfo(sent
-                ? $"[NOXMFD] td.designate → {p} (slot {e.index}): sent {ids.Count} target(s)."
+                ? $"[NOXMFD] td.designate → {p}: sent {ids.Count} target(s)."
                 : $"[NOXMFD] td.designate → {p}: not sent — not a current squad member, or the Steam send itself failed.");
         }
 

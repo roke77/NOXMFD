@@ -5,54 +5,70 @@ using System.Text;
 
 namespace NOXMFD
 {
-    // Faction-wide identity broadcast, pure part (issue #106, docs/faction-broadcast.md). Each NOXMFD
-    // instance describes ONLY itself — squad callsign/flight/slot, its leader and its fuel — in the
-    // `presence` beat; every receiver keeps a SteamID → identity table and merges it with its own
-    // squad's roster, so a pilot sees every squad's designations, not just their own. BCL-only so
-    // tools/tests links it directly; Presence.cs is the live glue.
+    // Faction-wide identity broadcast, pure part (issue #106, #107, docs/faction-broadcast.md,
+    // docs/self-callsign.md). Each NOXMFD instance describes ONLY itself - its own callsign, its
+    // squad's callsign/flight and leader, its fuel and its squad protocol version - in the `presence`
+    // beat; every receiver keeps a SteamID -> identity table, which is how a pilot sees every
+    // pilot's callsign and every squad, not just their own. BCL-only so tools/tests links it
+    // directly; Presence.cs is the live glue.
     //
     // A received record is untrusted input from another player's machine: bounded, range-checked,
     // and it can only ever describe its own sender (Steam authenticates `from`).
     internal static class FactionIdentity
     {
-        internal const int SchemaVersion = 1;
-        internal const int MaxPayloadChars = 256;
-        internal const int MaxCallsignChars = 20;   // Squad.CreateSquad's limit
-        internal const int MaxSlot = 99;
+        internal const int SchemaVersion = 2;
+        // The squad protocol this build speaks. Squads need every member on it: a peer that sends
+        // less (or nothing) is listed as UPDATE NOXMFD and can't be invited or accepted from.
+        internal const int SquadProtocolVersion = 2;
+        internal const int MaxPayloadChars = 320;
 
-        // A designation outlives a missing beat by this long, for as long as the pilot stays in the
+        // A callsign outlives a missing beat by this long, for as long as the pilot stays in the
         // faction: a pilot still loading a mission sends nothing, and bouncing them to their Steam
         // name and back would flap every label. Matches Presence.AbsentLostSeconds.
         internal const float DesignationTtlSeconds = 120f;
         // Fuel changes while flying, so it goes stale much faster than a squad membership does.
         internal const float FuelTtlSeconds = 45f;
 
-        // What one pilot says about themselves. Callsign is empty outside a squad; LeaderId is then 0.
+        // What one pilot says about themselves. Callsign is the pilot's own ("" = none set);
+        // SquadCallsign is the squad's name ("" = not in a squad, LeaderId is then 0).
         internal readonly struct Identity
         {
             internal readonly string Callsign;
             internal readonly int Flight;
-            internal readonly int Slot;
+            internal readonly int Number;
+            internal readonly string SquadCallsign;
+            internal readonly int SquadFlight;
             internal readonly ulong LeaderId;
+            internal readonly int SquadVersion;
             internal readonly float? Fuel;
 
-            internal Identity(string callsign, int flight, int slot, ulong leaderId, float? fuel)
+            internal Identity(string callsign, int flight, int number, string squadCallsign, int squadFlight,
+                              ulong leaderId, int squadVersion, float? fuel)
             {
-                Callsign = callsign; Flight = flight; Slot = slot; LeaderId = leaderId; Fuel = fuel;
+                Callsign = callsign; Flight = flight; Number = number;
+                SquadCallsign = squadCallsign; SquadFlight = squadFlight; LeaderId = leaderId;
+                SquadVersion = squadVersion; Fuel = fuel;
             }
 
-            internal bool InSquad => Callsign.Length > 0;
-            internal string Designation => SquadDesignations.Format(Callsign, Flight, Slot);
+            internal bool HasCallsign => Callsign.Length > 0;
+            internal bool InSquad => SquadCallsign.Length > 0;
+            internal string Designation => HasCallsign ? SquadDesignations.Format(Callsign, Flight, Number) : string.Empty;
         }
 
         internal static string Serialize(Identity id)
         {
-            var sb = new StringBuilder("{\"v\":").Append(SchemaVersion);
+            var sb = new StringBuilder("{\"v\":").Append(SchemaVersion)
+                .Append(",\"sv\":").Append(id.SquadVersion.ToString(CultureInfo.InvariantCulture));
+            if (id.HasCallsign)
+            {
+                sb.Append(",\"p\":\"").Append(JsonLite.EscapeJson(id.Callsign)).Append('"')
+                  .Append(",\"pf\":").Append(id.Flight.ToString(CultureInfo.InvariantCulture))
+                  .Append(",\"pn\":").Append(id.Number.ToString(CultureInfo.InvariantCulture));
+            }
             if (id.InSquad)
             {
-                sb.Append(",\"c\":\"").Append(JsonLite.EscapeJson(id.Callsign)).Append('"')
-                  .Append(",\"f\":").Append(id.Flight.ToString(CultureInfo.InvariantCulture))
-                  .Append(",\"s\":").Append(id.Slot.ToString(CultureInfo.InvariantCulture))
+                sb.Append(",\"c\":\"").Append(JsonLite.EscapeJson(id.SquadCallsign)).Append('"')
+                  .Append(",\"f\":").Append(id.SquadFlight.ToString(CultureInfo.InvariantCulture))
                   .Append(",\"l\":\"").Append(id.LeaderId.ToString(CultureInfo.InvariantCulture)).Append('"');
             }
             if (id.Fuel.HasValue)
@@ -63,54 +79,77 @@ namespace NOXMFD
             return sb.Append('}').ToString();
         }
 
-        // false for anything that isn't a valid v1 record — an older client's empty beat, a newer
+        // false for anything that isn't a valid record - an even older client's empty beat, a newer
         // schema, garbage. The caller still counts the beat as presence; it just learns nothing else.
-        internal static bool TryParse(string? payload, ulong from, out Identity id)
+        // A schema 1 record (the build before self callsigns) yields only its fuel, with squad
+        // version 0: that is how an older peer is recognised.
+        internal static bool TryParse(string? payload, out Identity id)
         {
             id = default;
             if (string.IsNullOrEmpty(payload) || payload!.Length > MaxPayloadChars) return false;
             if (!(JsonLite.Parse(payload) is Dictionary<string, object?> o)) return false;
-            if (!(o.TryGetValue("v", out object? v) && v is double dv && dv == SchemaVersion)) return false;
+            if (!(o.TryGetValue("v", out object? v) && v is double dv)) return false;
 
             float? fuel = null;
             if (o.TryGetValue("fu", out object? fu) && fu is double dfu && !double.IsNaN(dfu) && !double.IsInfinity(dfu))
                 fuel = (float)Math.Max(0.0, Math.Min(1.0, dfu));
 
+            if (dv == 1) { id = new Identity(string.Empty, 0, 0, string.Empty, 0, 0, 0, fuel); return true; }
+            if (dv != SchemaVersion) return false;
+
+            int squadVersion = 0;
+            if (o.TryGetValue("sv", out object? sv) && sv is double dsv && dsv == Math.Floor(dsv) && dsv >= 0 && dsv <= 99)
+                squadVersion = (int)dsv;
+
+            string callsign = string.Empty;
+            int flight = 0, number = 0;
+            if (o.TryGetValue("p", out object? p))
+            {
+                string? name = PilotCallsign.CleanName(p as string);
+                if (name == null
+                    || !TryInt(o, "pf", PilotCallsign.MinNumber, PilotCallsign.MaxNumber, out flight)
+                    || !TryInt(o, "pn", PilotCallsign.MinNumber, PilotCallsign.MaxNumber, out number)) return false;
+                callsign = name;
+            }
+
             if (!o.TryGetValue("c", out object? c))
             {
-                id = new Identity(string.Empty, 0, 0, 0, fuel);   // not in a squad: also the explicit clear
+                id = new Identity(callsign, flight, number, string.Empty, 0, 0, squadVersion, fuel);   // not in a squad: also the explicit clear
                 return true;
             }
 
-            if (!(c is string callsign)) return false;
-            callsign = callsign.Trim();
-            if (callsign.Length == 0 || callsign.Length > MaxCallsignChars || HasControlChar(callsign)) return false;
-            if (!TryInt(o, "f", 1, 9, out int flight)) return false;
-            if (!TryInt(o, "s", 1, MaxSlot, out int slot)) return false;
+            string? squad = PilotCallsign.CleanName(c as string);
+            if (squad == null || !TryInt(o, "f", PilotCallsign.MinNumber, PilotCallsign.MaxNumber, out int squadFlight)) return false;
             if (!(o.TryGetValue("l", out object? l) && l is string ls
                   && ulong.TryParse(ls, NumberStyles.None, CultureInfo.InvariantCulture, out ulong leader) && leader != 0)) return false;
-            // Slot 1 is the leader, so the leader id and the sender agree exactly when the slot is 1.
-            if ((slot == 1) != (leader == from)) return false;
 
-            id = new Identity(callsign, flight, slot, leader, fuel);
+            id = new Identity(callsign, flight, number, squad, squadFlight, leader, squadVersion, fuel);
             return true;
         }
 
-        // SteamID → identity as last heard, with when. Time is passed in so tests drive it.
+        // SteamID -> identity as last heard, with when. Time is passed in so tests drive it.
         internal sealed class Table
         {
-            private struct Entry { public Identity Id; public float At; }
+            // Seq orders pilots by when this client first heard them in their current squad: the join
+            // order of an other squad's roster, which the record does not carry.
+            private struct Entry { public Identity Id; public float At; public long Seq; }
             private readonly Dictionary<ulong, Entry> _entries = new Dictionary<ulong, Entry>();
+            private long _seq;
 
-            internal void Note(ulong from, Identity id, float now) => _entries[from] = new Entry { Id = id, At = now };
+            internal void Note(ulong from, Identity id, float now)
+            {
+                long seq = _entries.TryGetValue(from, out Entry old) && old.Id.InSquad && id.InSquad && old.Id.LeaderId == id.LeaderId
+                    ? old.Seq : ++_seq;
+                _entries[from] = new Entry { Id = id, At = now, Seq = seq };
+            }
 
-            // SteamID → designation for everyone heard in a squad and still in the faction within the
-            // TTL. A record without a callsign (the explicit clear) simply isn't in the result.
+            // SteamID -> designation for everyone heard with a callsign and still in the faction
+            // within the TTL. A pilot without one simply isn't in the result.
             internal Dictionary<ulong, string> Designations(float now, Func<ulong, bool> inFaction)
             {
                 var result = new Dictionary<ulong, string>();
                 foreach (var kv in _entries)
-                    if (kv.Value.Id.InSquad && Live(kv.Key, kv.Value, now, inFaction))
+                    if (kv.Value.Id.HasCallsign && Live(kv.Key, kv.Value, now, inFaction))
                         result[kv.Key] = kv.Value.Id.Designation;
                 return result;
             }
@@ -119,23 +158,39 @@ namespace NOXMFD
                 _entries.TryGetValue(steamId, out Entry e) && e.Id.Fuel.HasValue && now - e.At < FuelTtlSeconds
                     ? e.Id.Fuel : null;
 
+            // The squad protocol a pilot last announced; 0 for one never heard from, or heard only
+            // through an older client's record.
+            internal int SquadVersion(ulong steamId) =>
+                _entries.TryGetValue(steamId, out Entry e) ? e.Id.SquadVersion : 0;
+
             // Every squad heard of, except the viewer's own (excludeLeader), ordered by callsign then
             // flight. Callsign and flight come from the leader's own record when we have it: members
-            // of a squad being re-numbered briefly disagree with it.
+            // of a squad being renamed briefly disagree with it. Members list leader first, then in
+            // the order this client first heard them.
             internal List<FactionSquad> Squads(float now, Func<ulong, bool> inFaction, ulong excludeLeader)
             {
                 var byLeader = new Dictionary<ulong, FactionSquad>();
+                var order = new Dictionary<ulong, List<(ulong Id, long Seq)>>();
                 foreach (var kv in _entries)
                 {
                     Identity id = kv.Value.Id;
                     if (!id.InSquad || id.LeaderId == excludeLeader || !Live(kv.Key, kv.Value, now, inFaction)) continue;
                     if (!byLeader.TryGetValue(id.LeaderId, out FactionSquad? sq))
-                        byLeader[id.LeaderId] = sq = new FactionSquad(id.LeaderId, id.Callsign, id.Flight);
-                    if (kv.Key == id.LeaderId) { sq.Callsign = id.Callsign; sq.Flight = id.Flight; }
-                    sq.Members.Add((kv.Key, id.Slot));
+                    {
+                        byLeader[id.LeaderId] = sq = new FactionSquad(id.LeaderId, id.SquadCallsign, id.SquadFlight);
+                        order[id.LeaderId] = new List<(ulong, long)>();
+                    }
+                    if (kv.Key == id.LeaderId) { sq.Callsign = id.SquadCallsign; sq.Flight = id.SquadFlight; }
+                    order[id.LeaderId].Add((kv.Key, kv.Value.Seq));
                 }
                 var list = new List<FactionSquad>(byLeader.Values);
-                foreach (FactionSquad sq in list) sq.Members.Sort((a, b) => a.Slot.CompareTo(b.Slot));
+                foreach (FactionSquad sq in list)
+                {
+                    List<(ulong Id, long Seq)> members = order[sq.LeaderId];
+                    members.Sort((a, b) =>
+                        a.Id == sq.LeaderId ? (b.Id == sq.LeaderId ? 0 : -1) : b.Id == sq.LeaderId ? 1 : a.Seq.CompareTo(b.Seq));
+                    foreach (var m in members) sq.Members.Add(m.Id);
+                }
                 list.Sort((a, b) =>
                 {
                     int c = string.CompareOrdinal(a.Callsign, b.Callsign);
@@ -153,17 +208,18 @@ namespace NOXMFD
             internal readonly ulong LeaderId;
             internal string Callsign;
             internal int Flight;
-            internal readonly List<(ulong Id, int Slot)> Members = new List<(ulong Id, int Slot)>();
+            internal readonly List<ulong> Members = new List<ulong>();
             internal FactionSquad(ulong leaderId, string callsign, int flight) { LeaderId = leaderId; Callsign = callsign; Flight = flight; }
         }
 
-        // The viewer's own squad wins for squadmates (its roster is authoritative); everyone else
-        // comes from the faction table.
-        internal static Dictionary<ulong, string> Merge(IReadOnlyDictionary<ulong, string> ownSquad, IReadOnlyDictionary<ulong, string> faction)
+        // The viewer's own callsign wins over what the table holds for them (a table entry for self
+        // only exists if our own beat looped back, which Steam does not do, but the order is the
+        // contract); everyone else comes from the faction table.
+        internal static Dictionary<ulong, string> Merge(IReadOnlyDictionary<ulong, string> own, IReadOnlyDictionary<ulong, string> faction)
         {
             var result = new Dictionary<ulong, string>();
             foreach (var kv in faction) result[kv.Key] = kv.Value;
-            foreach (var kv in ownSquad) result[kv.Key] = kv.Value;
+            foreach (var kv in own) result[kv.Key] = kv.Value;
             return result;
         }
 
@@ -183,10 +239,34 @@ namespace NOXMFD
             return result;
         }
 
+        // SteamID -> {"d": designation, "dup": another pilot flies the same one}, the page's single
+        // source for a pilot's callsign (state.pilots in /squad). Pass every pilot including self.
+        internal static string PilotsJson(IReadOnlyDictionary<ulong, string> designations)
+        {
+            var count = new Dictionary<string, int>();
+            foreach (string d in designations.Values)
+            {
+                string key = d.ToUpperInvariant();
+                count[key] = count.TryGetValue(key, out int n) ? n + 1 : 1;
+            }
+            var sb = new StringBuilder("{");
+            bool first = true;
+            foreach (var kv in designations)
+            {
+                if (!first) sb.Append(',');
+                first = false;
+                sb.Append('"').Append(kv.Key.ToString(CultureInfo.InvariantCulture)).Append("\":{\"d\":\"")
+                  .Append(JsonLite.EscapeJson(kv.Value)).Append("\",\"dup\":")
+                  .Append(count[kv.Value.ToUpperInvariant()] > 1 ? "true" : "false").Append('}');
+            }
+            return sb.Append('}').ToString();
+        }
+
         // What SQD shows of the faction beyond the viewer's own squad (state.faction in /squad):
         // every other squad with its members, and whether the viewer's own (callsign, flight) clashes
         // with one of them. The page marks the pairs in use in its pickers from the squads list. Steam
-        // name and aircraft come from the local faction scan, not from the broadcast.
+        // name and aircraft come from the local faction scan, not from the broadcast; a member's own
+        // callsign comes from state.pilots.
         internal static string FactionJson(IReadOnlyList<FactionSquad> others, (string Callsign, int Flight, ulong LeaderId)? own,
                                            Func<ulong, string> nameFor, Func<ulong, string> aircraftFor)
         {
@@ -207,12 +287,12 @@ namespace NOXMFD
                   .Append(",\"members\":[");
                 for (int j = 0; j < sq.Members.Count; j++)
                 {
-                    var m = sq.Members[j];
+                    ulong m = sq.Members[j];
                     if (j > 0) sb.Append(',');
-                    sb.Append("{\"id\":\"").Append(m.Id.ToString(CultureInfo.InvariantCulture))
-                      .Append("\",\"slot\":").Append(m.Slot.ToString(CultureInfo.InvariantCulture))
-                      .Append(",\"name\":\"").Append(JsonLite.EscapeJson(nameFor(m.Id)))
-                      .Append("\",\"aircraft\":\"").Append(JsonLite.EscapeJson(aircraftFor(m.Id))).Append("\"}");
+                    sb.Append("{\"id\":\"").Append(m.ToString(CultureInfo.InvariantCulture))
+                      .Append("\",\"leader\":").Append(m == sq.LeaderId ? "true" : "false")
+                      .Append(",\"name\":\"").Append(JsonLite.EscapeJson(nameFor(m)))
+                      .Append("\",\"aircraft\":\"").Append(JsonLite.EscapeJson(aircraftFor(m))).Append("\"}");
                 }
                 sb.Append("]}");
             }
@@ -228,12 +308,5 @@ namespace NOXMFD
             value = (int)d;
             return true;
         }
-
-        private static bool HasControlChar(string s)
-        {
-            foreach (char ch in s) if (ch < 0x20 || ch == 0x7f) return true;
-            return false;
-        }
-
     }
 }

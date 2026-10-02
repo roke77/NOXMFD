@@ -39,6 +39,7 @@ namespace NOXMFD
             TryBind("Keybinds", () => Keybinds.Bind(Config));                  // gameplay keybinds (countermeasures + gear) — configured on the /keybinds page
             TryBind("Immersion options", () => ImmersionConfig.Bind(Config)); // docs/radar-master-arms.md — radar/engine/master-arms start-state settings
             TryBind("Refresh rates", () => RatesConfig.Bind(Config));         // TLM/TGP rate + quality settings — MAP CFG and TGP CFG pages
+            TryBind("Self callsign", () => SelfCallsign.Bind(Config));          // issue #107 - the pilot's own callsign, set on SQD
             TryBind("Harmony", HarmonyPatches.Init);                          // docs/radar-master-arms.md — spawn-default + Master Arm patches
             TryBind("JSON self-check", JsonLite.SelfCheck);                     // docs/hud-waypoint-indicator.md — pure parser, no C# test runner exists in this repo
             RouteStore.ConfigDir = Paths.ConfigPath;                           // injected so RouteStore.cs stays BepInEx-free

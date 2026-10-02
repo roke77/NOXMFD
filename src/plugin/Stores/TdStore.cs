@@ -7,16 +7,17 @@ using System.Text;
 namespace NOXMFD
 {
     // Target Designator (issue #47, docs/target-designator.md) — a squad leader assigns targets
-    // from their own live TGT list to squad slots on an assignment matrix (one tap per target/slot
-    // pair, a whole row or a whole column at once), then DESIGNATEs (pushes) each slot's targets
-    // to that member over the squad transport (Squad.SendDataTo). The member answers on their own
+    // from their own live TGT list to squad members on an assignment matrix (one tap per
+    // target/member pair, a whole row or a whole column at once), then DESIGNATEs (pushes) each
+    // member's targets to that member over the squad transport (Squad.SendDataTo). Members are keyed
+    // by SteamID (issue #107): squads no longer number their members. The member answers on their own
     // TGT page: ADD, REPLACE or DISMISS. No persistence (like Squad.cs/RouteStore's shared state),
     // everything here resets on plugin restart.
     //
     // The target ROWS themselves (name/grid/range/faction/datalink) are never computed here — they
     // are entirely client-side, decoded from the telemetry frame the same way TGT's own list is
     // (src/web/services/telemetry-source.js). This class only owns what must survive a page reload:
-    // the leader's assignment matrix and what each slot was last sent, and the member's pending
+    // the leader's assignment matrix and what each member was last sent, and the member's pending
     // designation plus which targets came from an accepted one.
     //
     // Deliberately 100% BCL, no Squad/Unit/CommandDispatcher touchpoint — same testability seam
@@ -37,14 +38,14 @@ namespace NOXMFD
             internal bool   Dl { get; }
         }
 
-        // Leader-only matrix: which squad slots each target id has been assigned to (slot 1 =
-        // leader/self — a tag-only marker, DESIGNATE never sends to it). Keyed by the same
+        // Leader-only matrix: which squad members (SteamIDs, the leader's own included - a tag-only
+        // marker, DESIGNATE never sends to it) each target id has been assigned to. Keyed by the same
         // persistentID the browser's tgt-targets rows carry.
-        private static readonly Dictionary<uint, HashSet<int>> _assignments = new Dictionary<uint, HashSet<int>>();
+        private static readonly Dictionary<uint, HashSet<ulong>> _assignments = new Dictionary<uint, HashSet<ulong>>();
 
-        // Leader-only: the id set each member slot was last DESIGNATEd, so the matrix can tell a
-        // slot whose list is SENT from one that CHANGED since (td-matrix.js's slotStatus).
-        private static readonly Dictionary<int, SortedSet<uint>> _sent = new Dictionary<int, SortedSet<uint>>();
+        // Leader-only: the id set each member was last DESIGNATEd, so the matrix can tell a member
+        // whose list is SENT from one that CHANGED since (td-matrix.js's memberStatus).
+        private static readonly Dictionary<ulong, SortedSet<uint>> _sent = new Dictionary<ulong, SortedSet<uint>>();
 
         // Member-only: the leader's last DESIGNATE, still waiting for ADD/REPLACE/DISMISS on TGT.
         // Replaced wholesale on every receipt (a repeat DESIGNATE replaces, never merges — see
@@ -66,107 +67,85 @@ namespace NOXMFD
 
         // ── Leader actions ──────────────────────────────────────────────────────
 
-        // A matrix cell: one target to one slot, or back off it.
-        internal static bool ToggleCell(uint id, int slot)
+        // A matrix cell: one target to one member, or back off it.
+        internal static bool ToggleCell(uint id, ulong member)
         {
-            if (id == 0 || slot <= 0) return false;
-            Set(id, slot, !Has(id, slot));
+            if (id == 0 || member == 0) return false;
+            Set(id, member, !Has(id, member));
             RebuildState();
             return true;
         }
 
-        // A matrix row (the target's name): that target to every slot, leader included. All-or-
-        // nothing rather than a per-slot flip, so a partly-assigned target gains the missing slots
-        // instead of losing the ones it had; a target already on every slot is taken off them all.
-        internal static bool ToggleRow(uint id, IReadOnlyList<int> slots)
+        // A matrix row (the target's name): that target to every member, leader included. All-or-
+        // nothing rather than a per-member flip, so a partly-assigned target gains the missing members
+        // instead of losing the ones it had; a target already on every member is taken off them all.
+        internal static bool ToggleRow(uint id, IReadOnlyList<ulong> members)
         {
-            if (id == 0 || slots.Count == 0) return false;
-            bool full = slots.All(s => Has(id, s));
-            foreach (int slot in slots)
-                if (slot > 0) Set(id, slot, !full);
+            if (id == 0 || members.Count == 0) return false;
+            bool full = members.All(m => Has(id, m));
+            foreach (ulong member in members)
+                if (member != 0) Set(id, member, !full);
             RebuildState();
             return true;
         }
 
-        // A matrix column head: every target on the leader's table to that slot, same all-or-
+        // A matrix column head: every target on the leader's table to that member, same all-or-
         // nothing rule as ToggleRow. `ids` is the table the leader is looking at — the page sends
         // it because the target list lives in the browser, not here (see the class header).
-        internal static bool ToggleColumn(int slot, IReadOnlyList<uint> ids)
+        internal static bool ToggleColumn(ulong member, IReadOnlyList<uint> ids)
         {
-            if (slot <= 0 || ids.Count == 0) return false;
-            bool full = ids.All(id => Has(id, slot));
+            if (member == 0 || ids.Count == 0) return false;
+            bool full = ids.All(id => Has(id, member));
             foreach (uint id in ids)
-                if (id != 0) Set(id, slot, !full);
+                if (id != 0) Set(id, member, !full);
             RebuildState();
             return true;
         }
 
-        // Records what DESIGNATE just sent this slot (CommandDispatcher.TdDesignate, only after a
-        // successful send), replacing whatever it was sent before.
-        internal static void MarkSent(int slot, IEnumerable<uint> ids)
+        // Records what DESIGNATE just sent this member (CommandDispatcher.TdDesignate, only after a
+        // successful send), replacing whatever they were sent before.
+        internal static void MarkSent(ulong member, IEnumerable<uint> ids)
         {
-            if (slot <= 0) return;
-            _sent[slot] = new SortedSet<uint>(ids);
+            if (member == 0) return;
+            _sent[member] = new SortedSet<uint>(ids);
             RebuildState();
         }
 
-        private static bool Has(uint id, int slot) =>
-            _assignments.TryGetValue(id, out HashSet<int>? slots) && slots.Contains(slot);
+        private static bool Has(uint id, ulong member) =>
+            _assignments.TryGetValue(id, out HashSet<ulong>? members) && members.Contains(member);
 
-        // An empty slot set removes the target entirely, so the served state never carries "id: []".
-        private static void Set(uint id, int slot, bool on)
+        // An empty member set removes the target entirely, so the served state never carries "id: []".
+        private static void Set(uint id, ulong member, bool on)
         {
-            if (!_assignments.TryGetValue(id, out HashSet<int>? slots))
+            if (!_assignments.TryGetValue(id, out HashSet<ulong>? members))
             {
                 if (!on) return;
-                _assignments[id] = slots = new HashSet<int>();
+                _assignments[id] = members = new HashSet<ulong>();
             }
-            if (on) slots.Add(slot); else slots.Remove(slot);
-            if (slots.Count == 0) _assignments.Remove(id);
+            if (on) members.Add(member); else members.Remove(member);
+            if (members.Count == 0) _assignments.Remove(id);
         }
 
-        // Slot numbers are each member's own Squad Member.Slot, kept when others leave — so a kick,
-        // leave or dropout only drops assignments to the departed member's slot, which stays empty
-        // until someone joins into it. Without this, an assignment made before the departure would
-        // land on whoever takes that slot next. Called from Squad.cs's CleanupRemovedMember.
-        internal static void ClearSlot(int slot)
+        // A kick, leave or dropout drops the departed member's assignments and what they were last
+        // sent, so nothing lingers if the same pilot is invited back. Called from Squad.cs's
+        // CleanupRemovedMember.
+        internal static void ClearMember(ulong member)
         {
-            if (slot <= 0) return;
-            bool changed = _sent.Remove(slot);
+            if (member == 0) return;
+            bool changed = _sent.Remove(member);
             var emptyIds = new List<uint>();
             foreach (var kv in _assignments)
             {
-                if (kv.Value.Remove(slot)) changed = true;
+                if (kv.Value.Remove(member)) changed = true;
                 if (kv.Value.Count == 0) emptyIds.Add(kv.Key);
             }
-            // Same "an empty slot set removes the target entirely" convention Assign() already uses.
+            // Same "an empty member set removes the target entirely" convention Set() already uses.
             foreach (uint id in emptyIds) _assignments.Remove(id);
             if (changed) RebuildState();
         }
 
-        // A squad reorder (Squad.MoveMember) swaps two slots' numbers (or moves a member into an
-        // empty one), so every assignment to either slot moves with its member.
-        internal static void SwapSlots(int a, int b)
-        {
-            bool changed = false;
-            foreach (HashSet<int> slots in _assignments.Values)
-            {
-                bool hasA = slots.Remove(a), hasB = slots.Remove(b);
-                if (hasA) slots.Add(b);
-                if (hasB) slots.Add(a);
-                changed |= hasA != hasB;
-            }
-            // What each slot was last sent moves with its member too, or the matrix would call a
-            // moved member's untouched list CHANGED.
-            bool sentA = _sent.TryGetValue(a, out SortedSet<uint>? toB), sentB = _sent.TryGetValue(b, out SortedSet<uint>? toA);
-            _sent.Remove(a); _sent.Remove(b);
-            if (sentA) _sent[b] = toB!;
-            if (sentB) _sent[a] = toA!;
-            if (changed || sentA || sentB) RebuildState();
-        }
-
         // Leader's CLEAR — discards the matrix. What was already sent stays as it was: members keep
-        // their lists, and the matrix shows those slots as CHANGED until the next DESIGNATE.
+        // their lists, and the matrix shows those members as CHANGED until the next DESIGNATE.
         internal static bool ClearOwn()
         {
             if (_assignments.Count == 0) return false;
@@ -256,7 +235,7 @@ namespace NOXMFD
             {
                 if (!first) sb.Append(',');
                 first = false;
-                sb.Append('"').Append(kv.Key.ToString(CultureInfo.InvariantCulture)).Append("\":[").Append(Csv(kv.Value)).Append(']');
+                sb.Append('"').Append(kv.Key.ToString(CultureInfo.InvariantCulture)).Append("\":[").Append(QuotedCsv(kv.Value)).Append(']');
             }
             sb.Append("},\"sent\":{");
             first = true;
@@ -283,6 +262,10 @@ namespace NOXMFD
             sb.Append(']').Append('}');
             return sb.ToString();
         }
+
+        // SteamIDs go out as strings: a 17-digit id overflows what a JavaScript number holds exactly.
+        private static string QuotedCsv(IEnumerable<ulong> values) =>
+            string.Join(",", values.Select(v => "\"" + v.ToString(CultureInfo.InvariantCulture) + "\""));
 
         private static string Csv<T>(IEnumerable<T> values) where T : IFormattable =>
             string.Join(",", values.Select(v => v.ToString(null, CultureInfo.InvariantCulture)));
