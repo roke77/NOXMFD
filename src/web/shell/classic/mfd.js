@@ -2045,7 +2045,7 @@ const RELAY_MESSAGES = Object.assign(Object.create(null), {
   'server-players-push': { page: 'sqd', set: function (m) { serverPlayersData = m; }, toFrame: forwardServerPlayersToFrame, toPanes: forwardServerPlayersToPanes },
   // Colour themes (issue #105): every frame repaints first (theme-live.js), so the UI page reads the
   // new effective colours when it re-renders from the relayed state.
-  'themes-push': { page: 'ui', set: function (m) { ThemeLive.update(window, m.data && m.data.css); themesData = m; }, toFrame: forwardThemesToFrame, toPanes: forwardThemesToPanes },
+  'themes-push': { page: 'ui', set: function (m) { ThemeLive.apply(window, m.data && m.data.css); themesData = m; }, toFrame: forwardThemesToFrame, toPanes: forwardThemesToPanes },
   mapinfo: { page: 'wpt', set: function (m) { mapInfoData = m; }, toFrame: forwardWptToFrame, toPanes: forwardWptToPanes },
 });
 

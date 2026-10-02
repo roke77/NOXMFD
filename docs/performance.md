@@ -689,7 +689,8 @@ large per-tick cost. Shipped:
   cells are written only when their text changes; a cursor deflection re-renders only when Select
   hands back to the crosshair.
 - **MAP**: `themeHex`/`dimHex` are memoized (they ran per contact per redraw).
-- **Shells**: `ThemeLive.update` skips re-applying an unchanged theme on every SSE reconnect.
+- **Shells**: `ThemeLive.apply` marks each document with the css it wrote, so the theme replay on
+  every SSE reconnect skips documents already holding it and still themes frames loaded since.
 - **`PlayerNameOverride`**: one pass over all aircraft per 1 Hz reconcile instead of one per renamed
   player.
 

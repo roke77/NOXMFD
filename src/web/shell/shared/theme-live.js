@@ -1,6 +1,6 @@
 // Live colour-theme apply (CFG > UI, issue 105), shared by both shells (mfd.js, f35.js). Every page
 // imports the active theme at load (theme.css → /colors-override.css). When the plugin's 'themes'
-// SSE event reports a change, the shell calls update(window, css): each same-origin document it
+// SSE event reports a change, the shell calls apply(window, css): each same-origin document it
 // hosts, nested iframes and extension pages included, gets that imported sheet's rules replaced, so
 // no page needs code of its own. Each window then receives a 'no-theme' event, which MAP uses to
 // drop its cached canvas colours.
@@ -10,6 +10,7 @@
 // on every frame's load event.
 (function (root) {
   var OVERRIDE_HREF = '/colors-override.css';
+  var APPLIED = '__noThemeCss';   // per-document mark: the css apply() last wrote there
 
   // The CSSStyleSheet behind theme.css's @import of the override, searched through nested imports.
   function overrideSheet(sheets) {
@@ -47,26 +48,25 @@
   }
 
   function apply(win, css) {
-    var doc;
-    try { doc = win.document; applyToDocument(doc, css || ''); } catch (e) { return; }   // cross-origin or unloaded
-    try { win.dispatchEvent(new win.Event('no-theme')); } catch (e) { /* no Event constructor (tests) */ }
+    css = css || '';
+    var doc, changed = false;
+    try {
+      doc = win.document;
+      // The 'themes' event repeats on every SSE reconnect. A document already holding this css is
+      // skipped (no style recalculation, no MAP cache drop); one loaded since gets no mark and is
+      // themed. The walk always continues into frames, which may be newer than their parent.
+      if (doc[APPLIED] !== css) { applyToDocument(doc, css); doc[APPLIED] = css; changed = true; }
+    } catch (e) { return; }   // cross-origin or unloaded
+    if (changed) {
+      try { win.dispatchEvent(new win.Event('no-theme')); } catch (e) { /* no Event constructor (tests) */ }
+    }
     var frames = doc.querySelectorAll('iframe');
     for (var i = 0; i < frames.length; i++) {
       if (frames[i].contentWindow) apply(frames[i].contentWindow, css);
     }
   }
 
-  // The shells' entry point. The 'themes' event also arrives on every SSE (re)connect; skipping an
-  // unchanged css spares every hosted document a full style recalculation.
-  var lastCss = null;
-  function update(win, css) {
-    css = css || '';
-    if (css === lastCss) return;
-    lastCss = css;
-    apply(win, css);
-  }
-
-  var api = { apply: apply, applyToDocument: applyToDocument, update: update };
+  var api = { apply: apply, applyToDocument: applyToDocument };
   root.ThemeLive = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : this);
