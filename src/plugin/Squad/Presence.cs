@@ -18,11 +18,6 @@ namespace NOXMFD
     // graceful sqd.leave/kick/disband to send.
     //
     // The beat also carries the sender's own identity (FactionIdentity.cs, issue #106,
-    // docs/faction-broadcast.md): its squad designation parts and its fuel. Every instance keeps
-    // what it hears in a table, which is how a pilot sees designations from squads it isn't in.
-    // An older client sends and ignores an empty payload, so mixed versions still see each other.
-    //
-    // The beat also carries the sender's own identity (FactionIdentity.cs, issue #106,
     // docs/faction-broadcast.md): its squad callsign/flight/slot, its leader and its fuel. Every
     // instance keeps what it hears in a table, which is how a pilot sees designations from squads
     // it isn't in. An older client sends and ignores an empty payload, so mixed versions still see

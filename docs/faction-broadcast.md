@@ -142,7 +142,7 @@ Mockups: `docs/images/sqd-d1-leader.png`, `sqd-d2-member.png`, `sqd-d3-invited.p
 2. Sender and receiver wiring (pieces 2 and 3). Two NOXMFD clients in different squads should
    now see each other's designations, with no UI change yet.
 3. `CreateSquad` change (piece 5).
-4. `/faction-squads` endpoint and push (piece 4).
+4. `state.faction` in `/squad` (piece 4).
 5. SQD page and mock (pieces 6 and 7).
 6. Docs: `docs/squad-callsign-names.md` ("Who sees the names"), `docs/squadron-transport.md`
    (Implementation), `SECURITY.md` (designation and fuel shared faction-wide), `src/plugin/README.md`,

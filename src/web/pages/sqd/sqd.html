@@ -11,7 +11,7 @@
   A squad is a leader plus zero or more members, no persistence, at most one squad per player. The
   leader invites players currently in the same match (picked from GET /server-players, the game's
   own live roster — no lobby, no pasted SteamID); the invited player explicitly accepts or declines
-  (GET /squad's pendingInvite). Only the leader can share data with the squad (SQD.send, wired to
+  (GET /squad's pendingInvites). Only the leader can share data with the squad (SQD.send, wired to
   WPT's own per-route share button); the topology is a star, leader <-> each member, members never
   talk to each other directly.
 

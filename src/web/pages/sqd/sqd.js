@@ -349,10 +349,12 @@ function renderRoster(showInvite) {
 // Squadron Callsign System (issue #42) — "<CALLSIGN> <FLIGHT>-<MEMBER>", e.g. "TALON 1-2". FLIGHT
 // is Squad.cs's own number; MEMBER is the pilot's slot (1 = leader, each member's own `slot`
 // otherwise). TD's own squad buttons render the identical format off the same state fields — see
-// td.js's squadSlots/renderLeader.
-function squadDesignation(memberNumber) {
-  return (state.callsign || 'SQD') + ' ' + (state.flight || 1) + '-' + memberNumber;
+// td.js's squadSlots/renderLeader. `designation` is the same format for any squad, the faction's
+// other squads included.
+function designation(callsign, flight, memberNumber) {
+  return (callsign || 'SQD') + ' ' + (flight || 1) + '-' + memberNumber;
 }
+function squadDesignation(memberNumber) { return designation(state.callsign, state.flight, memberNumber); }
 
 function iconBtn(cls, glyph, title, onclick) {
   const btn = document.createElement('button');
@@ -534,7 +536,7 @@ function renderOthers() {
     const rows = document.createElement('div');
     rows.className = 'sqd-rows';
     sq.members.forEach(function (m) {
-      addSquadRow(rows, { tag: sq.callsign + ' ' + sq.flight + '-' + m.slot, name: m.name || m.id, aircraft: m.aircraft, leaderRow: m.slot === 1 });
+      addSquadRow(rows, { tag: designation(sq.callsign, sq.flight, m.slot), name: m.name || m.id, aircraft: m.aircraft, leaderRow: m.slot === 1 });
     });
     box.appendChild(head); box.appendChild(rows);
     othersEl.appendChild(box);
