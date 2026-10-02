@@ -126,7 +126,8 @@ Mockups: `docs/images/sqd-d1-leader.png`, `sqd-d2-member.png`, `sqd-d3-invited.p
 - Amber labels have no border; buttons do.
 - Unassigned players stay docked at the bottom (open with no squad, collapsed when leading,
   hidden for a plain member).
-- Collapse state is per page load, keyed by leader id.
+- Other squads start collapsed. What the pilot opens or closes (other squads by leader id, and the
+  unassigned list once toggled) is kept in `sessionStorage` for the browser session.
 - The page's narrow-width layout (two-line rows below 640 px) carries over to every squad.
 
 ### 7. `serve_web.py` mock

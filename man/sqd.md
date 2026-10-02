@@ -36,9 +36,13 @@ Top to bottom:
 2. **CREATE SQUAD** — only while you're not in a squad.
 3. **Invites** you haven't answered — only while you're not in a squad.
 4. **Your squad**, in a green box that always stays open.
-5. **Every other squad** in your faction, each in a teal box. Click a box's header to fold or
-   unfold it.
-6. **UNASSIGNED PLAYERS**, docked at the bottom — not shown to squad members.
+5. **Every other squad** in your faction, each in a teal box, collapsed. Click a box's header to
+   open or close it.
+6. **UNASSIGNED PLAYERS**, docked at the bottom — not shown to squad members. It starts open while
+   you're not in a squad and collapsed once you are.
+
+The page remembers which boxes you opened or closed, and the unassigned bar, for the rest of the
+browser session.
 
 An amber banner above the list reports anything that happened without you pressing a button,
 such as a lost squadmate (see [Notices](#notices)).
@@ -131,8 +135,9 @@ minutes, so restarting a mission doesn't break the squad.
 
 ## Other squads
 
-Every other squad in your faction is listed below your own, read-only, with each pilot's
-designation, Steam name and aircraft. You see them whether you're in a squad or not, so anyone
+Every other squad in your faction is listed below your own, read-only. Each box starts collapsed
+with the squad's callsign, flight and pilot count; open it to see each pilot's designation, Steam
+name and aircraft. You see them whether you're in a squad or not, so anyone
 coordinating several squads, such as an ATC controller, can read every callsign from one page.
 
 The UNASSIGNED PLAYERS bar lists the faction's NOXMFD pilots who aren't in any squad.

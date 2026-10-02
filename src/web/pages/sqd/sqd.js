@@ -276,17 +276,32 @@ function renderInviteCards(invites) {
   });
 }
 
+// Which containers the pilot has opened or closed, kept for the browser session (sessionStorage,
+// shared by every SQD frame of this tab) so a reload or a page switch doesn't undo it. `squads`
+// holds the leader ids of the other squads the pilot opened — they start collapsed; `roster` is the
+// unassigned list's state once the pilot has toggled it, null until then.
+const FOLD_STORE_KEY = 'noxmfd.sqd.fold';
+const fold = { squads: {}, roster: null };
+try {
+  const saved = JSON.parse(sessionStorage.getItem(FOLD_STORE_KEY) || 'null');
+  if (saved && saved.squads && typeof saved.squads === 'object') fold.squads = saved.squads;
+  if (saved && typeof saved.roster === 'boolean') fold.roster = saved.roster;
+} catch (_) {}
+function saveFold() {
+  try { sessionStorage.setItem(FOLD_STORE_KEY, JSON.stringify(fold)); } catch (_) {}
+}
+
 // The player list (not shown to a plain member): in-match players who aren't in any squad, plus the players we've invited and are
-// awaiting (tagged INVITED, no button — Squad.cs has no way to withdraw an invite). Expanded by
-// default only while not in a squad; the default is re-applied whenever the role changes (creating
-// or joining a squad collapses it, leaving expands it), and a manual toggle holds until then.
+// awaiting (tagged INVITED, no button — Squad.cs has no way to withdraw an invite). Until the pilot
+// toggles it, it follows the role: open while not in a squad, collapsed once in one. A toggle holds
+// for the rest of the browser session.
 let rosterOpen = true;
 let rosterRole = null;
 function applyRosterOpen() {
   rosterSection.classList.toggle('sqd-collapsed', !rosterOpen);
   rosterHead.setAttribute('aria-expanded', rosterOpen ? 'true' : 'false');
 }
-function toggleRoster() { rosterOpen = !rosterOpen; applyRosterOpen(); }
+function toggleRoster() { rosterOpen = !rosterOpen; fold.roster = rosterOpen; saveFold(); applyRosterOpen(); }
 rosterHead.addEventListener('click', toggleRoster);
 rosterHead.addEventListener('keydown', function (e) {
   if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleRoster(); }
@@ -296,7 +311,11 @@ rosterHead.addEventListener('keydown', function (e) {
 // state-only update (e.g. a member's aircraft changing) would rebuild the rows for nothing.
 let lastRosterSig = null;
 function renderRoster(showInvite) {
-  if (state.role !== rosterRole) { rosterRole = state.role; rosterOpen = state.role === 'none'; applyRosterOpen(); }
+  if (state.role !== rosterRole) {
+    rosterRole = state.role;
+    rosterOpen = fold.roster !== null ? fold.roster : state.role === 'none';
+    applyRosterOpen();
+  }
 
   // Everyone already in a squad, ours or another (a leader's state.members never includes
   // themselves, and /server-players never lists self).
@@ -499,8 +518,9 @@ function renderSquad() {
 }
 
 // Every other squad in the faction (state.faction.squads), read-only: a collapsible container per
-// squad, folded per page load by its leader's id. Memoized by content like the rows above.
-const folded = {};
+// squad, collapsed until the pilot opens it (fold.squads, by leader id). Memoized by content like the
+// rows above.
+function isOpen(leader) { return !!fold.squads[leader]; }
 let lastOthersSig = null;
 function textSpan(cls, text) {
   const el = document.createElement('span');
@@ -511,7 +531,7 @@ function textSpan(cls, text) {
 function renderOthers() {
   const squads = factionSquads();
   const sig = iconStatusVersion + '|' + squads.map(function (sq) {
-    return sq.leader + ':' + sq.callsign + ':' + sq.flight + ':' + sq.dup + ':' + (folded[sq.leader] ? 1 : 0) + ':' +
+    return sq.leader + ':' + sq.callsign + ':' + sq.flight + ':' + sq.dup + ':' + (isOpen(sq.leader) ? 1 : 0) + ':' +
       sq.members.map(function (m) { return m.id + '.' + m.slot + '.' + m.name + '.' + m.aircraft; }).join(',');
   }).join(';');
   if (sig === lastOthersSig) return;
@@ -519,19 +539,24 @@ function renderOthers() {
   othersEl.innerHTML = '';
   squads.forEach(function (sq) {
     const box = document.createElement('div');
-    box.className = 'sqd-squad' + (folded[sq.leader] ? ' sqd-collapsed' : '');
+    box.className = 'sqd-squad' + (isOpen(sq.leader) ? '' : ' sqd-collapsed');
 
     const head = document.createElement('button');
     head.type = 'button';
     head.className = 'sqd-squad-head pad-hoverable';
-    head.setAttribute('aria-expanded', folded[sq.leader] ? 'false' : 'true');
+    head.setAttribute('aria-expanded', isOpen(sq.leader) ? 'true' : 'false');
     const n = sq.members.length;
     head.appendChild(textSpan('sqd-squad-title', sq.callsign + ' ' + sq.flight));
     head.appendChild(textSpan('sqd-note', n + (n === 1 ? ' PILOT' : ' PILOTS')));
     if (sq.dup) head.appendChild(textSpan('sqd-dup', 'SAME DESIGNATION'));
     head.appendChild(textSpan('sqd-spacer', ''));
     head.appendChild(textSpan('sqd-chevron', ''));
-    head.onclick = function () { folded[sq.leader] = !folded[sq.leader]; lastOthersSig = null; renderOthers(); };
+    head.onclick = function () {
+      if (isOpen(sq.leader)) delete fold.squads[sq.leader]; else fold.squads[sq.leader] = true;
+      saveFold();
+      lastOthersSig = null;
+      renderOthers();
+    };
 
     const rows = document.createElement('div');
     rows.className = 'sqd-rows';
