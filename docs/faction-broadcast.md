@@ -27,48 +27,55 @@ The identity rides the `presence` payload: one faction message on the existing 5
 message type. Older clients keep treating the beat as "running NOXMFD" and ignore the payload.
 
 ```json
-{"v":1,"c":"TALON","f":1,"s":3,"l":"76561198000000001","fu":0.734}
+{"v":2,"sv":2,"p":"VIPER","pf":1,"pn":2,"c":"TALON","f":1,"l":"76561198000000001","fu":0.734}
 ```
 
 | Field | Meaning | Validation on receive |
 |---|---|---|
-| `v` | identity schema version | unknown major → ignore identity, still count the beat |
+| `v` | identity schema version | 2 = this layout; 1 = an older client (only its fuel is read, squad version counts as 0); anything else → ignore identity, still count the beat |
+| `sv` | squad protocol version | integer 0–99; absent = 0 = older |
+| `p` `pf` `pn` | the pilot's own callsign, flight and number ([self-callsign.md](self-callsign.md)) | `p` trimmed 1–20 chars, no control characters; `pf`, `pn` 1–9; all three or none |
 | `c` | squad callsign | trimmed, 1–20 chars (`CreateSquad`'s limit); absent = not in a squad |
-| `f` | flight | 1–9 |
-| `s` | the sender's own slot | 1–99; must be 1 when `l` is the sender |
+| `f` | squad flight | 1–9 |
 | `l` | squad leader's SteamID (string: a ulong overflows JSON numbers) | non-zero; groups squads, since two squads can share `c`+`f` |
 | `fu` | fuel ratio | clamped 0–1, NaN dropped; absent = no aircraft |
 
-- The receiver builds the designation itself with `SquadDesignations.Format(c, f, s)`, then the
+- The receiver builds a pilot's callsign itself with `SquadDesignations.Format(p, pf, pn)`, then the
   rename's sanitizer. No free-text designation field travels, so a record can't carry arbitrary
   text beyond a 20-char callsign.
 - A record only ever describes its sender. It renames `m.From`, which Steam authenticates.
-- Not in a squad: `{"v":1,"fu":0.5}`. That is also the explicit clear: a record without `c` drops
-  the sender's designation at once.
-- The whole payload is capped at 256 B on receive; anything longer or unparseable is dropped,
+- Not in a squad: the `c`, `f` and `l` fields are absent. That is also the explicit clear: a record
+  without `c` drops the sender from its squad at once.
+- The whole payload is capped at 320 B on receive; anything longer or unparseable is dropped,
   and the beat still counts for presence.
-- Self-chosen callsigns (follow-up ticket) add a field here without touching the squad fields.
+- A peer whose record has `v:1`, or none, counts as `sv` 0: SQD lists it as UPDATE NOXMFD, without
+  INVITE, and an invite from it is declined on arrival.
 
 ## Pieces
 
 ### 1. `Squad/FactionIdentity.cs`: pure core (new, Unity-free, under xUnit)
 
-- `Identity` record: callsign, flight, slot, leader id, fuel.
-- `Serialize(Identity)` / `TryParse(string, ulong from, out Identity)` with the validation above.
+- `Identity` record: the pilot's own callsign, flight and number; the squad's callsign, flight and
+  leader id; squad protocol version; fuel.
+- `Serialize(Identity)` / `TryParse(string, out Identity)` with the validation above.
   Uses `JsonLite` (already Unity-free and tested).
 - `Table`: SteamID → (Identity, last seen). Time is passed in, so tests drive it.
   - `Note(from, identity, now)`, `Designations(now, inFaction)` → SteamID → designation.
   - Expiry (requirement 7, no flapping): an entry's designation holds while its pilot is still in
     the faction roster and has beaten within 120 s, the same allowance `Presence.IsLost` gives
     a pilot still loading. A record without `c` clears at once.
-- `Merge(ownSquad, faction)`: own squad wins for squadmates, faction table for everyone else.
-- `Squads(table, now)`: groups entries by leader id → callsign, flight, members by slot. Feeds SQD.
+- `Merge(own, faction)`: the viewer's own callsign wins, the faction table for everyone else.
+- `Squads(table, now)`: groups entries by leader id → callsign, flight, members (the leader first,
+  then in the order this client first heard them). Feeds SQD.
+- `PilotsJson(designations)`: SteamID → callsign and whether another pilot flies the same, for
+  `state.pilots`.
 - `Duplicates(...)`: the set of `(callsign, flight)` pairs flown by more than one leader id.
 
 ### 2. Sender (`Presence.cs`)
 
 - `Presence.Tick` sends `FactionIdentity.Serialize(current)` instead of `string.Empty`.
-  `current` comes from `Squad` (callsign, flight, own slot, leader id) and the local aircraft's fuel.
+  `current` comes from `Squad.SelfIdentity` (the pilot's own callsign, the squad's callsign,
+  flight and leader id, the squad protocol version) and the local aircraft's fuel.
 - Immediate send on change (requirement 3): `Squad.RebuildState()` already runs on every squad
   change. It calls a new `Presence.MarkDirty()`, which zeroes `_nextBroadcast`, so the next 1 Hz
   `Refresh` sends without waiting for the 5 s beat. A change reaches other squads within about 1 s.
@@ -80,7 +87,7 @@ message type. Older clients keep treating the beat as "running NOXMFD" and ignor
 - `Presence.Drain` parses the payload with `FactionIdentity.TryParse` and notes it in the table.
   It already reads every `presence` message.
 - `TelemetryReader`'s slow tick calls
-  `PlayerNameOverride.Reconcile(FactionIdentity.Merge(Squad.Designations(), table…))`.
+  `PlayerNameOverride.Reconcile(Squad.Designations())`: the viewer's own callsign merged with the table.
   `Reconcile` stays the only apply path, so restores, aircraft labels and `psn` keep working.
 - Telemetry `pn` / `psn` keep their meaning: MAP, TGT, AKF and the ATC extension need no change.
 
@@ -94,7 +101,7 @@ message type. Older clients keep treating the beat as "running NOXMFD" and ignor
 
   ```json
   {"squads":[{"leader":"7656…","callsign":"VIPER","flight":2,"dup":false,
-              "members":[{"id":"7656…","slot":1,"name":"DeckJockey","aircraft":"Tarantula"}]}],
+              "members":[{"id":"7656…","leader":true,"name":"DeckJockey","aircraft":"Tarantula"}]}],
    "selfDup":false}
   ```
 
@@ -108,18 +115,20 @@ message type. Older clients keep treating the beat as "running NOXMFD" and ignor
 - Remove the `_pendingReceived.Count > 0` guard. On success, decline every pending invite the way
   `AcceptInvite` declines the others: send `sqd.decline` to each sender and clear the queue.
 
-### 6. SQD page: design D
+### 6. SQD page: designs D and E
 
-Mockups: `docs/images/sqd-d1-leader.png`, `sqd-d2-member.png`, `sqd-d3-invited.png`,
-`sqd-d4-no-squad.png`; canvas linked from the issue.
+Mockups: `docs/images/sqd-d1-leader.png` to `sqd-d4-no-squad.png`; design E
+([self-callsign.md](self-callsign.md), `sqd-e1-leader.png` to `sqd-e4-no-callsign.png`) builds on D.
+Canvases are linked from the issues.
 
 - Header: `SQUADRONS` with TGT's `tgt-head` separator, squad and pilot counts on the right.
-- Not in a squad: the CREATE SQUAD row first, always enabled, then invite cards.
+- Not in a squad: the CREATE SQUAD row first (enabled whatever the invites, but it waits for the
+  pilot's own callsign), then invite cards.
 - The squad list: own squad first (green border, not collapsible, EDIT/LEAVE/DISBAND or LEAVE
   in its header), then every other squad (teal border, collapsible, read-only). Rows keep the
-  current grid: designation, Steam name, aircraft icon, then the amber LEADER label or the leader's
-  ▲▼★× controls (white, amber, red). Only the own squad carries DESIGNATION / PILOT / AIRCRAFT
-  column titles.
+  current grid: the pilot's own callsign, Steam name, aircraft icon, then the amber LEADER label or,
+  on the leader's view of a member, the ⋮ menu (Promote to leader, Kick from squadron). Only the
+  own squad carries CALLSIGN / PILOT / AIRCRAFT column titles.
 - Duplicates: amber SAME DESIGNATION text on each clashing squad's header, own included; the
   picker (CREATE and EDIT) marks used pairs amber with a dot, still selectable, plus one amber
   "<CALLSIGN> <FLIGHT> ALREADY FLYING" line.

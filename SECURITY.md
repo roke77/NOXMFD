@@ -64,10 +64,12 @@ which virus-scans and manually reviews uploads.
   inviting or joining anyone:
   - **A small presence beacon every 5 seconds** to every faction-mate in your current match
     (`Presence.cs`), so the SQD page can tell who else has the mod installed. It carries your own
-    squad identity and fuel (`FactionIdentity.cs`, `docs/faction-broadcast.md`): your squad's
-    callsign and flight, your number in it, the Steam ID of your squad leader, and your aircraft's
-    fuel level. That is how every other player running the mod sees your designation, in a squad
-    or not. Outside a squad it carries only the fuel level. It is sent again as soon as your squad
+    identity and fuel (`FactionIdentity.cs`, `docs/faction-broadcast.md`, `docs/self-callsign.md`):
+    the callsign you picked for yourself (callsign, flight and number, stored in the mod's config
+    file), your squad's callsign and flight and the Steam ID of its leader while you are in one,
+    the squad protocol version of your build, and your aircraft's fuel level. That is how every
+    other player running the mod sees your callsign, in a squad or not. With no callsign and no
+    squad it carries only the version and the fuel level. It is sent again as soon as any of it
     changes, and it stops the moment you leave the match.
   - **Accepting an incoming Steam messaging session from anyone** (`Squadron.cs`'s trust model) —
     an invite has to reach a stranger before they can decide whether to accept it, so the transport
@@ -121,7 +123,10 @@ authentication it has. Concretely: anyone can send you an invite (accepting one 
 choice); but only your actual current leader can hand you leadership, disband/kick you, or push a
 roster/route/target-designation update — every one of those checks the sender against who you
 already know your leader/members to be, so a stranger you've never interacted with cannot make
-you do anything beyond receiving an invite you're free to decline.
+you do anything beyond receiving an invite you're free to decline. The presence beacon is
+self-reported: a modified client can announce any callsign, or name any squad leader, but a record
+only ever describes its own sender (Steam authenticates who sent it), is size- and range-checked on
+receipt, and changes nothing but the labels you see. A callsign is not proof of who someone is.
 
 Both command endpoints reject non-POST and non-JSON requests and cap the request body at 16 KB —
 request hygiene, not a change to the trust model above; the port is still unauthenticated exactly

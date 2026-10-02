@@ -274,16 +274,19 @@ with every member; members only ever talk to the leader, never each other):
   them joining the roster: 30s for a peer in the roster, 120s for one still loading, so a mission
   restart doesn't eject the squad. Runs once a second, alongside `PlayerRoster.Refresh()`/
   `Presence.Tick()`.
-- `sqd.set-callsign` — leader-only, renames an existing squadron AND re-numbers its flight (issue
-  #47 follow-up added the flight half; the initial values both come from `CreateSquad` above);
-  carried through every roster/invite envelope and a leadership handoff (`sqd.transfer`'s own
-  envelope) so both survive. SQD's page title reads "`<CALLSIGN> SQUAD`" and doubles as the inline
-  editor (EDIT swaps the title for a callsign+flight picker in place). Re-numbering the flight
-  re-numbers every member's own `"<CALLSIGN> <FLIGHT>-<MEMBER>"` designation immediately, keeping
-  each MEMBER number.
-- `sqd.move-member` — leader-only, `{peer, index: -1|1}`: moves a member into the neighbouring
-  slot, swapping with whoever holds it or moving into it when empty, then broadcasts the roster. TD
-  slot assignments move with the member (`TdStore.SwapSlots`). docs/squad-callsign-names.md.
+- `sqd.set-callsign` — leader-only, renames an existing squadron AND changes its flight (the
+  initial values both come from `CreateSquad` above); carried through every roster/invite envelope
+  and a leadership handoff (`sqd.transfer`'s own envelope) so both survive. SQD's squad header
+  reads "`<CALLSIGN> <FLIGHT>`" and EDIT swaps it for a callsign+flight picker in place. It names the
+  squad only; members' own callsigns don't change.
+- `sqd.set-self-callsign` — the pilot's own callsign, in or out of a squad (`{name, index: flight,
+  n: number}`, issue #107, [self-callsign.md](self-callsign.md)). `CreateSquad` and `AcceptInvite`
+  refuse until one is set. Members are listed in join order and identified by SteamID; there are no
+  member numbers, so no reordering command either.
+- **Squad protocol version.** Every invite carries `sv` (`FactionIdentity.SquadProtocolVersion`). A
+  receiver on an older build sends none, and an invite without it, or below the current version, is
+  declined on arrival with a notice naming the sender. `Invite` refuses a target whose presence
+  record announces a lower version (SQD lists it as UPDATE NOXMFD, without INVITE).
 - `sqd.data` — the generic data slot this doc's scope section describes. WPT uses it for per-route
   and per-steer-point sharing; share buttons only show for a squad leader with at least one member.
   `Squad.SendDataTo` is the per-recipient sibling
@@ -353,10 +356,9 @@ squadron block that used to live on WPT. The roster renders as a table, not plai
 column is each pilot's Squadron Callsign System designation (see below), second is the player's
 Steam display name, third is their current aircraft (icon reused from `/icon?type=`, the same
 endpoint MAP draws its blips from — blank, not a placeholder, whenever `AircraftFor` has nothing to
-report), and a trailing LEADER badge or, on a subordinate's row when viewing as leader, ▲/▼
-(renumber, `sqd.move-member`), a star (promote, `sqd.relinquish`) and an × (kick, `sqd.kick`). The pilot's own row highlights in place of
-the old "highlight the leader" behaviour, so a member can find themselves in their own squad at a
-glance.
+report), and a trailing LEADER badge or, on a subordinate's row when viewing as leader, one ⋮ button
+whose menu offers Promote to leader (`sqd.relinquish`) and Kick from squadron (`sqd.kick`). The
+pilot's own row is highlighted, so a member can find themselves in their own squad at a glance.
 
 While there's no squad yet, a centered CREATE SQUAD button (swapping in place for the callsign and
 flight-number pickers + CREATE/CANCEL, same idiom as the roster's own EDIT) is what starts one —
@@ -370,10 +372,12 @@ explanatory tooltip rather than the whole section disappearing.
 ## Faction-wide identity (issue #106)
 
 Beyond the squad itself, every NOXMFD instance broadcasts its own identity to the whole faction in
-the `presence` beat's payload: squad callsign, flight, own slot, leader SteamID and fuel. Receivers
-keep a table of it, merge it under their own squad's roster, and feed the result to the rename, so a
-pilot sees every squad's designations, and SQD lists the other squads. The wire format, validation,
-expiry and the SQD design are in [faction-broadcast.md](faction-broadcast.md).
+the `presence` beat's payload: the pilot's own callsign (issue #107), the squad's callsign and
+flight, its leader's SteamID, the squad protocol version and fuel. Receivers keep a table of it and
+feed it, with their own callsign, to the rename, so a pilot sees every pilot's callsign, and SQD
+lists the other squads. The wire format, validation, expiry and the SQD design are in
+[faction-broadcast.md](faction-broadcast.md); self-assigned callsigns are in
+[self-callsign.md](self-callsign.md).
 
 ## Squadron Callsign System (issue #42)
 
@@ -389,14 +393,12 @@ of free text and a bare join-order count.
 - **Flight number** — a second `<select>`, 1-9, chosen at CREATE SQUAD time
   (`Squad.CreateSquad(callsign, flight)`) and editable later via the same EDIT picker as the
   callsign (`Squad.SetCallsign(name, flight)`, issue #47 follow-up).
-- **Per-member designation** — every roster row (SQD) and squad button (TD, docs/target-designator.md)
-  renders `"<CALLSIGN> <FLIGHT>-<MEMBER>"`, e.g. `TALON 1-2`: `FLIGHT` is the squad's current flight
-  number, `MEMBER` is the member's own slot (`Squad.Member.Slot`, 1 = leader). A new member takes
-  the lowest free slot; a departure leaves its slot empty rather than renumbering anyone; the
-  leader's ▲/▼ (`sqd.move-member`) moves members between slots, and a leadership handoff renumbers
-  the rest `2..n` (docs/squad-callsign-names.md, which also makes the designation the in-game
-  player name). Matches the standard "Flight Lead / Wingman / Element Lead / Element Wingman"
-  4-ship structure (`CALLSIGN FLIGHT-AIRCRAFT` format) a real squadron uses.
+- **Pilot callsign** — every roster row (SQD) and member column (TD, docs/target-designator.md)
+  shows the pilot's own callsign, `"<CALLSIGN> <FLIGHT>-<NUMBER>"`, e.g. `TALON 1-2`, picked by that
+  pilot on SQD (issue #107, [self-callsign.md](self-callsign.md)) from the same list and two numbers
+  1-9. It does not depend on the squad: a `TALON 1` squad can hold `VIPER 1-2`. It is also the
+  in-game player name (docs/squad-callsign-names.md). The `CALLSIGN FLIGHT-AIRCRAFT` shape is the
+  usual 4-ship convention.
 
 ## Security and privacy consequences
 

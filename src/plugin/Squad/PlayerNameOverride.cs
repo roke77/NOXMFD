@@ -6,7 +6,7 @@ using Steamworks;
 
 namespace NOXMFD
 {
-    // Squad designations as in-game player names (docs/squad-callsign-names.md). Every client
+    // Pilot callsigns as in-game player names (docs/squad-callsign-names.md). Every client
     // resolves every player's name itself (Player.GetPlayerName → Steam) and caches the resulting
     // PlayerName on the Player and in UnitRegistry.cachedPlayerNames. Swapping that cached object
     // for one named after the designation renames the player everywhere the game reads a name —

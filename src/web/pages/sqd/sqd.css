@@ -356,7 +356,7 @@ select:disabled { color: var(--no-gray); border-color: var(--no-panel-border); }
   font-family: var(--no-font);
   font-size: 13px;
   letter-spacing: 2px;
-  color: var(--no-white-dim);
+  color: var(--no-text-soft);
   cursor: pointer;
 }
 .sqd-menu-item:hover, .sqd-menu-item:focus-visible { background: var(--no-card-bg-on); outline: none; }

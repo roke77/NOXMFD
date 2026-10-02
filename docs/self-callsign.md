@@ -111,3 +111,35 @@ Identity schema 2 splits the pilot's own callsign from the squad:
 4. State JSON, mock, SQD page, TD page, TGT.
 5. Docs and screenshots, pre-release pass.
 6. In-game test with two clients.
+
+## Decisions
+
+- Callsign format: a name from the fixed list plus two numbers 1-9; no free text.
+- Duplicate pilot callsigns are allowed, with an amber note on the YOUR CALLSIGN row and on the other
+  pilot's row.
+- The callsign is set at the top of SQD, in every state, and kept in the BepInEx config.
+- A callsign is required to create a squad or accept an invite; both stay disabled until one is set.
+- Squads need the same squad protocol version. An older pilot is listed with UPDATE NOXMFD and no
+  INVITE; its invites are declined with a notice naming the sender.
+- A new squad's pickers start on the creator's own callsign and flight.
+- Members are listed in join order, the leader first. The leader's menu on a member row has Promote
+  to leader and Kick from squadron.
+- The unassigned list shows INVITED (with the longer wording as its tooltip) so the trailing column
+  keeps the same width as in the squads above it.
+- #102 (custom callsigns from a file) stays a separate feature.
+
+## Release notes
+
+Mixed-version groups must all update to squad together: a NOXMFD without this feature can't be
+invited, and its invites are declined. Players still see each other's names and fuel.
+
+## Still to check in game
+
+- Set a callsign out of a squad and see it on a second client; join a squad and keep it; change it
+  while in a squad; restart the game and still have it.
+- Create and accept with no callsign are refused; both work once one is set.
+- Promote and kick from the ⋮ menu; TD assignments reach the right member and follow SteamID when
+  someone leaves.
+- An older client can't be invited and its invite to this one is declined.
+- `man/images/TD_SQD_LEADER.png` still shows the old slot labels; retake it with the classic bezel
+  harness.

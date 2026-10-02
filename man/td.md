@@ -10,9 +10,9 @@ what you designate reaches them on their own TGT page, where they add or dismiss
 ## The assignment matrix
 
 Your targets run down the left, one row each, with their range. Your squad runs across the top, one
-column per slot: **YOU 1-1** (a personal marker, never sent) and one column per member, labeled with
-the squad callsign over the member number (`TALON` over `1-2`), the same numbers as the
-[SQD](sqd.md) roster.
+column per pilot: **YOU** (a personal marker, never sent) and one column per member, labeled with that
+pilot's own callsign (`VIPER` over `1-2`), the same callsigns as the [SQD](sqd.md) rows. A member who
+leaves takes their assignments with them.
 
 Every control does exactly what it names, with nothing to select first:
 
@@ -37,7 +37,7 @@ Each column head shows how many targets that member has, and whether they've got
 ## Buttons
 
 - **DESIGNATE** sends every amber column, then returns you to TGT — where the **TD** column shows
-  the member numbers you just assigned. It lights up when something is waiting and counts the
+  the callsigns of the members you just assigned. It lights up when something is waiting and counts the
   lists that will go (`2 LISTS WAITING`); `ALL SENT` means there's nothing new. Each send replaces
   that member's whole list, and a list you emptied is sent too, so it withdraws what they had
   pending.

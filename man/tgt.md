@@ -32,7 +32,7 @@ Every target you currently have selected, one row per target:
   available here for every locked target at once, not only the focused one. Blank when nothing is
   tracking the lock. With several weapons on one target, WPN and TTI both describe the one closest
   to impact.
-- **TD** — while you're leading a [squad](sqd.md), which member number(s) you've designated this
+- **TD** — while you're leading a [squad](sqd.md), which member(s), by callsign, you've designated this
   target to on the [Target Designator page](td.md) (blank if none). Only you see this column — it's
   your own in-progress/sent designation work, not visible to anyone else, and it doesn't appear at
   all unless you're currently the squad leader.

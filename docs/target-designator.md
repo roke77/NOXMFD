@@ -100,12 +100,16 @@ pushes an `event: td-state`, which every connected display picks up as `'td-stat
 docs/sse-push-refactor.md and the "silently sending nothing" section below for why applying this in
 the plugin (rather than deferring it to whichever browser tab happened to be open) matters.
 
-## Squad-slot numbering
+## Members are keyed by SteamID
 
-Reuses the exact numbers `sqd.js`'s roster table shows: slot 1 is the leader (self), every member
-is its own `state.members[i].slot` (`Squad.Member.Slot`). The leader's ▲/▼ in SQD moves each
-assignment with its member (`TdStore.SwapSlots`).
-Slot 1 assignments are tag-only, per the issue's own scope — DESIGNATE never sends to yourself.
+Squads don't number their members (issue #107, [self-callsign.md](self-callsign.md)), so the
+matrix keys everything on the member's SteamID: `TdStore` holds target id → member SteamIDs and
+member SteamID → the ids last sent. SteamIDs travel as strings in the served state and in
+`td.cell {id, peer}`, `td.column {peer, text}` and `td.designate {peer, text}`, since a 17-digit id
+overflows a JavaScript number. Columns run leader first, then members in the order they joined, and
+are labeled with each pilot's own callsign (`state.pilots`). The leader's own column is tag-only, per
+the issue's own scope — DESIGNATE never sends to yourself. A member who leaves drops out of every
+assignment (`TdStore.ClearMember`), so nothing they were given follows whoever joins next.
 
 ## Keybinds
 
@@ -135,10 +139,9 @@ An audit of what actually gets cleared when a squad ends, or the pilot returns t
 starts a new mission, found several gaps specific to TD:
 
 - **Assignments to a departed member.** `TdStore._assignments` is keyed by target id -> a set of
-  slot numbers. A kick, leave or dropout leaves the departed member's slot empty (nobody else's
-  number changes), so `TdStore.ClearSlot(slot)`, called from `Squad.cs`'s `CleanupRemovedMember`,
-  drops that slot from every assignment (removing the target entirely if that was its only slot).
-  Otherwise the next pilot to join into that slot would inherit targets meant for someone else.
+  member SteamIDs. A kick, leave or dropout calls `TdStore.ClearMember(id)` from `Squad.cs`'s
+  `CleanupRemovedMember`, which drops that member from every assignment (removing the target
+  entirely if that was its only member) along with what they were last sent.
 - **Reacting to a disband while TD is already open.** TD deliberately has no polling of its own
   (see "A static table, on purpose" above) — a squad ending while the page sits open had no way to
   reach it. First fixed with a one-shot `td-squad-ended` window event, piggybacked on `td-nav.js`'s
@@ -208,22 +211,21 @@ page, review, and press AQUIRE before anything reached their cockpit. The design
 Direct Matrix for the leader, TGT C · Dock for the member) live in
 `_scratch/claude_designs/TD D direct matrix.*`.
 
-**Leader: a matrix with no selection step.** Targets down the side, squad slots across the top.
-A cell toggles one target/slot pair; a target's name toggles that row across every slot; a column
-head toggles that slot across every target on the table. Row and column are all-or-nothing (fill
+**Leader: a matrix with no selection step.** Targets down the side, squad members across the top.
+A cell toggles one target/member pair; a target's name toggles that row across every member; a
+column head toggles that member across every target on the table. Row and column are all-or-nothing (fill
 the gaps, or empty when full), the same rule the old `<CALLSIGN> ALL` button had. Wire commands:
-`td.cell {id, index}`, `td.row {id}` (slots from `Squad.AllSlots()`), `td.column {index, text}`
+`td.cell {id, peer}`, `td.row {id}` (members from `Squad.AllMemberIds()`), `td.column {peer, text}`
 (`text` = the table's id list as JSON, since the table lives in the browser). `td.select`,
 `td.assign` and `td.assign-all` are gone, along with the selection overlay, SELECT ALL, and the
 long-press "keep selection" rule.
 
-**Per-slot send status.** `TdStore` keeps what each slot was last sent (`sent`, recorded by
-`TdStore.MarkSent` after a successful `td.designate`, which now carries the slot in `index`). The
-page compares it with the current matrix (`td-matrix.js`'s `slotStatus`): SENT, CHANGED, UNSENT,
-EMPTY, or MARKER for the leader's own column. DESIGNATE sends only the waiting (CHANGED/UNSENT)
-slots, including an emptied list, which withdraws that member's pending designation. `ClearSlot` and
-`SwapSlots` carry `sent` with the member, so a reorder doesn't flip an untouched list to CHANGED;
-CLEAR keeps `sent`, so cleared slots read CHANGED until the next DESIGNATE.
+**Per-member send status.** `TdStore` keeps what each member was last sent (`sent`, recorded by
+`TdStore.MarkSent` after a successful `td.designate`). The page compares it with the current matrix
+(`td-matrix.js`'s `memberStatus`): SENT, CHANGED, UNSENT, EMPTY, or MARKER for the leader's own
+column. DESIGNATE sends only the waiting (CHANGED/UNSENT) members, including an emptied list, which
+withdraws that member's pending designation. CLEAR keeps `sent`, so cleared columns read CHANGED
+until the next DESIGNATE.
 
 **Leader only.** `td-nav.js` adds the TD nav item only for `role === 'leader'`; the page itself
 shows a notice to anyone else. The member view (table, AQUIRE, member REFRESH/CLEAR) is removed.
@@ -242,8 +244,9 @@ pending list with nothing selected. `td.acquire-all` and `td.member-clear` are g
 were removed (Keybinds.cs, the remote-keybind map, the harness parser's self-check). An existing
 `.cfg` keeps its orphaned `[TD Keybinds]` entries, harmlessly.
 
-**Leader's TD column on TGT.** A row tap now assigns every slot at once, which overflowed the old
-column width; the column is wider, sorts its slot numbers, and clips with an ellipsis.
+**Leader's TD column on TGT.** A row tap assigns every member at once, which overflowed the old
+column width; the column is wider, lists the assigned members' callsigns in squad order, and clips
+with an ellipsis (the full list is its tooltip).
 
 ### Verification
 
@@ -262,7 +265,7 @@ Still needs an in-game check with two players:
 - ADD selects only the new targets; REPLACE deselects everything first; DISMISS selects nothing.
 - A designated target the member's TGT filters exclude is skipped by ADD/REPLACE.
 - A second DESIGNATE while the dock is up replaces it; an emptied list withdraws it.
-- Column status after a member leaves or is reordered (CHANGED/SENT stay attached to the member).
+- Column status after a member leaves (their column goes, the others keep CHANGED/SENT).
 - The dock and matrix at in-game MFD sizes, including split panes and the F-35 layout.
 - The manual screenshots (`TD_SQD_LEADER.png`, `TGT_TD_DOCK.png`, `TGT_TD_DOCK_OPEN.png`) are the real
   pages rendered in the harness with sample data, framed in the classic bezel — retake them in-game
