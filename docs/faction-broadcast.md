@@ -118,7 +118,8 @@ Mockups: `docs/images/sqd-d1-leader.png`, `sqd-d2-member.png`, `sqd-d3-invited.p
 - The squad list: own squad first (green border, not collapsible, EDIT/LEAVE/DISBAND or LEAVE
   in its header), then every other squad (teal border, collapsible, read-only). Rows keep the
   current grid: designation, Steam name, aircraft icon, then the amber LEADER label or the leader's
-  ▲▼★× controls (white, amber, red).
+  ▲▼★× controls (white, amber, red). Only the own squad carries DESIGNATION / PILOT / AIRCRAFT
+  column titles.
 - Duplicates: amber SAME DESIGNATION text on each clashing squad's header, own included; the
   picker (CREATE and EDIT) marks used pairs amber with a dot, still selectable, plus one amber
   "<CALLSIGN> <FLIGHT> ALREADY FLYING" line.

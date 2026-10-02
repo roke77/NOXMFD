@@ -755,8 +755,7 @@ def _squad_state():
         "role": _SQD["role"], "self": _SQD_SELF, "selfName": _SQD_SELF_NAME,
         "selfAircraft": _SQD_SELF_AIRCRAFT if _SQD["role"] == "leader" else "",
         "leaderId": _SQD["leaderId"], "leaderName": _SQD["leaderName"],
-        # Never actually exercised — this mock's role never flips to "member" (no simulated
-        # incoming invite exists to accept), see the module comment above.
+        # Only meaningful while role == member (the "member" scenario, or accepting an invite).
         "leaderAircraft": _SQD.get("leaderAircraft", ""),
         "callsign": _SQD["callsign"],
         "flight": _SQD["flight"],
@@ -788,6 +787,7 @@ def _squad_command(env):
     if cmd == "sqd.mock":
         scenario = _SQD_SCENARIOS.get(str(env.get("name") or ""))
         if scenario:
+            _SQD["leaderAircraft"] = ""   # only the member scenario sets it
             _SQD.update(json.loads(json.dumps(scenario)))
             _SQD["pendingSent"] = {}
         return
