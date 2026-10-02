@@ -99,6 +99,12 @@ reach, no-op if none — deselection stays a TGT-page concern.
 > Deselection later came to MAP too: right-click and the Cursor Deselect keybind call `deselectAt`,
 > which shares `selectAt`'s hit test (`nearestContact`) filtered to selected contacts.
 
+> The hit test lives in `map-hit.js` (unit-tested in `map-select.test.js`). Selecting skips contacts
+> the game refuses to lock, flagged `selectable: false` in `hitTargets`: neutral units with no
+> faction and units excluded by the TGT filters (`CommandDispatcher.TrySelectTarget`). Before that,
+> such a contact stayed the nearest unselected one on every tap and shadowed the units under it, so
+> a neutral dot on a launcher site made the launcher untappable.
+
 > `docs/page-cursor.md` later added a second, LIVE signal alongside this edge — `held` on the same
 > `cursor` SSE event, sourced from the same bind's continuous (non-edge) press state
 > (`Keybinds.Poll()`'s `Active(_cursorSelect, edgeOverride: false)`). MAP still only ever consumes

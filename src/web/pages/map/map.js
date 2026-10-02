@@ -802,7 +802,11 @@ function drawOverlay() {
       const detail = u.hd
         ? 'HDG ' + Math.round(((u.h % 360) + 360) % 360) + '°\nSPD ' + u.sp + '\nALT ' + u.al
         : null;
-      hitTargets.push({ cx: p.cx, cy: p.cy, r: r + HIT_PAD, label: u.t, color: hex, id: u.id, tg: !!u.tg, detail });
+      // selectable: false for what the game refuses to lock (CommandDispatcher.TrySelectTarget): a
+      // neutral unit with no faction (u.f 0, the white dots) or one the TGT filters exclude (u.ex).
+      // They keep their hover tooltip but must not win a tap-select (map-hit.js).
+      hitTargets.push({ cx: p.cx, cy: p.cy, r: r + HIT_PAD, label: u.t, color: hex, id: u.id, tg: !!u.tg, detail,
+                        selectable: u.f !== 0 && !u.ex });
     }
   }
 
@@ -1345,15 +1349,7 @@ function isSelected(t) {
 // The NEAREST contact within reach (r + pad) of (px,py) whose selection state is `selected`, or
 // null — the hit test selectAt and deselectAt share.
 function nearestContact(px, py, pad, selected) {
-  let hit = null, bestD2 = Infinity;
-  for (let i = hitTargets.length - 1; i >= 0; i--) {
-    const t = hitTargets[i];
-    if (t.id == null || isSelected(t) !== selected) continue;
-    const dx = px - t.cx, dy = py - t.cy, d2 = dx * dx + dy * dy;
-    const reach = t.r + pad;
-    if (d2 <= reach * reach && d2 < bestD2) { bestD2 = d2; hit = t; }
-  }
-  return hit;
+  return MapHit.nearestContact(hitTargets, px, py, pad, selected, isSelected);
 }
 
 // Picks the NEAREST unselected contact within reach of (px,py) and selects it — the shared body

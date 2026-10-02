@@ -8,6 +8,10 @@ friendly/hostile color, so you can spot them at a glance. [MAP CFG](mapcfg.md)'s
 toggle adds a pilot name label above any player-controlled aircraft — friendly or enemy — wherever
 it's visible as a contact; off by default.
 
+A click, tap or Cursor Select picks the nearest unit you can target. White dots (neutral units with no
+faction) and units your [TGT](tgt.md) filters leave out can't be targeted, so they never take the
+click from a targetable unit sitting under or next to them; they still show their hover label.
+
 ![MAP page](images/MAP.png)
 
 ## Controls
