@@ -2,7 +2,7 @@
 // theme goes back to DEFAULT), nested iframes follow, and a document without the import gets a
 // style element instead. Run: `node theme-live.test.js`.
 const assert = require('assert');
-const { apply } = require('./theme-live.js');
+const { apply, update } = require('./theme-live.js');
 
 function sheet(rules) {
   return {
@@ -41,5 +41,15 @@ assert.strictEqual(bareDoc.getElementById('no-theme-live').textContent, '', 'DEF
 
 const throwing = { get document() { throw new Error('cross-origin'); } };
 apply(win(doc([], [throwing])), ':root{}');   // a cross-origin frame is skipped, not fatal
+
+// update() skips a css it already applied (the 'themes' event repeats on every SSE reconnect).
+const once = sheet([]);
+const onceShell = win(doc([sheet([{ href: '/colors-override.css', styleSheet: once }])]));
+update(onceShell, ':root{a:1}');
+once.cssRules[0].cssText = 'touched';
+update(onceShell, ':root{a:1}');
+assert.strictEqual(once.cssRules[0].cssText, 'touched', 'unchanged css is not re-applied');
+update(onceShell, ':root{a:2}');
+assert.strictEqual(once.cssRules[0].cssText, ':root{a:2}', 'a changed css is applied');
 
 console.log('theme-live.test.js: OK');

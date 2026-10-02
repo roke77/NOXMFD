@@ -561,16 +561,32 @@ namespace NOXMFD
             return sb.Append(']').ToString();
         }
 
+        // TelemetryReader rebuilds the contact array at the contact rate and hands the same array to
+        // every fast frame in between, so its JSON is cached by array reference: the per-contact
+        // formatting runs once per contact scan, not once per frame. Safe because a snapshot owns its
+        // arrays and never mutates them after Push. One field holding both halves, so a reader never
+        // pairs one array with another array's JSON.
+        private static (UnitInfo[] Src, string Json)? _unitsJson;
+
         private static string UnitsArray(UnitInfo[]? units)
         {
             if (units == null || units.Length == 0) return "[]";
+            var cached = _unitsJson;
+            if (cached.HasValue && ReferenceEquals(cached.Value.Src, units)) return cached.Value.Json;
+            string json = BuildUnitsArray(units);
+            _unitsJson = (units, json);
+            return json;
+        }
+
+        private static string BuildUnitsArray(UnitInfo[] units)
+        {
             var sb = new StringBuilder("[");
             for (int i = 0; i < units.Length; i++)
             {
                 UnitInfo u = units[i];
                 if (i > 0) sb.Append(',');
                 sb.AppendFormat(CultureInfo.InvariantCulture,
-                    "{{\"id\":{8},\"t\":\"{0}\",\"x\":{1:0.0},\"z\":{2:0.0},\"h\":{3:0.0},\"f\":{4},\"o\":{5},\"s\":{6:0.000},\"tg\":{7},\"jm\":{9},\"jb\":{10},\"dl\":{11},\"st\":{12},\"sq\":{13},\"pn\":\"{14}\",\"hd\":{15},\"sp\":\"{16}\",\"al\":\"{17}\",\"ac\":{18},\"pf\":{19:0.000}",
+                    "{{\"id\":{8},\"t\":\"{0}\",\"x\":{1:0.0},\"z\":{2:0.0},\"h\":{3:0.0},\"f\":{4},\"o\":{5},\"s\":{6:0.000},\"tg\":{7},\"jm\":{9},\"jb\":{10},\"dl\":{11},\"st\":{12},\"sq\":{13},\"pn\":\"{14}\",\"hd\":{15},\"sp\":\"{16}\",\"al\":\"{17}\"",
                     JsonLite.EscapeJson(u.Type ?? string.Empty),
                     u.X, u.Z, u.Heading, u.Faction,
                     u.Orient ? "true" : "false", u.Scale,
@@ -584,12 +600,13 @@ namespace NOXMFD
                     JsonLite.EscapeJson(u.PilotName ?? string.Empty),
                     u.HasDetail ? 1 : 0,
                     JsonLite.EscapeJson(u.SpeedReading ?? string.Empty),
-                    JsonLite.EscapeJson(u.AltReading ?? string.Empty),
-                    u.IsAircraft ? 1 : 0,
-                    // -1 sentinel for "no data" — same convention the avn block's own fuel field
-                    // uses client-side (telemetry-source.js); wire-compact (one key) vs a separate
-                    // bool, the struct itself stays bool-gated (see UnitInfo.HasPeerFuel's comment).
-                    u.HasPeerFuel ? u.PeerFuelRatio : -1f);
+                    JsonLite.EscapeJson(u.AltReading ?? string.Empty));
+                // ac / pf are true / present for few contacts, so both are left off otherwise: a
+                // missing "ac" reads as not-an-aircraft and a missing "pf" as no fuel data, the same
+                // as the old 0 / -1 values for any `!u.ac` / `pf >= 0` reader.
+                if (u.IsAircraft) sb.Append(",\"ac\":1");
+                if (u.HasPeerFuel)
+                    sb.Append(",\"pf\":").Append(u.PeerFuelRatio.ToString("0.000", CultureInfo.InvariantCulture));
                 // Only while the pilot shows under a squad designation (docs/squad-callsign-names.md)
                 // — absent otherwise, rather than an empty string on every contact every frame.
                 if (!string.IsNullOrEmpty(u.PilotSteamName))

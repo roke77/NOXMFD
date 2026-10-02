@@ -255,19 +255,32 @@ namespace NOXMFD.Tests
             var s = default(TelemetrySnapshot);
             s.Units = new[] { new UnitInfo { Id = 1, Type = "T-72" } };
             var contact = Obj(Arr(Root(s)["contacts"])[0]);
-            Assert.Equal(0.0, contact["ac"]);
+            Assert.False(contact.ContainsKey("ac"));
         }
 
         // HasPeerFuel false (the correct default under default(UnitInfo), including in every test
-        // above that doesn't set it) must serialize as the -1 sentinel, not 0.0 — 0.0 is a real,
+        // above that doesn't set it) must leave "pf" off the wire, not send 0.0 — 0.0 is a real,
         // alarming value ("empty tank"), not "no data" (docs/atc-extension-support.md item 1).
+        // The contacts JSON is cached by array reference; a new contact scan (a new array) must
+        // never be served the previous scan's JSON.
         [Fact]
-        public void Unit_contact_peer_fuel_defaults_to_the_no_data_sentinel_not_zero()
+        public void Unit_contacts_reserialize_for_a_new_array_only()
+        {
+            var s = default(TelemetrySnapshot);
+            s.Units = new[] { new UnitInfo { Id = 1, Type = "F-16C" } };
+            Assert.Equal(1.0, Obj(Arr(Root(s)["contacts"])[0])["id"]);
+            Assert.Equal(1.0, Obj(Arr(Root(s)["contacts"])[0])["id"]);   // served from the cache
+            s.Units = new[] { new UnitInfo { Id = 2, Type = "T-72" } };
+            Assert.Equal(2.0, Obj(Arr(Root(s)["contacts"])[0])["id"]);
+        }
+
+        [Fact]
+        public void Unit_contact_peer_fuel_is_absent_not_zero_without_data()
         {
             var s = default(TelemetrySnapshot);
             s.Units = new[] { new UnitInfo { Id = 1, Type = "F-16C" } };
             var contact = Obj(Arr(Root(s)["contacts"])[0]);
-            Assert.Equal(-1.0, contact["pf"]);
+            Assert.False(contact.ContainsKey("pf"));
         }
 
         [Fact]

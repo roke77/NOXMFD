@@ -125,12 +125,16 @@ const STALE_ALPHA  = 0.5;                           // faded icon opacity for a 
 // A unit the TGT filters exclude (u.ex, TargetListSelector.CheckExclusions): the game's own map
 // multiplies the icon's whole RGBA by 0.67 (UnitMapIcon_UpdateColor) — darker AND more transparent.
 const EXCLUDED_DIM = 0.67;
+// Memoized: it runs per excluded contact per redraw, over a handful of distinct colours.
+const dimCache = Object.create(null);
 function dimHex(hex, k) {
+  const key = hex + '/' + k;
+  if (dimCache[key]) return dimCache[key];
   const m = /^#([0-9a-f]{6})/i.exec(hex);
   if (!m) return hex;
   const n = parseInt(m[1], 16);
   const c = s => Math.round(((n >> s) & 255) * k).toString(16).padStart(2, '0');
-  return '#' + c(16) + c(8) + c(0);
+  return (dimCache[key] = '#' + c(16) + c(8) + c(0));
 }
 // Canvas can't resolve var(), so theme colours (shared/colors.css) are read from the computed style
 // and cached. Only called while drawing, by which point the stylesheet has loaded; an empty read is
@@ -148,8 +152,14 @@ window.addEventListener('no-theme', () => {
   themeFactions = null;
 });
 // A theme RGB triple as #rrggbb, for colours that go through dimHex.
+// Cached beside theme()'s own entries (key '#' + name), so a theme change clears both.
 function themeHex(rgbName) {
-  return '#' + theme(rgbName).split(',').map(v => (+v).toString(16).padStart(2, '0')).join('');
+  const key = '#' + rgbName;
+  if (themeCache[key]) return themeCache[key];
+  const rgb = theme(rgbName);
+  const hex = '#' + rgb.split(',').map(v => (+v).toString(16).padStart(2, '0')).join('');
+  if (rgb) themeCache[key] = hex;
+  return hex;
 }
 // A squadmate's aircraft (issue #48, docs/squadron-transport.md) is --no-squad. It takes priority
 // over the plain faction color, but never applies to the viewer's own plane — that's a separate

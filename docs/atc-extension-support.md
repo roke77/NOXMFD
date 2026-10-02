@@ -79,11 +79,12 @@ restores the *original* "friendly" scope from issue #89 instead of narrowing it.
   from `FuelBroadcast.FuelFor(ac.pilots[0].player.SteamID)` — bool-gated rather than a sentinel
   float, since a plain float defaults to `0.0` under `default(UnitInfo)`/`default(TelemetrySnapshot)`
   (used throughout `tools/tests`), which would misread as "empty tank" instead of "no data."
-  `TelemetryJson.cs` collapses it to a single wire field, `"pf"` (`-1` sentinel for "no data"),
-  matching the `avn` block's existing client-side `-1` convention rather than adding a second key.
-- Tests: `TelemetryJsonTests.cs`'s round-trip test now also covers `pf`, plus a dedicated test that
-  the *default* (no broadcast heard) serializes as `-1`, not `0.0` — the exact bug the bool gate
-  exists to prevent.
+  `TelemetryJson.cs` collapses it to a single wire field, `"pf"`, left off the contact entirely
+  when there is no data (and `"ac"` likewise appears only as `1`), so a reader checks
+  `typeof pf === 'number' && pf >= 0` and `!!u.ac`.
+- Tests: `TelemetryJsonTests.cs`'s round-trip test also covers `pf`, plus a dedicated test that
+  the *default* (no broadcast heard) leaves `pf` off rather than sending `0.0` — the exact bug the
+  bool gate exists to prevent.
 
 **Trust note, carried from `docs/squadron-transport.md`'s own model:** this value is peer-reported,
 not server-authoritative. A modified client could broadcast a fake number. `Drain()` clamps to

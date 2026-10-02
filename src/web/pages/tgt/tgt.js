@@ -94,6 +94,7 @@ function applyTdState(s) {
 // `designated`, and the next td-state push hides it). The drawer's open/closed state is local.
 let tdDesignated = [];
 let dockOpen = false;
+let dockKey = null;   // what the open drawer was last built from
 const dockEl = document.getElementById('tgt-td-dock');
 const dockDrawer = document.getElementById('tgt-td-drawer');
 const dockToggle = document.getElementById('tgt-td-toggle');
@@ -114,7 +115,13 @@ function renderDock() {
   dockAdd.textContent = 'ADD ' + fresh;
   dockAdd.setAttribute('aria-label', 'Add ' + fresh + ' new target' + (fresh === 1 ? '' : 's') + ' to yours');
   dockDrawer.hidden = !dockOpen;
-  if (!dockOpen) return;
+  if (!dockOpen) { dockKey = null; return; }
+  // Runs on every telemetry frame, so the drawer only rebuilds when what it shows changed.
+  const key = targetsMetric + '|' + tdDesignated.map(function (t) {
+    return [t.id, t.n, t.r, t.g, t.f, listed.has(t.id)].join(':');
+  }).join(',');
+  if (key === dockKey) return;
+  dockKey = key;
   dockDrawer.innerHTML = '';
   tdDesignated.forEach(function (t) {
     const item = document.createElement('div');
@@ -281,6 +288,10 @@ function tapSort(key) {
 }
 function clearSort() { send('tgt.sort', { key: '', index: 1 }); }
 
+// A textContent write replaces the text node even when the text is the same, so the 10 Hz refresh
+// below only writes cells whose text changed.
+function setText(el, text) { if (el.textContent !== text) el.textContent = text; }
+
 function renderTargets() {
   const list = targets;
   countNEl.textContent = list.length ? '(' + list.length + ')' : '';
@@ -316,36 +327,37 @@ function renderTargets() {
       const hdg  = document.createElement('span'); hdg.className = 'tl-hdg';
       row.appendChild(name); row.appendChild(wpn); row.appendChild(tti); row.appendChild(td); row.appendChild(src); row.appendChild(dist); row.appendChild(grid);
       row.appendChild(spd); row.appendChild(alt); row.appendChild(hdg);
+      row.cells = { name: nameText, wpn: wpn, tti: tti, td: td, src: src, dist: dist, grid: grid, spd: spd, alt: alt, hdg: hdg };
       listRows.appendChild(row);
     });
   }
   const rowEls = listRows.children;
   for (let i = 0; i < rowEls.length && i < list.length; i++) {
-    const t = list[i], el = rowEls[i];
-    el.querySelector('.tl-name-text').textContent = t.n || '—';
+    const t = list[i], el = rowEls[i], c = el.cells;
+    setText(c.name, t.n || '—');
     // WPN / TTI (docs/hud-tti-estimate.md): only when this lock actually has one of the player's own
     // in-flight guided weapons tracking it (telemetry-source.js only sets t.tti/t.wpn in that case).
-    el.querySelector('.tl-wpn').textContent = typeof t.tti === 'number' && t.wpn ? t.wpn : '';
-    el.querySelector('.tl-tti').textContent = typeof t.tti === 'number' ? fmtTti(t.tti) : '';
-    el.querySelector('.tl-grid').textContent = t.g != null ? String(t.g) : '—';
-    el.querySelector('.tl-dist').textContent = fmtRng(t.r, targetsMetric);
+    setText(c.wpn, typeof t.tti === 'number' && t.wpn ? t.wpn : '');
+    setText(c.tti, typeof t.tti === 'number' ? fmtTti(t.tti) : '');
+    setText(c.grid, t.g != null ? String(t.g) : '—');
+    setText(c.dist, fmtRng(t.r, targetsMetric));
     // TD column (issue #47 follow-up) — blank when this target isn't currently assigned to anyone;
     // the column itself is hidden entirely for a non-leader (see .has-td-col in tgt.css), so an
     // empty cell here never shows for someone with no leader-side assignments to display anyway.
     const assigned = tdAssignments[String(t.id)] || [];
-    const tdCell = el.querySelector('.tl-td');
     const byOrder = assigned.slice().sort(function (a, b) { return squadOrder(a) - squadOrder(b); });
-    tdCell.textContent = byOrder.map(memberNumber).join(' ');
-    tdCell.title = byOrder.map(memberLabel).join(', ');   // the full callsigns, on hover
+    setText(c.td, byOrder.map(memberNumber).join(' '));
+    const tdTitle = byOrder.map(memberLabel).join(', ');   // the full callsigns, on hover
+    if (c.td.title !== tdTitle) c.td.title = tdTitle;
     // SPD/ALT/HDG (issue #88, only rendered while .has-flight-col is on): "—" when this target has
     // no HasDetail — a stale lock, or a non-aircraft/missile category — same gate/placeholder MAP's
     // hover tooltip already uses for the identical data.
-    el.querySelector('.tl-spd').textContent = t.hd && t.sp ? t.sp : '—';
-    el.querySelector('.tl-alt').textContent = t.hd && t.al ? t.al : '—';
-    el.querySelector('.tl-hdg').textContent = t.hd && typeof t.h === 'number' ? fmtHdg(t.h) : '—';
+    setText(c.spd, t.hd && t.sp ? t.sp : '—');
+    setText(c.alt, t.hd && t.al ? t.al : '—');
+    setText(c.hdg, t.hd && typeof t.h === 'number' ? fmtHdg(t.h) : '—');
     el.classList.toggle('datalink', !!t.dl && !t.st);
     el.classList.toggle('stale', !!t.st);
-    el.querySelector('.tl-src').textContent = t.st ? 'STALE' : t.dl ? 'DATALINK' : 'SENSOR';
+    setText(c.src, t.st ? 'STALE' : t.dl ? 'DATALINK' : 'SENSOR');
     const isFocused = focusedTargetId !== 0 && t.id === focusedTargetId;
     // Amber while Select would act on this lock (crosshair inactive); grey once the crosshair has
     // taken over Select, so it's clear at a glance that pressing Select now won't deselect it.
@@ -535,7 +547,7 @@ window.addEventListener('message', function (e) {
   } else if (m.action === 'cursor') {
     // An actual deflection (not the (0,0) a key release reports) hands Select back to the
     // crosshair and shows it again.
-    if (m.x || m.y) { crosshairActive = true; cursor.setHidden(false); renderTargets(); }
+    if ((m.x || m.y) && !crosshairActive) { crosshairActive = true; cursor.setHidden(false); renderTargets(); }
     cursor.setVector(m.x, m.y);
   } else if (m.action === 'cursor-held') {
     cursor.setSelectHeld(!!m.held);

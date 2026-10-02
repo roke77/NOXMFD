@@ -1,6 +1,6 @@
 // Live colour-theme apply (CFG > UI, issue 105), shared by both shells (mfd.js, f35.js). Every page
 // imports the active theme at load (theme.css → /colors-override.css). When the plugin's 'themes'
-// SSE event reports a change, the shell calls apply(window, css): each same-origin document it
+// SSE event reports a change, the shell calls update(window, css): each same-origin document it
 // hosts, nested iframes and extension pages included, gets that imported sheet's rules replaced, so
 // no page needs code of its own. Each window then receives a 'no-theme' event, which MAP uses to
 // drop its cached canvas colours.
@@ -56,7 +56,17 @@
     }
   }
 
-  var api = { apply: apply, applyToDocument: applyToDocument };
+  // The shells' entry point. The 'themes' event also arrives on every SSE (re)connect; skipping an
+  // unchanged css spares every hosted document a full style recalculation.
+  var lastCss = null;
+  function update(win, css) {
+    css = css || '';
+    if (css === lastCss) return;
+    lastCss = css;
+    apply(win, css);
+  }
+
+  var api = { apply: apply, applyToDocument: applyToDocument, update: update };
   root.ThemeLive = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : this);

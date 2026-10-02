@@ -56,6 +56,7 @@ namespace NOXMFD
             if (wanted.Count == 0 && _applied.Count == 0) return;
 
             var next = new Dictionary<ulong, Applied>();
+            var relabel = new List<Player>();
             try
             {
                 foreach (Player p in UnitRegistry.playerLookup.Values)
@@ -91,8 +92,9 @@ namespace NOXMFD
                     }
                     else continue;
 
-                    RelabelAircraft(p);
+                    relabel.Add(p);
                 }
+                RelabelAircraft(relabel);
             }
             catch (System.Exception ex)
             {
@@ -162,12 +164,17 @@ namespace NOXMFD
 
         // Aircraft.OwnerNameResolved builds "<name> [<type>]" once and unsubscribes, and the kill
         // feed prints that label, so a rename after spawn has to rewrite it here.
-        private static void RelabelAircraft(Player p)
+        // One pass over every aircraft for all the players at once: Reconcile runs at 1 Hz and lists
+        // every renamed player each time (their new aircraft need the label too), so a per-player
+        // scan would be players × aircraft.
+        private static void RelabelAircraft(List<Player> players)
         {
-            string label = p.GetDisplayName(PlayerNameContext.Other) + " [";
+            if (players.Count == 0) return;
+            var labels = new Dictionary<Player, string>(players.Count);
+            foreach (Player p in players) labels[p] = p.GetDisplayName(PlayerNameContext.Other) + " [";
             foreach (Aircraft ac in UnitRegistry.allAircraft)
             {
-                if (ac == null || ac.Player != p || ac.definition == null) continue;
+                if (ac == null || ac.definition == null || ac.Player == null || !labels.TryGetValue(ac.Player, out string label)) continue;
                 string want = label + ac.definition.unitName + "]";
                 if (ac.unitName == want) continue;
                 SquadLog($"relabel aircraft {ac.persistentID} '{ac.unitName}' -> '{want}'");
