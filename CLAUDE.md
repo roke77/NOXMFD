@@ -114,6 +114,14 @@ development builds aren't gated.
    API. The repo pattern is fail-safe with a logged reason (`Plugin.Log?.LogWarning`/
    `LogInfo`, e.g. `SpriteCapture`'s try/catch around its GPU readback), not a crash or
    a silent no-op.
+9. Performance: judge whether the diff adds a significant cost, and whether what it added
+   can be done cheaper. In the plugin, look at per-frame and per-tick work (allocations,
+   LINQ, string building and reflection in hot paths, `FindObjectsOfType`-style scans) and
+   at what each telemetry frame now carries (payload size, fields sent every frame that
+   rarely change). In the web code, look at work done on every frame (full DOM rebuilds
+   instead of updates, redraws, listeners or timers that are never released) and at cost
+   that scales with unit count, per [docs/performance.md](docs/performance.md). Fix what is
+   clearly wasteful and cheap to fix; for the rest, say what was found and why it was left.
 
 Only after this pass is done (or confirmed to have nothing to change) should the
 release proceed.
