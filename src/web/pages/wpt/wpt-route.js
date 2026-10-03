@@ -47,6 +47,68 @@
     return index + 1 < nextIndex;
   }
 
+  // Signed turn to the target: negative = turn left, positive = turn right, in -180..180. The RTD/SPD
+  // heading tape and cue read it this way; relativeBearing above is the compass needle's 0-360.
+  function signedTurn(brgDeg, hdg) {
+    return ((brgDeg - hdg) % 360 + 540) % 360 - 180;
+  }
+
+  // [value, unit] for a distance in meters, in the player's unit (km when metric, else nm) — the
+  // split HSD/FCR/OBJ's range readouts use. ['—', ''] when there's no distance.
+  function distanceParts(m, metric) {
+    if (m == null) return ['—', ''];
+    const km = m / 1000;
+    return metric ? [km.toFixed(1), 'km'] : [(km * 0.539957).toFixed(1), 'nm'];
+  }
+  function formatDistance(m, metric) {
+    const p = distanceParts(m, metric);
+    return p[1] ? p[0] + ' ' + p[1] : p[0];
+  }
+
+  // Three-digit bearing, 0-359: "005°".
+  function formatBearing(deg) {
+    return ('00' + Math.round(((deg % 360) + 360) % 360) % 360).slice(-3) + '°';
+  }
+
+  // Leg length into each waypoint (meters); the first point starts the route, so its leg is 0.
+  function legLengths(points) {
+    return points.map((p, i) => i === 0 ? 0 : Math.hypot(p.x - points[i - 1].x, p.z - points[i - 1].z));
+  }
+
+  function routeLength(points) {
+    return legLengths(points).reduce((a, b) => a + b, 0);
+  }
+
+  // Distance still to fly: ownship to the next waypoint, then every leg after it. null once the
+  // route is complete or ownship isn't known yet.
+  function remainingDistance(route, ownX, ownZ) {
+    const pts = route.waypoints, next = route.nextIndex;
+    if (next >= pts.length || ownX == null || ownZ == null) return null;
+    const legs = legLengths(pts);
+    let d = Math.hypot(pts[next].x - ownX, pts[next].z - ownZ);
+    for (let i = next + 1; i < pts.length; i++) d += legs[i];
+    return d;
+  }
+
+  // The RTD timeline: up to `perRow` connected points per row, then the next row. Positions are
+  // slot units (col 0..perRow-1, row 0..); the page turns them into pixels. A leg whose two ends
+  // sit on different rows is split in two: `out` leaves its row at the right edge and `in`
+  // re-enters the next row from the left edge, which is where the leg's label goes.
+  function timeline(count, perRow) {
+    const nodes = [], segments = [];
+    for (let i = 0; i < count; i++) {
+      nodes.push({ index: i, row: Math.floor(i / perRow), col: i % perRow });
+      if (i === 0) continue;
+      const a = nodes[i - 1], b = nodes[i];
+      if (a.row === b.row) segments.push({ index: i, row: b.row, from: a.col, to: b.col, label: true });
+      else {
+        segments.push({ index: i, row: a.row, from: a.col, to: 'edge', label: false });
+        segments.push({ index: i, row: b.row, from: 'edge', to: b.col, label: true });
+      }
+    }
+    return { nodes, segments, rows: count ? Math.ceil(count / perRow) : 0 };
+  }
+
   // Read-only lookup against an already-fetched routes array (from /wpt-options) — no mutation, so
   // it stays in the same category as the display math above rather than moving to RouteStore.cs.
   function findRoute(routes, id) {
@@ -117,7 +179,9 @@
   }
 
   const api = {
-    distanceBearing, relativeBearing,
+    distanceBearing, relativeBearing, signedTurn,
+    distanceParts, formatDistance, formatBearing,
+    legLengths, routeLength, remainingDistance, timeline,
     waypointMarkerState, segmentReached,
     findRoute, findSteerPoint, navigationTarget,
     serializeRoute, parseRouteJSON, serializeSteerPoints, parseSteerPointsJSON,

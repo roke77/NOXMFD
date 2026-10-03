@@ -318,7 +318,7 @@ to that zoom level; Zoom In/Out still work between axis moves.
 ### PAD cursor
 
 When a display's focused page is interactible — [MAP](map.md), [HUD](hud.md), [TGT](tgt.md),
-[FCR](rdr.md#fcr), [HSD](rdr.md#hsd), [WPT](wpt.md), [AKF](akf.md) or [DOC](doc.md) — a crosshair can move over
+[FCR](rdr.md#fcr), [HSD](rdr.md#hsd), [WPT, RTD and SPD](wpt.md), [AKF](akf.md) or [DOC](doc.md) — a crosshair can move over
 it and act on whatever's underneath, the same thing a mouse click or touch tap already does, but
 from the HOTAS, without touching the screen. The green crosshair on the map above is the PAD cursor.
 

@@ -94,10 +94,13 @@ assert.deepStrictEqual(NAV.ui, [
 assert.ok(!('lyt' in NAV), 'NAV.lyt must not exist — BEZEL_EXTRAS.lyt owns that page\'s placement');
 assert.ok(!('rates' in NAV), 'NAV.rates must not exist — its two settings moved to NAV.mapcfg/NAV.tgpcfg');
 
-// WPT (waypoints/route creator, issue #38) is reached from MAP's own nav row, not MD/CFG's
-// sibling-group pattern — its way back is MAP, not MAIN. MAPCFG/TGPCFG (this branch) follow the
-// same shape, each reached from its own page's nav row rather than MAIN.
-assert.deepStrictEqual(NAV.wpt, [ { label: 'MAP', action: 'map' } ]);
+// WPT (waypoints/route creator, issue #38) is reached from MAP's own nav row, so its way back is MAP,
+// not MAIN. WPT/RTD/SPD switch between each other (docs/wpt-rework.md), `mark` on the live one.
+// MAPCFG/TGPCFG follow the single back-link shape, each reached from its own page's nav row.
+for (const page of ['wpt', 'rtd', 'spd']) {
+  assert.deepStrictEqual(NAV[page].map(i => i.label), ['MAP', 'WPT', 'RTD', 'SPD'], `NAV.${page} order`);
+  assert.deepStrictEqual(NAV[page].filter(i => i.mark).map(i => i.action), [page], `NAV.${page} marks itself`);
+}
 assert.deepStrictEqual(NAV.mapcfg, [ { label: 'MAP', action: 'map' } ]);
 assert.deepStrictEqual(NAV.tgpcfg, [ { label: 'TGP', action: 'tgp' } ]);
 // TD (issue #47) — reached from TGT's own nav row, way back is TGT, same shape as mapcfg/tgpcfg.

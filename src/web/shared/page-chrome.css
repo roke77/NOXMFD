@@ -1,4 +1,4 @@
-/* Shared chrome for "full standalone page" documents — WPT/SQD/KB/DOC, reached outside the
+/* Shared chrome for "full standalone page" documents — SQD/KB/DOC, reached outside the
    bezel/MFD frame, not one of the compact in-panel pages theme.css's own `html, body` rule targets
    (that one hides overflow; these scroll). Linked AFTER theme.css and BEFORE each page's own
    stylesheet, so a page can still override a specific property (e.g. keybinds.css's wider
@@ -6,7 +6,7 @@
    until RTS split into MAP CFG/TGP CFG (each with its own local, non-shared chrome copy instead), a
    hand-copied ruleset across four pages.
 
-   Each page keeps its OWN class names (.wpt-panel, .sqd-panel, ...) rather than switching to one
+   Each page keeps its OWN class names (.sqd-panel, .kb-panel, ...) rather than switching to one
    shared name — no HTML changes needed to adopt this, and a page-specific class is still useful as
    a scoping hook for that page's own overrides/additions. */
 
@@ -19,13 +19,13 @@ html::-webkit-scrollbar { width: 6px; height: 6px; }
 html::-webkit-scrollbar-track { background: transparent; }
 html::-webkit-scrollbar-thumb { background: var(--no-gray); border-radius: 3px; }
 
-.wpt-panel, .sqd-panel, .kb-panel, .doc-panel {
+.sqd-panel, .kb-panel, .doc-panel {
   max-width: 620px;
   margin: 0 auto;
   padding: 26px 18px 40px;
 }
 
-.wpt-back, .sqd-back, .kb-back, .doc-back {
+.sqd-back, .kb-back, .doc-back {
   float: left;
   font-size: 12px;
   letter-spacing: 2px;
@@ -33,9 +33,9 @@ html::-webkit-scrollbar-thumb { background: var(--no-gray); border-radius: 3px; 
   text-decoration: none;
   padding: 6px 2px;
 }
-.wpt-back:hover, .sqd-back:hover, .kb-back:hover, .doc-back:hover { color: var(--no-green); }
+.sqd-back:hover, .kb-back:hover, .doc-back:hover { color: var(--no-green); }
 
-.wpt-title, .sqd-title, .kb-title {
+.sqd-title, .kb-title {
   font-size: 24px;
   letter-spacing: 4px;
   color: var(--no-green);
@@ -43,9 +43,9 @@ html::-webkit-scrollbar-thumb { background: var(--no-gray); border-radius: 3px; 
   margin-bottom: 14px;
 }
 
-/* The list-row pattern (WPT/SQD/DOC only — keybinds' own .kb-row is an unrelated grid-table row,
+/* The list-row pattern (SQD/DOC only — keybinds' own .kb-row is an unrelated grid-table row,
    not this flex layout, and must not be included here). */
-.wpt-row, .sqd-row, .doc-row {
+.sqd-row, .doc-row {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -53,10 +53,10 @@ html::-webkit-scrollbar-thumb { background: var(--no-gray); border-radius: 3px; 
   border-bottom: 1px solid var(--no-panel-border);
   font-size: 14px;
 }
-.wpt-row:last-child, .sqd-row:last-child, .doc-row:last-child { border-bottom: none; }
+.sqd-row:last-child, .doc-row:last-child { border-bottom: none; }
 
-/* Icon-only row action button (WPT/SQD only) — plain glyph, no border, brightens on hover. */
-.wpt-row-btn, .sqd-row-icon-btn {
+/* Icon-only row action button (SQD only) — plain glyph, no border, brightens on hover. */
+.sqd-row-icon-btn {
   flex: none;
   background: none;
   border: none;
@@ -66,4 +66,4 @@ html::-webkit-scrollbar-thumb { background: var(--no-gray); border-radius: 3px; 
   padding: 2px 6px;
   line-height: 1;
 }
-.wpt-row-btn:hover, .sqd-row-icon-btn:hover { color: var(--no-green); }
+.sqd-row-icon-btn:hover { color: var(--no-green); }

@@ -471,7 +471,7 @@ function placeSplitKey(m, label, action, paneTag, mark, pending) {
 // this same lone MAIN label (ext-nav.js), so there's no per-extension list to hardcode here the
 // way TGT/AKF/etc. are — this either clears real content (ATC's own table header, the reason this
 // was added) or costs nothing on a page with none.
-function isVmainPage(p) { return p === 'tgt' || p === 'td' || p === 'sqd' || p === 'akf' || p === 'bdf' || p === 'pal' || p === 'mis' || p === 'obj' || p === 'lyt' || p === 'keys' || p === 'hud' || p === 'ui' || ExtNav.isExtensionPage(p); }
+function isVmainPage(p) { return p === 'tgt' || p === 'td' || p === 'sqd' || WPT_PAGES.indexOf(p) !== -1 || p === 'akf' || p === 'bdf' || p === 'pal' || p === 'mis' || p === 'obj' || p === 'lyt' || p === 'keys' || p === 'hud' || p === 'ui' || ExtNav.isExtensionPage(p); }
 
 // The item count on each MAIN split page. Unlike WPN, MAIN reserves no fixed back-slot: PREV anchors
 // the first key only on pages past the first, NEXT the last key only on pages before the last, and
@@ -953,6 +953,9 @@ function forwardTgtToPanes() { forwardToPanes('tgt', tgtMsg()); }
 // guards every sender: skip forwarding a null cache rather than sending a page a bogus empty
 // snapshot before the first push has even arrived — that page's own bootstrap fetch covers the gap.
 const SQD_STATE_PAGES = ['sqd', 'wpt', 'tgt', 'td'];
+// The navigation family (docs/wpt-rework.md): WPT manages routes and steer points, RTD and SPD are
+// their detail pages. All three read the mapinfo slice and switch between each other.
+const WPT_PAGES = ['wpt', 'rtd', 'spd'];
 function sqdStateMsg() { return { mfd: true, type: 'sqd-state', data: sqdStateData }; }
 function forwardSqdStateToFrame() { if (sqdStateData) forwardToFrame(sqdStateMsg()); }
 function forwardSqdStateToPanes() { if (sqdStateData) SQD_STATE_PAGES.forEach(function (p) { forwardToPanes(p, sqdStateMsg()); }); }
@@ -1001,13 +1004,13 @@ function forwardObjToPanes() { forwardToPanes('obj', objMsg()); }
 function akfMsg() { return Object.assign({ mfd: true, type: 'akf' }, akfData); }
 function forwardAkfToFrame() { forwardToFrame(akfMsg()); }
 function forwardAkfToPanes() { forwardToPanes('akf', akfMsg()); }
-// Full-view WPT: forward the mapinfo slice (position/heading/grid meta) the readout needs for
-// its distance/bearing-to-next-waypoint calc. Split-pane twin sends the same payload to
-// any pane showing WPT. Not to be confused with forwardWptRoutes*/wptRoutesMsg below, which push
+// Full-view WPT/RTD/SPD: forward the mapinfo slice (position/heading/grid meta) their readouts need
+// for distance/bearing to the navigation point. Split-pane twin sends the same payload to any pane
+// showing one of them. Not to be confused with forwardWptRoutes*/wptRoutesMsg below, which push
 // the navigation library rather than this mapinfo slice.
 function wptMsg() { return Object.assign({ mfd: true, type: 'mapinfo' }, mapInfoData); }
 function forwardWptToFrame() { forwardToFrame(wptMsg()); }
-function forwardWptToPanes() { forwardToPanes('wpt', wptMsg()); }
+function forwardWptToPanes() { WPT_PAGES.forEach(function (p) { forwardToPanes(p, wptMsg()); }); }
 // Slice the full loadout+controls to the page a given pane is scrolled to. Returns the visible
 // weapon rows (items — always a prefix of the page's 4 slots, since weapons never follow a control
 // within one page, see buildWpnSplitPages) plus the raw per-slot descriptors (slots — renderSplitLabels
@@ -1433,7 +1436,7 @@ paneIframes.forEach(function(iframe, idx) {
     else if (page === 'mis')  forwardMisToPanes();
     else if (page === 'obj')  forwardObjToPanes();
     else if (page === 'akf')  forwardAkfToPanes();
-    else if (page === 'wpt')  forwardWptToPanes();
+    else if (WPT_PAGES.indexOf(page) !== -1) forwardWptToPanes();
     else if (page === 'wpn')  { forwardWpnToPanes(); forwardCmToPanes(); forwardWpnLayoutToPanes(); }
     else if (page === 'sqd')  forwardServerPlayersToPanes();
     else if (ExtNav.isExtensionPage(page)) forwardExtToPanes(page);
@@ -1470,7 +1473,7 @@ pageFrame.addEventListener('load', function() {
   else if (currentPage === 'mis') { forwardMisToFrame(); }
   else if (currentPage === 'obj') { forwardObjToFrame(); }
   else if (currentPage === 'akf') { forwardAkfToFrame(); }
-  else if (currentPage === 'wpt') { forwardWptToFrame(); }
+  else if (WPT_PAGES.indexOf(currentPage) !== -1) { forwardWptToFrame(); }
   else if (currentPage === 'sqd') { forwardServerPlayersToFrame(); }
   else if (ExtNav.isExtensionPage(currentPage)) forwardExtToFrame(currentPage);
   // Not mutually exclusive with the chain above — see the pane-load handler's own comment.
@@ -2001,6 +2004,9 @@ function showPage(name) {
     showFramePage('wpt');
     forwardWptToFrame();
   }
+  // RTD/SPD (route and steer-point details, docs/wpt-rework.md) read the same mapinfo slice.
+  if (name === 'rtd') { showFramePage('rtd'); forwardWptToFrame(); }
+  if (name === 'spd') { showFramePage('spd'); forwardWptToFrame(); }
   // SQD (docs/squadron-transport.md) renders in #page-frame too — like WPT/TGT/TD it reads the
   // squad-state push (SQD_STATE_PAGES below), and now also the server-players push (RELAY_MESSAGES
   // below) instead of its own 2s /server-players poll.
@@ -2046,7 +2052,7 @@ const RELAY_MESSAGES = Object.assign(Object.create(null), {
   // Colour themes (issue #105): every frame repaints first (theme-live.js), so the UI page reads the
   // new effective colours when it re-renders from the relayed state.
   'themes-push': { page: 'ui', set: function (m) { ThemeLive.apply(window, m.data && m.data.css); themesData = m; }, toFrame: forwardThemesToFrame, toPanes: forwardThemesToPanes },
-  mapinfo: { page: 'wpt', set: function (m) { mapInfoData = m; }, toFrame: forwardWptToFrame, toPanes: forwardWptToPanes },
+  mapinfo: { page: WPT_PAGES, set: function (m) { mapInfoData = m; }, toFrame: forwardWptToFrame, toPanes: forwardWptToPanes },
 });
 
 window.addEventListener('message', function(e) {
@@ -2300,7 +2306,7 @@ window.addEventListener('message', function(e) {
     // iframe (full) or a pane (split); forward on when it's the page in view.
     const r = RELAY_MESSAGES[m.type];
     r.set(m);
-    if (currentPage === r.page && !splitMode) r.toFrame();
+    if ([].concat(r.page).indexOf(currentPage) !== -1 && !splitMode) r.toFrame();   // mapinfo feeds the WPT_PAGES family
     if (splitMode) r.toPanes();
   } else if (m.type === 'map-frame') {
     // Relayed straight to any split pane showing MAP (docs/mfd-shared-telemetry-connection.md) —
@@ -2434,7 +2440,7 @@ function reportPanes() {
 // crosshair": it doesn't use pad-cursor.js at all, but still wants the raw vector while it's the
 // focused page — its on-screen joystick uses it purely to detect physical PAD Cursor input and
 // hide itself in favor of prioritizing that (docs/tgp-manual-control.md's "On-screen joystick").
-const PAD_CURSOR_PAGES = { map: true, tgt: true, hud: true, rdr: true, wpt: true, sqd: true, akf: true, doc: true, hsd: true, tgp: true, td: true };
+const PAD_CURSOR_PAGES = { map: true, tgt: true, hud: true, rdr: true, wpt: true, rtd: true, spd: true, sqd: true, akf: true, doc: true, hsd: true, tgp: true, td: true };
 
 // The focused surface is drivable as a PAD cursor only while it's actually SHOWING an eligible
 // page — the SOI ring/bezel-key cursor above frames "the recess," but the cursor needs the real
@@ -2701,6 +2707,8 @@ function mfdButton(el) {
     case 'main': showPage('main'); mapSend('status-request'); break;   // pull fresh status on open
     case 'map':  showPage('map');  break;
     case 'wpt':  showPage('wpt');  break;
+    case 'rtd':  showPage('rtd');  break;
+    case 'spd':  showPage('spd');  break;
     case 'wpn':       wpnPage = Math.max(0, selWpnPageFull()); showPage('wpn'); break;   // open on the selected weapon's page
     case 'wpn-prev':  wpnPage--;   showPage('wpn'); break;   // renderWpn clamps on overshoot
     case 'wpn-next':  wpnPage++;   showPage('wpn'); break;

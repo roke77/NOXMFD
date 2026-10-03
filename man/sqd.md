@@ -149,7 +149,7 @@ As a member, you see your squad with your own row lit green and the leader marke
 header has only **LEAVE**, and rows have no ⋮ button: only the leader promotes or kicks. What the
 leader shares reaches you on your own pages:
 
-- Shared routes and steer points appear on [WPT](wpt.md#squad-sharing) with ACCEPT/REJECT.
+- Shared routes and steer points appear on [WPT](wpt.md#squad-sharing) with ACCEPT/DISMISS.
 - Targets the leader assigns you pop up on [TGT](tgt.md#squad-designations).
 
 ## Leave a squad

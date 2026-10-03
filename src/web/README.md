@@ -45,10 +45,11 @@ src/web/
     map/    map.html  map.css  map.js     # the live map view (imports services/telemetry-source.js)
             map-transform.js              # its pure world⇄pixel maths (pan/zoom/letterbox)
             map-hit.js                    # its tap/click hit test: nearest targetable contact in reach
-    wpt/    wpt.html  wpt.css  wpt.js     # route/steer-point editor, thin client over the plugin's
+    wpt/    wpt.html  wpt.css  wpt.js     # route/steer-point manager (docs/wpt-rework.md), thin client over the plugin's
             waypoints-store.js            # RouteStore (docs/steer-points.md) — one bootstrap
                                            # fetch, then the shell's relayed SSE push (docs/sse-push-refactor.md)
             wpt-route.js  wpt-route.test.js  # /wpt-options + POST /command, no local persistence
+    rtd/    rtd.html  rtd.css  rtd.js     # route details (/rtd) and steer-point details (/rtd?spd), the WPT family's detail pages
     lyt/    lyt.html  lyt.css  lyt.js     # layout manager (docs/lyt-rework.md): shell cards, key boxes, saved layouts
             lyt-slots.js  .test.js        # pure: saved layout data -> split name, pane rects, pages, SOI membership
             lyt-row.js  lyt-rows.css      # the saved-layout row, shared with the shell's LOAD/SAVE popups
@@ -193,7 +194,7 @@ selected FCR range follows the same pattern under `noxmfd.rdr.view`; HSD keeps i
 
 - **Full view (bezel):** the visible page renders in the shell's single `#page-frame` iframe
   (`FRAME_PAGES` — actually `layout-pages.js`'s `CLASSIC_FULL` table — the key is the NAV action,
-  the value the route, which is why `pal` maps to `/bdf?pal` and `keys` to `/keybinds`; `wpt`, `sqd`,
+  the value the route, which is why `pal` maps to `/bdf?pal`, `spd` to `/rtd?spd` and `keys` to `/keybinds`; `wpt`, `rtd`, `sqd`,
   `mapcfg`, `tgpcfg`, `td`, and `ext` are frame pages the same way). MAP is the base iframe *under*
   it; MAIN's full view is the shell's own info-box chrome (not a hosted page).
 - **Split view (bezel):** two stacked pane iframes (`/<page>?bare` each). The shell forwards data
@@ -221,7 +222,7 @@ selected FCR range follows the same pattern under `noxmfd.rdr.view`; HSD keeps i
   (`{act, pane}`, on a HOTAS keypress) up to whichever shell hosts it; the shell reports its own
   surface count back down via `soi.panes` (below). Most pages carry no SOI-specific code — the
   shell derives their bezel/NAV cursor from their own `data-action` / `.nav-item` elements.
-- **PAD cursor (the exception):** a page in `PAD_CURSOR_PAGES` (`map`, `tgt`, `td`, `hud`, `rdr`, `wpt`, `akf`, `hsd`) draws a
+- **PAD cursor (the exception):** a page in `PAD_CURSOR_PAGES` (`map`, `tgt`, `td`, `hud`, `rdr`, `wpt`, `rtd`, `spd`, `akf`, `hsd`) draws a
   real crosshair over its own content, so the shell forwards the raw `'cursor'` / `'cursor-held'` /
   `'cursor-select'` / `'map-act'` events down to whichever eligible page is focused
   (`focusedCursorWindow()`), and the page integrates them with `services/pad-cursor.js`. Each page

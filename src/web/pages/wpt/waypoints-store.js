@@ -87,10 +87,12 @@
   function clearRoutes()                   { return sendCommand('wpt.clear', {}).then(poll); }
   function resetRoute(id)                  { return sendCommand('wpt.reset-route', { bind: id }).then(poll); }
   function importRoute(text)               { return sendCommand('wpt.import', { text: text }).then(poll); }
-  function renameWaypoint(index, name)     { return sendCommand('wpt.rename-waypoint', { index: index, wname: name }).then(poll); }
-  function reorderWaypoint(from, to)       { return sendCommand('wpt.reorder-waypoint', { index: from, n: to }).then(poll); }
+  // routeId is optional: WPT edits the route it has open, which need not be the active one; MAP and
+  // the keybinds leave it out and the plugin falls back to the active route.
+  function renameWaypoint(index, name, routeId) { return sendCommand('wpt.rename-waypoint', { index: index, wname: name, bind: routeId || '' }).then(poll); }
+  function reorderWaypoint(from, to, routeId)   { return sendCommand('wpt.reorder-waypoint', { index: from, n: to, bind: routeId || '' }).then(poll); }
   function resetWaypoint(index)            { return sendCommand('wpt.reset-waypoint', { index: index }).then(poll); }
-  function removeWaypoint(index)           { return sendCommand('wpt.remove-waypoint', { index: index }).then(poll); }
+  function removeWaypoint(index, routeId)  { return sendCommand('wpt.remove-waypoint', { index: index, bind: routeId || '' }).then(poll); }
   function cycleActiveRoute(dir)           { return sendCommand('wpt.cycle-route', { index: dir }).then(poll); }
   function stepWaypoint(dir)               { return sendCommand('wpt.step-waypoint', { index: dir }).then(poll); }
   function stepNavigation(dir)             { return sendCommand('wpt.step-navigation', { index: dir }).then(poll); }

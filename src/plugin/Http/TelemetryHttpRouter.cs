@@ -114,6 +114,8 @@ namespace NOXMFD
                 TelemetryAssets.ServeAssetRel(ctx, "pages/doc/doc.html");
             else if (path == "/wpt")
                 TelemetryAssets.ServeAssetRel(ctx, "pages/wpt/wpt.html");
+            else if (path == "/rtd")   // route details; ?spd = the steer-point view (docs/wpt-rework.md)
+                TelemetryAssets.ServeAssetRel(ctx, "pages/rtd/rtd.html");
             else if (path == "/sqd")
                 TelemetryAssets.ServeAssetRel(ctx, "pages/sqd/sqd.html");
             else if (path == "/hud")

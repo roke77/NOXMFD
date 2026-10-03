@@ -36,6 +36,10 @@
     keys: '/keybinds',
     ui:   '/ui',
     wpt: '/wpt',
+    // Route and steer-point details (docs/wpt-rework.md) — one page, two views, the same way /bdf
+    // serves PAL.
+    rtd: '/rtd',
+    spd: '/rtd?spd',
     sqd: '/sqd',
     mapcfg: '/mapcfg',
     tgpcfg: '/tgp#cfg',
@@ -80,6 +84,8 @@
     keys: '/keybinds?bare',
     ui:   '/ui?bare',
     wpt: '/wpt?bare',
+    rtd: '/rtd?bare',
+    spd: '/rtd?bare&spd',
     sqd: '/sqd?bare',
     mapcfg: '/mapcfg?bare',
     tgpcfg: '/tgp?bare#cfg',
@@ -115,6 +121,8 @@
     keys: '/keybinds',
     ui:   '/ui',
     wpt: '/wpt',
+    rtd: '/rtd',
+    spd: '/rtd?spd',
     sqd: '/sqd',
     mapcfg: '/mapcfg',
     tgpcfg: '/tgp#cfg',

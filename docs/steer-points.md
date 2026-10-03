@@ -1,5 +1,11 @@
 # WPT steer points
 
+> The page layout described below is the original one. The current WPT layout (steer points as a
+> fixed group beside the routes, the typed-in grid entry, and the SPD detail page) is in
+> `docs/wpt-rework.md`, as is the rule that a route and a steer point are never active together
+> (which replaces the route-priority-and-restore behaviour below). The data model and squad sharing
+> here still apply.
+
 ## Requirements
 
 The WPT page has a **STEER POINTS** table below the active route's waypoint table. A steer point is

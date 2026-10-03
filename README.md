@@ -92,7 +92,7 @@ pilot, with HOTAS-friendly keybinds to match.
 - **[MAIN](man/main.md)** — landing page.
 - **[MAP](man/map.md)** — tactical map.
   - **[CFG](man/mapcfg.md)** — MAP's own refresh-rate setting.
-  - **[WPT](man/wpt.md)** — waypoint/route editor.
+  - **[WPT](man/wpt.md)** — waypoint/route manager, with RTD (route) and SPD (steer-point) guidance pages.
 - **MD** — mission data hub.
   - **[AKF](man/akf.md)** — kill feed.
   - **[BDF / PAL](man/bdf.md)** — faction forces.
