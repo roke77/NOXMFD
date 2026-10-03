@@ -125,15 +125,15 @@ function renderRoutes(c) {
 
 function renderSteerCard(c) {
   const points = c.steerPoints || [];
-  const routeOn = !!WptRoute.findRoute(c.routes || [], c.activeRouteId);
+  // A selected steer point is guiding: RouteStore never keeps one alongside an active route.
   const chosen = WptRoute.findSteerPoint(points, c.activeSteerPointId);
   const pending = WaypointsStore.pendingSharedSteerPoints().length;
   $('wpt-stp-card').setAttribute('aria-pressed', ui.view === 'stp' ? 'true' : 'false');
-  $('wpt-stp-lamp').className = 'wpt-lamp' + (chosen ? (routeOn ? ' dim-amber' : ' amber') : '');
+  $('wpt-stp-lamp').className = 'wpt-lamp' + (chosen ? ' amber' : '');
   $('wpt-stp-meta').textContent = points.length + ' PTS' + (chosen ? ' · STP' + (points.indexOf(chosen) + 1) + ' selected' : '');
   const tag = $('wpt-stp-tag');
-  tag.textContent = chosen && !routeOn ? 'GUIDING' : (pending ? pending + ' SHARED' : '');
-  tag.className = 'wpt-tag ' + (chosen && !routeOn ? 'wpt-tag-amber' : 'wpt-tag-squad');
+  tag.textContent = chosen ? 'GUIDING' : (pending ? pending + ' SHARED' : '');
+  tag.className = 'wpt-tag ' + (chosen ? 'wpt-tag-amber' : 'wpt-tag-squad');
 }
 $('wpt-stp-card').onclick = function () { openView('stp'); };
 
@@ -180,6 +180,7 @@ function renderRoutePane(c, route) {
 
   const acts = $('wpt-pane-actions');
   acts.innerHTML = '';
+  acts.classList.add('equal');
   if (active) acts.appendChild(button('DEACTIVATE', 'wpt-btn-amber', function () { WaypointsStore.setActiveRoute(null).then(render); }));
   else acts.appendChild(button('ACTIVATE', 'wpt-btn-go', function () { WaypointsStore.setActiveRoute(route.id).then(render); }));
   if (!received) acts.appendChild(button('RENAME', '', function () { startRename('route', route.name); }));
@@ -240,12 +241,14 @@ function renderSteerPane(c) {
   const points = c.steerPoints || [];
   const routeOn = !!WptRoute.findRoute(c.routes || [], c.activeRouteId);
   const chosenId = c.activeSteerPointId;
-  const guiding = !!WptRoute.findSteerPoint(points, chosenId) && !routeOn;
-  renderPaneHead('STEER POINTS', 'stp', routeOn ? 'ROUTE HAS PRIORITY' : (guiding ? 'GUIDING' : ''), guiding ? 'amber' : '', null);
-  $('wpt-pane-meta').textContent = points.length + ' POINTS · guides only while no route is active';
+  const guiding = !!WptRoute.findSteerPoint(points, chosenId);
+  renderPaneHead('STEER POINTS', 'stp', guiding ? 'GUIDING' : (routeOn ? 'ROUTE ACTIVE' : ''), guiding ? 'amber' : '', null);
+  // A route and a steer point never guide together (RouteStore), so GUIDE TO ends the route.
+  $('wpt-pane-meta').textContent = points.length + ' POINTS' + (routeOn ? ' · GUIDE TO ends the active route' : '');
 
   const acts = $('wpt-pane-actions');
   acts.innerHTML = '';
+  acts.classList.remove('equal');
   if (!ui.adding) acts.appendChild(button('+ NEW STEER POINT', 'wpt-btn-go', function () {
     ui.adding = true; $('wpt-grid-input').value = ''; render(); $('wpt-grid-input').focus();
   }));
@@ -260,8 +263,8 @@ function renderSteerPane(c) {
     const row = el('div', 'wpt-row');
     row.appendChild(el('span', 'wpt-lampcol'));
     row.appendChild(el('span', 'wpt-numcol', '—'));
-    row.appendChild(el('span', 'wpt-namecol', (p.name || 'STEER POINT') + ' · from ' + (p.fromName || 'squad leader')));
-    row.appendChild(el('span', 'wpt-tag wpt-tag-squad', 'SHARED'));
+    row.appendChild(el('span', 'wpt-namecol', p.name || 'STEER POINT'));
+    row.appendChild(el('span', 'wpt-tag wpt-tag-squad', 'FROM ' + (p.fromName || 'squad leader').toUpperCase()));
     item.appendChild(row);
     const pa = el('div', 'wpt-point-actions');
     pa.appendChild(button('ACCEPT', 'wpt-btn-squad', function () { WaypointsStore.acceptSharedSteerPoint(p.id).then(render); }));
@@ -272,7 +275,7 @@ function renderSteerPane(c) {
   points.forEach(function (p, i) {
     const chosen = p.id === chosenId, open = ui.open === i;
     const received = !!p.sharedBy;
-    const item = el('div', 'wpt-point stp' + (chosen ? ' chosen' : '') + (chosen && !routeOn ? ' guiding' : '') + (open ? ' open' : ''));
+    const item = el('div', 'wpt-point stp' + (chosen ? ' chosen' : '') + (open ? ' open' : ''));
     const row = el('button', 'wpt-row pad-hoverable');
     row.type = 'button';
     row.setAttribute('aria-expanded', open ? 'true' : 'false');
@@ -280,7 +283,8 @@ function renderSteerPane(c) {
     row.appendChild(el('span', 'wpt-lampcol'));
     row.appendChild(el('span', 'wpt-numcol', (i + 1) + '.'));
     row.appendChild(el('span', 'wpt-namecol', p.name));
-    if (chosen) row.appendChild(el('span', 'wpt-tag', routeOn ? 'ACTIVE' : 'GUIDING'));
+    // The guiding point is marked by its lit lamp and amber text (and the pane's GUIDING status);
+    // a tag here would squeeze the name out of a narrow row.
     if (received || p.sharedWithSquad) row.appendChild(el('span', 'wpt-tag wpt-tag-squad', 'SQD'));
     row.appendChild(el('span', 'wpt-gridcol', gridOf(p)));
     const dist = el('span', 'wpt-distcol', fmtDist(ownDist(p)));

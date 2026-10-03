@@ -194,8 +194,10 @@ namespace NOXMFD.Tests
             Assert.False(RouteStore.ImportRoute(""));
         }
 
+        // Route and steer point are mutually exclusive: activating either clears the other, and adding
+        // a steer point while a route guides doesn't select it.
         [Fact]
-        public void SteerPoint_is_the_navigation_target_only_without_an_active_route()
+        public void Route_and_steer_point_are_never_active_together()
         {
             SteerPoint point = RouteStore.AddSteerPoint(30f, 40f, "IP");
             Assert.True(RouteStore.TryGetActiveNavigationPoint(
@@ -209,13 +211,19 @@ namespace NOXMFD.Tests
                 out x, out z, out name, out _, out isSteerPoint));
             Assert.False(isSteerPoint);
             Assert.Equal((10f, 20f, "W1"), (x, z, name));
+            Assert.Null(RouteStore.GetActiveSteerPointSnapshot());   // the route cleared it
+
+            RouteStore.AddSteerPoint(50f, 60f, "Added during the route");
+            Assert.Null(RouteStore.GetActiveSteerPointSnapshot());   // added, not selected
+            Assert.NotNull(RouteStore.GetActiveRouteSnapshot());
 
             RouteStore.SetActiveRoute(null);
-            Assert.True(RouteStore.TryGetActiveNavigationPoint(
-                out _, out _, out name, out _, out isSteerPoint));
-            Assert.True(isSteerPoint);
-            Assert.Equal("IP", name);
-            Assert.Contains("\"activeSteerPointId\":\"" + point.Id + "\"", RouteStore.RoutesJson);
+            Assert.False(RouteStore.TryGetActiveNavigationPoint(out _, out _, out _, out _, out _));   // nothing restored
+
+            RouteStore.SetActiveRoute(route.Id);
+            RouteStore.SetActiveSteerPoint(point.Id);   // GUIDE TO
+            Assert.Null(RouteStore.GetActiveRouteSnapshot());
+            Assert.Equal("IP", RouteStore.GetActiveSteerPointSnapshot()!.Name);
         }
 
         [Fact]
@@ -651,12 +659,12 @@ namespace NOXMFD.Tests
         public void CycleSteerPoint_is_a_noop_while_a_route_is_active()
         {
             RouteStore.AddSteerPoint(1f, 2f, "A");
-            SteerPoint b = RouteStore.AddSteerPoint(3f, 4f, "B");   // becomes the active steer point
-            RouteStore.CreateRoute("R");                            // becomes the active route
+            RouteStore.AddSteerPoint(3f, 4f, "B");
+            RouteStore.CreateRoute("R");   // becomes the active route, clearing the steer point
             RouteStore.CycleSteerPoint(+1);
-            // Without the ActiveRoute guard, +1 from B (index 1 of 2) would wrap to A (index 0) —
-            // asserting it's still B proves the guard actually deferred to the active route.
-            Assert.Contains("\"activeSteerPointId\":\"" + b.Id + "\"", RouteStore.RoutesJson);
+            // Without the ActiveRoute guard, S+ would select a steer point and end the route.
+            Assert.Null(RouteStore.GetActiveSteerPointSnapshot());
+            Assert.NotNull(RouteStore.GetActiveRouteSnapshot());
         }
 
         [Fact]

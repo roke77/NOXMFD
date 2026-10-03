@@ -48,6 +48,16 @@ IMPORT/EXPORT is gone from the page; the store and plugin commands remain.
 unchanged. `RouteStore.RouteOrActive` resolves it; `RouteStoreTests` covers that an id-targeted edit
 leaves the active route alone. FLY FROM HERE activates the route first, then `wpt.reset-waypoint`.
 
+## Route and steer point are exclusive
+
+A route and a steer point never guide at once. `RouteStore.ActivateRoute` / `ActivateSteerPoint`
+are the only way either gets selected, and selecting one clears the other: activating, creating,
+importing or cycling to a route drops the steer point; GUIDE TO (`wpt.set-active-steerpoint`) ends
+the route. A steer point added or imported while a route guides is saved unselected, so adding one
+never ends route guidance. Deactivating a route leaves nothing selected; the earlier behaviour of
+restoring the previous steer point is gone. A routes file saved with both selected loads with the
+route kept, which had guidance priority before.
+
 ## RTD and SPD — details
 
 1. Header: `ROUTE <name>` (or NO ACTIVE ROUTE) / STEERPOINTS, with `WPT n OF m` / `STP n OF m`.
@@ -69,6 +79,18 @@ The timeline and tape are laid out in `calc()` of their own width, so they reflo
   `timeline`, and the km/nm and bearing formatters both pages print with (`distanceParts`,
   `formatDistance`, `formatBearing`).
 - The RTD/SPD heading tape is built once and slid each tick (docs/performance.md, 2026-10-03).
+
+## Sizing
+
+- All three pages inset their sides by `clamp(50px, 5.5vw, 56px)`, wider than TGT's
+  `clamp(34px, 5vw, 48px)`: here the page's own bezel label is the lit one, and its outlined box
+  reaches about 46px in, past 5vw in a half-width pane.
+- WPT's base size is `clamp(12px, 2.1vmin, 19px)`, RTD/SPD's `clamp(11px, 2vmin, 18px)`. Both set
+  `button { font-size: inherit }`, since the route cards, point rows and steer-point buttons are
+  buttons and would otherwise stay at the browser's fixed 13.3px.
+- The open route's six actions are equal-width grid columns, at least as wide as DEACTIVATE.
+- The RTD/SPD readout takes the height the page leaves (up to a cap) and its big figures scale with
+  it through container query units, capped by its width so `WPT 12` and `123.4 nm` still fit.
 - `telemetry-source.js` adds the map size (`w`, `h`) to `mapinfo`, which `gridToWorld` needs.
 - WPT no longer uses `shared/page-chrome.css`; the page is a fixed panel like TGT, its two columns
   stacking in a narrow pane.

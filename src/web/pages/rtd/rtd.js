@@ -41,8 +41,7 @@ function subject(c) {
   }
   const points = c.steerPoints || [];
   const p = WptRoute.findSteerPoint(points, c.activeSteerPointId);
-  return { route, point: p, kind: route ? 'STEER POINT · ROUTE HAS PRIORITY' : 'STEER POINT',
-           big: p ? 'STP' + (points.indexOf(p) + 1) : '—' };
+  return { route, point: p, kind: 'STEER POINT', big: p ? 'STP' + (points.indexOf(p) + 1) : '—' };
 }
 
 // ── render ─────────────────────────────────────────────────────────────────────────────
@@ -54,7 +53,9 @@ function render() {
   if (SPD) {
     const i = s.point ? points.indexOf(s.point) : -1;
     $('rtd-title').textContent = 'STEERPOINTS';
-    $('rtd-hint').textContent = i >= 0 ? 'STP ' + (i + 1) + ' OF ' + points.length : points.length + ' STEER POINTS';
+    // None is selected while a route guides (RouteStore keeps the two exclusive).
+    $('rtd-hint').textContent = i >= 0 ? 'STP ' + (i + 1) + ' OF ' + points.length
+      : s.route ? 'ROUTE ACTIVE · tap a point to guide to it' : points.length + ' STEER POINTS';
   } else {
     $('rtd-title').textContent = s.route ? 'ROUTE ' + s.route.name : 'NO ACTIVE ROUTE';
     $('rtd-hint').textContent = s.route && s.point ? 'WPT ' + (s.route.nextIndex + 1) + ' OF ' + s.route.waypoints.length : '';
@@ -248,7 +249,7 @@ function renderSteerButtons(c, s) {
   box.innerHTML = '';
   (c.steerPoints || []).forEach(function (p, i) {
     const chosen = p === s.point;
-    const b = el('button', 'rtd-stp pad-hoverable' + (chosen && !s.route ? ' guiding' : ''));
+    const b = el('button', 'rtd-stp pad-hoverable');
     b.type = 'button';
     b.setAttribute('aria-pressed', chosen ? 'true' : 'false');
     b.onclick = function () { WaypointsStore.setActiveSteerPoint(p.id).then(render); };

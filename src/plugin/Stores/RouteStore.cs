@@ -155,6 +155,9 @@ namespace NOXMFD
                     _activeSteerPointId = root.TryGetValue("activeSteerPointId", out object? s) ? s as string : null;
                     _routes = ParseRoutes(root.TryGetValue("routes", out object? r) ? r : null);
                     _steerPoints = ParseSteerPoints(root.TryGetValue("steerPoints", out object? sp) ? sp : null);
+                    // A file saved before route and steer point became exclusive may hold both; the
+                    // route already had guidance priority, so it keeps it.
+                    if (ActiveRoute != null) _activeSteerPointId = null;
                 }
             }
             catch (Exception ex)
@@ -370,6 +373,20 @@ namespace NOXMFD
 
         private static Route? ActiveRoute => FindRoute(_activeRouteId);
 
+        // A route and a steer point never guide at once (docs/wpt-rework.md): activating either
+        // clears the other. Every change that selects one goes through these two.
+        private static void ActivateRoute(string? id)
+        {
+            _activeRouteId = id;
+            if (id != null) _activeSteerPointId = null;
+        }
+
+        private static void ActivateSteerPoint(string? id)
+        {
+            _activeSteerPointId = id;
+            if (id != null) _activeRouteId = null;
+        }
+
         // The waypoint editors take an optional route id so WPT can edit a route it has open without
         // activating it; MAP, the keybinds and the extension API send none and keep acting on the
         // active route.
@@ -392,7 +409,7 @@ namespace NOXMFD
                 NextIndex = 0,
             };
             _routes.Add(route);
-            _activeRouteId = route.Id;
+            ActivateRoute(route.Id);
             Save();
             return route;
         }
@@ -418,9 +435,9 @@ namespace NOXMFD
             // the first route, so deleting from the middle of a long list stays predictable.
             if (_activeRouteId == id)
             {
-                _activeRouteId = _routes.Count == 0
+                ActivateRoute(_routes.Count == 0
                     ? null
-                    : _routes[Math.Min(index, _routes.Count - 1)].Id;
+                    : _routes[Math.Min(index, _routes.Count - 1)].Id);
             }
             Save();
             BroadcastDeleteIfShared(route);
@@ -429,7 +446,7 @@ namespace NOXMFD
 
         public static void SetActiveRoute(string? id)
         {
-            _activeRouteId = string.IsNullOrEmpty(id) ? null : id;
+            ActivateRoute(string.IsNullOrEmpty(id) ? null : id);
             Save();
         }
 
@@ -479,7 +496,7 @@ namespace NOXMFD
                 ? rns.Trim() : FreshRouteName();
             var route = new Route { Id = FreshId("r_"), Name = UniqueRouteName(routeName, null), NextIndex = 0, Waypoints = waypoints };
             _routes.Add(route);
-            _activeRouteId = route.Id;
+            ActivateRoute(route.Id);
             Save();
             return true;
         }
@@ -490,7 +507,8 @@ namespace NOXMFD
         {
             var point = new SteerPoint { Id = FreshId("s_"), Name = name ?? string.Empty, X = x, Z = z };
             _steerPoints.Add(point);
-            _activeSteerPointId = point.Id;
+            // Selected only while no route guides: adding a steer point never ends route guidance.
+            if (ActiveRoute == null) ActivateSteerPoint(point.Id);
             Save();
             return point;
         }
@@ -513,9 +531,9 @@ namespace NOXMFD
             _steerPoints.RemoveAt(index);
             if (_activeSteerPointId == id)
             {
-                _activeSteerPointId = _steerPoints.Count == 0
+                ActivateSteerPoint(_steerPoints.Count == 0
                     ? null
-                    : _steerPoints[Math.Min(index, _steerPoints.Count - 1)].Id;
+                    : _steerPoints[Math.Min(index, _steerPoints.Count - 1)].Id);
             }
             Save();
             BroadcastDeleteIfShared(point);
@@ -524,7 +542,7 @@ namespace NOXMFD
 
         public static void SetActiveSteerPoint(string? id)
         {
-            _activeSteerPointId = string.IsNullOrEmpty(id) || FindSteerPoint(id) == null ? null : id;
+            ActivateSteerPoint(string.IsNullOrEmpty(id) || FindSteerPoint(id) == null ? null : id);
             Save();
         }
 
@@ -535,7 +553,7 @@ namespace NOXMFD
             int next = index < 0 && dir < 0
                 ? _steerPoints.Count - 1
                 : ((index + dir) % _steerPoints.Count + _steerPoints.Count) % _steerPoints.Count;
-            _activeSteerPointId = _steerPoints[next].Id;
+            ActivateSteerPoint(_steerPoints[next].Id);
             Save();
         }
 
@@ -569,7 +587,7 @@ namespace NOXMFD
             if (imported.Count == 0) return false;
 
             _steerPoints.AddRange(imported);
-            _activeSteerPointId = imported[0].Id;
+            if (ActiveRoute == null) ActivateSteerPoint(imported[0].Id);   // same rule as AddSteerPoint
             Save();
             return true;
         }
@@ -741,7 +759,7 @@ namespace NOXMFD
             }
 
             _routes.Remove(accepted);
-            if (_activeRouteId == id) _activeRouteId = _routes.Count > 0 ? _routes[0].Id : null;
+            if (_activeRouteId == id) ActivateRoute(_routes.Count > 0 ? _routes[0].Id : null);
             Save();
             return true;
         }
@@ -990,7 +1008,7 @@ namespace NOXMFD
             int pos = idx + 1;
             int total = _routes.Count + 1;
             int nextPos = ((pos + dir) % total + total) % total;
-            _activeRouteId = nextPos == 0 ? null : _routes[nextPos - 1].Id;
+            ActivateRoute(nextPos == 0 ? null : _routes[nextPos - 1].Id);
             Save();
         }
 
@@ -1013,7 +1031,7 @@ namespace NOXMFD
             {
                 var fresh = new Route { Id = FreshId("r_"), Name = UniqueRouteName(FreshRouteName(), null), NextIndex = 0 };
                 _routes.Add(fresh);
-                _activeRouteId = fresh.Id;
+                ActivateRoute(fresh.Id);
             }
             Route route = ActiveRoute!;
             route.Waypoints.Add(new Waypoint { Id = FreshId("w_"), Name = name ?? string.Empty, X = x, Z = z });
