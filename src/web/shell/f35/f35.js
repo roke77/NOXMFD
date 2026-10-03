@@ -82,6 +82,8 @@
     hsd: ['hsd', 'mapinfo', 'rdr', 'wpt-routes'],  // 360-degree datalink picture + FCR cone
                                                     // (docs/rdr-fcr-hsd.md) + active route overlay
     wpt: ['mapinfo', 'wpt-routes', 'sqd-state'],   // navigation readout + shared navigation library + share-button gate
+    rtd: ['mapinfo', 'wpt-routes'],                // route / steer-point details (docs/wpt-rework.md)
+    spd: ['mapinfo', 'wpt-routes'],
     // map-frame: the raw frame, so a MAP portal renders from the tap's connection instead of
     // opening its own (docs/mfd-shared-telemetry-connection.md). wpt-routes: navigation library
     // (docs/hud-waypoint-indicator.md perf fix).
@@ -112,7 +114,7 @@
   // doesn't use pad-cursor.js, but still wants the raw vector while focused — its on-screen
   // joystick uses it to detect physical PAD Cursor input and hide itself
   // (docs/tgp-manual-control.md's "On-screen joystick").
-  const PAD_CURSOR_PAGES = { map: true, tgt: true, td: true, hud: true, rdr: true, wpt: true, sqd: true, akf: true, doc: true, hsd: true, tgp: true };
+  const PAD_CURSOR_PAGES = { map: true, tgt: true, td: true, hud: true, rdr: true, wpt: true, rtd: true, spd: true, sqd: true, akf: true, doc: true, hsd: true, tgp: true };
 
   const WPN_MAX_DISPLAY = ROWS - 1;   // row 1 is the nav + CM band; rows 2..6 carry the weapons
   const WPN_ICON_INSET  = 20;         // keeps the image off its band edges, as the bezel does

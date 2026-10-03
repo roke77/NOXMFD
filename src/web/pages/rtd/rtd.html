@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>NO XMFD — RTD</title>
+<!--
+  RTD / SPD (docs/wpt-rework.md) — the detail pages of the WPT family, served at /rtd. One document,
+  two views, the same way /bdf serves PAL: /rtd is the active route's guidance (designs "WPT B" and
+  "B1"), /rtd?spd the steer points' (design "WPT C"). Both read the 'mapinfo' slice the shell
+  forwards (ownship position/heading + map meta) and the shared navigation library (wpt-routes).
+-->
+<link rel="stylesheet" href="/assets/shared/font.css">
+<link rel="stylesheet" href="/assets/shared/theme.css">
+<link rel="stylesheet" href="/assets/pages/rtd/rtd.css">
+</head>
+<body>
+
+<div class="rtd-panel" id="rtd-panel">
+  <div id="pad-cursor" class="pad-cursor"></div>
+
+  <div class="rtd-head">
+    <a class="rtd-back" href="/">&lt; MAP</a>
+    <span class="rtd-title" id="rtd-title"></span>
+    <span class="rtd-hint" id="rtd-hint"></span>
+  </div>
+
+  <div class="rtd-body">
+    <!-- Heading tape: 120° centred on the heading, a bug on the target's bearing (or an edge arrow
+         when it's off the tape). Built by rtd.js in percent of the tape's width. -->
+    <div class="rtd-tape" id="rtd-tape" aria-hidden="true"></div>
+
+    <div class="rtd-readout">
+      <div class="rtd-half">
+        <span class="rtd-k" id="rtd-kind"></span>
+        <span class="rtd-big" id="rtd-point"></span>
+        <span class="rtd-name" id="rtd-name"></span>
+        <span class="rtd-grid" id="rtd-grid"></span>
+      </div>
+      <div class="rtd-sep"></div>
+      <div class="rtd-half">
+        <span class="rtd-k">DIST</span>
+        <span class="rtd-dist"><span class="rtd-huge" id="rtd-dist">—</span><span class="rtd-unit" id="rtd-unit"></span></span>
+        <span class="rtd-brg"><span class="rtd-k">BRG</span><span id="rtd-brg">—</span></span>
+        <span class="rtd-cue" id="rtd-cue"></span>
+      </div>
+    </div>
+
+    <!-- RTD: the route timeline, up to 6 connected points per row (WptRoute.timeline). -->
+    <div class="rtd-strip" id="rtd-strip" hidden></div>
+    <div class="rtd-cards" id="rtd-cards" hidden></div>
+
+    <!-- SPD: every steer point as a button, left to right, growing downward. -->
+    <div class="rtd-stps" id="rtd-stps" hidden></div>
+
+    <div class="rtd-empty" id="rtd-empty" hidden></div>
+  </div>
+</div>
+
+<script src="/assets/services/send-command.js"></script>
+<script src="/assets/pages/keybinds/keybinds-keymap.js"></script>
+<script src="/assets/services/remote-keybinds.js"></script>
+<script src="/assets/pages/wpt/wpt-route.js"></script>
+<script src="/assets/pages/wpt/waypoints-store.js"></script>
+<script type="module" src="/assets/pages/rtd/rtd.js"></script>
+</body>
+</html>

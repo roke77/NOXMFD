@@ -67,9 +67,11 @@
     hud:   [ { side: 'left', slot: 0 }, { side: 'left', slot: 1 }, { side: 'left', slot: 2 }, { side: 'right', slot: 0 }, { side: 'right', slot: 1 } ],
     keys:  [ { side: 'left', slot: 0 }, { side: 'left', slot: 1 }, { side: 'left', slot: 2 }, { side: 'right', slot: 0 }, { side: 'right', slot: 1 } ],
     ui:    [ { side: 'left', slot: 0 }, { side: 'left', slot: 1 }, { side: 'left', slot: 2 }, { side: 'right', slot: 0 }, { side: 'right', slot: 1 } ],
-    // WPT gets a single MAIN-equivalent back-button, same shape as AVN/AFM/TGP/RWR/TGT — but back
-    // to MAP, matching NAV.wpt (reached from MAP's own nav row, not MAIN).
-    wpt: [ { side: 'left', slot: 0 } ],
+    // WPT/RTD/SPD: MAP back plus the three-way switch, three on the left and one on the right,
+    // the CFG group's fill. Index-aligned with NAV.wpt/NAV.rtd/NAV.spd.
+    wpt: [ { side: 'left', slot: 0 }, { side: 'left', slot: 1 }, { side: 'left', slot: 2 }, { side: 'right', slot: 0 } ],
+    rtd: [ { side: 'left', slot: 0 }, { side: 'left', slot: 1 }, { side: 'left', slot: 2 }, { side: 'right', slot: 0 } ],
+    spd: [ { side: 'left', slot: 0 }, { side: 'left', slot: 1 }, { side: 'left', slot: 2 }, { side: 'right', slot: 0 } ],
     // SQD (docs/squadron-transport.md), same single-back-button shape as WPT above.
     sqd: [ { side: 'left', slot: 0 } ],
     // MAP's and TGP's own CFG pages get the same single MAIN-equivalent back-button shape, back to

@@ -1,0 +1,162 @@
+/* RTD / SPD (docs/wpt-rework.md, designs "WPT B", "B1" and "C"): heading tape and big readout over
+   the route timeline (RTD) or the steer-point buttons (SPD). Same full-panel frame as TGT and WPT.
+   Sizes are em of .rtd-panel's font-size (1em = the design's 16px at full view); the timeline and
+   tape are laid out in percent of their own width, so they reflow with the pane. */
+
+* { box-sizing: border-box; }
+
+html, body {
+  height: 100%;
+  margin: 0;
+  background: var(--no-bg);
+  color: var(--no-green);
+  font-family: var(--no-font);
+  overflow: hidden;
+}
+
+#pad-cursor { position: fixed; }
+[hidden] { display: none !important; }
+
+.rtd-panel {
+  height: 100%;
+  display: flex; flex-direction: column;
+  gap: 0.75em;
+  padding: clamp(6px, 1.8vmin, 16px);
+  padding-left: clamp(34px, 5vw, 48px);
+  padding-right: clamp(34px, 5vw, 48px);
+  /* --fs is the design's 16px; the timeline places its pieces off it (rtd.js), whatever each
+     piece's own text size. */
+  --fs: clamp(10px, 1.8vmin, 16px);
+  font-size: var(--fs);
+}
+.rtd-k { font-size: 0.75em; letter-spacing: 0.33em; color: var(--no-white-dim); }
+
+/* Header, as TGT's .tgt-head. */
+.rtd-head {
+  flex: none;
+  display: flex; align-items: baseline; gap: 1.1em;
+  border-bottom: 1px solid var(--no-green-dark);
+  padding-bottom: clamp(2px, 0.8vh, 6px);
+}
+.rtd-title { font-size: clamp(13px, 2.6vmin, 22px); letter-spacing: 0.08em; color: var(--no-green); margin-right: auto; }
+.rtd-hint { font-size: 0.75em; letter-spacing: 0.06em; color: var(--no-white-dim); text-align: right; }
+.rtd-back { font-size: 0.75em; letter-spacing: 2px; color: var(--no-green-dim); text-decoration: none; }
+
+.rtd-body {
+  flex: 1 1 auto; min-height: 0;
+  overflow-y: auto;
+  display: flex; flex-direction: column; gap: 0.875em;
+  scrollbar-width: thin;
+  scrollbar-color: var(--no-gray) transparent;
+}
+
+/* Heading tape. */
+.rtd-tape {
+  flex: none;
+  position: relative;
+  height: 4.5em;
+  border: 1px solid var(--no-line); border-radius: 4px;
+  overflow: hidden;
+}
+.rtd-tick { position: absolute; top: 0; width: 1.5px; height: 0.56em; background: var(--no-green-line); }
+.rtd-tick.big { height: 1.125em; }
+.rtd-tick-label { position: absolute; top: 2.75em; width: 2.5em; margin-left: -1.25em; text-align: center; font-size: 0.875em; color: var(--no-green-dim); }
+.rtd-lubber { position: absolute; left: 50%; top: 0; width: 2px; height: 1.625em; margin-left: -1px; background: var(--no-white); }
+.rtd-hdg { position: absolute; left: 50%; top: 2.2em; width: 4em; margin-left: -2em; text-align: center; font-size: 0.75em; color: var(--no-white); }
+.rtd-bug { position: absolute; top: 0; width: 1.125em; height: 1.25em; margin-left: -0.5625em; fill: var(--no-amber); }
+.rtd-edge { position: absolute; top: 1.4em; font-size: 0.8125em; color: var(--no-amber); }
+.rtd-edge.left { left: 0.6em; }
+.rtd-edge.right { right: 0.6em; }
+
+/* Primary readout. */
+.rtd-readout {
+  flex: none;
+  display: flex; gap: 1.25em;
+  padding: 1.25em 1.5em;
+  border: 1px solid var(--no-line); border-radius: 4px;
+}
+.rtd-half { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 0.625em; }
+.rtd-sep { flex: none; width: 1px; background: var(--no-card-line); }
+.rtd-big { font-size: 4.25em; line-height: 1; letter-spacing: 0.03em; color: var(--no-amber); text-shadow: 0 0 10px color-mix(in oklab, var(--no-bg), var(--no-amber) 30%); white-space: nowrap; }
+.rtd-name { font-size: 1.375em; letter-spacing: 0.09em; color: var(--no-white); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rtd-grid { font-size: 1.25em; color: var(--no-green-dim); }
+.rtd-dist { display: flex; align-items: baseline; gap: 0.5em; }
+.rtd-huge { font-size: 4.5em; line-height: 1; color: var(--no-white); }
+.rtd-unit { font-size: 1.25em; color: var(--no-white-dim); }
+.rtd-brg { display: flex; align-items: baseline; gap: 0.875em; font-size: 2.125em; line-height: 1; color: var(--no-white); }
+.rtd-brg .rtd-k { font-size: 0.353em; }
+.rtd-cue { font-size: 1.125em; letter-spacing: 0.11em; color: var(--no-amber); }
+.rtd-cue.on { color: var(--no-green); }
+
+/* RTD timeline: rows of 7em; everything inside is absolutely placed by rtd.js in calc() of the
+   box width, so a row reflows with the pane. */
+.rtd-strip {
+  flex: none;
+  position: relative;
+  border: 1px solid var(--no-line); border-radius: 4px;
+  overflow: hidden;
+}
+.rtd-seg { position: absolute; height: 3px; background: var(--no-green-line); }
+.rtd-seg.passed { background: var(--no-lamp-off); }
+.rtd-seg.cur { background: var(--no-amber); box-shadow: 0 0 8px var(--no-amber), 0 0 2px var(--no-amber); }
+.rtd-leg { position: absolute; text-align: center; font-size: 0.75em; color: var(--no-green-dim); }
+.rtd-leg.passed { color: var(--no-text-faint); }
+.rtd-leg.cur { color: var(--no-amber); }
+.rtd-node {
+  position: absolute;
+  width: 2em; height: 2em;
+  padding: 0;
+  border: 2px solid var(--no-green); border-radius: 50%;
+  background: var(--no-bg);
+  color: var(--no-green);
+  font-family: inherit; font-size: 1em;
+  cursor: pointer;
+}
+.rtd-node span { font-size: 0.875em; }
+.rtd-node.passed { border-color: var(--no-lamp-off); background: var(--no-bg); color: var(--no-text-faint); }
+.rtd-node.next { border-color: var(--no-amber); background: var(--no-amber); color: var(--no-ink); box-shadow: 0 0 8px var(--no-amber), 0 0 2px var(--no-amber); }
+.rtd-nlabel { position: absolute; width: 8em; text-align: center; font-size: 0.75em; letter-spacing: 0.06em; color: var(--no-text-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rtd-nlabel.grid { font-size: 0.6875em; color: var(--no-green-dim); letter-spacing: 0; }
+.rtd-nlabel.passed { color: var(--no-text-faint); }
+.rtd-nlabel.next { color: var(--no-amber); }
+.rtd-you { position: absolute; font-size: 0.6875em; letter-spacing: 0.06em; color: var(--no-white); white-space: nowrap; }
+
+/* RTD cards: what comes after the next point. */
+.rtd-cards { flex: none; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.625em; }
+.rtd-card {
+  display: flex; flex-direction: column; gap: 0.5em;
+  padding: 0.75em 0.875em;
+  border: 1px solid var(--no-card-line); border-radius: 4px;
+}
+.rtd-card-t { font-size: 1.375em; letter-spacing: 0.04em; color: var(--no-green); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rtd-card-t.dim { color: var(--no-white-dim); }
+.rtd-card-t.white { color: var(--no-white); }
+.rtd-card-s { font-size: 0.8125em; color: var(--no-green-dim); }
+.rtd-cards .rtd-k { font-size: 0.6875em; letter-spacing: 0.27em; }
+
+/* SPD: a button grid, three per row. */
+.rtd-stps {
+  flex: none;
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.625em;
+  padding: 0.75em;
+  border: 1px solid var(--no-line); border-radius: 4px;
+}
+.rtd-stp {
+  display: flex; align-items: center; gap: 0.625em;
+  min-height: 3.75em; min-width: 0;
+  padding: 0 0.75em;
+  border: 1px solid var(--no-line); border-radius: 4px;
+  background: var(--no-bg);
+  font-family: inherit; text-align: left;
+  cursor: pointer;
+}
+.rtd-stp-lamp { flex: none; width: 5px; height: 1.5em; border-radius: 1px; background: var(--no-lamp-off); }
+.rtd-stp-id { flex: none; font-size: 0.8125em; letter-spacing: 0.06em; color: var(--no-white-dim); }
+.rtd-stp-name { flex: 1 1 auto; min-width: 0; font-size: 1em; color: var(--no-text-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rtd-stp-grid { flex: none; font-size: 0.8125em; color: var(--no-green-dim); }
+.rtd-stp[aria-pressed="true"] { border-color: color-mix(in oklab, var(--no-bg), var(--no-amber) 30%); background: var(--no-amber-bg); }
+.rtd-stp[aria-pressed="true"] .rtd-stp-name { color: var(--no-white); }
+.rtd-stp[aria-pressed="true"] .rtd-stp-lamp { background: color-mix(in oklab, var(--no-bg), var(--no-amber) 35%); }
+.rtd-stp.guiding .rtd-stp-lamp { background: var(--no-amber); box-shadow: 0 0 8px var(--no-amber), 0 0 2px var(--no-amber); }
+
+.rtd-empty { font-size: 0.8125em; letter-spacing: 0.06em; color: var(--no-text-faint); padding: 0.5em 0; }

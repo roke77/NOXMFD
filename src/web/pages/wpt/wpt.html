@@ -4,107 +4,127 @@
 <meta charset="utf-8">
 <title>NO XMFD — WPT</title>
 <!--
-  WPT page (issues #38/#73) — route and steer-point editor, served at /wpt. Sibling of /map under MAP's own
-  nav row (nav-model.js's NAV.map/NAV.wpt), not the MAIN-rooted CFG/MD sibling groups.
+  WPT page (issues #38/#73, docs/wpt-rework.md) — route and steer-point manager, served at /wpt. The
+  first of the WPT/RTD/SPD family (nav-model.js NAV.wpt): RTD and SPD (/rtd) are the detail pages.
 
   Navigation points are placed on MAP by long-press and persisted by the plugin's RouteStore. An
   active route receives a waypoint; otherwise the same gesture creates a standalone steer point.
-  This page edits both collections and shows the effective target's distance/bearing guidance.
+  The left column lists the routes plus one fixed steer-point group; the right pane shows whichever
+  is open, and the open route need not be the active one.
 
-  Shell -> page messages (all {mfd:true, ...}): 'mapinfo' : { mission, grid, x, z, hdg, ox, oy } —
-  the same slice map.js's own HUD derives, forwarded here (mfd.js forwardWptToFrame/ToPanes) since
-  this is a separate document/iframe from MAP. Used for the readout's distance/bearing calc and for
-  labeling waypoints with their grid square. Also carries the PAD cursor's transport messages
-  (cursor-focus/cursor/cursor-select, docs/page-cursor.md) and zoom-in/zoom-out (repurposed here to
-  scroll the page, same as HUD/TGT) while this page is the SOI's focused surface.
+  Shell -> page messages (all {mfd:true, ...}): 'mapinfo' : { mission, grid, x, z, hdg, ox, oy, w, h }
+  — the slice map.js's own HUD derives, forwarded here (mfd.js forwardWptToFrame/ToPanes) since this
+  is a separate document from MAP. Used for the next-point strip, grid labels and the typed-in steer
+  point. Also carries the PAD cursor's transport messages (cursor-focus/cursor/cursor-select,
+  docs/page-cursor.md) and zoom-in/zoom-out (repurposed here to scroll, same as HUD/TGT).
 -->
 <link rel="stylesheet" href="/assets/shared/font.css">
 <link rel="stylesheet" href="/assets/shared/theme.css">
-<link rel="stylesheet" href="/assets/shared/page-chrome.css">
 <link rel="stylesheet" href="/assets/pages/wpt/wpt.css">
 </head>
 <body>
 
 <div class="wpt-panel" id="wpt-panel">
-  <!-- Way back to the display when opened standalone; hidden when embedded — same check
-       keybinds.js/rates.js use (window.parent !== window). Points at MAP (NAV.wpt), not MAIN. -->
-  <a class="wpt-back" href="/">&lt; MAP</a>
-  <div class="wpt-title">WAYPOINTS</div>
-
-  <div class="wpt-help">Long-press MAP to add a waypoint to the active route, or a steer point when no route is active<br>Click a route to activate/deactivate it &middot; Click a steer point to select it<br>&#9998; rename &middot; &#8634; reset &middot; &#8681; export &middot; &#8682; share &middot; &times; delete</div>
-
-  <!-- PAD cursor (docs/page-cursor.md) — position:fixed override in wpt.css, since this is the one
-       MFD page whose own body scrolls rather than a fixed-size panel (MAP/TGT/HUD), so a viewport-
-       anchored crosshair needs position:fixed, not the shared .pad-cursor's default :absolute. -->
   <div id="pad-cursor" class="pad-cursor"></div>
 
-  <div class="wpt-readout mfd-chip" id="wpt-readout">NO NAVIGATION POINT</div>
+  <div class="wpt-head">
+    <a class="wpt-back" href="/">&lt; MAP</a>
+    <span class="wpt-title">WAYPOINTS</span>
+    <span class="wpt-hint">open a route or the steer group &middot; tap a point for its actions</span>
+  </div>
 
-  <!-- Relative-bearing compass to the effective navigation target: the needle points where the
-       aircraft's own heading needs to turn. Straight up means its heading already matches the target
-       bearing); the SVG group is rotated in wpt.js's updateCompass(), not CSS, since SVG's own
-       rotate() takes a clean cx/cy pivot without a separate transform-origin dance. The RING always
-       shows; only the amber NEEDLE hides (display:none, toggled in wpt.js) whenever there's nothing
-       to point at — no selected target, a completed active route, or no live heading yet. -->
-  <div class="wpt-compass" id="wpt-compass">
-    <svg viewBox="0 0 100 100" width="100" height="100">
-      <circle cx="50" cy="50" r="46" fill="none" stroke="var(--no-green-dim)" stroke-width="1"/>
-      <line x1="50" y1="4" x2="50" y2="12" stroke="var(--no-green-dim)" stroke-width="1"/>
-      <g id="wpt-compass-needle" style="display:none;">
-        <polygon points="50,12 42,58 50,48 58,58" fill="var(--no-amber)"/>
-      </g>
+  <!-- Next-point strip: one line of guidance; RTD/SPD carry the full readout. The needle is rotated
+       in wpt.js (SVG rotate() takes a clean pivot) and hidden when there's nothing to point at. -->
+  <div class="wpt-next" id="wpt-next">
+    <svg class="wpt-compass" viewBox="0 0 100 100" aria-hidden="true">
+      <circle cx="50" cy="50" r="46" fill="none" stroke="var(--no-green-line)" stroke-width="4"/>
+      <path d="M 50 3 L 50 16" stroke="var(--no-green)" stroke-width="6"/>
+      <g id="wpt-needle" style="display:none"><path d="M 50 14 L 40 66 L 50 54 L 60 66 Z" fill="var(--no-amber)"/></g>
     </svg>
+    <span class="wpt-next-kind" id="wpt-next-kind"></span>
+    <span class="wpt-next-title" id="wpt-next-title">NO NAVIGATION POINT</span>
+    <span class="wpt-next-grid" id="wpt-next-grid"></span>
+    <span class="wpt-fill"></span>
+    <span class="wpt-next-val"><span class="wpt-k">BRG</span><span id="wpt-next-brg">—</span></span>
+    <span class="wpt-next-val"><span class="wpt-k">DIST</span><span id="wpt-next-dist">—</span></span>
+    <span class="wpt-next-val"><span class="wpt-k">LEFT</span><span class="wpt-left" id="wpt-next-left">—</span></span>
   </div>
 
-  <div class="wpt-section">
-    <div class="wpt-section-head">
-      <span>ROUTES</span>
-      <div class="wpt-section-actions">
-        <button class="wpt-btn pad-hoverable" id="wpt-new-route">+ NEW ROUTE</button>
-        <button class="wpt-btn wpt-btn-ghost pad-hoverable" id="wpt-clear-routes">CLEAR</button>
-        <button class="wpt-btn pad-hoverable" id="wpt-import-route">IMPORT</button>
+  <div class="wpt-main">
+    <!-- Left: route cards (plus incoming shared ones), then the fixed steer-point group. -->
+    <div class="wpt-col">
+      <div class="wpt-col-head">
+        <span class="wpt-col-label">ROUTES</span>
+        <span class="wpt-fill"></span>
+        <button type="button" class="wpt-btn wpt-btn-go pad-hoverable" id="wpt-new-route">+ NEW</button>
+        <button type="button" class="wpt-btn wpt-btn-file pad-hoverable" id="wpt-import-route">IMPORT</button>
+        <button type="button" class="wpt-btn wpt-btn-del pad-hoverable" id="wpt-clear-routes">CLEAR</button>
       </div>
-    </div>
-    <!-- Inline "new route" name entry (no modal — matches keybinds.js/rates.js's no-modal style). -->
-    <div class="wpt-new-row" id="wpt-new-row" style="display:none;">
-      <input type="text" id="wpt-new-name" placeholder="Route name" maxlength="40">
-      <button class="wpt-btn pad-hoverable" id="wpt-new-confirm">ADD</button>
-      <button class="wpt-btn wpt-btn-ghost pad-hoverable" id="wpt-new-cancel">CANCEL</button>
-    </div>
-    <!-- Shared import/export panel — one textarea doing double duty (no modal, same inline-panel
-         idiom as wpt-new-row above): IMPORT shows it empty + editable with an IMPORT button; each
-         route row's own export button shows it read-only + pre-filled with that route's JSON and a
-         COPY button instead. wpt.js's openImportPanel/openExportPanel toggle which. -->
-    <div class="wpt-io-row" id="wpt-io-row" style="display:none;">
-      <div class="wpt-io-label" id="wpt-io-label">IMPORT ROUTE</div>
-      <textarea id="wpt-io-text" rows="8" spellcheck="false"></textarea>
-      <div class="wpt-io-error" id="wpt-io-error"></div>
-      <div class="wpt-io-actions">
-        <button class="wpt-btn pad-hoverable" id="wpt-io-primary">IMPORT</button>
-        <button class="wpt-btn pad-hoverable" id="wpt-io-copy">COPY</button>
-        <button class="wpt-btn wpt-btn-ghost pad-hoverable" id="wpt-io-close">CLOSE</button>
+      <!-- Inline "new route" name entry (no modal, same idiom as the steer point grid entry). -->
+      <div class="wpt-new-row" id="wpt-new-row" hidden>
+        <label class="wpt-k" for="wpt-new-name">NAME</label>
+        <input type="text" id="wpt-new-name" maxlength="40">
+        <button type="button" class="wpt-btn wpt-btn-go pad-hoverable" id="wpt-new-confirm">ADD</button>
+        <button type="button" class="wpt-btn pad-hoverable" id="wpt-new-cancel">CANCEL</button>
       </div>
+      <div class="wpt-routes" id="wpt-routes"></div>
+      <div class="wpt-empty" id="wpt-routes-empty" hidden>no routes &middot; + NEW or IMPORT</div>
+      <div class="wpt-divider"></div>
+      <button type="button" class="wpt-card wpt-stp-card pad-hoverable" id="wpt-stp-card" aria-pressed="false">
+        <span class="wpt-lamp" id="wpt-stp-lamp"></span>
+        <span class="wpt-card-body">
+          <span class="wpt-card-name wpt-stp-name">STEER POINTS</span>
+          <span class="wpt-card-meta" id="wpt-stp-meta"></span>
+        </span>
+        <span class="wpt-card-tags">
+          <svg class="wpt-lock" viewBox="0 0 12 12" aria-label="Fixed group"><rect x="2" y="5.5" width="8" height="5.5"/><path d="M4 5.5 V3.5 A2 2 0 0 1 8 3.5 V5.5"/></svg>
+          <span class="wpt-tag wpt-tag-amber" id="wpt-stp-tag"></span>
+        </span>
+        <span class="wpt-chev">&rsaquo;</span>
+      </button>
     </div>
-    <div class="wpt-routes" id="wpt-routes"></div>
-    <div class="wpt-empty" id="wpt-routes-empty">&mdash; NO ROUTES YET &mdash;</div>
-  </div>
 
-  <div class="wpt-section">
-    <div class="wpt-section-head"><span>ACTIVE ROUTE WAYPOINTS</span></div>
-    <div class="wpt-waypoints" id="wpt-waypoints"></div>
-    <div class="wpt-empty" id="wpt-waypoints-empty">&mdash; LONG-PRESS THE MAP TO ADD A WAYPOINT &mdash;</div>
-  </div>
-
-  <div class="wpt-section">
-    <div class="wpt-section-head">
-      <span>STEER POINTS</span>
-      <div class="wpt-section-actions">
-        <button class="wpt-btn pad-hoverable" id="wpt-import-steerpoints">IMPORT</button>
-        <button class="wpt-btn pad-hoverable" id="wpt-export-steerpoints">EXPORT</button>
+    <!-- Right: the open route or the steer-point group. -->
+    <div class="wpt-pane" id="wpt-pane">
+      <div class="wpt-pane-head" id="wpt-pane-head">
+        <span class="wpt-pane-title" id="wpt-pane-title"></span>
+        <span class="wpt-pane-status" id="wpt-pane-status"></span>
       </div>
+      <div class="wpt-pane-meta" id="wpt-pane-meta"></div>
+      <div class="wpt-actions" id="wpt-pane-actions"></div>
+
+      <!-- Typed-in steer point: a grid square's centre (gridToWorld), the same reference MAP shows. -->
+      <div class="wpt-entry" id="wpt-grid-row" hidden>
+        <label class="wpt-k" for="wpt-grid-input">GRID</label>
+        <input type="text" id="wpt-grid-input" maxlength="4" placeholder="Fd40" autocomplete="off" spellcheck="false">
+        <span class="wpt-entry-hint" id="wpt-grid-hint"></span>
+        <button type="button" class="wpt-btn wpt-btn-amber pad-hoverable" id="wpt-grid-add">ADD</button>
+        <button type="button" class="wpt-btn pad-hoverable" id="wpt-grid-cancel">CANCEL</button>
+      </div>
+
+      <!-- Shared import/export panel: IMPORT shows it empty and editable, a route's EXPORT read-only
+           and pre-filled with a COPY button instead. -->
+      <div class="wpt-io" id="wpt-io" hidden>
+        <div class="wpt-k" id="wpt-io-label">IMPORT ROUTE</div>
+        <textarea id="wpt-io-text" rows="7" spellcheck="false"></textarea>
+        <div class="wpt-io-error" id="wpt-io-error"></div>
+        <div class="wpt-actions">
+          <button type="button" class="wpt-btn wpt-btn-go pad-hoverable" id="wpt-io-primary">IMPORT</button>
+          <button type="button" class="wpt-btn wpt-btn-go pad-hoverable" id="wpt-io-copy">COPY</button>
+          <button type="button" class="wpt-btn pad-hoverable" id="wpt-io-close">CLOSE</button>
+        </div>
+      </div>
+
+      <div class="wpt-table-head">
+        <span class="wpt-lampcol"></span>
+        <span class="wpt-numcol">#</span>
+        <span class="wpt-namecol">NAME</span>
+        <span class="wpt-gridcol">GRID</span>
+        <span class="wpt-distcol" id="wpt-lastcol">LEG</span>
+      </div>
+      <div class="wpt-rows" id="wpt-rows"></div>
+      <div class="wpt-empty" id="wpt-rows-empty" hidden></div>
     </div>
-    <div class="wpt-steerpoints" id="wpt-steerpoints"></div>
-    <div class="wpt-empty" id="wpt-steerpoints-empty">&mdash; DEACTIVATE THE ROUTE, THEN LONG-PRESS MAP TO ADD &mdash;</div>
   </div>
 </div>
 

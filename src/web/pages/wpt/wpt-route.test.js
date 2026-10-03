@@ -137,4 +137,37 @@ const route = (nextIndex, waypoints) => ({ id: 'r1', name: 'Route 1', nextIndex,
   assert.strictEqual(R.parseSteerPointsJSON('{"steerPoints":[{"name":"bad"}]}'), null);
 }
 
+// ── signedTurn: left is negative, right positive, wrapping across north ──────────────────
+assert.strictEqual(R.signedTurn(10, 350), 20);    // target just right of north, heading just left
+assert.strictEqual(R.signedTurn(350, 10), -20);
+assert.strictEqual(R.signedTurn(90, 90), 0);
+assert.strictEqual(R.signedTurn(270, 90), -180);  // dead astern reads as a full left turn
+
+// ── legLengths / routeLength / remainingDistance ─────────────────────────────────────────
+{
+  const pts = [wp('a', '', 0, 0), wp('b', '', 0, 3000), wp('c', '', 4000, 3000)];
+  assert.deepStrictEqual(R.legLengths(pts), [0, 3000, 4000]);
+  assert.strictEqual(R.routeLength(pts), 7000);
+  // Ownship 1000 m short of b (next = 1): 1000 to b, then the 4000 leg to c.
+  assert.strictEqual(R.remainingDistance(route(1, pts), 0, 2000), 5000);
+  assert.strictEqual(R.remainingDistance(route(3, pts), 0, 0), null);   // complete
+  assert.strictEqual(R.remainingDistance(route(1, pts), null, null), null);   // no ownship yet
+  assert.deepStrictEqual(R.legLengths([]), []);
+}
+
+// ── timeline: 6 per row, a wrapping leg splits into an out/in pair, label on the in half ──
+{
+  const t = R.timeline(9, 6);
+  assert.strictEqual(t.rows, 2);
+  assert.deepStrictEqual(t.nodes[6], { index: 6, row: 1, col: 0 });
+  const into7 = t.segments.filter(s => s.index === 6);   // the leg into the 7th point wraps
+  assert.deepStrictEqual(into7, [
+    { index: 6, row: 0, from: 5, to: 'edge', label: false },
+    { index: 6, row: 1, from: 'edge', to: 0, label: true },
+  ]);
+  assert.strictEqual(t.segments.filter(s => s.label).length, 8);   // one label per leg
+  assert.deepStrictEqual(R.timeline(0, 6), { nodes: [], segments: [], rows: 0 });
+  assert.strictEqual(R.timeline(6, 6).rows, 1);
+}
+
 console.log('wpt-route.test.js: OK');

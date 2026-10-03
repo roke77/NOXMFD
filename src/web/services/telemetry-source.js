@@ -343,6 +343,9 @@ export class TelemetrySource {
       hdg: typeof d.hdg === 'number' ? d.hdg : null,
       ox:  this._meta ? this._meta.ox : null,
       oy:  this._meta ? this._meta.oy : null,
+      // Map size: WPT's typed-in steer-point grid goes through gridToWorld, which needs the bounds.
+      w:   this._meta ? this._meta.w : null,
+      h:   this._meta ? this._meta.h : null,
       metric: !!d.metric,
     });
 
@@ -582,7 +585,7 @@ export class TelemetrySource {
     this._postUp({ type: 'loadout', items: [], selWeapon: null, softGun: null, softRel: null, masterArmsOn: true, combatMode: 'all' });
     this._postUp({ type: 'cm', flares: -1, flaresMax: -1, ewKJ: -1, ewKJMax: -1, cmCat: 0 });
     this._postUp({ type: 'tgp', active: false, resolution: 'native', quality: 'native', data: null, manual: false, stv: false });
-    this._postUp({ type: 'mapinfo', mission: null, grid: null, x: null, z: null, hdg: null, ox: null, oy: null, metric: false });
+    this._postUp({ type: 'mapinfo', mission: null, grid: null, x: null, z: null, hdg: null, ox: null, oy: null, w: null, h: null, metric: false });
     this._postUp({ type: 'targets', items: [], metric: false });
     this._postUp({ type: 'rwr', items: [] });
     this._postUp({ type: 'mw', items: [], metric: false });

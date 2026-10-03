@@ -1,10 +1,9 @@
-// WPT page (issue #38) — route/waypoint list editor + distance/bearing readout. DOM-coupled, not
-// unit-tested. docs/hud-waypoint-indicator.md (Option 2): route data and its mutation logic are
-// authoritative in the plugin (RouteStore.cs) — every WaypointsStore mutator is a POST
-// /command that resolves once the plugin's response has been polled back in, so callers chain
-// .then(render) instead of calling render() synchronously afterward. WptRoute/WaypointsStore are
-// classic <script> globals (wpt.html), loaded before this module.
-import { gridLabel } from '/assets/services/telemetry-source.js';
+// WPT page (issue #38, docs/wpt-rework.md) — route and steer-point manager. DOM-coupled, not
+// unit-tested; its display math lives in wpt-route.js (tested). Route data and every mutation are
+// authoritative in the plugin (RouteStore.cs): each WaypointsStore mutator is a POST /command that
+// resolves once the plugin's state has been polled back, so callers chain .then(render).
+// WptRoute/WaypointsStore are classic <script> globals (wpt.html), loaded before this module.
+import { gridLabel, gridToWorld } from '/assets/services/telemetry-source.js';
 import { createPadCursor } from '/assets/services/pad-cursor.js';
 
 if (window.parent !== window) {
@@ -12,578 +11,506 @@ if (window.parent !== window) {
   if (back) back.remove();
 }
 
-const readoutEl   = document.getElementById('wpt-readout');
-const compassNeedle = document.getElementById('wpt-compass-needle');
-const routesEl     = document.getElementById('wpt-routes');
-const waypointsEl  = document.getElementById('wpt-waypoints');
-const steerPointsEl = document.getElementById('wpt-steerpoints');
-const newRouteBtn  = document.getElementById('wpt-new-route');
-const clearBtn     = document.getElementById('wpt-clear-routes');
-const newRow       = document.getElementById('wpt-new-row');
-const newNameInput = document.getElementById('wpt-new-name');
-const importBtn    = document.getElementById('wpt-import-route');
-const ioRow        = document.getElementById('wpt-io-row');
-const ioLabel      = document.getElementById('wpt-io-label');
-const ioText       = document.getElementById('wpt-io-text');
-const ioError      = document.getElementById('wpt-io-error');
-const ioPrimary    = document.getElementById('wpt-io-primary');
-const ioCopy       = document.getElementById('wpt-io-copy');
-const ioClose      = document.getElementById('wpt-io-close');
-const importSteerPointsBtn = document.getElementById('wpt-import-steerpoints');
-const exportSteerPointsBtn = document.getElementById('wpt-export-steerpoints');
-let ioMode = 'route';
+const $ = (id) => document.getElementById(id);
+const routesEl = $('wpt-routes');
+const rowsEl = $('wpt-rows');
+const mainEl = document.querySelector('.wpt-main');
 
-let mapinfo = { x: null, z: null, hdg: null, ox: null, oy: null, metric: false };
+let mapinfo = { x: null, z: null, hdg: null, ox: null, oy: null, w: null, h: null, metric: false };
+const sqd = { role: 'none', members: [] };
+
+// What this display has open. Not shared with other displays: two pilots' screens can look at
+// different routes while RouteStore holds the one active route.
+//   view     — a route id, 'stp' for the steer-point group, or null for "the active route, else
+//              the first route, else the steer group"
+//   open     — the expanded point row's index
+//   renaming — 'route' while the open route's name is being edited, a row index for a point
+const ui = { view: null, open: null, renaming: null, renameText: '', adding: false };
+
+// ── small builders ─────────────────────────────────────────────────────────────────────
+function el(tag, cls, text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text != null) e.textContent = text;
+  return e;
+}
+function button(label, cls, onClick, aria) {
+  const b = el('button', 'wpt-btn pad-hoverable' + (cls ? ' ' + cls : ''), label);
+  b.type = 'button';
+  if (aria) b.setAttribute('aria-label', aria);
+  b.onclick = onClick;
+  return b;
+}
+
+// km or nm per the player's unit setting (mapinfo.metric), as HSD/FCR/OBJ show range.
+function fmtDist(m) {
+  if (m == null) return '—';
+  const km = m / 1000;
+  return mapinfo.metric ? km.toFixed(1) + ' km' : (km * 0.539957).toFixed(1) + ' nm';
+}
+function fmtDeg(d) { return ('00' + Math.round(((d % 360) + 360) % 360)).slice(-3) + '°'; }
+function gridOf(p) { return mapinfo.ox == null ? '—' : gridLabel(p.x, p.z, { ox: mapinfo.ox, oy: mapinfo.oy }); }
+function ownDist(p) { return mapinfo.x == null ? null : WptRoute.distanceBearing(mapinfo.x, mapinfo.z, p.x, p.z).distM; }
+function canShare() { return sqd.role === 'leader' && sqd.members.length > 0; }
+
+function closePanels() { $('wpt-io').hidden = true; $('wpt-new-row').hidden = true; }
+function openView(view) {
+  ui.view = view; ui.open = null; ui.renaming = null; ui.adding = false;
+  closePanels();
+  render();
+}
+
+// ── render ─────────────────────────────────────────────────────────────────────────────
+// distCells: the steer pane's DIST cells, refreshed in place on every mapinfo tick (tick() below)
+// instead of rebuilding the rows, which would drop focus from a rename being typed.
+let distCells = [];
 
 function render() {
   const c = WaypointsStore.load();
+  const routes = c.routes || [];
+  if (ui.view !== 'stp' && !WptRoute.findRoute(routes, ui.view)) {
+    ui.view = c.activeRouteId || (routes[0] && routes[0].id) || 'stp';
+    ui.open = null; ui.renaming = null;
+  }
   renderRoutes(c);
-  renderWaypoints(WptRoute.findRoute(c.routes, c.activeRouteId));
-  renderSteerPoints(c);
-  // Every button that mutates route/waypoint state (reset, rename, delete, reorder, switch/create
-  // route) calls render() — without this, the readout at top would stay showing whatever waypoint
-  // was NEXT before the click until the next live 'mapinfo' tick (which never arrives at all when
-  // this page is opened standalone, and is a periodic ~100ms lag even embedded in the shell).
-  renderReadout();
-}
-
-// Shares awaiting THIS pilot's own accept/reject — rendered first (need attention), with only
-// ACCEPT/REJECT: not yet a real route or steer point, so nothing else (rename/reset/export/
-// delete/activate) applies to it yet. See RouteStore.cs's own header comment on this group for
-// why a duplicate share never produces a second one of these. Shared by renderRoutes and
-// renderSteerPoints below — only the label text and accept/reject calls differ.
-function renderPendingRow(container, items, labelText, onAccept, onReject) {
-  items.forEach(function (p) {
-    const row = document.createElement('div');
-    row.className = 'wpt-row wpt-row-pending';
-
-    const name = document.createElement('span');
-    name.className = 'wpt-row-name';
-    name.appendChild(document.createTextNode(labelText(p) + ' — from '));
-    const leaderName = document.createElement('span');
-    leaderName.className = 'wpt-row-pending-leader';
-    leaderName.textContent = p.fromName || 'squad leader';
-    name.appendChild(leaderName);
-
-    const accept = document.createElement('button');
-    accept.className = 'wpt-btn'; accept.textContent = 'ACCEPT';
-    accept.onclick = function () { onAccept(p.id).then(render); };
-
-    const reject = document.createElement('button');
-    reject.className = 'wpt-btn wpt-btn-ghost'; reject.textContent = 'REJECT';
-    reject.onclick = function () { onReject(p.id).then(render); };
-
-    row.appendChild(name); row.appendChild(accept); row.appendChild(reject);
-    container.appendChild(row);
-  });
+  renderSteerCard(c);
+  if (ui.view === 'stp') renderSteerPane(c);
+  else renderRoutePane(c, WptRoute.findRoute(routes, ui.view));
+  renderNext();
 }
 
 function renderRoutes(c) {
   routesEl.innerHTML = '';
-
-  renderPendingRow(routesEl, WaypointsStore.pendingShared(),
-    function (p) { return p.name + ' (' + p.waypointCount + ')'; },
-    WaypointsStore.acceptShared, WaypointsStore.rejectShared);
-
-  c.routes.forEach(function (route) {
-    const isActive = route.id === c.activeRouteId;
-    const isShared = !!route.sharedBy;
-    const row = document.createElement('div');
-    row.className = 'wpt-row' + (isActive ? ' active' : '');
-
-    const name = document.createElement('span');
-    name.className = 'wpt-row-name pad-hoverable';
-    name.title = isActive ? 'Click to deactivate' : 'Click to activate';
-    // A route can be saved but none active (issue #38 follow-up) — clicking the already-ACTIVE
-    // route deactivates it instead of being a no-op.
-    name.onclick = function () { WaypointsStore.setActiveRoute(isActive ? null : route.id).then(render); };
-    name.appendChild(document.createTextNode(route.name + ' (' + route.waypoints.length + ')'));
-
-    // Shared with the squad right now — either this pilot accepted it FROM the leader (isShared,
-    // read-only, sharedBy non-empty) or it's this pilot's OWN route with the leader-side
-    // auto-reshare on (route.sharedWithSquad — only ever true while this pilot IS the leader,
-    // since ShareRoute/BroadcastIfShared are leader-only; a member never sees this on their own
-    // routes). Nested inside the name span (not a sibling flex item) so it sits right after the
-    // name text itself instead of being pushed to the row's far edge by name's flex:1 width.
-    if (isShared || route.sharedWithSquad) {
-      const sqdMark = document.createElement('span');
-      sqdMark.className = 'wpt-row-sqd-mark';
-      sqdMark.textContent = ' SQD';
-      name.appendChild(sqdMark);
-    }
-
-    const mark = document.createElement('span');
-    mark.className = 'wpt-row-mark';
-    mark.textContent = isActive ? 'ACTIVE' : '';
-
-    const reset = document.createElement('button');
-    reset.className = 'wpt-row-btn pad-hoverable'; reset.textContent = '↺'; reset.title = 'Reset route (mark every waypoint not-reached)';
-    reset.onclick = function () { WaypointsStore.resetRoute(route.id).then(render); };
-
-    const exportBtn = document.createElement('button');
-    exportBtn.className = 'wpt-row-btn pad-hoverable'; exportBtn.textContent = '⇩'; exportBtn.title = 'Export route as JSON';
-    exportBtn.onclick = function () { openExportPanel(route.id); };
-
-    // Share with the squad (docs/squadron-transport.md, SQD page). Only the LEADER can share
-    // (Squad.SendData is leader-only), and only once at least one member has joined — squad
-    // membership itself is managed on the SQD page, not here. A route someone ELSE shared with US
-    // never shows this button at all: Squad.cs's Role is a single value (none/leader/member), so
-    // holding a route someone shared with us and being a leader ourselves can't both be true.
-    const share = document.createElement('button');
-    share.className = 'wpt-row-btn pad-hoverable'; share.textContent = '⇪'; share.title = 'Share route with squad';
-    share.onclick = function () { shareRoute(route.id, share); };
-
-    const del = document.createElement('button');
-    del.className = 'wpt-row-btn pad-hoverable';
-    del.textContent = '×';
-    del.title = isShared ? 'Remove from your routes' : 'Delete route';
-    del.onclick = function () { WaypointsStore.deleteRoute(route.id).then(render); };
-
-    row.appendChild(name); row.appendChild(mark);
-    // Rename is content editing — not available on a route someone else shared with you. Everything
-    // else (progress reset, export, deleting YOUR OWN copy) still applies regardless of origin.
-    if (!isShared) {
-      const edit = document.createElement('button');
-      edit.className = 'wpt-row-btn pad-hoverable'; edit.textContent = '✎'; edit.title = 'Rename route';
-      // Empty stays the route's current (generated) name — a route always keeps SOME name.
-      edit.onclick = function () {
-        editRow(row, route.name, null, function (name) { return name ? WaypointsStore.renameRoute(route.id, name) : undefined; });
-      };
-      row.appendChild(edit);
-    }
-    row.appendChild(reset);
-    row.appendChild(exportBtn);
-    if (!isShared && sqd.role === 'leader' && sqd.members.length) row.appendChild(share);
-    row.appendChild(del);
-    routesEl.appendChild(row);
+  // Incoming shares first: not routes yet, so ACCEPT/DISMISS is all they offer.
+  WaypointsStore.pendingShared().forEach(function (p) {
+    const wrap = el('div', 'wpt-cardwrap');
+    const card = el('div', 'wpt-card');
+    card.appendChild(el('span', 'wpt-lamp'));
+    const body = el('span', 'wpt-card-body');
+    body.appendChild(el('span', 'wpt-card-name squad', p.name));
+    body.appendChild(el('span', 'wpt-card-meta', p.waypointCount + ' PTS'));
+    card.appendChild(body);
+    const tags = el('span', 'wpt-card-tags');
+    tags.appendChild(el('span', 'wpt-tag wpt-tag-squad', 'SHARED'));
+    tags.appendChild(el('span', 'wpt-tag-from', p.fromName || 'squad leader'));
+    card.appendChild(tags);
+    wrap.appendChild(card);
+    const acts = el('div', 'wpt-pending-actions');
+    acts.appendChild(button('ACCEPT', 'wpt-btn-squad wpt-btn-wide', function () { WaypointsStore.acceptShared(p.id).then(render); }));
+    acts.appendChild(button('DISMISS', 'wpt-btn-wide', function () { WaypointsStore.rejectShared(p.id).then(render); }));
+    wrap.appendChild(acts);
+    routesEl.appendChild(wrap);
   });
-}
 
-// Shared inline-edit UI for a route/waypoint row's name — a pencil button (route/waypoint rows
-// below) swaps the row for a text input + Save button. Enter also saves; Escape discards and just
-// re-renders. onSave receives the trimmed value (may be empty — the waypoint case allows clearing
-// a name back to "unnamed"; the route case's own callback decides whether to accept empty) and
-// returns the mutator's promise (or undefined if it decided not to save) — commit waits for that
-// before re-rendering, so the row doesn't briefly flash back to its pre-edit value.
-function editRow(row, value, placeholder, onSave) {
-  row.innerHTML = '';
-  const input = document.createElement('input');
-  input.type = 'text'; input.maxLength = 40; input.value = value;
-  if (placeholder) input.placeholder = placeholder;
-  const commit = function () { Promise.resolve(onSave(input.value.trim())).then(render); };
-  const save = document.createElement('button');
-  save.className = 'wpt-row-btn wpt-row-save pad-hoverable'; save.textContent = '✓'; save.title = 'Save';
-  save.onclick = commit;
-  input.onkeydown = function (e) { if (e.key === 'Enter') commit(); else if (e.key === 'Escape') render(); };
-  row.appendChild(input);
-  row.appendChild(save);
-  input.focus(); input.select();
-}
-
-function renderWaypoints(route) {
-  waypointsEl.innerHTML = '';
-  if (!route) return;
-  const isShared = !!route.sharedBy;   // content read-only — see renderRoutes' own comment
-  route.waypoints.forEach(function (wp, i) {
-    const row = document.createElement('div');
-    row.className = 'wpt-row' + (i === route.nextIndex ? ' next' : '');
-
-    const name = document.createElement('span');
-    name.className = 'wpt-row-name';
-    name.textContent = wp.name ? (i + 1) + '. ' + wp.name : (i + 1) + '.';
-
-    const mark = document.createElement('span');
-    mark.className = 'wpt-row-mark';
-    mark.textContent = i === route.nextIndex ? 'NEXT' : '';
-
-    const grid = document.createElement('span');
-    grid.className = 'wpt-row-grid';
-    grid.textContent = gridLabel(wp.x, wp.z, { ox: mapinfo.ox, oy: mapinfo.oy });
-
-    const reset = document.createElement('button');
-    reset.className = 'wpt-row-btn pad-hoverable'; reset.textContent = '↺';
-    reset.title = 'Rewind here — this waypoint (and every one after it) becomes not-reached, this one NEXT';
-    reset.onclick = function () { WaypointsStore.resetWaypoint(i).then(render); };
-
-    row.appendChild(name); row.appendChild(mark); row.appendChild(grid);
-    // Progress (NEXT/reset) is personal and always yours to change; the route's own content
-    // (rename/reorder/delete a waypoint) is read-only on a route someone else shared with you —
-    // RouteStore.cs's RenameWaypoint/ReorderWaypoint/RemoveWaypoint already refuse these
-    // server-side, so this only saves the pilot a wasted click, not the actual enforcement.
-    if (!isShared) {
-      const edit = document.createElement('button');
-      edit.className = 'wpt-row-btn pad-hoverable'; edit.textContent = '✎'; edit.title = 'Rename waypoint';
-      // Unlike routes, an empty save is valid here — it clears the name back to "unnamed" (position
-      // number only), matching a fresh waypoint's own default.
-      edit.onclick = function () {
-        editRow(row, wp.name, 'Name (optional)', function (name) { return WaypointsStore.renameWaypoint(i, name); });
-      };
-      row.appendChild(edit);
-    }
-    row.appendChild(reset);
-    if (!isShared) {
-      const up = document.createElement('button');
-      up.className = 'wpt-row-btn pad-hoverable'; up.textContent = '▲'; up.title = 'Move up';
-      up.disabled = i === 0;
-      up.onclick = function () { WaypointsStore.reorderWaypoint(i, i - 1).then(render); };
-      row.appendChild(up);
-
-      const down = document.createElement('button');
-      down.className = 'wpt-row-btn pad-hoverable'; down.textContent = '▼'; down.title = 'Move down';
-      down.disabled = i === route.waypoints.length - 1;
-      down.onclick = function () { WaypointsStore.reorderWaypoint(i, i + 1).then(render); };
-      row.appendChild(down);
-
-      const del = document.createElement('button');
-      del.className = 'wpt-row-btn pad-hoverable'; del.textContent = '×'; del.title = 'Delete waypoint';
-      del.onclick = function () { WaypointsStore.removeWaypoint(i).then(render); };
-      row.appendChild(del);
-    }
-    waypointsEl.appendChild(row);
+  (c.routes || []).forEach(function (route) {
+    const active = route.id === c.activeRouteId;
+    const viewed = route.id === ui.view;
+    const wrap = el('div', 'wpt-cardwrap' + (viewed ? ' open' : ''));
+    const card = el('button', 'wpt-card pad-hoverable');
+    card.type = 'button';
+    card.setAttribute('aria-pressed', viewed ? 'true' : 'false');
+    card.onclick = function () { openView(route.id); };
+    card.appendChild(el('span', 'wpt-lamp' + (active ? ' on' : '')));
+    const body = el('span', 'wpt-card-body');
+    body.appendChild(el('span', 'wpt-card-name' + (active ? ' active' : ''), route.name));
+    body.appendChild(el('span', 'wpt-card-meta', route.waypoints.length + ' PTS · ' + fmtDist(WptRoute.routeLength(route.waypoints))));
+    card.appendChild(body);
+    const tags = el('span', 'wpt-card-tags');
+    // Shared either way: received from the leader (sharedBy) or this leader's own, auto-resharing.
+    if (route.sharedBy || route.sharedWithSquad) {
+      tags.appendChild(el('span', 'wpt-tag wpt-tag-squad', 'SHARED'));
+      tags.appendChild(el('span', 'wpt-tag-from', route.sharedBy || 'TO SQUAD'));
+    } else if (active) tags.appendChild(el('span', 'wpt-tag', 'ACTIVE'));
+    card.appendChild(tags);
+    card.appendChild(el('span', 'wpt-chev', '›'));
+    wrap.appendChild(card);
+    routesEl.appendChild(wrap);
   });
+  $('wpt-routes-empty').hidden = routesEl.childElementCount > 0;
 }
 
-function renderSteerPoints(c) {
-  steerPointsEl.innerHTML = '';
-
-  renderPendingRow(steerPointsEl, WaypointsStore.pendingSharedSteerPoints(),
-    function (p) { return p.name || 'STEER POINT'; },
-    WaypointsStore.acceptSharedSteerPoint, WaypointsStore.rejectSharedSteerPoint);
-
-  (c.steerPoints || []).forEach(function (point, i) {
-    const selected = point.id === c.activeSteerPointId;
-    const isShared = !!point.sharedBy;
-    const row = document.createElement('div');
-    row.className = 'wpt-row' + (selected ? ' active' : '');
-
-    const name = document.createElement('span');
-    name.className = 'wpt-row-name pad-hoverable';
-    name.textContent = point.name ? (i + 1) + '. ' + point.name : (i + 1) + '. STEER POINT';
-    name.title = selected ? 'Selected steer point' : 'Select steer point';
-    name.onclick = function () { WaypointsStore.setActiveSteerPoint(point.id).then(render); };
-    if (isShared || point.sharedWithSquad) {
-      const sqdMark = document.createElement('span');
-      sqdMark.className = 'wpt-row-sqd-mark';
-      sqdMark.textContent = ' SQD';
-      name.appendChild(sqdMark);
-    }
-
-    const mark = document.createElement('span');
-    mark.className = 'wpt-row-mark';
-    mark.textContent = selected ? 'SELECTED' : '';
-    const grid = document.createElement('span');
-    grid.className = 'wpt-row-grid';
-    grid.textContent = gridLabel(point.x, point.z, { ox: mapinfo.ox, oy: mapinfo.oy });
-    row.appendChild(name); row.appendChild(mark); row.appendChild(grid);
-
-    if (!isShared) {
-      const edit = document.createElement('button');
-      edit.className = 'wpt-row-btn pad-hoverable'; edit.textContent = '✎'; edit.title = 'Rename steer point';
-      edit.onclick = function () {
-        editRow(row, point.name, 'Name (optional)', function (value) {
-          return WaypointsStore.renameSteerPoint(point.id, value);
-        });
-      };
-      row.appendChild(edit);
-    }
-
-    if (!isShared && sqd.role === 'leader' && sqd.members.length) {
-      const share = document.createElement('button');
-      share.className = 'wpt-row-btn pad-hoverable'; share.textContent = '⇪'; share.title = 'Share steer point with squad';
-      share.onclick = function () { shareSteerPoint(point.id, share); };
-      row.appendChild(share);
-    }
-
-    const del = document.createElement('button');
-    del.className = 'wpt-row-btn pad-hoverable'; del.textContent = '×';
-    del.title = isShared ? 'Remove from your steer points' : 'Delete steer point';
-    del.onclick = function () { WaypointsStore.deleteSteerPoint(point.id).then(render); };
-    row.appendChild(del);
-    steerPointsEl.appendChild(row);
-  });
+function renderSteerCard(c) {
+  const points = c.steerPoints || [];
+  const routeOn = !!WptRoute.findRoute(c.routes || [], c.activeRouteId);
+  const chosen = WptRoute.findSteerPoint(points, c.activeSteerPointId);
+  const pending = WaypointsStore.pendingSharedSteerPoints().length;
+  $('wpt-stp-card').setAttribute('aria-pressed', ui.view === 'stp' ? 'true' : 'false');
+  $('wpt-stp-lamp').className = 'wpt-lamp' + (chosen ? (routeOn ? ' dim-amber' : ' amber') : '');
+  $('wpt-stp-meta').textContent = points.length + ' PTS' + (chosen ? ' · STP' + (points.indexOf(chosen) + 1) + ' selected' : '');
+  const tag = $('wpt-stp-tag');
+  tag.textContent = chosen && !routeOn ? 'GUIDING' : (pending ? pending + ' SHARED' : '');
+  tag.className = 'wpt-tag ' + (chosen && !routeOn ? 'wpt-tag-amber' : 'wpt-tag-squad');
 }
+$('wpt-stp-card').onclick = function () { openView('stp'); };
 
-newRouteBtn.onclick = function () {
-  closeIOPanel();
-  newRow.style.display = 'flex';
-  newNameInput.value = WaypointsStore.freshRouteName();   // pre-filled, editable — accept or type over
-  newNameInput.focus(); newNameInput.select();
-};
-document.getElementById('wpt-new-cancel').onclick = function () { newRow.style.display = 'none'; };
-document.getElementById('wpt-new-confirm').onclick = function () {
-  const name = newNameInput.value.trim();
-  newRow.style.display = 'none';
-  WaypointsStore.createRoute(name || null).then(render);
-};
-newNameInput.onkeydown = function (e) { if (e.key === 'Enter') document.getElementById('wpt-new-confirm').click(); };
-
-// CLEAR — drop every route at once, same no-confirmation style as the per-route × button.
-clearBtn.onclick = function () { closeIOPanel(); newRow.style.display = 'none'; WaypointsStore.clearRoutes().then(render); };
-
-// ── Import/export (one shared panel, two modes — see wpt.html's comment on wpt-io-row) ──────
-function closeIOPanel() { ioRow.style.display = 'none'; ioError.textContent = ''; }
-
-function openImportPanel(mode) {
-  ioMode = mode;
-  newRow.style.display = 'none';
-  ioLabel.textContent = mode === 'steerpoints'
-    ? 'IMPORT STEER POINTS — paste exported JSON below'
-    : 'IMPORT ROUTE — paste an exported route\'s JSON below';
-  ioText.value = '';
-  ioText.readOnly = false;
-  ioError.textContent = '';
-  ioPrimary.style.display = '';
-  ioCopy.style.display = 'none';
-  ioRow.style.display = 'block';
-  ioText.focus();
-}
-importBtn.onclick = function () { openImportPanel('route'); };
-importSteerPointsBtn.onclick = function () { openImportPanel('steerpoints'); };
-
-ioPrimary.onclick = function () {
-  // Pre-validate client-side (WptRoute.parseRouteJSON) for an instant error — the actual import
-  // is a fire-and-forget POST /command, with no synchronous way back from the server to say the
-  // paste wasn't a route (docs/hud-waypoint-indicator.md). RouteStore.ImportRoute independently
-  // re-parses server-side as the real source of truth.
-  const valid = ioMode === 'steerpoints'
-    ? WptRoute.parseSteerPointsJSON(ioText.value)
-    : WptRoute.parseRouteJSON(ioText.value);
-  if (!valid) {
-    ioError.textContent = ioMode === 'steerpoints'
-      ? 'Could not read a non-empty steer-point export — check the pasted JSON.'
-      : 'Could not read that as a route — check the pasted JSON.';
+// The pane head: the title, or the rename field while it's being edited.
+function renderPaneHead(title, titleCls, status, statusCls, onRename) {
+  const head = $('wpt-pane-head');
+  head.innerHTML = '';
+  if (ui.renaming === 'route' && onRename) {
+    head.appendChild(renameField('wpt-rename', onRename));
     return;
   }
-  const action = ioMode === 'steerpoints'
-    ? WaypointsStore.importSteerPoints(ioText.value)
-    : WaypointsStore.importRoute(ioText.value);
-  action.then(render);
-  closeIOPanel();
-};
-
-function openExportPanel(id) {
-  const json = WaypointsStore.exportRoute(id);
-  if (!json) return;   // the route vanished (deleted) between the click and here
-  newRow.style.display = 'none';
-  ioLabel.textContent = 'EXPORT ROUTE — copy this and send it to share the route';
-  ioText.value = json;
-  ioText.readOnly = true;
-  ioError.textContent = '';
-  ioPrimary.style.display = 'none';
-  ioCopy.style.display = '';
-  ioCopy.textContent = 'COPY';
-  ioRow.style.display = 'block';
-  ioText.focus(); ioText.select();
+  head.appendChild(el('span', 'wpt-pane-title ' + titleCls, title));
+  head.appendChild(el('span', 'wpt-pane-status ' + statusCls, status));
 }
 
-exportSteerPointsBtn.onclick = function () {
-  const points = WaypointsStore.load().steerPoints || [];
-  if (!points.length) return;
-  ioMode = 'steerpoints';
-  newRow.style.display = 'none';
-  ioLabel.textContent = 'EXPORT STEER POINTS — copy this JSON to share or back up the collection';
-  ioText.value = WaypointsStore.exportSteerPoints();
-  ioText.readOnly = true;
-  ioError.textContent = '';
-  ioPrimary.style.display = 'none';
-  ioCopy.style.display = '';
-  ioCopy.textContent = 'COPY';
-  ioRow.style.display = 'block';
-  ioText.focus(); ioText.select();
-};
+// One inline rename field (pane title or a point row). Its text lives in ui.renameText so a
+// re-render while typing (another display's edit arriving) rebuilds it with the text intact.
+function renameField(cls, onSave) {
+  const wrap = el('div', cls);
+  const input = el('input');
+  input.type = 'text'; input.maxLength = 40; input.value = ui.renameText;
+  input.oninput = function () { ui.renameText = input.value; };
+  const done = function () { ui.renaming = null; render(); };
+  const commit = function () { Promise.resolve(onSave(input.value.trim())).then(done); };
+  input.onkeydown = function (e) { if (e.key === 'Enter') commit(); else if (e.key === 'Escape') done(); };
+  wrap.appendChild(input);
+  wrap.appendChild(button('SAVE', 'wpt-btn-go', commit));
+  wrap.appendChild(button('CANCEL', '', done));
+  setTimeout(function () { input.focus(); }, 0);
+  return wrap;
+}
+function startRename(which, text) { ui.renaming = which; ui.renameText = text || ''; render(); }
 
-ioCopy.onclick = function () {
-  ioText.focus(); ioText.select();
-  // navigator.clipboard needs a secure context (https, or localhost) — plain http:// over the LAN
-  // (how this mod is normally reached) doesn't have it, so fall back to the old execCommand path,
-  // which works off the selection this handler just made regardless of context.
-  const done = function () { ioCopy.textContent = 'COPIED'; setTimeout(function () { ioCopy.textContent = 'COPY'; }, 1200); };
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(ioText.value).then(done, function () {
-      try { document.execCommand('copy'); done(); } catch (e) {}
-    });
-  } else {
-    try { document.execCommand('copy'); done(); } catch (e) {}
-  }
-};
+function renderRoutePane(c, route) {
+  const active = route.id === c.activeRouteId;
+  const received = !!route.sharedBy;   // content is read-only on a route someone shared with you
+  const n = route.waypoints.length, next = route.nextIndex;
+  renderPaneHead(route.name, active ? 'active' : '',
+    received ? (active ? 'ACTIVE · ' : '') + 'SHARED BY ' + route.sharedBy : (active ? 'ACTIVE' : 'NOT ACTIVE'),
+    received ? 'squad' : (active ? 'amber' : ''),
+    received ? null : function (name) { return name ? WaypointsStore.renameRoute(route.id, name) : undefined; });
+  $('wpt-pane-meta').textContent = n + ' POINTS · ' + fmtDist(WptRoute.routeLength(route.waypoints)) + ' TOTAL' +
+    (active && n ? (next < n ? ' · ' + (n - next) + ' TO GO' : ' · COMPLETE') : '');
 
-ioClose.onclick = closeIOPanel;
+  const acts = $('wpt-pane-actions');
+  acts.innerHTML = '';
+  if (active) acts.appendChild(button('DEACTIVATE', 'wpt-btn-amber', function () { WaypointsStore.setActiveRoute(null).then(render); }));
+  else acts.appendChild(button('ACTIVATE', 'wpt-btn-go', function () { WaypointsStore.setActiveRoute(route.id).then(render); }));
+  if (!received) acts.appendChild(button('RENAME', '', function () { startRename('route', route.name); }));
+  acts.appendChild(button('RESET', '', function () { WaypointsStore.resetRoute(route.id).then(render); }, 'Reset progress: every waypoint not reached'));
+  acts.appendChild(button('EXPORT', '', function () { openExport(route.id); }));
+  if (!received && canShare()) acts.appendChild(shareButton(function () { return WaypointsStore.shareRoute(route.id); }));
+  acts.appendChild(button(received ? 'REMOVE' : 'DELETE', 'wpt-btn-del', function () {
+    ui.view = null; WaypointsStore.deleteRoute(route.id).then(render);
+  }, received ? 'Remove from your routes' : 'Delete route'));
 
-// An unnamed waypoint has no wp.name — fall back to its position number rather than showing nothing.
-function waypointLabel(wp, index) { return wp.name || ('WAYPOINT ' + (index + 1)); }
-
-// Matches the km/nm split HSD/FCR/OBJ's own range formatters already use — the player's
-// Metric/Imperial preference (mapinfo.metric, from the plugin's PlayerSettings.unitSystem).
-function fmtDist(distM) {
-  const km = distM / 1000;
-  if (mapinfo.metric) return km.toFixed(1) + ' km';
-  return (km * 0.539957).toFixed(1) + ' nm';
+  $('wpt-grid-row').hidden = true;
+  $('wpt-lastcol').textContent = 'LEG';
+  distCells = [];
+  rowsEl.innerHTML = '';
+  const legs = WptRoute.legLengths(route.waypoints);
+  route.waypoints.forEach(function (wp, i) {
+    const passed = active && i < next, isNext = active && i === next, open = ui.open === i;
+    const item = el('div', 'wpt-point' + (passed ? ' passed' : '') + (isNext ? ' next' : '') + (open ? ' open' : ''));
+    const row = el('button', 'wpt-row pad-hoverable');
+    row.type = 'button';
+    row.setAttribute('aria-expanded', open ? 'true' : 'false');
+    row.onclick = function () { ui.open = open ? null : i; ui.renaming = null; render(); };
+    row.appendChild(el('span', 'wpt-lampcol'));
+    row.appendChild(el('span', 'wpt-numcol', (i + 1) + '.'));
+    row.appendChild(el('span', 'wpt-namecol', wp.name));
+    if (isNext) row.appendChild(el('span', 'wpt-tag', 'NEXT'));
+    row.appendChild(el('span', 'wpt-gridcol', gridOf(wp)));
+    row.appendChild(el('span', 'wpt-distcol', i === 0 ? '—' : fmtDist(legs[i])));
+    item.appendChild(row);
+    if (open && ui.renaming === i) {
+      item.appendChild(renameField('wpt-row-rename', function (name) { return WaypointsStore.renameWaypoint(i, name, route.id); }));
+    } else if (open) {
+      const pa = el('div', 'wpt-point-actions');
+      if (!received) pa.appendChild(button('RENAME', '', function () { startRename(i, wp.name); }));
+      // Flying from a point means flying this route: activate it first if it isn't already.
+      pa.appendChild(button('FLY FROM HERE', 'wpt-btn-amber', function () {
+        (active ? Promise.resolve() : WaypointsStore.setActiveRoute(route.id))
+          .then(function () { return WaypointsStore.resetWaypoint(i); }).then(render);
+      }));
+      if (!received) {
+        const up = button('▲', '', function () { ui.open = i - 1; WaypointsStore.reorderWaypoint(i, i - 1, route.id).then(render); }, 'Move point ' + (i + 1) + ' up');
+        up.disabled = i === 0;
+        const down = button('▼', '', function () { ui.open = i + 1; WaypointsStore.reorderWaypoint(i, i + 1, route.id).then(render); }, 'Move point ' + (i + 1) + ' down');
+        down.disabled = i === n - 1;
+        pa.appendChild(up); pa.appendChild(down);
+        pa.appendChild(button('DELETE', 'wpt-btn-del', function () { ui.open = null; WaypointsStore.removeWaypoint(i, route.id).then(render); }, 'Delete point ' + (i + 1)));
+      }
+      item.appendChild(pa);
+    }
+    rowsEl.appendChild(item);
+  });
+  const empty = $('wpt-rows-empty');
+  empty.hidden = n > 0;
+  empty.textContent = active ? 'long-press MAP to add a waypoint' : 'activate the route, then long-press MAP to add waypoints';
 }
 
-function renderReadout() {
+function renderSteerPane(c) {
+  const points = c.steerPoints || [];
+  const routeOn = !!WptRoute.findRoute(c.routes || [], c.activeRouteId);
+  const chosenId = c.activeSteerPointId;
+  const guiding = !!WptRoute.findSteerPoint(points, chosenId) && !routeOn;
+  renderPaneHead('STEER POINTS', 'stp', routeOn ? 'ROUTE HAS PRIORITY' : (guiding ? 'GUIDING' : ''), guiding ? 'amber' : '', null);
+  $('wpt-pane-meta').textContent = points.length + ' POINTS · guides only while no route is active';
+
+  const acts = $('wpt-pane-actions');
+  acts.innerHTML = '';
+  if (!ui.adding) acts.appendChild(button('+ NEW STEER POINT', 'wpt-btn-go', function () {
+    ui.adding = true; $('wpt-grid-input').value = ''; render(); $('wpt-grid-input').focus();
+  }));
+  $('wpt-grid-row').hidden = !ui.adding;
+  updateGridHint();
+
+  $('wpt-lastcol').textContent = 'DIST';
+  distCells = [];
+  rowsEl.innerHTML = '';
+  WaypointsStore.pendingSharedSteerPoints().forEach(function (p) {
+    const item = el('div', 'wpt-point pending');
+    const row = el('div', 'wpt-row');
+    row.appendChild(el('span', 'wpt-lampcol'));
+    row.appendChild(el('span', 'wpt-numcol', '—'));
+    row.appendChild(el('span', 'wpt-namecol', (p.name || 'STEER POINT') + ' · from ' + (p.fromName || 'squad leader')));
+    row.appendChild(el('span', 'wpt-tag wpt-tag-squad', 'SHARED'));
+    item.appendChild(row);
+    const pa = el('div', 'wpt-point-actions');
+    pa.appendChild(button('ACCEPT', 'wpt-btn-squad', function () { WaypointsStore.acceptSharedSteerPoint(p.id).then(render); }));
+    pa.appendChild(button('DISMISS', '', function () { WaypointsStore.rejectSharedSteerPoint(p.id).then(render); }));
+    item.appendChild(pa);
+    rowsEl.appendChild(item);
+  });
+  points.forEach(function (p, i) {
+    const chosen = p.id === chosenId, open = ui.open === i;
+    const received = !!p.sharedBy;
+    const item = el('div', 'wpt-point stp' + (chosen ? ' chosen' : '') + (chosen && !routeOn ? ' guiding' : '') + (open ? ' open' : ''));
+    const row = el('button', 'wpt-row pad-hoverable');
+    row.type = 'button';
+    row.setAttribute('aria-expanded', open ? 'true' : 'false');
+    row.onclick = function () { ui.open = open ? null : i; ui.renaming = null; render(); };
+    row.appendChild(el('span', 'wpt-lampcol'));
+    row.appendChild(el('span', 'wpt-numcol', (i + 1) + '.'));
+    row.appendChild(el('span', 'wpt-namecol', p.name));
+    if (chosen) row.appendChild(el('span', 'wpt-tag', routeOn ? 'ACTIVE' : 'GUIDING'));
+    if (received || p.sharedWithSquad) row.appendChild(el('span', 'wpt-tag wpt-tag-squad', 'SQD'));
+    row.appendChild(el('span', 'wpt-gridcol', gridOf(p)));
+    const dist = el('span', 'wpt-distcol', fmtDist(ownDist(p)));
+    distCells.push({ cell: dist, point: p });
+    row.appendChild(dist);
+    item.appendChild(row);
+    if (open && ui.renaming === i) {
+      item.appendChild(renameField('wpt-row-rename', function (name) { return WaypointsStore.renameSteerPoint(p.id, name); }));
+    } else if (open) {
+      const pa = el('div', 'wpt-point-actions');
+      if (!chosen) pa.appendChild(button('GUIDE TO', 'wpt-btn-amber', function () { WaypointsStore.setActiveSteerPoint(p.id).then(render); }));
+      if (!received) pa.appendChild(button('RENAME', '', function () { startRename(i, p.name); }));
+      if (!received && canShare()) pa.appendChild(shareButton(function () { return WaypointsStore.shareSteerPoint(p.id); }));
+      pa.appendChild(button(received ? 'REMOVE' : 'DELETE', 'wpt-btn-del', function () { ui.open = null; WaypointsStore.deleteSteerPoint(p.id).then(render); },
+        received ? 'Remove from your steer points' : 'Delete steer point'));
+      item.appendChild(pa);
+    }
+    rowsEl.appendChild(item);
+  });
+  const empty = $('wpt-rows-empty');
+  empty.hidden = rowsEl.childElementCount > 0;
+  empty.textContent = 'no steer points · + NEW STEER POINT, or long-press MAP with no route active';
+}
+
+// Disabled while a send is in flight (and briefly after) so mashing it can't fire a burst of share
+// commands. Only the first share needs it: RouteStore re-shares the item on later edits by itself.
+function shareButton(send) {
+  const b = button('SHARE', 'wpt-btn-squad', function () {
+    if (b.disabled) return;
+    b.disabled = true;
+    send().then(function () {
+      b.textContent = 'SHARED';
+      setTimeout(function () { b.textContent = 'SHARE'; b.disabled = false; }, 1200);
+    }).catch(function () { b.disabled = false; });
+  }, 'Share with the squad');
+  return b;
+}
+
+// ── next-point strip ───────────────────────────────────────────────────────────────────
+function renderNext() {
   const c = WaypointsStore.load();
-  const route = WptRoute.findRoute(c.routes, c.activeRouteId);
+  const route = WptRoute.findRoute(c.routes || [], c.activeRouteId);
   const target = WptRoute.navigationTarget(c);
-  if (route && !target) {
-    readoutEl.textContent = 'ROUTE COMPLETE'; hideNeedle(); return;
+  const needle = $('wpt-needle');
+  const set = function (kind, title, grid, brg, dist, left) {
+    $('wpt-next-kind').textContent = kind; $('wpt-next-title').textContent = title; $('wpt-next-grid').textContent = grid;
+    $('wpt-next-brg').textContent = brg; $('wpt-next-dist').textContent = dist; $('wpt-next-left').textContent = left;
+  };
+  if (!target) {
+    needle.style.display = 'none';
+    set(route ? 'ROUTE' : '', route ? 'COMPLETE' : 'NO NAVIGATION POINT', '', '—', '—', '—');
+    return;
   }
-  if (!target) { readoutEl.textContent = 'NO NAVIGATION POINT'; hideNeedle(); return; }
-  const label = target.kind === 'steerpoint'
-    ? (target.point.name || ('STEER POINT ' + (target.index + 1)))
-    : waypointLabel(target.point, target.index);
-  const prefix = target.kind === 'steerpoint' ? 'STEER: ' : 'NEXT: ';
-  if (mapinfo.x == null) { readoutEl.textContent = prefix + label; hideNeedle(); return; }
-  const { distM, brgDeg } = WptRoute.distanceBearing(mapinfo.x, mapinfo.z, target.point.x, target.point.z);
-  readoutEl.textContent = prefix + label + '  BRG ' + Math.round(brgDeg) + '°  DIST ' + fmtDist(distM);
-  updateCompass(brgDeg);
+  const p = target.point, isWpt = target.kind === 'waypoint';
+  const title = (isWpt ? 'WPT ' : 'STP') + (target.index + 1) + (p.name ? ' · ' + p.name : '');
+  const grid = gridOf(p).toUpperCase();
+  if (mapinfo.x == null) { needle.style.display = 'none'; set(isWpt ? 'NEXT' : 'STEER', title, grid, '—', '—', '—'); return; }
+  const db = WptRoute.distanceBearing(mapinfo.x, mapinfo.z, p.x, p.z);
+  set(isWpt ? 'NEXT' : 'STEER', title, grid, fmtDeg(db.brgDeg), fmtDist(db.distM),
+    isWpt ? fmtDist(WptRoute.remainingDistance(route, mapinfo.x, mapinfo.z)) : '—');
+  if (typeof mapinfo.hdg === 'number') {
+    needle.style.display = '';
+    needle.setAttribute('transform', 'rotate(' + WptRoute.relativeBearing(db.brgDeg, mapinfo.hdg) + ' 50 50)');
+  } else needle.style.display = 'none';
 }
 
-// The ring always shows; only the needle hides when there is no effective target, an active route
-// is complete, or position/heading is unavailable. The ring then reads as "no bearing right now."
-function hideNeedle() { compassNeedle.style.display = 'none'; }
-
-// The needle points at WptRoute.relativeBearing(brgDeg, hdg) — 0° (straight up) when the aircraft
-// is already pointed at the waypoint, sweeping clockwise the same direction the pilot would need
-// to turn — a compass rose read nose-relative, not north-up.
-function updateCompass(brgDeg) {
-  if (typeof mapinfo.hdg !== 'number') { hideNeedle(); return; }
-  compassNeedle.style.display = '';
-  const rel = WptRoute.relativeBearing(brgDeg, mapinfo.hdg);
-  compassNeedle.setAttribute('transform', 'rotate(' + rel + ' 50 50)');
+// ── typed-in steer point ───────────────────────────────────────────────────────────────
+function mapMeta() { return mapinfo.ox == null || mapinfo.w == null ? null : { ox: mapinfo.ox, oy: mapinfo.oy, w: mapinfo.w, h: mapinfo.h }; }
+function parsedGrid() {
+  const text = $('wpt-grid-input').value.trim();
+  if (!text) return { state: 'empty' };
+  if (!/^[a-z]{2}\d{2}$/i.test(text)) return { state: 'bad', why: 'not a grid' };
+  const meta = mapMeta();
+  if (!meta) return { state: 'bad', why: 'needs a mission' };
+  const at = gridToWorld(text, meta);
+  if (!at) return { state: 'bad', why: 'off the map' };
+  return { state: 'ok', at: at, label: text[0].toUpperCase() + text[1].toLowerCase() + text.slice(2) };
 }
+function updateGridHint() {
+  const g = parsedGrid(), hint = $('wpt-grid-hint'), input = $('wpt-grid-input');
+  const count = (WaypointsStore.load().steerPoints || []).length;
+  hint.textContent = g.state === 'empty' ? 'two letters, two digits' : g.state === 'ok' ? 'adds STP' + (count + 1) + ' at ' + g.label.toUpperCase() : g.why;
+  hint.className = 'wpt-entry-hint' + (g.state === 'ok' ? ' ok' : g.state === 'bad' ? ' bad' : '');
+  input.classList.toggle('bad', g.state === 'bad');
+  $('wpt-grid-add').disabled = g.state !== 'ok';
+}
+function addGridPoint() {
+  const g = parsedGrid();
+  if (g.state !== 'ok') return;
+  ui.adding = false;
+  WaypointsStore.addSteerPoint(g.at.x, g.at.z, '').then(render);
+}
+function cancelGrid() { ui.adding = false; render(); }
+$('wpt-grid-input').oninput = updateGridHint;
+$('wpt-grid-input').onkeydown = function (e) { if (e.key === 'Enter') addGridPoint(); else if (e.key === 'Escape') cancelGrid(); };
+$('wpt-grid-add').onclick = addGridPoint;
+$('wpt-grid-cancel').onclick = cancelGrid;
 
-// The waypoint list's grid-label column is only rebuilt by render() (on load/edit/storage) — this
-// page paints once, synchronously, before the shell's first 'mapinfo' message can possibly have
-// arrived, so mapinfo.ox/oy are still null at that first render() and the column would otherwise
-// stay stuck on '—' forever, even once real values start flowing through renderReadout() below.
+// ── new route / clear ──────────────────────────────────────────────────────────────────
+const newName = $('wpt-new-name');
+$('wpt-new-route').onclick = function () {
+  closePanels();
+  $('wpt-new-row').hidden = false;
+  newName.value = WaypointsStore.freshRouteName();   // pre-filled, editable
+  newName.focus(); newName.select();
+};
+$('wpt-new-cancel').onclick = function () { $('wpt-new-row').hidden = true; };
+$('wpt-new-confirm').onclick = function () {
+  const name = newName.value.trim();
+  $('wpt-new-row').hidden = true;
+  ui.view = null;   // the plugin activates a new route; show it once it's polled back
+  WaypointsStore.createRoute(name || null).then(render);
+};
+newName.onkeydown = function (e) { if (e.key === 'Enter') $('wpt-new-confirm').click(); else if (e.key === 'Escape') $('wpt-new-cancel').click(); };
+// CLEAR drops every route at once, no confirmation, same as a route's own DELETE.
+$('wpt-clear-routes').onclick = function () { closePanels(); ui.view = null; WaypointsStore.clearRoutes().then(render); };
+
+// ── import / export (one panel, two modes) ─────────────────────────────────────────────
+const io = { panel: $('wpt-io'), label: $('wpt-io-label'), text: $('wpt-io-text'), error: $('wpt-io-error'),
+             primary: $('wpt-io-primary'), copy: $('wpt-io-copy') };
+$('wpt-import-route').onclick = function () {
+  $('wpt-new-row').hidden = true;
+  io.label.textContent = 'IMPORT ROUTE — paste an exported route\'s JSON';
+  io.text.value = ''; io.text.readOnly = false; io.error.textContent = '';
+  io.primary.hidden = false; io.copy.hidden = true; io.panel.hidden = false;
+  io.text.focus();
+};
+io.primary.onclick = function () {
+  // Pre-validated here for an instant error: POST /command can't report a bad paste back.
+  // RouteStore.ImportRoute re-parses server-side as the real source of truth.
+  if (!WptRoute.parseRouteJSON(io.text.value)) { io.error.textContent = 'Could not read that as a route — check the pasted JSON.'; return; }
+  io.panel.hidden = true;
+  ui.view = null;
+  WaypointsStore.importRoute(io.text.value).then(render);
+};
+function openExport(id) {
+  const json = WaypointsStore.exportRoute(id);
+  if (!json) return;   // deleted between the click and here
+  $('wpt-new-row').hidden = true;
+  io.label.textContent = 'EXPORT ROUTE — copy this and send it to share the route';
+  io.text.value = json; io.text.readOnly = true; io.error.textContent = '';
+  io.primary.hidden = true; io.copy.hidden = false; io.copy.textContent = 'COPY'; io.panel.hidden = false;
+  io.text.focus(); io.text.select();
+}
+io.copy.onclick = function () {
+  io.text.focus(); io.text.select();
+  // navigator.clipboard needs a secure context; plain http:// over the LAN (how this mod is
+  // reached) doesn't have one, so fall back to execCommand on the selection made above.
+  const done = function () { io.copy.textContent = 'COPIED'; setTimeout(function () { io.copy.textContent = 'COPY'; }, 1200); };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(io.text.value).then(done, function () { try { document.execCommand('copy'); done(); } catch (e) {} });
+  } else { try { document.execCommand('copy'); done(); } catch (e) {} }
+};
+$('wpt-io-close').onclick = function () { io.panel.hidden = true; };
+
+// ── live ticks ─────────────────────────────────────────────────────────────────────────
+// Grid labels only change when the map offsets do (the first mapinfo after load, or a new map), so
+// that re-renders; every other tick just refreshes the strip and the DIST cells.
 let gridMetaKey = mapinfo.ox + ',' + mapinfo.oy;
-
 function tick() {
-  // Proximity-advance is no longer this page's job (docs/hud-waypoint-indicator.md, Option 2) —
-  // the plugin ticks RouteStore.AdvanceIfNear itself every second regardless of what page is
-  // open anywhere, so the shell's relayed 'wpt-options-push' (docs/sse-push-refactor.md) is what
-  // surfaces an advance here, the same as any other change made from a different display.
   const key = mapinfo.ox + ',' + mapinfo.oy;
-  if (key !== gridMetaKey) { gridMetaKey = key; render(); }
-  renderReadout();
+  if (key !== gridMetaKey) { gridMetaKey = key; render(); return; }
+  renderNext();
+  distCells.forEach(function (d) { d.cell.textContent = fmtDist(ownDist(d.point)); });
+  if (ui.adding) updateGridHint();
 }
 
-// ── PAD cursor (docs/page-cursor.md) ──────────────────────────────────────────────────
-// Same crosshair/transport MAP/TGT/HUD use (pad-cursor.js), driven here only while this WPT is the
-// SOI's focused surface. Every clickable control already has a real onclick — no per-element-type
-// dispatch needed (contrast TGT's tgt.set/clear-datalink/clear-stale split), so Select is just a
-// synthetic click at the crosshair's point, same as HUD. #pad-cursor is position:fixed (wpt.css) —
-// the one MFD page whose own body scrolls rather than a fixed-size panel — so (x, y) here are
-// already plain viewport coordinates; no panel-rect offset math needed, unlike TGT/HUD.
+// ── PAD cursor (docs/page-cursor.md) ───────────────────────────────────────────────────
+// Every control is a real button, so Select is a synthetic click at the crosshair, same as HUD.
 const CURSORABLE = '.pad-hoverable';
-const padCursorEl = document.getElementById('pad-cursor');
 const cursor = createPadCursor({
-  el: padCursorEl,
+  el: $('pad-cursor'),
   clampRect: () => ({ dx: 0, dy: 0, dw: window.innerWidth, dh: window.innerHeight }),
-  onSelect: padCursorSelectAt,
+  onSelect: function (x, y) { const raw = document.elementFromPoint(x, y); const t = raw && raw.closest(CURSORABLE); if (t) t.click(); },
   onMove: padCursorMoveAt,
 });
-
-function padCursorSelectAt(x, y) {
-  const raw = document.elementFromPoint(x, y);
-  const el = raw && raw.closest(CURSORABLE);
-  if (el) el.click();
-}
-
-// Hover feedback (docs/page-cursor.md #2): the shared .pad-hoverable/.pad-hover pair (theme.css).
-// Tolerates the row being destroyed/recreated out from under it (render() rebuilds the lists on
-// every edit) — a stale hoveredEl just fails the `=== ` check and gets replaced next move.
+// Hover feedback: the shared .pad-hoverable/.pad-hover pair (theme.css). A row rebuilt under it just
+// fails the identity check and is replaced on the next move.
 let hoveredEl = null;
 function padCursorMoveAt(x, y) {
   const raw = x == null ? null : document.elementFromPoint(x, y);
-  const el = raw && raw.closest(CURSORABLE);
-  if (el === hoveredEl) return;
+  const t = raw && raw.closest(CURSORABLE);
+  if (t === hoveredEl) return;
   if (hoveredEl) hoveredEl.classList.remove('pad-hover');
-  hoveredEl = el;
+  hoveredEl = t;
   if (hoveredEl) hoveredEl.classList.add('pad-hover');
 }
 
-// Zoom In/Out (map-act's zoom-in/zoom-out) are repurposed here to scroll the page — nothing on this
-// page to zoom, and the binds already exist end-to-end (docs/page-cursor.md), same as TGT/HUD.
-const SCROLL_STEP = 60;   // flat constant tuned by feel, like pad-cursor.js's own SPEED
+// Zoom In/Out scroll the list (nothing here zooms), same as TGT/HUD.
+const SCROLL_STEP = 60;
 
 window.addEventListener('message', function (e) {
   const m = e.data;
   if (!m || m.mfd !== true) return;
   if (m.type === 'mapinfo') { mapinfo = m; tick(); return; }
+  if (m.type === 'sqd-state') { applySquad(m.data); return; }
   if (m.action === 'cursor-focus') cursor.setFocus(!!m.on, window.innerWidth / 2, window.innerHeight / 2);
   else if (m.action === 'cursor') cursor.setVector(m.x, m.y);
   else if (m.action === 'cursor-select') cursor.select();
-  else if (m.action === 'zoom-in') window.scrollBy({ top: SCROLL_STEP });
-  else if (m.action === 'zoom-out') window.scrollBy({ top: -SCROLL_STEP });
-  // Route and navigation physical keybinds use the same actions as MAP. The navigation pair is
-  // labelled W+/W- or S+/S- by the shell, while RouteStore decides what the action steps.
+  else if (m.action === 'zoom-in') mainEl.scrollBy({ top: SCROLL_STEP });
+  else if (m.action === 'zoom-out') mainEl.scrollBy({ top: -SCROLL_STEP });
+  // Route and navigation physical keybinds use the same actions as MAP; RouteStore decides what
+  // the navigation pair steps.
   else if (m.action === 'route-next')    { WaypointsStore.cycleActiveRoute(1).then(render); }
   else if (m.action === 'route-prev')    { WaypointsStore.cycleActiveRoute(-1).then(render); }
   else if (m.action === 'waypoint-next') { WaypointsStore.stepNavigation(1).then(render); }
   else if (m.action === 'waypoint-prev') { WaypointsStore.stepNavigation(-1).then(render); }
 });
 
-// Another tab/pane, another device, or MAP itself changed navigation data — the plugin is the single
-// source of truth now (docs/hud-waypoint-indicator.md), so this fires off WaypointsStore's own
-// poll of /wpt-options rather than a same-PC-only localStorage 'storage' event. A route arriving
-// from a squadmate lands the same way: the shell hands it to the plugin (wpt.import), and this
-// fires once RouteStore's next poll picks it up.
+// Any display, device or MAP changed navigation data: the plugin is the source of truth, and
+// waypoints-store.js fires this once its cache picks the change up.
 window.addEventListener('wptroutes:changed', render);
 
-// ── Squad (docs/squadron-transport.md) ─────────────────────────────────────────────────
-// Squad membership/invites live on the dedicated SQD page — this page only needs to know whether
-// IT can share a route right now, i.e. whether we're the squad leader with at least one member.
-// Rides the shell's relayed 'sqd-state' push (docs/sse-push-refactor.md) — one bootstrap GET /squad
-// on load for the brief gap before the first push (and for standalone/preview contexts with no
-// shell), then just a message listener; no recurring poll of its own.
-const sqd = { role: 'none', members: [] };
-
+// ── squad (docs/squadron-transport.md) ─────────────────────────────────────────────────
+// Only needed to know whether SHARE can show: squad leader with at least one member. Rides the
+// shell's relayed 'sqd-state' push; one bootstrap GET /squad covers the gap before the first push
+// and standalone/preview contexts with no shell.
 function applySquad(s) {
   if (!s || !s.state) return;
-  sqd.role    = s.state.role || 'none';
+  sqd.role = s.state.role || 'none';
   sqd.members = Array.isArray(s.state.members) ? s.state.members : [];
-  render();   // the per-route share button appears/disappears with leadership + membership
+  render();
 }
+fetch('/squad').then(r => r.ok ? r.json() : null).then(applySquad)
+  .catch(function () { /* standalone/preview without the plugin: SHARE stays hidden */ });
 
-function refreshSquad() {
-  return fetch('/squad').then(r => r.ok ? r.json() : null).then(applySquad)
-    .catch(function () { /* standalone/preview without the plugin — share stays hidden */ });
-}
-
-// Disabled while a send is in flight (and briefly after) so mashing the button can't fire a burst
-// of wpt.share commands — RouteStore.ShareRoute/BroadcastIfShared already ignore a duplicate id
-// server-side, so this is a courtesy against needless network chatter, not the actual dedup
-// enforcement. Only the FIRST share needs this button at all — RouteStore flips on auto-reshare
-// for the route from then on, so later edits push on their own with no further clicks.
-function shareRoute(id, btn) {
-  if (btn.disabled) return;
-  const was = btn.textContent;
-  btn.disabled = true;
-  WaypointsStore.shareRoute(id)
-    .then(function () {
-      btn.textContent = '✓';
-      setTimeout(function () { btn.textContent = was; btn.disabled = false; }, 1200);
-    })
-    .catch(function () { btn.disabled = false; });
-}
-
-function shareSteerPoint(id, btn) {
-  if (btn.disabled) return;
-  const was = btn.textContent;
-  btn.disabled = true;
-  WaypointsStore.shareSteerPoint(id)
-    .then(function () {
-      btn.textContent = '✓';
-      setTimeout(function () { btn.textContent = was; btn.disabled = false; }, 1200);
-    })
-    .catch(function () { btn.disabled = false; });
-}
-
-refreshSquad();
-window.addEventListener('message', function (e) {
-  const m = e.data;
-  if (!m || m.mfd !== true || m.type !== 'sqd-state') return;
-  applySquad(m.data);
-});
-render();   // also paints the readout — see render()'s own comment
+render();

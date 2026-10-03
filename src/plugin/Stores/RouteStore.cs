@@ -370,6 +370,12 @@ namespace NOXMFD
 
         private static Route? ActiveRoute => FindRoute(_activeRouteId);
 
+        // The waypoint editors take an optional route id so WPT can edit a route it has open without
+        // activating it; MAP, the keybinds and the extension API send none and keep acting on the
+        // active route.
+        private static Route? RouteOrActive(string? id) =>
+            string.IsNullOrEmpty(id) ? ActiveRoute : FindRoute(id);
+
         private static SteerPoint? FindSteerPoint(string? id) =>
             id == null ? null : _steerPoints.Find(p => p.Id == id);
 
@@ -924,9 +930,9 @@ namespace NOXMFD
             "\",\"x\":" + point.X.ToString("0.0", CultureInfo.InvariantCulture) +
             ",\"z\":" + point.Z.ToString("0.0", CultureInfo.InvariantCulture) + "}";
 
-        public static bool RenameWaypoint(int index, string name)
+        public static bool RenameWaypoint(int index, string name, string? routeId = null)
         {
-            Route? route = ActiveRoute;
+            Route? route = RouteOrActive(routeId);
             if (route == null || route.IsShared || index < 0 || index >= route.Waypoints.Count) return false;
             route.Waypoints[index].Name = name;
             Save();
@@ -934,9 +940,9 @@ namespace NOXMFD
             return true;
         }
 
-        public static bool ReorderWaypoint(int from, int to)
+        public static bool ReorderWaypoint(int from, int to, string? routeId = null)
         {
-            Route? route = ActiveRoute;
+            Route? route = RouteOrActive(routeId);
             if (route == null || route.IsShared || from < 0 || from >= route.Waypoints.Count || to < 0 || to >= route.Waypoints.Count) return false;
             Waypoint moved = route.Waypoints[from];
             route.Waypoints.RemoveAt(from);
@@ -962,9 +968,9 @@ namespace NOXMFD
         // nextIndex is a COUNT of completed waypoints, not a waypoint's identity. A delete before
         // it shifts it down by one (one fewer completed ahead of it); a delete AT it leaves the
         // number as-is (now naming whatever slid up into that slot); a delete after it is untouched.
-        public static bool RemoveWaypoint(int index)
+        public static bool RemoveWaypoint(int index, string? routeId = null)
         {
-            Route? route = ActiveRoute;
+            Route? route = RouteOrActive(routeId);
             if (route == null || route.IsShared || index < 0 || index >= route.Waypoints.Count) return false;
             route.Waypoints.RemoveAt(index);
             if (index < route.NextIndex) route.NextIndex--;

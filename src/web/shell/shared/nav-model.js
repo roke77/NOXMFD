@@ -162,8 +162,27 @@
     // returns to MAIN.
     wpn: [],
     // WPT is reached from MAP's own nav row (above), so its way back is MAP, not MAIN — same
-    // reasoning as tgp/avn/etc.'s single-entry back links.
-    wpt: [ { label: 'MAP', action: 'map' } ],
+    // reasoning as tgp/avn/etc.'s single-entry back links. WPT, RTD (route details) and SPD
+    // (steer-point details) switch directly between each other, `mark` on the current one, same
+    // pattern as the CFG group below (docs/wpt-rework.md).
+    wpt: [
+      { label: 'MAP', action: 'map' },
+      { label: 'WPT', action: 'wpt', mark: true },
+      { label: 'RTD', action: 'rtd' },
+      { label: 'SPD', action: 'spd' },
+    ],
+    rtd: [
+      { label: 'MAP', action: 'map' },
+      { label: 'WPT', action: 'wpt' },
+      { label: 'RTD', action: 'rtd', mark: true },
+      { label: 'SPD', action: 'spd' },
+    ],
+    spd: [
+      { label: 'MAP', action: 'map' },
+      { label: 'WPT', action: 'wpt' },
+      { label: 'RTD', action: 'rtd' },
+      { label: 'SPD', action: 'spd', mark: true },
+    ],
     // SQD (docs/squadron-transport.md) — squad membership/invites, reached from MAIN like HUD/CFG/
     // MD/RDR/AFM (BEZEL_EXTRAS.main / f35.js's MAIN_EXTRAS), not from another page's own nav row.
     sqd: [ { label: 'MAIN', action: 'main' } ],

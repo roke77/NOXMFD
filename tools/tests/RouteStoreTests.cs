@@ -121,6 +121,29 @@ namespace NOXMFD.Tests
             Assert.Contains("\"nextIndex\":1", RouteStore.RoutesJson); // clamped, not the out-of-range 99
         }
 
+        // WPT edits the route it has open, which need not be the active one: a route id must land the
+        // edit on that route and leave the active route (and its progress) untouched.
+        [Fact]
+        public void Waypoint_edits_with_a_route_id_target_that_route_not_the_active_one()
+        {
+            Route open = RouteStore.CreateRoute("Open");
+            RouteStore.AddWaypoint(0, 0, "O0");
+            RouteStore.AddWaypoint(1, 1, "O1");
+            RouteStore.AddWaypoint(2, 2, "O2");
+            Route active = RouteStore.CreateRoute("Active");   // becomes the active route
+            RouteStore.AddWaypoint(5, 5, "A0");
+
+            Assert.True(RouteStore.RenameWaypoint(0, "Renamed", open.Id));
+            Assert.True(RouteStore.ReorderWaypoint(0, 2, open.Id));   // O1, O2, Renamed
+            Assert.True(RouteStore.RemoveWaypoint(0, open.Id));       // O2, Renamed
+
+            Assert.Equal(new[] { "O2", "Renamed" }, open.Waypoints.ConvertAll(w => w.Name).ToArray());
+            Assert.Single(active.Waypoints);
+            Assert.Equal("A0", active.Waypoints[0].Name);
+            Assert.Contains("\"activeRouteId\":\"" + active.Id + "\"", RouteStore.RoutesJson);
+            Assert.False(RouteStore.RenameWaypoint(0, "x", "does-not-exist"));
+        }
+
         [Fact]
         public void CycleActiveRoute_wraps_through_a_none_state()
         {

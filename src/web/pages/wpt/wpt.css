@@ -1,197 +1,248 @@
-/* WPT (waypoints/route creator, issue #38) page styles. Page chrome (.wpt-panel/.wpt-back/
-   .wpt-title, the scrollbar rules, the row/row-btn pattern) lives in shared/page-chrome.css now —
-   everything below is what's actually specific to this page. */
+/* WPT page (docs/wpt-rework.md, design "WPT A · Routes"): route cards and the fixed steer-point
+   group on the left, the open route or group on the right. Same full-panel frame as TGT: a header
+   with a green-dark rule, and side insets that clear the shell's upright bezel labels. Sizes are em
+   of .wpt-panel's font-size (1em = the design's 16px at full view), so a split pane scales down. */
 
-/* PAD cursor (docs/page-cursor.md): the shared .pad-cursor is position:absolute, which assumes a
-   non-scrolling body (true for MAP/TGT/HUD's fixed-size panels) — WPT's own body scrolls (above),
-   so an absolute crosshair would drift away with the page instead of staying where the pilot parked
-   it. position:fixed anchors it to the viewport instead; wpt.js's clampRect matches, using the
-   viewport's own bounds rather than a panel's getBoundingClientRect(). */
+* { box-sizing: border-box; }
+
+html, body {
+  height: 100%;
+  margin: 0;
+  background: var(--no-bg);
+  color: var(--no-green);
+  font-family: var(--no-font);
+  overflow: hidden;
+}
+
+/* PAD cursor (docs/page-cursor.md): clamped to the window (wpt.js), so it positions against it. */
 #pad-cursor { position: fixed; }
 
-.wpt-help {
-  max-width: 552px;
-  margin: 0 auto 19px;
-  font-size: 13px;
-  line-height: 1.5;
-  color: var(--no-gray);
-  text-align: center;
+[hidden] { display: none !important; }
+
+.wpt-panel {
+  height: 100%;
+  display: flex; flex-direction: column;
+  gap: 0.5em;
+  padding: clamp(6px, 1.8vmin, 16px);
+  padding-left: clamp(34px, 5vw, 48px);
+  padding-right: clamp(34px, 5vw, 48px);
+  /* --fs is the design's 16px; table columns size off it so header and rows line up whatever
+     their own text size. */
+  --fs: clamp(10px, 1.8vmin, 16px);
+  font-size: var(--fs);
+}
+.wpt-fill { flex: 1 1 auto; }
+.wpt-k { font-size: 0.6875em; letter-spacing: 0.18em; color: var(--no-white-dim); }
+
+/* Header, as TGT's .tgt-head: 22px title, the hint opposite it, a green-dark rule underneath. */
+.wpt-head {
+  flex: none;
+  display: flex; align-items: baseline; gap: 1.1em;
+  border-bottom: 1px solid var(--no-green-dark);
+  padding-bottom: clamp(2px, 0.8vh, 6px);
+}
+.wpt-title { font-size: clamp(13px, 2.6vmin, 22px); letter-spacing: 0.08em; color: var(--no-green); margin-right: auto; }
+.wpt-hint { font-size: 0.75em; letter-spacing: 0.06em; color: var(--no-white-dim); text-align: right; }
+/* Standalone-only (wpt.js removes it inside the shell's frame). */
+.wpt-back { font-size: 0.75em; letter-spacing: 2px; color: var(--no-green-dim); text-decoration: none; }
+.wpt-back:hover { color: var(--no-green); }
+
+/* Next-point strip. */
+.wpt-next {
+  flex: none;
+  display: flex; align-items: center; gap: 0.875em; flex-wrap: wrap;
+  min-height: 3.5em;
+  padding: 0.25em 0.875em;
+  border: 1px solid var(--no-line);
+  border-radius: 4px;
+}
+.wpt-compass { width: 2.5em; height: 2.5em; flex: none; }
+.wpt-next-kind { font-size: 0.6875em; letter-spacing: 0.27em; color: var(--no-white-dim); }
+.wpt-next-title { font-size: 1.25em; letter-spacing: 0.05em; color: var(--no-amber); }
+.wpt-next-grid { font-size: 0.875em; color: var(--no-green-dim); }
+.wpt-next-val { display: flex; align-items: baseline; gap: 0.4em; font-size: 1.0625em; color: var(--no-white); white-space: nowrap; }
+.wpt-next-val .wpt-k { font-size: 0.65em; }
+.wpt-left { color: var(--no-green-dim); }
+
+/* Two columns that stack when the pane is too narrow for both; the row scrolls, not the page. */
+.wpt-main {
+  flex: 1 1 auto; min-height: 0;
+  overflow-y: auto;
+  display: flex; flex-wrap: wrap; align-items: flex-start; gap: 1em;
+  scrollbar-width: thin;
+  scrollbar-color: var(--no-gray) transparent;
+}
+.wpt-col { flex: 1 1 16.5em; max-width: 22em; display: flex; flex-direction: column; gap: 0.5em; }
+.wpt-pane {
+  flex: 999 1 22em; min-width: 0;
+  display: flex; flex-direction: column; gap: 0.625em;
+  padding: 0.875em 0.875em 0.75em;
+  border: 1px solid var(--no-line);
+  border-radius: 4px;
 }
 
-/* Bigger than the shared .mfd-chip (theme.css) it's built on — WPT's own readout, not the smaller
-   GRID/CURSOR chips elsewhere, so scoped here rather than bumping .mfd-chip itself. */
-.wpt-readout {
-  display: block;
-  width: fit-content;
-  margin: 0 auto 22px;
-  text-align: center;
-  font-size: 13px;
-  padding: 6px 11px;
+.wpt-col-head {
+  display: flex; align-items: center; gap: 0.375em;
+  height: 2.125em;
+  border-bottom: 1px solid var(--no-green-dark);
 }
+.wpt-col-label { font-size: 0.8125em; letter-spacing: 0.23em; color: var(--no-green-dim); }
 
-.wpt-compass {
-  width: 100px;
-  margin: 0 auto 22px;
-}
-/* The ring always shows; only the needle's own display (wpt.js) toggles when there's nothing to
-   point at. Rotation is set via the SVG group's own transform attribute (rotate(deg,50,50)), not
-   here — but it DOES benefit from a transition so the needle sweeps instead of jumping a whole
-   degree step every tick. */
-#wpt-compass-needle { transition: transform 0.2s linear; }
-
-.wpt-section { margin-bottom: 28px; }
-
-.wpt-section-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-size: 12px;
-  letter-spacing: 2px;
-  color: var(--no-green-dim);
-  border-bottom: 1px solid var(--no-panel-border);
-  padding-bottom: 6px;
-  margin-bottom: 10px;
-}
-.wpt-section-actions { display: flex; gap: 8px; }
-
+/* Small outlined buttons (header, actions, entry rows). */
 .wpt-btn {
-  padding: 5px 12px;
-  border: 1px solid var(--no-green-dim);
-  background: none;
-  color: var(--no-green-dim);
-  font-family: var(--no-font);
-  font-size: 11px;
-  letter-spacing: 1px;
+  font-family: inherit;
+  font-size: 0.6875em; letter-spacing: 0.1em;
+  min-height: 2.4em;
+  padding: 0 0.75em;
+  border: 1px solid var(--no-line);
+  border-radius: 3px;
+  background: transparent;
+  color: var(--no-text-soft);
   cursor: pointer;
-}
-.wpt-btn:hover { border-color: var(--no-green); color: var(--no-green); }
-.wpt-btn-ghost { border-color: var(--no-panel-border); color: var(--no-gray); }
-.wpt-btn-ghost:hover { border-color: var(--no-gray); color: var(--no-green-dim); }
-
-.wpt-new-row {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 10px;
-}
-.wpt-new-row input {
-  flex: 1;
-  background: var(--no-panel-bg);
-  border: 1px solid var(--no-panel-border);
-  color: var(--no-green);
-  font-family: var(--no-font);
-  font-size: 12px;
-  padding: 5px 8px;
-}
-.wpt-new-row input:focus { outline: 1px solid var(--no-green-dim); }
-
-.wpt-io-row {
-  margin-bottom: 10px;
-  padding: 10px;
-  border: 1px solid var(--no-panel-border);
-  background: var(--no-panel-bg);
-}
-.wpt-io-label {
-  font-size: 11px;
-  letter-spacing: 1px;
-  color: var(--no-green-dim);
-  margin-bottom: 6px;
-}
-.wpt-io-row textarea {
-  display: block;
-  width: 100%;
-  box-sizing: border-box;   /* border+padding count INSIDE the 100% — without this it overflows the panel */
-  resize: vertical;
-  background: var(--no-bg);
-  border: 1px solid var(--no-panel-border);
-  color: var(--no-green);
-  font-family: var(--no-font);
-  font-size: 11px;
-  padding: 6px 8px;
-}
-.wpt-io-row textarea:focus { outline: 1px solid var(--no-green-dim); }
-.wpt-io-row textarea[readonly] { color: var(--no-green-dim); }
-.wpt-io-error {
-  font-size: 11px;
-  color: var(--no-red);
-  margin-top: 6px;
-  min-height: 1em;
-}
-.wpt-io-actions {
-  display: flex;
-  gap: 8px;
-  margin-top: 8px;
-}
-
-.wpt-empty {
-  font-size: 11px;
-  letter-spacing: 0.5px;
-  color: var(--no-gray);
-  text-align: center;
-  padding: 10px 0;
-}
-.wpt-routes:not(:empty) + .wpt-empty,
-.wpt-waypoints:not(:empty) + .wpt-empty,
-.wpt-steerpoints:not(:empty) + .wpt-empty { display: none; }
-
-/* A squad-shared route awaiting accept/reject (docs/squadron-transport.md) — amber, same "needs a
-   decision" color the ACTIVE/NEXT marks already use, dashed rather than solid to read as pending,
-   not yet a real row in the list. */
-.wpt-row-pending {
-  border: 1px dashed var(--no-amber);
-  padding: 8px 7px;
-}
-.wpt-row-pending .wpt-row-name { color: var(--no-amber); white-space: normal; cursor: default; }
-/* The leader's own name within a pending share row — --no-squad (colors.css), same token the
-   already-established SQD label/LEADER mark use, so a leader's identity reads consistently
-   wherever it appears. Amber above stays on the "you need to decide" part of the row. */
-.wpt-row-pending-leader { color: var(--no-squad); }
-
-.wpt-row-name {
-  flex: 1;
-  color: var(--no-green-dim);
-  cursor: pointer;
-  overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
-.wpt-row.active .wpt-row-name,
-.wpt-row.next .wpt-row-name { color: var(--no-green); }
+.wpt-btn:disabled, .wpt-btn[aria-disabled="true"] { color: var(--no-text-faint); border-color: var(--no-line); cursor: default; }
+.wpt-btn-go    { border-color: var(--no-green); color: var(--no-green); }
+.wpt-btn-file  { border-color: var(--no-green-line); color: var(--no-green-dim); }
+.wpt-btn-del   { border-color: var(--no-red-line); color: var(--no-red); }
+.wpt-btn-amber { border-color: color-mix(in oklab, var(--no-bg), var(--no-amber) 35%); color: var(--no-amber); }
+.wpt-btn-squad { border-color: var(--no-squad-line); color: var(--no-squad); }
+.wpt-btn-wide  { flex: 1 1 0; min-height: 3.1em; }
 
-.wpt-row-mark {
-  font-size: 12px;
-  letter-spacing: 1px;
-  color: var(--no-amber);
-  flex: none;
+/* Inline entry rows (new route name, steer point grid). */
+.wpt-new-row, .wpt-entry {
+  display: flex; align-items: center; gap: 0.5em; flex-wrap: wrap;
+  padding: 0.5em 0.625em;
+  border: 1px solid var(--no-line);
+  border-radius: 4px;
 }
-
-/* Shared with the squad right now — leader's own route with auto-reshare on, or a route this
-   pilot accepted from the leader. --no-squad (colors.css) is this whole feature's colour — SQD's
-   own LEADER mark uses the same token — and keeps this visually distinct from ACTIVE/NEXT's amber.
-   Nested INSIDE .wpt-row-name (wpt.js), not a sibling flex item, so it reads right after the route
-   name itself instead of trailing off at the row's far edge. */
-.wpt-row-sqd-mark {
-  font-size: 12px;
-  letter-spacing: 1px;
-  color: var(--no-squad);
-}
-
-.wpt-row-grid {
-  font-size: 13px;
-  color: var(--no-gray);
-  flex: none;
-  min-width: 53px;
-}
-
-.wpt-row-save { color: var(--no-green-dim); }
-.wpt-row-save:hover { color: var(--no-green); }
-
-.wpt-row input[type="text"] {
-  flex: 1;
-  background: var(--no-panel-bg);
-  border: 1px solid var(--no-green-dim);
+.wpt-entry { border-color: color-mix(in oklab, var(--no-bg), var(--no-amber) 30%); background: var(--no-amber-bg); }
+.wpt-new-row input, .wpt-entry input, .wpt-rename input {
+  font-family: inherit;
+  font-size: 1em;
+  min-height: 2.25em;
+  padding: 0 0.5em;
+  border: 1px solid var(--no-line);
+  border-radius: 3px;
+  background: var(--no-bg);
   color: var(--no-green);
-  font-family: var(--no-font);
-  font-size: 14px;
-  padding: 4px 7px;
 }
+.wpt-new-row input { flex: 1 1 8em; min-width: 0; }
+.wpt-entry input { width: 5.75em; font-size: 1.125em; letter-spacing: 0.12em; color: var(--no-amber); }
+.wpt-entry input.bad { border-color: var(--no-red); }
+.wpt-entry-hint { flex: 1 1 auto; font-size: 0.6875em; letter-spacing: 0.06em; color: var(--no-text-faint); }
+.wpt-entry-hint.ok { color: var(--no-green-dim); }
+.wpt-entry-hint.bad { color: var(--no-red); }
 
+/* Route cards and the steer-point group card. */
+.wpt-routes { display: flex; flex-direction: column; gap: 0.5em; }
+.wpt-cardwrap { display: flex; flex-direction: column; border: 1px solid var(--no-card-line); border-radius: 4px; }
+.wpt-cardwrap.open { border-color: var(--no-text-faint); background: color-mix(in oklab, var(--no-bg), var(--no-green) 3%); }
+.wpt-card {
+  display: flex; align-items: center; gap: 0.625em;
+  width: 100%; min-height: 3.875em;
+  padding: 0 0.625em 0 0.5em;
+  border: 0; background: transparent;
+  font-family: inherit; color: inherit; text-align: left;
+  cursor: pointer;
+}
+.wpt-stp-card { border: 1px solid var(--no-card-line); border-radius: 4px; }
+.wpt-stp-card[aria-pressed="true"] { border-color: var(--no-text-faint); background: color-mix(in oklab, var(--no-bg), var(--no-green) 3%); }
+.wpt-lamp { flex: none; width: 5px; height: 2.125em; border-radius: 1px; background: var(--no-lamp-off); }
+.wpt-lamp.on { background: var(--no-green); box-shadow: 0 0 8px var(--no-green), 0 0 2px var(--no-green); }
+.wpt-lamp.amber { background: var(--no-amber); box-shadow: 0 0 8px var(--no-amber), 0 0 2px var(--no-amber); }
+.wpt-lamp.dim-amber { background: color-mix(in oklab, var(--no-bg), var(--no-amber) 35%); }
+.wpt-card-body { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 0.375em; }
+.wpt-card-name { font-size: 1em; letter-spacing: 0.06em; color: var(--no-text-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wpt-card-name.active { color: var(--no-green); }
+.wpt-card-name.squad { color: var(--no-squad); }
+.wpt-stp-name { color: var(--no-amber); }
+.wpt-card-meta { font-size: 0.75em; color: var(--no-green-dim); }
+.wpt-card-tags { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 0.2em; text-align: right; }
+.wpt-tag { font-size: 0.6875em; letter-spacing: 0.18em; color: var(--no-amber); }
+.wpt-tag-squad { color: var(--no-squad); }
+.wpt-tag-amber { color: var(--no-amber); }
+.wpt-tag-from { font-size: 0.6875em; letter-spacing: 0.06em; color: var(--no-squad); }
+.wpt-lock { width: 0.75em; height: 0.75em; fill: none; stroke: var(--no-white-dim); stroke-width: 1.4; }
+.wpt-chev { flex: none; font-size: 1em; color: var(--no-lamp-off); }
+.wpt-cardwrap.open .wpt-chev, .wpt-stp-card[aria-pressed="true"] .wpt-chev { color: var(--no-white); }
+.wpt-pending-actions { display: flex; gap: 0.375em; padding: 0 0.5em 0.5em; }
+.wpt-divider { height: 1px; margin-top: 0.375em; background: var(--no-green-dark); }
+.wpt-empty { font-size: 0.75em; letter-spacing: 0.06em; color: var(--no-text-faint); padding: 0.6em 0; }
+
+/* Right pane. */
+.wpt-pane-head { display: flex; align-items: baseline; gap: 0.875em; flex-wrap: wrap; }
+.wpt-pane-title { font-size: 1.625em; line-height: 1; letter-spacing: 0.08em; color: var(--no-white); overflow-wrap: anywhere; }
+.wpt-pane-title.active { color: var(--no-green); }
+.wpt-pane-title.squad { color: var(--no-squad); }
+.wpt-pane-title.stp { color: var(--no-amber); }
+.wpt-pane-status { font-size: 0.75em; letter-spacing: 0.12em; color: var(--no-white-dim); }
+.wpt-pane-status.amber { color: var(--no-amber); }
+.wpt-pane-status.squad { color: var(--no-squad); }
+.wpt-pane-meta { font-size: 0.75em; letter-spacing: 0.06em; color: var(--no-white-dim); }
+.wpt-actions { display: flex; gap: 0.375em; flex-wrap: wrap; }
+.wpt-actions:empty { display: none; }
+.wpt-rename { display: flex; gap: 0.375em; align-items: center; }
+.wpt-rename input { flex: 1 1 auto; min-width: 0; }
+
+.wpt-io { display: flex; flex-direction: column; gap: 0.5em; }
+.wpt-io textarea {
+  width: 100%;
+  font-family: inherit; font-size: 0.75em;
+  padding: 0.5em;
+  border: 1px solid var(--no-line); border-radius: 3px;
+  background: var(--no-bg); color: var(--no-green);
+  resize: vertical;
+}
+.wpt-io textarea[readonly] { color: var(--no-green-dim); }
+.wpt-io-error { font-size: 0.6875em; color: var(--no-red); }
+.wpt-io-error:empty { display: none; }
+
+/* Point table: one header row, then a button per point that expands into its actions. */
+.wpt-table-head, .wpt-row {
+  display: flex; align-items: center; gap: calc(var(--fs) * 0.75);
+  padding-right: calc(var(--fs) * 0.5);
+}
+.wpt-table-head {
+  margin-top: 0.25em;
+  height: 1.625em;
+  border-bottom: 1px solid var(--no-green-dark);
+  letter-spacing: 0.18em; color: var(--no-text-faint);
+}
+.wpt-table-head > span { font-size: 0.6875em; }
+.wpt-table-head .wpt-lampcol { height: 0; }
+.wpt-lampcol { flex: none; width: 5px; height: 1.5em; border-radius: 1px; }
+.wpt-numcol { flex: none; width: calc(var(--fs) * 1.75); }
+.wpt-namecol { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wpt-gridcol { flex: none; width: calc(var(--fs) * 3.25); }
+.wpt-distcol { flex: none; width: calc(var(--fs) * 4.75); text-align: right; }
+
+.wpt-point { border-bottom: 1px solid var(--no-card-line-faint); }
+.wpt-point.open { background: color-mix(in oklab, var(--no-bg), var(--no-green) 3%); }
+.wpt-point.next { background: var(--no-amber-bg); }
+.wpt-row {
+  width: 100%; min-height: 2.875em;
+  border: 0; background: transparent;
+  font-family: inherit; text-align: left;
+  color: var(--no-green);
+  cursor: pointer;
+}
+.wpt-row .wpt-numcol, .wpt-row .wpt-namecol { font-size: 1em; letter-spacing: 0.06em; }
+.wpt-row .wpt-gridcol, .wpt-row .wpt-distcol { font-size: 0.875em; color: var(--no-green-dim); }
+.wpt-row .wpt-tag { flex: none; }
+.wpt-point.passed .wpt-row { color: var(--no-text-faint); }
+.wpt-point.passed .wpt-gridcol, .wpt-point.passed .wpt-distcol { color: var(--no-text-faint); }
+.wpt-point.next .wpt-row { color: var(--no-amber); }
+.wpt-point.next .wpt-lampcol { background: var(--no-amber); box-shadow: 0 0 8px var(--no-amber), 0 0 2px var(--no-amber); }
+.wpt-point.open:not(.next) .wpt-lampcol { background: var(--no-white); }
+.wpt-point.squad .wpt-row { color: var(--no-squad); }
+.wpt-point.stp .wpt-row { color: var(--no-text-soft); }
+.wpt-point.stp.chosen .wpt-row { color: var(--no-amber); }
+.wpt-point.stp.chosen .wpt-lampcol { background: color-mix(in oklab, var(--no-bg), var(--no-amber) 35%); }
+.wpt-point.stp.guiding .wpt-lampcol { background: var(--no-amber); box-shadow: 0 0 8px var(--no-amber), 0 0 2px var(--no-amber); }
+.wpt-point.pending .wpt-row { color: var(--no-squad); cursor: default; }
+.wpt-point-actions { display: flex; gap: 0.375em; flex-wrap: wrap; padding: 0 0.5em 0.625em 1.1em; }
+.wpt-point-actions .wpt-btn { min-height: 3.1em; }
+.wpt-row-rename { display: flex; gap: 0.375em; align-items: center; padding: 0.375em 0.5em 0.375em 1.1em; }
+.wpt-row-rename input { flex: 1 1 auto; min-width: 0; font-family: inherit; font-size: 1em; min-height: 2.25em; padding: 0 0.5em;
+  border: 1px solid var(--no-line); border-radius: 3px; background: var(--no-bg); color: var(--no-green); }
