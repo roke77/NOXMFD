@@ -42,13 +42,7 @@ function button(label, cls, onClick, aria) {
   return b;
 }
 
-// km or nm per the player's unit setting (mapinfo.metric), as HSD/FCR/OBJ show range.
-function fmtDist(m) {
-  if (m == null) return '—';
-  const km = m / 1000;
-  return mapinfo.metric ? km.toFixed(1) + ' km' : (km * 0.539957).toFixed(1) + ' nm';
-}
-function fmtDeg(d) { return ('00' + Math.round(((d % 360) + 360) % 360)).slice(-3) + '°'; }
+function fmtDist(m) { return WptRoute.formatDistance(m, mapinfo.metric); }
 function gridOf(p) { return mapinfo.ox == null ? '—' : gridLabel(p.x, p.z, { ox: mapinfo.ox, oy: mapinfo.oy }); }
 function ownDist(p) { return mapinfo.x == null ? null : WptRoute.distanceBearing(mapinfo.x, mapinfo.z, p.x, p.z).distM; }
 function canShare() { return sqd.role === 'leader' && sqd.members.length > 0; }
@@ -345,7 +339,7 @@ function renderNext() {
   const grid = gridOf(p).toUpperCase();
   if (mapinfo.x == null) { needle.style.display = 'none'; set(isWpt ? 'NEXT' : 'STEER', title, grid, '—', '—', '—'); return; }
   const db = WptRoute.distanceBearing(mapinfo.x, mapinfo.z, p.x, p.z);
-  set(isWpt ? 'NEXT' : 'STEER', title, grid, fmtDeg(db.brgDeg), fmtDist(db.distM),
+  set(isWpt ? 'NEXT' : 'STEER', title, grid, WptRoute.formatBearing(db.brgDeg), fmtDist(db.distM),
     isWpt ? fmtDist(WptRoute.remainingDistance(route, mapinfo.x, mapinfo.z)) : '—');
   if (typeof mapinfo.hdg === 'number') {
     needle.style.display = '';

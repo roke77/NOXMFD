@@ -704,6 +704,18 @@ Left as found:
 - **DIAG98** (issue 98) builds a string with three reflection reads on every snapshot push. It is
   temporary and goes with the rest of the DIAG98 lines.
 
+## 2026-10-03 — post-0.69.3 code scan: WPT rework
+
+The WPT rework (docs/wpt-rework.md) adds two pages that follow the 10 Hz `mapinfo` slice. WPT and
+RTD/SPD rebuild their lists only when the navigation library changes; a `mapinfo` tick refreshes the
+readouts and the steer-point DIST cells in place. Shipped:
+
+- **RTD/SPD heading tape** is built once (a scale four tape-widths long) and slid with a transform
+  each tick, instead of rebuilding its ~100 tick elements at 10 Hz.
+
+Left as found: `mapinfo` now carries the map size (`w`, `h`), two numbers on a shell-local
+postMessage, not on the wire.
+
 ## Marginal polish — implemented
 
 - **#4 — split rates.** Contacts at map scale no longer rebuild at the full

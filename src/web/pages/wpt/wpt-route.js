@@ -53,6 +53,23 @@
     return ((brgDeg - hdg) % 360 + 540) % 360 - 180;
   }
 
+  // [value, unit] for a distance in meters, in the player's unit (km when metric, else nm) — the
+  // split HSD/FCR/OBJ's range readouts use. ['—', ''] when there's no distance.
+  function distanceParts(m, metric) {
+    if (m == null) return ['—', ''];
+    const km = m / 1000;
+    return metric ? [km.toFixed(1), 'km'] : [(km * 0.539957).toFixed(1), 'nm'];
+  }
+  function formatDistance(m, metric) {
+    const p = distanceParts(m, metric);
+    return p[1] ? p[0] + ' ' + p[1] : p[0];
+  }
+
+  // Three-digit bearing, 0-359: "005°".
+  function formatBearing(deg) {
+    return ('00' + Math.round(((deg % 360) + 360) % 360) % 360).slice(-3) + '°';
+  }
+
   // Leg length into each waypoint (meters); the first point starts the route, so its leg is 0.
   function legLengths(points) {
     return points.map((p, i) => i === 0 ? 0 : Math.hypot(p.x - points[i - 1].x, p.z - points[i - 1].z));
@@ -163,6 +180,7 @@
 
   const api = {
     distanceBearing, relativeBearing, signedTurn,
+    distanceParts, formatDistance, formatBearing,
     legLengths, routeLength, remainingDistance, timeline,
     waypointMarkerState, segmentReached,
     findRoute, findSteerPoint, navigationTarget,

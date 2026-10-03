@@ -66,7 +66,9 @@ The timeline and tape are laid out in `calc()` of their own width, so they reflo
 ## Shared pieces
 
 - `wpt-route.js` (unit-tested): `signedTurn`, `legLengths`, `routeLength`, `remainingDistance`,
-  `timeline`.
+  `timeline`, and the km/nm and bearing formatters both pages print with (`distanceParts`,
+  `formatDistance`, `formatBearing`).
+- The RTD/SPD heading tape is built once and slid each tick (docs/performance.md, 2026-10-03).
 - `telemetry-source.js` adds the map size (`w`, `h`) to `mapinfo`, which `gridToWorld` needs.
 - WPT no longer uses `shared/page-chrome.css`; the page is a fixed panel like TGT, its two columns
   stacking in a narrow pane.

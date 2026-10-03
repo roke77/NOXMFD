@@ -58,11 +58,12 @@ html, body {
   border: 1px solid var(--no-line); border-radius: 4px;
   overflow: hidden;
 }
+.rtd-tape-scale { position: absolute; left: 0; top: 0; width: 400%; height: 100%; will-change: transform; }
 .rtd-tick { position: absolute; top: 0; width: 1.5px; height: 0.56em; background: var(--no-green-line); }
 .rtd-tick.big { height: 1.125em; }
 .rtd-tick-label { position: absolute; top: 2.75em; width: 2.5em; margin-left: -1.25em; text-align: center; font-size: 0.875em; color: var(--no-green-dim); }
 .rtd-lubber { position: absolute; left: 50%; top: 0; width: 2px; height: 1.625em; margin-left: -1px; background: var(--no-white); }
-.rtd-hdg { position: absolute; left: 50%; top: 2.2em; width: 4em; margin-left: -2em; text-align: center; font-size: 0.75em; color: var(--no-white); }
+.rtd-hdg { position: absolute; left: 50%; top: 2.2em; width: 4em; margin-left: -2em; text-align: center; font-size: 0.75em; color: var(--no-white); background: var(--no-bg); }   /* covers a scale label under it */
 .rtd-bug { position: absolute; top: 0; width: 1.125em; height: 1.25em; margin-left: -0.5625em; fill: var(--no-amber); }
 .rtd-edge { position: absolute; top: 1.4em; font-size: 0.8125em; color: var(--no-amber); }
 .rtd-edge.left { left: 0.6em; }

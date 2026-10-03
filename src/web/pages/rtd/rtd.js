@@ -24,14 +24,9 @@ function el(tag, cls, text) {
   if (text != null) e.textContent = text;
   return e;
 }
-function km(m) { return m / 1000; }
-// [value, unit] per the player's unit setting (mapinfo.metric), as HSD/FCR/OBJ show range.
-function distParts(m) {
-  if (m == null) return ['—', ''];
-  return mapinfo.metric ? [km(m).toFixed(1), 'km'] : [(km(m) * 0.539957).toFixed(1), 'nm'];
-}
-function fmtDist(m) { const p = distParts(m); return p[1] ? p[0] + ' ' + p[1] : p[0]; }
-function fmtDeg(d) { return ('00' + Math.round(((d % 360) + 360) % 360)).slice(-3) + '°'; }
+function distParts(m) { return WptRoute.distanceParts(m, mapinfo.metric); }
+function fmtDist(m) { return WptRoute.formatDistance(m, mapinfo.metric); }
+const fmtDeg = WptRoute.formatBearing;
 function gridOf(p) { return mapinfo.ox == null ? '—' : gridLabel(p.x, p.z, { ox: mapinfo.ox, oy: mapinfo.oy }); }
 
 // ── what this page is showing ──────────────────────────────────────────────────────────
@@ -99,36 +94,57 @@ function tick() {
 }
 
 // ── heading tape ───────────────────────────────────────────────────────────────────────
-function renderTape(brg) {
+// Built once: a scale four tape-widths long (-60° to 420°, so any heading's ±60° window is on it)
+// that each tick only slides, plus a bug and an edge arrow that move or swap text. Rebuilding the
+// ticks on every 10 Hz mapinfo tick would churn the DOM for nothing.
+const SCALE_FROM = -TAPE_SPAN / 2, SCALE_TO = 360 + TAPE_SPAN / 2;
+const tapeParts = {};
+function buildTape() {
   const tape = $('rtd-tape');
-  tape.innerHTML = '';
-  const hdg = mapinfo.hdg;
-  if (typeof hdg !== 'number') { tape.appendChild(el('div', 'rtd-lubber')); return; }
-  const pct = (a) => 50 + (a - hdg) / TAPE_SPAN * 100;
-  for (let a = Math.ceil((hdg - TAPE_SPAN / 2) / 5) * 5; a <= hdg + TAPE_SPAN / 2; a += 5) {
+  const scale = el('div', 'rtd-tape-scale');
+  const at = (a) => ((a - SCALE_FROM) / (SCALE_TO - SCALE_FROM) * 100) + '%';
+  for (let a = SCALE_FROM; a <= SCALE_TO; a += 5) {
     const t = el('div', 'rtd-tick' + (a % 10 === 0 ? ' big' : ''));
-    t.style.left = pct(a) + '%';
-    tape.appendChild(t);
+    t.style.left = at(a);
+    scale.appendChild(t);
     const n = ((a % 360) + 360) % 360;
-    if (n % 30 === 0 && Math.abs(a - hdg) > 8) {
+    if (n % 30 === 0) {
       const l = el('span', 'rtd-tick-label', { 0: 'N', 90: 'E', 180: 'S', 270: 'W' }[n] || ('0' + n / 10).slice(-2));
-      l.style.left = pct(a) + '%';
-      tape.appendChild(l);
+      l.style.left = at(a);
+      scale.appendChild(l);
     }
   }
+  tape.appendChild(scale);
   tape.appendChild(el('div', 'rtd-lubber'));
-  tape.appendChild(el('span', 'rtd-hdg', fmtDeg(hdg)));
+  const bug = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  bug.setAttribute('class', 'rtd-bug');
+  bug.setAttribute('viewBox', '0 0 18 20');
+  bug.innerHTML = '<path d="M 0 0 L 18 0 L 18 10 L 9 20 L 0 10 Z"/>';
+  tape.appendChild(bug);
+  Object.assign(tapeParts, { scale, bug, hdg: el('span', 'rtd-hdg'), edge: el('span', 'rtd-edge') });
+  tape.appendChild(tapeParts.hdg);
+  tape.appendChild(tapeParts.edge);
+}
+function renderTape(brg) {
+  if (!tapeParts.scale) buildTape();
+  const hdg = mapinfo.hdg, has = typeof hdg === 'number';
+  tapeParts.scale.hidden = tapeParts.hdg.hidden = !has;
+  tapeParts.bug.style.display = 'none';
+  tapeParts.edge.hidden = true;
+  if (!has) return;
+  const h = ((hdg % 360) + 360) % 360;
+  // Put heading h at the tape's centre: the scale is 4 tape-widths, translate in its own percent.
+  tapeParts.scale.style.transform = 'translateX(' + ((0.5 - (h - SCALE_FROM) / TAPE_SPAN) * 25) + '%)';
+  tapeParts.hdg.textContent = fmtDeg(h);
   if (brg == null) return;
-  const rel = WptRoute.signedTurn(brg, hdg);
+  const rel = WptRoute.signedTurn(brg, h);
   if (Math.abs(rel) <= TAPE_SPAN / 2 - 3) {
-    const bug = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    bug.setAttribute('class', 'rtd-bug');
-    bug.setAttribute('viewBox', '0 0 18 20');
-    bug.innerHTML = '<path d="M 0 0 L 18 0 L 18 10 L 9 20 L 0 10 Z"/>';
-    bug.style.left = pct(hdg + rel) + '%';
-    tape.appendChild(bug);
+    tapeParts.bug.style.display = '';
+    tapeParts.bug.style.left = (50 + rel / TAPE_SPAN * 100) + '%';
   } else {
-    tape.appendChild(el('span', 'rtd-edge ' + (rel < 0 ? 'left' : 'right'), rel < 0 ? '◀ ' + fmtDeg(brg) : fmtDeg(brg) + ' ▶'));
+    tapeParts.edge.hidden = false;
+    tapeParts.edge.className = 'rtd-edge ' + (rel < 0 ? 'left' : 'right');
+    tapeParts.edge.textContent = rel < 0 ? '◀ ' + fmtDeg(brg) : fmtDeg(brg) + ' ▶';
   }
 }
 

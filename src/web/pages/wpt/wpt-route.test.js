@@ -143,6 +143,16 @@ assert.strictEqual(R.signedTurn(350, 10), -20);
 assert.strictEqual(R.signedTurn(90, 90), 0);
 assert.strictEqual(R.signedTurn(270, 90), -180);  // dead astern reads as a full left turn
 
+// ── distance / bearing formatting ────────────────────────────────────────────────────────
+assert.deepStrictEqual(R.distanceParts(12345, true), ['12.3', 'km']);
+assert.deepStrictEqual(R.distanceParts(1852, false), ['1.0', 'nm']);
+assert.deepStrictEqual(R.distanceParts(null, true), ['—', '']);
+assert.strictEqual(R.formatDistance(500, true), '0.5 km');
+assert.strictEqual(R.formatDistance(null, false), '—');
+assert.strictEqual(R.formatBearing(5), '005°');
+assert.strictEqual(R.formatBearing(-10), '350°');
+assert.strictEqual(R.formatBearing(359.6), '000°');   // rounds up to 360, which reads as north
+
 // ── legLengths / routeLength / remainingDistance ─────────────────────────────────────────
 {
   const pts = [wp('a', '', 0, 0), wp('b', '', 0, 3000), wp('c', '', 4000, 3000)];

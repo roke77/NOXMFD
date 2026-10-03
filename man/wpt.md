@@ -43,10 +43,14 @@ waypoint with its distance, bearing and which way to turn, and the whole route a
 six waypoints sit on a row; a longer route continues on the next row. Tap a waypoint on the timeline
 to fly direct to it. Below it, the next two waypoints and the distance left.
 
+![RTD page](images/RTD.png)
+
 ## SPD — steer-point details
 
 The same heading tape and readout for the selected steer point, with every steer point as a button
 beneath it. Tap one to guide to it.
+
+![SPD page](images/SPD.png)
 
 ## Import / export
 
