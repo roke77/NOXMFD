@@ -40,7 +40,10 @@ namespace NOXMFD
             {
                 _drainedSeq = m.Seq;
                 if (m.Type != MessageType) continue;
-                if (!float.TryParse(m.Payload, NumberStyles.Float, CultureInfo.InvariantCulture, out float ratio))
+                // TryParse accepts "NaN"/"Infinity" and Clamp01 passes NaN through, so finiteness is
+                // checked here: a NaN would serialise as a bare token and break every client's frames.
+                if (!float.TryParse(m.Payload, NumberStyles.Float, CultureInfo.InvariantCulture, out float ratio)
+                    || float.IsNaN(ratio) || float.IsInfinity(ratio))
                     continue;   // malformed payload from a stale/mismatched mod version — drop it
                 _lastReported[m.From] = (Mathf.Clamp01(ratio), Time.unscaledTime);
             }

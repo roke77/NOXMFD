@@ -197,60 +197,67 @@ namespace NOXMFD
             _slowTimer += dt;
             _contactTimer += dt;
 
+            // Each step is guarded on its own (StepGuard.cs): Unity drops the rest of Update on a throw,
+            // so one failing step would otherwise skip every step after it, every frame — a throw before
+            // PushSnapshot freezes every display.
             if (_slowTimer >= SlowInterval)
             {
                 _slowTimer = 0f;
-                ScanWorld();
+                try { ScanWorld(); } catch (Exception ex) { StepGuard.Failed("ScanWorld", ex); }
                 // HUD OPTIONS snapshot for the /hud-options endpoint. Main thread, and cheap; options
                 // change only on a toggle, so 1 Hz is ample. Kept out of PushSnapshot's fast path.
-                TelemetryServer.RefreshHudOptions();
+                try { TelemetryServer.RefreshHudOptions(); } catch (Exception ex) { StepGuard.Failed("RefreshHudOptions", ex); }
                 // Lazily captures the player's own HUD filter baseline the first time HUDOptions
                 // exists this session (issue #50) — a no-op once one has been captured.
-                HudCombatModeFilters.EnsureBootstrap();
+                try { HudCombatModeFilters.EnsureBootstrap(); } catch (Exception ex) { StepGuard.Failed("HudCombatModeFilters.EnsureBootstrap", ex); }
                 // Waypoint route proximity-advance (docs/hud-waypoint-indicator.md) — the plugin now
                 // ticks this itself regardless of which page any browser has open, unlike the old
                 // browser-side check that only ran while the WPT page happened to be visible. 1 Hz is
                 // ample against a 1000m advance radius at combat-aircraft speeds.
-                if (GameManager.GetLocalAircraft(out Aircraft advanceAc) && advanceAc != null)
+                try
                 {
-                    Vector3 advanceWorld = advanceAc.transform.position - Datum.originPosition;
-                    RouteStore.AdvanceIfNear(advanceWorld.x, advanceWorld.z);
+                    if (GameManager.GetLocalAircraft(out Aircraft advanceAc) && advanceAc != null)
+                    {
+                        Vector3 advanceWorld = advanceAc.transform.position - Datum.originPosition;
+                        RouteStore.AdvanceIfNear(advanceWorld.x, advanceWorld.z);
+                    }
                 }
+                catch (Exception ex) { StepGuard.Failed("RouteStore.AdvanceIfNear", ex); }
                 // SQD's roster picker (docs/squadron-transport.md) — who else is in this match, for
                 // the squad leader to invite. 1 Hz is ample; player join/leave isn't latency-sensitive.
-                PlayerRoster.Refresh();
+                try { PlayerRoster.Refresh(); } catch (Exception ex) { StepGuard.Failed("PlayerRoster.Refresh", ex); }
                 // Pilot callsigns as in-game names (docs/squad-callsign-names.md, docs/self-callsign.md)
                 // — after the roster refresh above, which must still read Steam names. This pilot's
                 // own plus every one the faction broadcasts (docs/faction-broadcast.md).
-                PlayerNameOverride.Reconcile(Squad.Designations());
+                try { PlayerNameOverride.Reconcile(Squad.Designations()); } catch (Exception ex) { StepGuard.Failed("PlayerNameOverride.Reconcile", ex); }
                 // Detects a leader/member who crashed or force-quit without a graceful sqd.leave/
                 // disband/kick (Squad.cs's own header comment) — same 1 Hz cadence as the roster
                 // refresh above, since it depends on Presence's data that refresh just fed.
-                Squad.CheckLiveness();
+                try { Squad.CheckLiveness(); } catch (Exception ex) { StepGuard.Failed("Squad.CheckLiveness", ex); }
                 // Refreshes StateJson's game-derived fields (own/leader aircraft) so the SQD roster's
                 // aircraft column doesn't freeze between protocol mutations (docs/plugin-efficiency-
                 // audit.md correctness section). Same 1 Hz cadence, and the SSE layer already
                 // change-gates by string comparison so a no-op tick is free.
-                Squad.RebuildState();
+                try { Squad.RebuildState(); } catch (Exception ex) { StepGuard.Failed("Squad.RebuildState", ex); }
                 // issue #49 — squad target-lock broadcast for the HUD marks (Hud/HudSquadTargetMark.cs).
                 // A lock only changes on select/deselect, so 1 Hz is ample, same reasoning as the
                 // roster refresh above.
-                SquadTargets.Tick();
+                try { SquadTargets.Tick(); } catch (Exception ex) { StepGuard.Failed("SquadTargets.Tick", ex); }
             }
 
             if (_fastTimer >= FastInterval)
             {
                 _fastTimer = 0f;
-                PushSnapshot();
+                try { PushSnapshot(); } catch (Exception ex) { StepGuard.Failed("PushSnapshot", ex); }
             }
 
-            _tgp.Tick(dt);   // TGP feed cadence is owned by TgpFeed (captures at its own interval)
-            TgpManualControl.Tick(dt);   // docs/tgp-manual-control.md — no-op while manual mode is off
-            TgpFullScreen.Tick(dt);      // docs/tgp-full-screen.md — no-op while inactive
+            try { _tgp.Tick(dt); } catch (Exception ex) { StepGuard.Failed("TgpFeed.Tick", ex); }   // TGP feed cadence is owned by TgpFeed (captures at its own interval)
+            try { TgpManualControl.Tick(dt); } catch (Exception ex) { StepGuard.Failed("TgpManualControl.Tick", ex); }   // docs/tgp-manual-control.md — no-op while manual mode is off
+            try { TgpFullScreen.Tick(dt); } catch (Exception ex) { StepGuard.Failed("TgpFullScreen.Tick", ex); }   // docs/tgp-full-screen.md — no-op while inactive
             // issue #83 — watches TargetFocus.Id for a fresh lock so the real-lock Z+/Z- override
             // resets to the game's own default zoom on the next one; runs regardless of TGP camera/
             // page state, same as TargetFocus.Id itself already does.
-            TgpLockZoom.Tick();
+            try { TgpLockZoom.Tick(); } catch (Exception ex) { StepGuard.Failed("TgpLockZoom.Tick", ex); }
         }
 
         private void ScanWorld()

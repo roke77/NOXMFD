@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 
 namespace NOXMFD
@@ -13,35 +14,41 @@ namespace NOXMFD
         {
             // Polled here, not in the mission-scoped TelemetryReader, so input works at the main
             // menu (keybind capture flow runs before a mission exists).
-            Keybinds.Poll();
+            // Each step is guarded on its own (StepGuard.cs): a throw in any of them must not skip
+            // the mission detection at the end, which starts the telemetry reader.
+            try { Keybinds.Poll(); } catch (Exception ex) { StepGuard.Failed("Keybinds.Poll", ex); }
 
             // Drained here so the /keybinds page works from the main menu with no mission-scoped
             // reader running. Handlers validate against live state and no-op without a mission.
-            CommandDispatcher.Drain();
-            ExtensionRegistry.Drain();
+            try { CommandDispatcher.Drain(); } catch (Exception ex) { StepGuard.Failed("CommandDispatcher.Drain", ex); }
+            try { ExtensionRegistry.Drain(); } catch (Exception ex) { StepGuard.Failed("ExtensionRegistry.Drain", ex); }
 
             // Drain the squad channel here for the same reason: squad formation and route planning
             // happen BEFORE a flight, so protocol traffic has to flow at the main menu, not only
             // during a mission (docs/squadron-transport.md). No-ops when Steam is unavailable.
-            Squadron.Poll();
-            Squad.Drain();
+            try { Squadron.Poll(); } catch (Exception ex) { StepGuard.Failed("Squadron.Poll", ex); }
+            try { Squad.Drain(); } catch (Exception ex) { StepGuard.Failed("Squad.Drain", ex); }
             // Presence.cs rides the same shared inbox with its own cursor (see its own header
             // comment) — drained here too so "who's running NOXMFD" stays current at the main menu.
-            Presence.Drain();
+            try { Presence.Drain(); } catch (Exception ex) { StepGuard.Failed("Presence.Drain", ex); }
             // FuelBroadcast.cs (docs/atc-extension-support.md item 1) — same shared inbox, own
             // cursor, same reason to drain at the main menu too (squad/fuel state shouldn't reset
             // just because nobody's flying yet).
-            FuelBroadcast.Drain();
+            try { FuelBroadcast.Drain(); } catch (Exception ex) { StepGuard.Failed("FuelBroadcast.Drain", ex); }
 
-            bool missionRunning = MissionManager.IsRunning;
-            // A mission can be running with no local aircraft yet (spawn/loadout screen), so this
-            // is tracked separately from PushSnapshot's aircraft-gated push.
-            TelemetryServer.SetMissionRunning(missionRunning);
+            try
+            {
+                bool missionRunning = MissionManager.IsRunning;
+                // A mission can be running with no local aircraft yet (spawn/loadout screen), so this
+                // is tracked separately from PushSnapshot's aircraft-gated push.
+                TelemetryServer.SetMissionRunning(missionRunning);
 
-            if (missionRunning && !_readerActive)
-                StartReader();
-            else if (!missionRunning && _readerActive)
-                StopReader();
+                if (missionRunning && !_readerActive)
+                    StartReader();
+                else if (!missionRunning && _readerActive)
+                    StopReader();
+            }
+            catch (Exception ex) { StepGuard.Failed("Mission start/stop", ex); }
         }
 
         private void OnDestroy()

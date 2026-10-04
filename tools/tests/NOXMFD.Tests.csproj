@@ -89,6 +89,7 @@
     <Compile Include="..\..\src\plugin\Extensions\IconColorRegistry.cs" Link="Source\IconColorRegistry.cs" />
     <!-- ConfigBackup.cs (post-0.36.1) — pure System.IO, no Unity/BepInEx touchpoint. -->
     <Compile Include="..\..\src\plugin\ConfigBackup.cs" Link="Source\ConfigBackup.cs" />
+    <Compile Include="..\..\src\plugin\StepGuard.cs" Link="Source\StepGuard.cs" />
     <Compile Include="..\..\src\plugin\Input\WeaponSelectorLogic.cs" Link="Source\WeaponSelectorLogic.cs" />
     <Compile Include="..\..\src\plugin\Tgp\TgpManualAimMath.cs" Link="Source\TgpManualAimMath.cs" />
     <Compile Include="..\..\src\plugin\Tgp\TgpFeedSettings.cs" Link="Source\TgpFeedSettings.cs" />
