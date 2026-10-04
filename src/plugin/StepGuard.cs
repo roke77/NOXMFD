@@ -6,7 +6,7 @@ namespace NOXMFD
 {
     // Failure reporting for the per-frame steps of MissionLifecycle.Update and TelemetryReader.Update.
     // Each step runs in its own try/catch so one throwing step can't skip the ones after it (a throw in
-    // the squad drains used to stop mission detection; one in PushSnapshot froze every display).
+    // a squad drain would skip mission detection; one in PushSnapshot would freeze every display).
     // A step that throws every frame would flood the log, so the first failure of a step is logged with
     // its stack trace and repeats are counted and summarised at most once per RepeatMs.
     // Main thread only.

@@ -190,6 +190,32 @@ Primary files:
 - `src/plugin/Telemetry/TelemetryReader.cs`
 - `src/plugin/Squad/Squadron.cs`
 
+### 9. Contain per-frame step failures
+
+**Priority: high**
+
+Unity drops the rest of an `Update` when it throws. A step that throws every frame in
+`MissionLifecycle.Update` (the squad drains run before mission detection) or in
+`TelemetryReader.Update` (everything before and including `PushSnapshot`) stops all
+the work after it: the telemetry reader never starts, or every display freezes.
+
+Completed:
+
+- Each step in both `Update` methods runs in its own try/catch, named after the step,
+  so a failure is attributed to one subsystem rather than hidden behind the broad catch
+  item 3 rules out.
+- `StepGuard.Failed` logs a step's first failure with its stack trace, then a repeat
+  count at most every 30 s, so a step that throws every frame cannot flood the log.
+- `FuelBroadcast.Drain` drops non-finite payloads: `float.TryParse` accepts `NaN`, and
+  `Mathf.Clamp01` passes it through into the contact JSON as a bare `NaN` token.
+
+Primary files:
+
+- `src/plugin/StepGuard.cs`
+- `src/plugin/MissionLifecycle.cs`
+- `src/plugin/Telemetry/TelemetryReader.cs`
+- `src/plugin/Squad/FuelBroadcast.cs`
+
 ## Completion order
 
 1. Short HTTP endpoint observability.
@@ -198,6 +224,7 @@ Primary files:
 4. `SpriteCapture` cleanup and callback containment.
 5. Listener bind diagnostics, backup diagnostics, extension payload validation, and
    lifecycle polish.
+6. Per-frame step containment.
 
 ## Verification completed
 
@@ -213,3 +240,5 @@ Primary files:
   diagnostic accurately reports the result.
 - Verify an invalid extension slice/event produces one diagnostic, does not corrupt
   the SSE frame, and leaves the previous valid value available.
+- Start and end a mission and switch aircraft. Confirm every display keeps updating and
+  no `StepGuard` warning appears in the log.
