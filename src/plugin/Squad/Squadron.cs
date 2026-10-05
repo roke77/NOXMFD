@@ -12,11 +12,14 @@ namespace NOXMFD
     // about squads, leaders, or invites; that protocol lives in Squad.cs, on top of this. Valve's
     // relay handles NAT traversal, encryption and identity, so there is no server and no cost.
     //
-    // Why SteamNetworkingMessages and not the game's own connection: the game's transport is the
-    // DISTINCT SteamNetworkingSockets interface (Mirage.SteamworksSocket uses CreateListenSocketP2P/
-    // ConnectP2P), so this messaging interface is entirely unused by the game and cannot interfere
-    // with match traffic. Sending a custom message over the game's own Mirage session would instead
-    // charge the sender's error budget and can disconnect them against a vanilla server.
+    // Why SteamNetworkingMessages and not the game's own connection: sending a custom message over
+    // the game's own Mirage session charges the sender's error budget and can disconnect them against
+    // a vanilla server. The game uses the SteamNetworkingSockets interface (Mirage.SteamworksSocket:
+    // CreateListenSocketP2P/ConnectP2P) and never this one, so our messages never reach its handlers
+    // — but both run on the same Steam networking library, under one global lock and one service
+    // thread, on every player's machine. Traffic here is NOT free for the game: a session toward a
+    // player without NOXMFD is never accepted, and repeated connects to it stall that player's match
+    // traffic. Only contact peers known to run NOXMFD, beyond Presence's bounded probes.
     //
     // Why no Steam lobby: Steamworks.NET's Callback<T>.Create is process-global, so a lobby created
     // here would also fire the game's own SteamLobby.OnLobbyCreated and could satisfy a pending
@@ -196,14 +199,16 @@ namespace NOXMFD
         // ── Send ─────────────────────────────────────────────────────────────────
 
         // Sends one typed payload to exactly one peer, reliably and in order. True on success.
-        // AutoRestartBrokenSession: without it a session that failed once (the peer still loading
-        // when the first beat went out, a relay timeout) or that the peer closed stays broken and
-        // every later send fails until this side closes it — one bad moment would silence a squadmate
-        // for the rest of the session.
+        // `restartBroken` (AutoRestartBrokenSession): without it a session that failed once (the peer
+        // still loading when the first beat went out, a relay timeout) or that the peer closed stays
+        // broken and every later send fails until this side closes it — one bad moment would silence
+        // a squadmate for the rest of the session. Only for peers known to run NOXMFD: toward a
+        // player without it, every restart is another unanswered connect their Steam client has to
+        // absorb (Presence's probes pass false).
         // Reliable because every squad-protocol message must arrive — an unreliable channel is only
         // interesting for the deferred datalink/video features, which is why the envelope carries a
         // type rather than assuming one kind of message.
-        internal static bool SendTo(ulong peer, string type, string payload)
+        internal static bool SendTo(ulong peer, string type, string payload, bool restartBroken = true)
         {
             if (!Ready || peer == 0) return false;
             payload ??= string.Empty;
@@ -222,10 +227,9 @@ namespace NOXMFD
             try
             {
                 Marshal.Copy(bytes, 0, buf, bytes.Length);
-                EResult r = SteamNetworkingMessages.SendMessageToUser(
-                    ref id, buf, (uint)bytes.Length,
-                    Constants.k_nSteamNetworkingSend_Reliable | Constants.k_nSteamNetworkingSend_AutoRestartBrokenSession,
-                    Channel);
+                int flags = Constants.k_nSteamNetworkingSend_Reliable;
+                if (restartBroken) flags |= Constants.k_nSteamNetworkingSend_AutoRestartBrokenSession;
+                EResult r = SteamNetworkingMessages.SendMessageToUser(ref id, buf, (uint)bytes.Length, flags, Channel);
                 NoteSend(peer, type, r);
                 return r == EResult.k_EResultOK;
             }

@@ -61,6 +61,8 @@
     <!-- FactionIdentity.cs — the faction-wide identity record, its table, merge and duplicate
          detection (issues #106 and #107, docs/faction-broadcast.md). Pure BCL; uses JsonLite, PilotCallsign and SquadDesignations. -->
     <Compile Include="..\..\src\plugin\Squad\FactionIdentity.cs" Link="Source\FactionIdentity.cs" />
+    <!-- PresenceProbes.cs — who gets the presence beat vs a bounded probe (docs/squadron-transport.md). Pure BCL. -->
+    <Compile Include="..\..\src\plugin\Squad\PresenceProbes.cs" Link="Source\PresenceProbes.cs" />
     <!-- PresetSlots.cs (shared by HudPresetStore.cs/TgtPresetStore.cs) — BCL-only through the same
          LogWarning seam RouteStore.cs uses above; ConfigBackup.cs/JsonLite.cs are already linked. -->
     <Compile Include="..\..\src\plugin\Stores\PresetSlots.cs" Link="Source\PresetSlots.cs" />

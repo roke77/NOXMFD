@@ -492,3 +492,51 @@ squad, collapsed once leading, hidden for a plain member), docks to the bottom a
 roster header and rows share one grid so the aircraft column takes the free space; below 640px each
 row becomes two lines. Invited players sit in the unassigned list tagged INVITED, without a CANCEL:
 `Squad.cs` has no way to withdraw an invite.
+
+## Vanilla players and the presence beat
+
+Player report: on a public server, a player **without** the mod saw their Steam console fill with
+`steamnetworkingsockets_p2p.cpp` assertion failures and "pending open vports", and their match
+traffic stalled while FPS held. Both stopped when the NOXMFD users left. The reported asserts:
+
+```
+steamnetworkingsockets_p2p.cpp (3187) : pMatchingConnection->m_pParentListenSocket == nullptr
+steamnetworkingsockets_p2p.cpp (3187) : !pMatchingConnection->m_bConnectionInitiatedRemotely
+steamnetworkingsockets_p2p.cpp (514) : Assertion Failed: ... Symmetric role resolution for connect
+  request remote cxn ID #id says we should act as server. But we are already the server! ...
+```
+
+The Recommendation's "leaves vanilla players unaffected" was wrong. `SteamNetworkingMessages` is a
+separate interface from the game's `SteamNetworkingSockets` connection, but both run on the same
+Steam networking library, under one global lock and one service thread. Valve's open-source
+GameNetworkingSockets has the same code, with the 514 message at the same line:
+
+1. `Presence.Tick` beat **every faction-mate** every 5 s, so a vanilla player got connect requests on
+   the Messages virtual port from every NOXMFD user in their faction.
+2. Their Steam client creates its Messages interface on demand, opens a remotely-initiated
+   symmetric connection, and posts `SteamNetworkingMessagesSessionRequest_t`. The vanilla game
+   registers no handler, so the session is never accepted and the connection sits in Connecting.
+3. The sender's attempt times out. `AutoRestartBrokenSession`, added for the dead-session fix in
+   the previous section, starts a fresh connection on the next beat.
+4. That connect request matches the half-open connection from step 2 (`FindDuplicateConnection`),
+   which trips the two asserts at the duplicate check and then `ChangeRoleToServerAndAccept`'s
+   "already the server". This happens with the global lock held, repeated for every NOXMFD user,
+   every beat, which stalls the game's own traffic on the same library.
+
+Squad-protocol traffic (`sqd.*`, `sqd.data`, `td.designate`, locks) was never involved: it only goes
+to squadmates and invitees, who run NOXMFD.
+
+**Fix.** Only peers known to run NOXMFD get the regular beat: heard from within the presence TTL,
+or a current squadmate (silence toward a squadmate would make their `IsLost` eject us). Every other
+faction-mate gets a bounded probe schedule (`PresenceProbes.cs`): one probe on first sight in the
+roster, then at 60 s and 300 s, then nothing until they leave and rejoin the roster. Probes skip
+`AutoRestartBrokenSession`, and each retry first closes the unanswered session, so a vanilla player
+sees at most three single connection attempts per NOXMFD user per roster stay, each spaced well past
+Steam's ~10 s connect timeout so a new request never lands on a half-open one. Discovery still
+completes: a NOXMFD peer that hears a probe marks the sender present and beats back within 5 s, and
+one that joins later probes us itself. Older NOXMFD builds still beat everyone until they update.
+
+**Needs a live check:** a vanilla client and two or more NOXMFD clients on one server. The vanilla
+console should stay free of the asserts above. The NOXMFD clients should still find each other in
+SQD within a few seconds, keep squads through a mission restart, and log at most two
+`closing session with <id>` lines per vanilla faction-mate.

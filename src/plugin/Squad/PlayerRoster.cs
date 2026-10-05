@@ -108,9 +108,9 @@ namespace NOXMFD
             _aircraftIdBySteamId.Clear();
             _steamNameBySteamId.Clear();
 
-            // Ping the WHOLE faction, including anyone filtered out below — someone who just
-            // (re)launched NOXMFD needs to start receiving beats before Presence.HasNoxmfd can ever
-            // return true for them, and this is the one place that already has the faction's peer ids.
+            // Presence gets the WHOLE faction, including anyone filtered out below — it has to probe a
+            // peer before Presence.HasNoxmfd can ever return true for them, and this is the one place
+            // that already has the faction's peer ids.
             var peerIds = new List<ulong>(_scratch.Count);
             var sb = new StringBuilder("[");
             bool first = true;

@@ -9,9 +9,10 @@ namespace NOXMFD
     // inviting someone without the mod just sits there forever unanswered (Squad.cs's invites have
     // no timeout), which reads as a bug rather than "they don't have it."
     //
-    // Mechanism: a periodic broadcast, not a targeted ping-and-wait — there's no way to know in
-    // advance who has the mod, so every instance just announces itself to the whole faction roster
-    // on a timer, and every instance listens for the same announcement. A TTL on each received
+    // Mechanism: a periodic beat to every faction-mate known to run NOXMFD, plus a few spaced probes
+    // to each one not yet heard from (PresenceProbes.cs) — a player without the mod must not be
+    // contacted repeatedly, since each unanswered session costs their game's networking. A NOXMFD
+    // peer that hears a probe beats back, so both sides learn of each other. A TTL on each received
     // announcement (rather than an explicit "goodbye") means someone who quits or force-closes
     // ages out naturally within a couple of missed beats. Squad.CheckLiveness uses the same beats, with
     // its own longer allowance (IsLost), to detect a leader/member who crashed or force-quit with no
@@ -61,23 +62,43 @@ namespace NOXMFD
         // within a second.
         private static string _lastSquadKey = string.Empty;
 
+        private static readonly PresenceProbes _probes = new PresenceProbes();
+        private static readonly HashSet<ulong> _squadmates = new HashSet<ulong>();
+        private static readonly List<ulong> _beat = new List<ulong>();
+        private static readonly List<ulong> _probe = new List<ulong>();
+        private static readonly List<ulong> _close = new List<ulong>();
+
+        // Squadmates count as known even through a silence: they run NOXMFD, and pausing our beats
+        // to them would make their own IsLost eject us.
+        private static bool IsKnown(ulong steamId) => HasNoxmfd(steamId) || _squadmates.Contains(steamId);
+
         // Called once per second from TelemetryReader's slow tick, alongside PlayerRoster.Refresh —
         // same cadence, same caller, so the roster and the presence table it filters against never
         // drift more than a tick apart. `peers` is the current faction roster (self already
-        // excluded by PlayerRoster) — broadcasting to exactly that set, not "everyone we've ever
-        // seen," means someone who left the match stops being pinged immediately rather than
-        // lingering.
+        // excluded by PlayerRoster); only the ones we know run NOXMFD get the regular beat, the rest
+        // a bounded probe schedule (PresenceProbes.cs).
         // `myFuel` is null with no local aircraft (main menu, between missions) — nothing real to say.
         internal static void Tick(IEnumerable<ulong> peers, float? myFuel)
         {
             if (!Squadron.Ready) return;
             FactionIdentity.Identity me = Squad.SelfIdentity(myFuel);
             string squadKey = me.Designation + "/" + me.SquadCallsign + me.SquadFlight + "/" + me.LeaderId;
-            bool changed = squadKey != _lastSquadKey;
-            if (!changed && Time.unscaledTime < _nextBroadcast) return;
+            bool beatDue = squadKey != _lastSquadKey || Time.unscaledTime >= _nextBroadcast;
+
+            _squadmates.Clear();
+            foreach (ulong id in Squad.SquadmateSteamIds()) _squadmates.Add(id);
+            _probes.Plan(peers, IsKnown, Time.unscaledTime, _beat, _probe, _close);
+            if (!beatDue && _probe.Count == 0) return;
+
+            string payload = FactionIdentity.Serialize(me);
+            foreach (ulong p in _close) Squadron.CloseSession(p);
+            // No AutoRestartBrokenSession on a probe: a session to a player without NOXMFD must not
+            // keep reconnecting on its own.
+            foreach (ulong p in _probe) Squadron.SendTo(p, MessageType, payload, restartBroken: false);
+            if (!beatDue) return;
             _lastSquadKey = squadKey;
             _nextBroadcast = Time.unscaledTime + BroadcastIntervalSeconds;
-            Squadron.SendToAll(peers, MessageType, FactionIdentity.Serialize(me));
+            Squadron.SendToAll(_beat, MessageType, payload);
         }
 
         // Called by PlayerRoster.Refresh every tick it has a local faction. A gap of more than a few
