@@ -147,6 +147,7 @@ namespace NOXMFD
                 { "sqd.disband",    e => Squad.Disband() },
                 { "sqd.kick",       e => { if (TryPeer(e.peer, out ulong p)) Squad.Kick(p); } },
                 { "sqd.set-self-callsign", e => Squad.SetSelfCallsign(e.name ?? string.Empty, e.index, e.n) },
+                { "sqd.clear-self-callsign", e => Squad.ClearSelfCallsign() },
                 { "sqd.send",       e => Squad.SendData(e.type, e.payload) },
                 // Target Designator (issue #47, docs/target-designator.md) — reuses existing
                 // envelope fields rather than adding new ones: `id` (target.select's own field) for

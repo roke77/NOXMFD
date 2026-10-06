@@ -63,8 +63,9 @@ A callsign reads `CALLSIGN FLIGHT-NUMBER`, for example `TALON 1-2`:
 
 Until you set one, the YOUR CALLSIGN row is amber and open: pick the three values and press **SET**.
 Afterwards it shows your callsign with **CHANGE**, which reopens the pickers; **CANCEL** keeps what
-you had. You can change it at any time, in or out of a squad. It is saved, so it survives a game
-restart, and everyone running NOXMFD sees it within a few seconds.
+you had, and **CLEAR** drops your callsign so you fly under your Steam name again. You can change
+it at any time, in or out of a squad. It is saved, so it survives a game restart, and everyone
+running NOXMFD sees it within a few seconds.
 
 ![Changing your callsign](images/SQD_CALLSIGN_CHANGE.png)
 

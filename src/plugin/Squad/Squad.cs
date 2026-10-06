@@ -366,6 +366,15 @@ namespace NOXMFD
             return true;
         }
 
+        // YOUR CALLSIGN's CLEAR: back to the Steam name. Allowed in a squad too — the pilot stays in
+        // it and their row reads NO CALLSIGN, as for a pilot who never set one.
+        internal static void ClearSelfCallsign()
+        {
+            SelfCallsign.Clear();
+            PlayerNameOverride.SquadLog("own callsign cleared");
+            RebuildState();
+        }
+
         // Shared by every path that shrinks the roster by one (Kick, HandleLeave, CheckLiveness):
         // drops TD assignments to the departed member and their entry from the squad-target-lock
         // aggregate.

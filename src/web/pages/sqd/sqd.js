@@ -30,6 +30,7 @@ const selfCallsign     = document.getElementById('sqd-self-callsign');
 const selfFlight       = document.getElementById('sqd-self-flight');
 const selfNumber       = document.getElementById('sqd-self-number');
 const selfCancel       = document.getElementById('sqd-self-cancel');
+const selfClear        = document.getElementById('sqd-self-clear');
 const selfSet          = document.getElementById('sqd-self-set');
 const createSection    = document.getElementById('sqd-create-section');
 const createCallsign   = document.getElementById('sqd-create-callsign');
@@ -198,6 +199,7 @@ function renderSelf() {
   selfView.style.display = editing ? 'none' : '';
   selfEdit.style.display = editing ? '' : 'none';
   selfCancel.style.display = has ? '' : 'none';
+  selfClear.style.display = has ? '' : 'none';
   if (editing && !selfSeeded) {
     selfSeeded = true;
     if (has) selfCallsign.value = m.callsign;
@@ -214,6 +216,12 @@ function renderSelf() {
 }
 selfChange.onclick = function () { editingSelf = true; render(); };
 selfCancel.onclick = function () { editingSelf = false; render(); };
+selfClear.onclick = function () {
+  sendCommand('sqd.clear-self-callsign', {}).catch(function () {});
+  if (state) state.me = { callsign: '', flight: 1, number: 1 };   // shown at once; the pushed state confirms it
+  editingSelf = false;
+  render();
+};
 selfSet.onclick = function () {
   const next = { callsign: selfCallsign.value, flight: Number(selfFlight.value), number: Number(selfNumber.value) };
   if (!next.callsign) return;

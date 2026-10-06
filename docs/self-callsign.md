@@ -60,6 +60,8 @@ Identity schema 2 splits the pilot's own callsign from the squad:
 - Three hidden BepInEx config entries (callsign, flight, number), so it survives a restart.
 - `Squad.SetSelfCallsign` validates through `PilotCallsign`, saves it, rebuilds state and makes
   `Presence` resend at once. Command `sqd.set-self-callsign` (`name`, `index` = flight, `n` = number).
+- `Squad.ClearSelfCallsign` (command `sqd.clear-self-callsign`) empties it again, so the pilot flies
+  under their Steam name; allowed in a squad, where their row then reads NO CALLSIGN.
 - `Squad.CreateSquad` and `AcceptInvite` return false without one.
 
 ### 3. Squad without slots (`Squad.cs`)
@@ -88,6 +90,7 @@ Identity schema 2 splits the pilot's own callsign from the squad:
 ### 6. SQD page (design E)
 
 - YOUR CALLSIGN row (CHANGE -> three dropdowns + SET, amber while unset, amber note when duplicated).
+  The editor also has CLEAR while a callsign is set.
 - CREATE SQUAD starts on the pilot's own callsign and flight; CREATE and ACCEPT stay disabled with
   no callsign.
 - Rows show the pilot's own callsign (or NO CALLSIGN), no ▲/▼, no OPEN rows. ⋮ menu: Promote to

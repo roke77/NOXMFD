@@ -281,8 +281,8 @@ with every member; members only ever talk to the leader, never each other):
   squad only; members' own callsigns don't change.
 - `sqd.set-self-callsign` — the pilot's own callsign, in or out of a squad (`{name, index: flight,
   n: number}`, issue #107, [self-callsign.md](self-callsign.md)). `CreateSquad` and `AcceptInvite`
-  refuse until one is set. Members are listed in join order and identified by SteamID; there are no
-  member numbers, so no reordering command either.
+  refuse until one is set; `sqd.clear-self-callsign` empties it again. Members are listed in join
+  order and identified by SteamID; there are no member numbers, so no reordering command either.
 - **Squad protocol version.** Every invite carries `sv` (`FactionIdentity.SquadProtocolVersion`). A
   receiver on an older build sends none, and an invite without it, or below the current version, is
   declined on arrival with a notice naming the sender. `Invite` refuses a target whose presence

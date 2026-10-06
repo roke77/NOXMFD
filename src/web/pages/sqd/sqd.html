@@ -55,7 +55,7 @@
 
   <!-- YOUR CALLSIGN (issue #107): this pilot's own callsign, in every state. Shows it with CHANGE,
        or three dropdowns (callsign, flight, number) and SET; amber and open from the start until one
-       is set. CREATE SQUAD and ACCEPT wait for it. -->
+       is set. CREATE SQUAD and ACCEPT wait for it. The editor's CLEAR drops it, back to the Steam name. -->
   <div class="sqd-self" id="sqd-self">
     <div class="sqd-self-line" id="sqd-self-view">
       <span class="sqd-self-title">YOUR CALLSIGN</span>
@@ -70,6 +70,7 @@
       <label class="sqd-mini"><span>FLIGHT</span><select id="sqd-self-flight"></select></label>
       <label class="sqd-mini"><span>NUMBER</span><select id="sqd-self-number"></select></label>
       <span class="sqd-spacer"></span>
+      <button class="sqd-btn sqd-btn-dim pad-hoverable" id="sqd-self-clear" style="display:none;" title="Fly under your Steam name">CLEAR</button>
       <button class="sqd-btn sqd-btn-dim pad-hoverable" id="sqd-self-cancel" style="display:none;">CANCEL</button>
       <button class="sqd-btn sqd-btn-lg pad-hoverable" id="sqd-self-set">SET</button>
     </div>

@@ -45,11 +45,19 @@ namespace NOXMFD
         internal static bool Set(string? name, int flight, int number)
         {
             if (!PilotCallsign.TryCreate(name, flight, number, out string clean)) return false;
-            Name = clean; Flight = flight; Number = number;
-            if (_name != null) _name.Value = clean;
+            Store(clean, flight, number);
+            return true;
+        }
+
+        // Back to none, so the pilot shows under their Steam name again.
+        internal static void Clear() => Store(string.Empty, 1, 1);
+
+        private static void Store(string name, int flight, int number)
+        {
+            Name = name; Flight = flight; Number = number;
+            if (_name != null) _name.Value = name;
             if (_flight != null) _flight.Value = flight;
             if (_number != null) _number.Value = number;
-            return true;
         }
     }
 }

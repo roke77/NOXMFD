@@ -858,6 +858,9 @@ def _squad_command(env):
         if name and 1 <= flight <= 9 and 1 <= number <= 9:
             _SELF_CALLSIGN = {"callsign": name, "flight": flight, "number": number}
         return
+    if cmd == "sqd.clear-self-callsign":
+        _SELF_CALLSIGN = {"callsign": "", "flight": 1, "number": 1}
+        return
     if cmd == "sqd.create":
         if _SQD["role"] != "none" or not _own_callsign():
             return
