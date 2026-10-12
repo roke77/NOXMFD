@@ -251,6 +251,11 @@ with every member; members only ever talk to the leader, never each other):
   invites queue (oldest first) rather than the newest replacing an undecided one — a pilot can have
   several outstanding at once, each independently accept/decline-able by its sender's SteamID;
   accepting any one declines the rest automatically, since joining a squad is exclusive.
+- `sqd.invite-cancel` — the leader withdraws every outstanding invite when its squad ends (disband,
+  leaving with no members, handing off leadership), so the invitee's card disappears instead of
+  letting them accept into a squad that no longer exists. A leader that receives `sqd.accept` for an
+  invite it no longer holds (the cancel and the accept crossed, or the cancel was lost) answers with
+  `sqd.invite-cancel` too, and the invitee drops the membership it just took.
 - Single squad per player, enforced socially (no server to arbitrate): an invite target already in
   a squad sends back `sqd.conflict` (rejecting it) and, if they're a member, `sqd.poach` to their
   *real* leader — a warning that someone tried to recruit one of their people. The same exclusivity

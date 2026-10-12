@@ -115,9 +115,9 @@ Steam name in brackets, or just the Steam name until their callsign is known.
   It needs your callsign.
 - **DECLINE** turns that one invite down.
 
-Invites queue oldest first and never expire: one stays until you answer it. While invites wait you
-can still create your own squad, browse the other squads to see who's in them, and accept whichever
-you like.
+Invites queue oldest first and never expire: one stays until you answer it, or until its squad ends,
+which withdraws it. While invites wait you can still create your own squad, browse the other squads
+to see who's in them, and accept whichever you like.
 
 ## Lead a squad
 

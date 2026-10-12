@@ -184,6 +184,7 @@ namespace NOXMFD
                 case "sqd.invite":          HandleInvite(from, payload); break;
                 case "sqd.accept":          HandleAccept(from, payload); break;
                 case "sqd.decline":         HandleDecline(from); break;
+                case "sqd.invite-cancel":   HandleInviteCancel(from); break;
                 case "sqd.conflict":        HandleConflict(from, payload); break;
                 case "sqd.poach":           HandlePoach(from, payload); break;
                 case "sqd.roster":          HandleRoster(from, payload); break;
@@ -523,7 +524,14 @@ namespace NOXMFD
 
         private static void HandleAccept(ulong from, string payload)
         {
-            if (_role != Role.Leader || !_pendingSent.ContainsKey(from)) return;
+            if (_role != Role.Leader || !_pendingSent.ContainsKey(from))
+            {
+                // An accept for an invite we no longer hold — the squad ended, or this pilot started
+                // a new one, while it was in flight or unanswered. The sender already thinks they
+                // joined, so tell them it's gone rather than leave them following a leader who isn't leading.
+                if (!(_role == Role.Leader && ContainsMember(from))) Squadron.SendTo(from, "sqd.invite-cancel", "{}");
+                return;
+            }
             var obj = JsonLite.Parse(payload) as Dictionary<string, object?>;
             string name = Str(obj, "name");
             _pendingSent.Remove(from);
@@ -539,6 +547,25 @@ namespace NOXMFD
         private static void HandleDecline(ulong from)
         {
             if (_role != Role.Leader || !_pendingSent.Remove(from)) return;
+            Squadron.CloseSession(from);
+            RebuildState();
+        }
+
+        // The squad behind an invite ended (CancelAllPendingInvites) or never took our accept
+        // (HandleAccept). Either drops the queued invite, or — if we already accepted it — the
+        // membership it gave us.
+        private static void HandleInviteCancel(ulong from)
+        {
+            if (_role == Role.Member && from == _leaderId)
+            {
+                Squadron.CloseSession(from);
+                ResetToNone();
+                SetNotice("That squad no longer exists — it ended before your acceptance reached it.");
+                return;
+            }
+            int idx = _pendingReceived.FindIndex(p => p.LeaderId == from);
+            if (idx < 0) return;
+            _pendingReceived.RemoveAt(idx);
             Squadron.CloseSession(from);
             RebuildState();
         }
@@ -726,9 +753,11 @@ namespace NOXMFD
 
         private static void BroadcastRoster() => Squadron.SendToAll(MemberIds(), "sqd.roster", RosterEnvelope());
 
+        // Withdraws every outstanding invite so its target can't accept into a squad that's gone.
+        // No CloseSession — same reasoning as Leave(): the invitee closes its end in HandleInviteCancel.
         private static void CancelAllPendingInvites()
         {
-            foreach (ulong id in _pendingSent.Keys) Squadron.CloseSession(id);
+            Squadron.SendToAll(_pendingSent.Keys, "sqd.invite-cancel", "{}");
             _pendingSent.Clear();
         }
 
