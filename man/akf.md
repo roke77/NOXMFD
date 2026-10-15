@@ -39,3 +39,25 @@ applies to both feeds and only changes how entries render.
 The resizer and density toggle are drivable from a HOTAS [PAD cursor](keybinds.md#pad-cursor).
 Holding Select over the resizer drags it. A Select tap activates the density toggle, or restores
 the split if the resizer is collapsed.
+
+## Kill log (CSV)
+
+Every kill in the ALL feed can also be written to a CSV file, one file per mission, for keeping
+squadron tallies in a spreadsheet. Off by default: set `[Kill log] Enabled = true` in
+`BepInEx/config/com.roque.NOXMFD.cfg`, or toggle it in the in-game BepInEx config menu. It takes
+effect immediately, including mid-mission.
+
+Files go to `BepInEx/NOXMFD-kills/`, named `kills_<date>_<time>_<mission>.csv`. A file is created
+on the mission's first kill. Columns:
+
+| Column | Content |
+|---|---|
+| `time` | Local time of the kill, `yyyy-MM-dd HH:mm:ss`. |
+| `killer` | Killer's unit name, as in the feed (player aircraft carry the player's name). Blank when the game credits no one. |
+| `killer_faction` | Killer's faction. |
+| `victim` | Victim's unit name. |
+| `victim_faction` | Victim's faction. |
+| `type` | `aircraft`, `vehicle` (ground units), `ship`, `building`, or `missile` (an intercepted munition). |
+| `weapon` | Best-effort, same as the PLAYER feed. Blank for gun kills. |
+
+The log only holds kills this game client saw. Joining a mission late misses earlier kills.

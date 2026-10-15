@@ -209,3 +209,29 @@ disconnect/HQ messages) is untouched.
   other session-scoped stat this mod tracks.
 - A true per-player FUNDS figure — the game only tracks funds per faction;
   see the "Funds gained/spent" section above.
+
+## Kill log (CSV)
+
+Requested by a squadron that wanted to count kills across a campaign: an opt-in
+(`[Kill log] Enabled`, default off) per-mission CSV of every kill the ALL feed
+receives, written by `KillLog` (`src/plugin/Akf/KillLog.cs`) from
+`AkfTracker.RecordKill`. Every kill is logged rather than only the player's or
+the SQD squad's, so a squadron filters by pilot name and `type` in the
+spreadsheet and only one member needs the mod running.
+
+- File: `BepInEx/NOXMFD-kills/kills_<local date>_<time>_<mission>.csv`, created
+  on the first logged kill (no empty files), UTF-8 with BOM for Excel, flushed
+  per row so a crash keeps everything up to it.
+- Columns: `time,killer,killer_faction,victim,victim_faction,type,weapon`.
+  `type` is `KillType` lower-cased (`vehicle` = ground).
+- Cells beginning with `= + - @` get a `'` prefix: unit names carry other
+  players' Steam names, which would otherwise run as spreadsheet formulas.
+- An I/O failure logs one warning and stops logging for that mission.
+
+Not done: an in-game UI toggle (BepInEx config only).
+
+**Needs in-game verification:** the file appears on the first kill with the
+toggle on, and none with it off; player kills show the player's name in
+`killer`; faction names resolve for both sides; the file closes cleanly at
+mission end (no locked file when a second mission starts); a multiplayer client
+logs kills it didn't take part in.

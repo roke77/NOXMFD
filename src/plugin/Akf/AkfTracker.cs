@@ -17,6 +17,7 @@ namespace NOXMFD
         internal static AkfTracker? Active;
 
         private readonly AkfTrackerLogic<PersistentID> _logic = new AkfTrackerLogic<PersistentID>();
+        private readonly KillLog _killLog = new KillLog();
 
         public IReadOnlyList<AkfKillEntry> AllFeed    => _logic.AllFeed;
         public IReadOnlyList<AkfKillEntry> PlayerFeed => _logic.PlayerFeed;
@@ -52,7 +53,7 @@ namespace NOXMFD
             bool isPlayerOrdnance = !isPlayerVictim && killedType == KillType.Missile && localAc != null
                 && killedUnit.unit is Missile firedMissile && firedMissile.ownerID == localAc.persistentID;
 
-            _logic.RecordKill(
+            AkfKillEntry entry = _logic.RecordKill(
                 killerID,
                 hasKiller,
                 killerUnit != null ? PlayerNameOverride.WithSteamName(killerUnit.unitName) : null,
@@ -65,6 +66,25 @@ namespace NOXMFD
                 isPlayerKill,
                 isPlayerVictim,
                 isPlayerOrdnance);
+
+            _killLog.Write(
+                System.DateTime.Now,
+                MissionManager.CurrentMission?.Name ?? string.Empty,
+                entry.Attacker,
+                hasKiller ? FactionName(killerUnit) : null,
+                entry.Victim,
+                FactionName(killedUnit),
+                ToKind(killedType),
+                entry.Weapon);
+        }
+
+        // Called from TelemetryReader.OnDestroy — the mission's end closes its CSV.
+        internal void CloseLog() => _killLog.Dispose();
+
+        private static string? FactionName(PersistentUnit unit)
+        {
+            FactionHQ hq = unit.GetHQ();
+            return hq != null && hq.faction != null ? hq.faction.factionName : null;
         }
 
         // Called via Harmony prefix on DamageEffects.BlastFrag. This is a last-fired-by-attacker

@@ -44,7 +44,8 @@ namespace NOXMFD
         public float FundsGained => _fundsGained;
         public float FundsSpent => _fundsSpent;
 
-        public void RecordKill(
+        // Returns the recorded entry so callers can reuse its resolved weapon (KillLog).
+        public AkfKillEntry RecordKill(
             TId killerId,
             bool hasKiller,
             string? killerName,
@@ -83,7 +84,7 @@ namespace NOXMFD
             {
                 AddCapped(_playerFeed, entry);
                 CountPlayerKill(killedKind);
-                return;
+                return entry;
             }
 
             if (victimIsPlayer || victimIsPlayerOrdnance)
@@ -91,6 +92,7 @@ namespace NOXMFD
                 entry.PlayerIsVictim = true;
                 AddCapped(_playerFeed, entry);
             }
+            return entry;
         }
 
         public void RecordWeaponHit(TId dealerId, string weaponName, float now)
