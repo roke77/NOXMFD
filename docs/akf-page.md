@@ -219,7 +219,8 @@ receives, written by `KillLog` (`src/plugin/Akf/KillLog.cs`) from
 the SQD squad's, so a squadron filters by pilot name and `type` in the
 spreadsheet and only one member needs the mod running.
 
-- File: `BepInEx/NOXMFD-kills/kills_<local date>_<time>_<mission>.csv`, created
+- File: `BepInEx/plugins/NOXMFD/kills/kills_<local date>_<time>_<mission>.csv`
+  (beside DOC's `kneeboard/` and `themes/`), created
   on the first logged kill (no empty files), UTF-8 with BOM for Excel, flushed
   per row so a crash keeps everything up to it.
 - Columns: `time,killer,killer_faction,victim,victim_faction,type,weapon`.
@@ -228,10 +229,12 @@ spreadsheet and only one member needs the mod running.
   players' Steam names, which would otherwise run as spreadsheet formulas.
 - An I/O failure logs one warning and stops logging for that mission.
 
-Not done: an in-game UI toggle (BepInEx config only).
+The toggle is a plain `ConfigEntry<bool>`, so it shows as a checkbox in the
+BepInEx ConfigurationManager menu; there is no NO XMFD page button for it.
 
 **Needs in-game verification:** the file appears on the first kill with the
 toggle on, and none with it off; player kills show the player's name in
 `killer`; faction names resolve for both sides; the file closes cleanly at
 mission end (no locked file when a second mission starts); a multiplayer client
-logs kills it didn't take part in.
+logs kills it didn't take part in; the checkbox appears under NO XMFD → Kill log
+in ConfigurationManager.

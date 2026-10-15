@@ -43,11 +43,12 @@ the split if the resizer is collapsed.
 ## Kill log (CSV)
 
 Every kill in the ALL feed can also be written to a CSV file, one file per mission, for keeping
-squadron tallies in a spreadsheet. Off by default: set `[Kill log] Enabled = true` in
-`BepInEx/config/com.roque.NOXMFD.cfg`, or toggle it in the in-game BepInEx config menu. It takes
-effect immediately, including mid-mission.
+squadron tallies in a spreadsheet. Off by default: tick **NO XMFD → Kill log → Enabled** in the
+BepInEx ConfigurationManager menu ([setup notes](../docs/bepinex-configurationmanager.md)), or set
+`[Kill log] Enabled = true` in `BepInEx/config/com.roque.NOXMFD.cfg`. It takes effect immediately,
+including mid-mission.
 
-Files go to `BepInEx/NOXMFD-kills/`, named `kills_<date>_<time>_<mission>.csv`. A file is created
+Files go to `BepInEx/plugins/NOXMFD/kills/`, named `kills_<date>_<time>_<mission>.csv`. A file is created
 on the mission's first kill. Columns:
 
 | Column | Content |

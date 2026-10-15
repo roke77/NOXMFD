@@ -80,9 +80,9 @@ namespace NOXMFD
 
             // Read on every kill, so toggling it mid-mission takes effect at once.
             var killLog = Config.Bind("Kill log", "Enabled", false,
-                "Write every kill seen during a mission (yours, teammates', enemies', AI) to a CSV file, one file per mission, in BepInEx/NOXMFD-kills/. Columns: time, killer, killer_faction, victim, victim_faction, type (aircraft/vehicle/ship/building/missile), weapon (best-effort, blank for gun kills).");
+                "Write every kill seen during a mission (yours, teammates', enemies', AI) to a CSV file, one file per mission, in BepInEx/plugins/NOXMFD/kills/. Columns: time, killer, killer_faction, victim, victim_faction, type (aircraft/vehicle/ship/building/missile), weapon (best-effort, blank for gun kills).");
             KillLog.Enabled = () => killLog.Value;
-            KillLog.Dir = System.IO.Path.Combine(Paths.BepInExRootPath, "NOXMFD-kills");
+            KillLog.Dir = System.IO.Path.Combine(Paths.PluginPath, "NOXMFD", "kills");   // beside DOC's kneeboard and the themes folder
             KillLog.LogWarning = msg => Log?.LogWarning(msg);
 
             // The BepInEx-owned Plugin component is destroyed during boot, so its OnDestroy cannot
