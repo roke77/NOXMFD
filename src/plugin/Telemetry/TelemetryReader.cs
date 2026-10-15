@@ -1790,6 +1790,7 @@ namespace NOXMFD
             _tgp.Shutdown();
             if (_rwrSubscribed != null) { _rwrSubscribed.onRadarWarning -= OnRadarWarning; _rwrSubscribed = null; }
             if (AkfTracker.Active == _akf) AkfTracker.Active = null;
+            _akf.CloseLog();
         }
     }
 }

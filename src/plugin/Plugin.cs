@@ -78,6 +78,13 @@ namespace NOXMFD
                 "On first launch, if binding the LAN port is denied, automatically add the Windows URL reservation + firewall rule so a tablet can connect — ONLY works when the game is run as Administrator. Turn OFF to manage them yourself (see NETWORKING.md). No effect once configured. Localhost always works regardless.");
             TelemetryServer.Configure(netPort.Value, autoLan.Value);
 
+            // Read on every kill, so toggling it mid-mission takes effect at once.
+            var killLog = Config.Bind("Kill log", "Enabled", false,
+                "Write every kill seen during a mission (yours, teammates', enemies', AI) to a CSV file, one file per mission, in BepInEx/NOXMFD-kills/. Columns: time, killer, killer_faction, victim, victim_faction, type (aircraft/vehicle/ship/building/missile), weapon (best-effort, blank for gun kills).");
+            KillLog.Enabled = () => killLog.Value;
+            KillLog.Dir = System.IO.Path.Combine(Paths.BepInExRootPath, "NOXMFD-kills");
+            KillLog.LogWarning = msg => Log?.LogWarning(msg);
+
             // The BepInEx-owned Plugin component is destroyed during boot, so its OnDestroy cannot
             // own process cleanup. A static application handler survives with the static server.
             if (!_quitSubscribed)
