@@ -23,6 +23,8 @@ assert.deepStrictEqual(commandForBind('cycle-guns'), {
   cmd: 'weapon.cycle',
   args: { group: 'guns' }
 });
+assert.deepStrictEqual(commandForBind('cycle-cargo'), { cmd: 'weapon.cycle', args: { group: 'cargo' } });
+assert.deepStrictEqual(commandForBind('deploy-cargo'), { cmd: 'weapon.deploy-cargo' });
 assert.deepStrictEqual(commandForBind('gear-down'), {
   cmd: 'gear.set',
   args: { group: 'down' }

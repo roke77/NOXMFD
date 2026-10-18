@@ -9,6 +9,7 @@ namespace NOXMFD
         Missile,
         Bomb,
         JammerPod,
+        Cargo,
     }
 
     internal enum WeaponSelectorBucket
@@ -18,6 +19,7 @@ namespace NOXMFD
         Bomb,
         Release,
         JammerPod,
+        Cargo,
     }
 
     internal enum WeaponSelectorCombatMode
@@ -161,6 +163,8 @@ namespace NOXMFD
                     return item.Role == WeaponSelectorRole.Missile || item.Role == WeaponSelectorRole.Bomb;
                 case WeaponSelectorBucket.JammerPod:
                     return item.Role == WeaponSelectorRole.JammerPod;
+                case WeaponSelectorBucket.Cargo:
+                    return item.Role == WeaponSelectorRole.Cargo;
                 default:
                     return false;
             }

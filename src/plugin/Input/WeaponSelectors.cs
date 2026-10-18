@@ -3,9 +3,9 @@ using System.Collections.Generic;
 
 namespace NOXMFD
 {
-    // The two weapon "soft selectors" behind the weapon keybinds (docs/keybinds-page.md):
-    // alongside the game's single active-weapon selection, the mod remembers a GUN and a
-    // MISSILE-OR-BOMB choice per class. Cycle keys select within their class (first press from
+    // The weapon "soft selectors" behind the weapon keybinds (docs/keybinds-page.md): alongside
+    // the game's single active-weapon selection, the mod remembers a GUN, a MISSILE-OR-BOMB, a
+    // JAMMING POD and a CARGO choice per class. Cycle keys select within their class (first press from
     // another class recalls where you left it, further presses advance); fire keys are two-stage
     // across classes (a press first switches to the class's weapon, the next press fires) — so the
     // gun trigger always means "my gun" and weapon release "my missile/bomb", from anywhere.
@@ -21,7 +21,9 @@ namespace NOXMFD
     //   missile, plus unclassified ordnance (rockets carry no flag at all) → missile bucket
     //   jammer → jammer-pod bucket (a weapon station, e.g. the Medusa's Radar Jamming Pod — distinct
     //            from the airframe-mounted RadarJammer countermeasure behind the "Jammer" keybind)
-    //   cargo / troops / sling / hideInDisplay → not selectable ordnance
+    //   cargo / troops / sling, or any item on a cargo-mount station → cargo bucket (deployable
+    //            vehicles and containers, paratroopers, the sling hook)
+    //   hideInDisplay → not selectable
     // The release selector serves the union of the missile and bomb buckets; Cycle Missiles and
     // Cycle Bombs each move it constrained to their own bucket, and Weapon Release fires whichever
     // was chosen last.
@@ -39,6 +41,7 @@ namespace NOXMFD
         private static string? _softGun;         // gun-bucket entry name, or null
         private static string? _softRel;         // missile/bomb-bucket entry name, or null
         private static string? _softJam;         // jammer-pod-bucket entry name, or null
+        private static string? _softCargo;       // cargo-bucket entry name, or null
         private static WeaponStation? _lastActive;
 
         private static readonly List<WeaponSelectorLoadoutItem> _loadout = new List<WeaponSelectorLoadoutItem>(16);   // reused scratch
@@ -57,6 +60,11 @@ namespace NOXMFD
         // from the countermeasureManager-driven "Jammer" keybind, which drives an airframe-mounted
         // RadarJammer countermeasure, not a weapon station.
         private static bool IsJammerPod(WeaponInfo i) => i.jammer;
+        // Checked before the other classes: every cargo mount on an aircraft feeds one shared
+        // station whose WeaponInfo becomes whichever item is next in the bay (WeaponManager.
+        // StationExistsForWeaponInfo / WeaponStation.LaunchMount), so the station flag catches
+        // items whose own WeaponInfo carries no cargo flag.
+        private static bool IsCargo(WeaponStation st, WeaponInfo i) => st.Cargo || i.cargo || i.troops || i.sling;
 
         // Air-to-air missiles (docs/radar-master-arms.md, issue #32) — a maintained, exhaustive list;
         // every other IsMissile entry counts as air-to-ground by default (new A/A weapons from future
@@ -90,6 +98,9 @@ namespace NOXMFD
             if (ImmersionState.CombatMode == CombatMode.AirToAir) return;
             _softRel = CycleAndSelect(ac, WeaponSelectorBucket.Bomb, _softRel);
         }
+
+        // Cargo, paratroopers and the sling hook — unaffected by combat mode.
+        public static void CycleCargo(Aircraft ac) => _softCargo = CycleAndSelect(ac, WeaponSelectorBucket.Cargo, _softCargo);
 
         // Same restriction, applied to Weapon Release's own switch-then-fire stage: a GUN selected
         // in A/G mode with only A/A missiles loaded must not switch to one on Weapon Release.
@@ -128,12 +139,18 @@ namespace NOXMFD
         // Press-vs-hold is derived from Time.frameCount continuity: the drive runs every held frame,
         // so a gap in frames = a fresh press. Misses a release+re-press within one frame — physically
         // impossible on a real key.
-        private static int  _gunFrame = -10, _relFrame = -10, _relSingleFrame = -10, _jamFrame = -10;
-        private static bool _gunSwitchHold,  _relSwitchHold,  _relSingleSwitchHold,  _jamSwitchHold;
+        private static int  _gunFrame = -10, _relFrame = -10, _relSingleFrame = -10, _jamFrame = -10, _cargoFrame = -10;
+        private static bool _gunSwitchHold,  _relSwitchHold,  _relSingleSwitchHold,  _jamSwitchHold,  _cargoSwitchHold;
 
         public static void FireGun(Aircraft ac)       => Fire(ac, EffectiveGun(ac),       ref _gunFrame, ref _gunSwitchHold, wm => wm.Fire());
         public static void FireRelease(Aircraft ac)   => Fire(ac, EffectiveRelease(ac),   ref _relFrame, ref _relSwitchHold, wm => wm.Fire());
         public static void FireJammerPod(Aircraft ac) => Fire(ac, EffectiveJammerPod(ac), ref _jamFrame, ref _jamSwitchHold, wm => wm.Fire());
+
+        // Deploy Cargo is EDGE-driven (one call per press), so every call is a fresh press to Fire():
+        // the first press switches to cargo, each later press releases exactly one item. Holding must
+        // not repeat — the sling hook's Fire() steps its deploy/release/retract state on every call,
+        // and a repeating trigger would empty the whole cargo bay in one hold.
+        public static void DeployCargo(Aircraft ac)   => Fire(ac, EffectiveCargo(ac),     ref _cargoFrame, ref _cargoSwitchHold, wm => wm.Fire());
 
         // Single Target Weapon Release (issue #68): same two-stage switch-then-fire as FireRelease
         // above, sharing its EffectiveRelease selection (so both binds agree on "which weapon"), but
@@ -151,6 +168,7 @@ namespace NOXMFD
         public static string? EffectiveGun(Aircraft ac)       => Effective(ac, WeaponSelectorBucket.Gun,       _softGun);
         public static string? EffectiveRelease(Aircraft ac)   => Effective(ac, WeaponSelectorBucket.Release,   _softRel);
         public static string? EffectiveJammerPod(Aircraft ac) => Effective(ac, WeaponSelectorBucket.JammerPod, _softJam);
+        public static string? EffectiveCargo(Aircraft ac)     => Effective(ac, WeaponSelectorBucket.Cargo,     _softCargo);
 
         private static string? Effective(Aircraft ac, WeaponSelectorBucket bucket, string? soft)
         {
@@ -223,7 +241,8 @@ namespace NOXMFD
             _lastActive = cur;
             WeaponInfo? info = cur != null ? cur.WeaponInfo : null;
             if (info == null || info.hideInDisplay) return;
-            if (IsGun(info))            _softGun = EntryName(info);
+            if (IsCargo(cur!, info))    _softCargo = EntryName(info);
+            else if (IsGun(info))       _softGun = EntryName(info);
             else if (IsRelease(info))   _softRel = EntryName(info);
             else if (IsJammerPod(info)) _softJam = EntryName(info);
         }
@@ -244,7 +263,7 @@ namespace NOXMFD
             WeaponManager wm = ac.weaponManager;
             WeaponStation? cur = wm != null ? wm.currentWeaponStation : null;
             WeaponInfo? info = cur != null ? cur.WeaponInfo : null;
-            if (info == null || IsGun(info)) return;
+            if (info == null || IsGun(info) || IsCargo(cur!, info)) return;
 
             if (mode == CombatMode.AirToAir && (IsBomb(info) || (IsMissile(info) && !IsAirToAir(info))))
             {
@@ -338,7 +357,8 @@ namespace NOXMFD
                 if (string.IsNullOrEmpty(name)) continue;
 
                 WeaponSelectorRole role;
-                if (IsGun(info)) role = WeaponSelectorRole.Gun;
+                if (IsCargo(st, info)) role = WeaponSelectorRole.Cargo;
+                else if (IsGun(info)) role = WeaponSelectorRole.Gun;
                 else if (IsBomb(info)) role = WeaponSelectorRole.Bomb;
                 else if (IsMissile(info)) role = WeaponSelectorRole.Missile;
                 else if (IsJammerPod(info)) role = WeaponSelectorRole.JammerPod;

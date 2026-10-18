@@ -59,6 +59,8 @@
       case 'cycle-guns':     return { cmd: 'weapon.cycle', args: { group: 'guns' } };
       case 'cycle-missiles': return { cmd: 'weapon.cycle', args: { group: 'missiles' } };
       case 'cycle-bombs':    return { cmd: 'weapon.cycle', args: { group: 'bombs' } };
+      case 'cycle-cargo':    return { cmd: 'weapon.cycle', args: { group: 'cargo' } };
+      case 'deploy-cargo':   return { cmd: 'weapon.deploy-cargo' };
       case 'flares':         return { cmd: 'cm.deploy', args: { group: 'flares' }, repeat: true };
       case 'jammer':         return { cmd: 'cm.deploy', args: { group: 'jammer' }, repeat: true };
       case 'gear-up':        return { cmd: 'gear.set', args: { group: 'up' } };

@@ -223,6 +223,12 @@ namespace NOXMFD
             Def(config, "cycle-bombs", wpn, "CycleBombs", "Cycle Bombs", edge: true,
                 "Select a bomb.",
                 WeaponSelectors.CycleBomb);
+            Def(config, "cycle-cargo", wpn, "CycleCargo", "Cycle Cargo", edge: true,
+                "Select cargo, troops or the sling hook.",
+                WeaponSelectors.CycleCargo);
+            Def(config, "deploy-cargo", wpn, "DeployCargo", "Deploy Cargo", edge: true,
+                "Drop one cargo item, deploy troops, or work the sling hook. One action per press.",
+                WeaponSelectors.DeployCargo);
             _gunTrigger = Def(config, "gun-trigger", wpn, "GunTrigger", "Gun Trigger", edge: false,
                 "Fire the gun. Hold for continuous fire.",
                 WeaponSelectors.FireGun);

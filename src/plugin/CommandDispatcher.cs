@@ -103,6 +103,7 @@ namespace NOXMFD
                 { "target.deselect", TargetDeselect },
                 { "weapon.select",   WeaponSelect },
                 { "weapon.cycle",    WeaponCycle },
+                { "weapon.deploy-cargo", WeaponDeployCargo },
                 { "cm.deploy",       CountermeasureDeploy },
                 { "gear.set",        GearSet },
                 { "tgt.set",         TgtSet },
@@ -618,10 +619,16 @@ namespace NOXMFD
                 case "guns":     WeaponSelectors.CycleGun(ac);     break;
                 case "missiles": WeaponSelectors.CycleMissile(ac); break;
                 case "bombs":    WeaponSelectors.CycleBomb(ac);    break;
+                case "cargo":    WeaponSelectors.CycleCargo(ac);   break;
                 default:
                     Plugin.Log?.LogInfo($"[NOXMFD] weapon.cycle: unknown group '{env.group}' — ignored.");
                     break;
             }
+        }
+
+        private static void WeaponDeployCargo(CommandEnvelope env)
+        {
+            if (LocalAircraft("weapon.deploy-cargo", out Aircraft ac)) WeaponSelectors.DeployCargo(ac);
         }
 
         private static void CountermeasureDeploy(CommandEnvelope env)

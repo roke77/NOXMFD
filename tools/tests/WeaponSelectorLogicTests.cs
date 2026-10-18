@@ -231,6 +231,28 @@ public sealed class WeaponSelectorLogicTests
             WeaponSelectorCombatMode.All));
     }
 
+    [Fact]
+    public void CargoBucket_IgnoresCombatModeAndOtherClasses()
+    {
+        WeaponSelectorLoadoutItem[] loadout =
+        [
+            Missile("AGM-48", 2),
+            Cargo("M12 Jackknife", 2),
+            Cargo("Sling Hook", 1),
+        ];
+
+        WeaponSelectorCycleResult result = WeaponSelectorLogic.Cycle(
+            loadout,
+            WeaponSelectorBucket.Cargo,
+            WeaponSelectorCombatMode.AirToAir,
+            currentName: "M12 Jackknife",
+            softName: "M12 Jackknife");
+
+        Assert.Equal("Sling Hook", result.TargetName);
+        Assert.Equal("AGM-48", WeaponSelectorLogic.Effective(
+            loadout, WeaponSelectorBucket.Release, WeaponSelectorCombatMode.All, softName: null));
+    }
+
     private static WeaponSelectorLoadoutItem Gun(string name, int ammo) =>
         new(name, WeaponSelectorRole.Gun, ammo);
 
@@ -239,4 +261,7 @@ public sealed class WeaponSelectorLogicTests
 
     private static WeaponSelectorLoadoutItem Bomb(string name, int ammo) =>
         new(name, WeaponSelectorRole.Bomb, ammo);
+
+    private static WeaponSelectorLoadoutItem Cargo(string name, int ammo) =>
+        new(name, WeaponSelectorRole.Cargo, ammo);
 }

@@ -47,7 +47,8 @@ pairs) onto those groups; a bind it doesn't claim lands in a trailing OTHER grou
 | Jammer | select + activate the radar jammer; HOLD to jam | held |
 | Jamming Pod | select + activate a weapon-mounted ECM pod (e.g. the Medusa's); HOLD to keep jamming — see below | held |
 | Gear Up / Gear Down | dedicated raise/lower (stock bind is a toggle); no-op if already there, mid-transition, or on the ground | edge |
-| Cycle Guns / Missiles / Bombs | select within the class — see below | edge |
+| Cycle Guns / Missiles / Bombs / Cargo | select within the class — see below | edge |
+| Deploy Cargo | two-stage like the fire keys, but one release per press — see below | edge |
 | Gun Trigger / Weapon Release | two-stage class fire keys — see below | held |
 | Master Arm ON / OFF, Radar ON / OFF, Engine ON / OFF | plain dedicated pairs — see below | edge |
 | A/A / A/G | restrict Cycle Missile to one class; hold either to reset to ALL — see below | held (tap/hold) |
@@ -55,12 +56,14 @@ pairs) onto those groups; a bind it doesn't claim lands in a trailing OTHER grou
 ### Weapon selectors (WeaponSelectors.cs)
 
 Alongside the game's single active-weapon selection, the mod remembers a **gun** choice, a
-**missile-or-bomb** choice, and a **jamming pod** choice ("soft selections", pointing at the
+**missile-or-bomb** choice, a **jamming pod** choice, and a **cargo** choice ("soft selections", pointing at the
 same aggregated loadout entries the WPN page lists). Classification uses the game's public
 `WeaponInfo` flags: `gun`; `bomb`/`glideBomb`; missiles are the `missile` flag plus flagless
 launched ordnance (rockets carry no flag); `jammer` is a weapon-mounted ECM pod (e.g. the
 Medusa's Radar Jamming Pod — distinct from the airframe `RadarJammer` countermeasure behind
-the "Jammer" keybind above); excluding cargo/troops/sling. The jamming pod has no cycle key —
+the "Jammer" keybind above); `cargo`/`troops`/`sling`, or any item on the shared cargo-mount
+station (`WeaponStation.Cargo`), is cargo — checked first, since that station's `WeaponInfo`
+becomes whichever item is next in the bay. The jamming pod has no cycle key —
 same two-stage switch-then-fire model as Gun Trigger/Weapon Release, just one soft selection
 and no need to advance through a list.
 
@@ -73,6 +76,9 @@ and no need to advance through a list.
   same hold never fires; release and press again to fire. In-class, hold to keep firing
   (`WeaponManager.Fire()` per frame; the game's `Ready()` rate-limits, so it feels like the
   stock trigger, guns-linked included).
+- **Deploy Cargo is edge-driven.** Same switch-then-release as the fire keys, but one action per
+  press: one vehicle/container, one troop deployment, or one sling hook step
+  (deploy → release → retract). Holding never repeats, so a hold can't empty the bay.
 - **Selectors follow the pilot.** Selecting a weapon by any means (stock cycle, WPN page
   tap) snaps the matching selector to it, so the fire keys always commit the most recent
   choice. Stale names after an aircraft change fall back to the first of the class.

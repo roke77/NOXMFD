@@ -207,7 +207,7 @@ either mode, and bombs only cycle in A/G.
 
 ### Weapons
 
-- **Cycle guns / missiles / bombs** — select the last soft-selected weapon of that type, or the
+- **Cycle guns / missiles / bombs / cargo** — select the last soft-selected weapon of that type, or the
   first in the list; repeated presses cycle to the next one, skipping depleted weapons. Cycling to
   a different type leaves the current one soft-selected.
 - **Gun trigger / Weapon release** — per-class fire keys (hold for continuous fire). If the active
@@ -219,6 +219,11 @@ either mode, and bombs only cycle in A/G.
   staggered one-round-per-lock salvo. Same switch-then-fire behavior and hold-to-keep-releasing as
   Weapon Release. The focused lock's own on-screen symbol also gets a small amber "+" at its
   top-left ([RDR](rdr.md#in-game-hud-cue)) so you can tell which target this will hit.
+
+- **Deploy Cargo** — drops one cargo item (vehicles like the Jackknife, containers), deploys
+  troops, or works the sling hook (deploy, release the load, retract) — one action per press.
+  With another weapon selected, the first press only switches to cargo; press again to deploy.
+  Use **Cycle cargo** to pick which cargo type goes next.
 
 ### Countermeasures
 
