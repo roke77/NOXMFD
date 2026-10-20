@@ -88,6 +88,9 @@
   registry PR is needed per release.
 - Package `NOXMFD_X.Y.Z.zip` with Python's `zipfile`: the DLL from
   `bin/Release/netstandard2.1/` as `NOXMFD/NOXMFD.dll`, nothing else.
+- Thunderstore (team `roke77`, Nuclear Option community) gets a separate zip:
+  `python tools/package_thunderstore.py` after the Release build, from `thunderstore/`
+  (manifest, icon, package-page README) with the version taken from `NOXMFD.csproj`.
 - Release notes = a tight changelog of changes actually merged into `main` — no
   install/how-to boilerplate. Check `git merge-base --is-ancestor <branch> main` before
   including a branch's changes.

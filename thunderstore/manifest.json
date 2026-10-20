@@ -1,0 +1,6 @@
+{
+  "name": "NOXMFD",
+  "description": "Live Nuclear Option flight telemetry as a browser-based multi-function display on a second monitor, tablet or phone: map, radar, RWR, targeting pod, weapons, squads and more.",
+  "website_url": "https://github.com/roke77/NOXMFD",
+  "dependencies": ["BepInEx-BepInExPack-5.4.2305"]
+}
