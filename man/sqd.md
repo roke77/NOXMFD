@@ -69,6 +69,11 @@ running NOXMFD sees it within a few seconds.
 
 ![Changing your callsign](images/SQD_CALLSIGN_CHANGE.png)
 
+**Favorites.** The ☆ next to the callsign picker pins the picked name to the top of every callsign
+list on the page, YOUR CALLSIGN, CREATE SQUAD and a squad's EDIT, under **★ FAVORITES**. Press the
+lit ★ again to unpin it. You can pin up to three; with three pinned the ☆ is greyed out until you
+unpin one. Favorites are saved with your callsign and are never sent to other pilots.
+
 - Without a callsign you show under your Steam name, and **CREATE** and **ACCEPT** stay disabled
   until you set one.
 - Joining or leaving a squad doesn't change your callsign.

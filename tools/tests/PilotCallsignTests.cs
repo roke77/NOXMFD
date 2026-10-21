@@ -38,5 +38,43 @@ namespace NOXMFD.Tests
             Assert.Equal(ok, PilotCallsign.TryCreate(name, flight, number, out string callsign));
             Assert.Equal(ok ? name : "", callsign);
         }
+
+        [Fact]
+        public void SetFavorite_adds_in_order_up_to_the_cap_and_removes()
+        {
+            var favs = new List<string>();
+            Assert.True(PilotCallsign.SetFavorite(favs, "VIPER", true));
+            Assert.True(PilotCallsign.SetFavorite(favs, " TALON ", true));
+            Assert.False(PilotCallsign.SetFavorite(favs, "viper", true));     // already in, any case
+            Assert.True(PilotCallsign.SetFavorite(favs, "ARMY AIR", true));
+            Assert.False(PilotCallsign.SetFavorite(favs, "COLT", true));      // full
+            Assert.Equal(new[] { "VIPER", "TALON", "ARMY AIR" }, favs);
+
+            Assert.True(PilotCallsign.SetFavorite(favs, "talon", false));
+            Assert.False(PilotCallsign.SetFavorite(favs, "TALON", false));    // already out
+            Assert.True(PilotCallsign.SetFavorite(favs, "COLT", true));
+            Assert.Equal(new[] { "VIPER", "ARMY AIR", "COLT" }, favs);
+        }
+
+        [Theory]
+        [InlineData("")]
+        [InlineData("A,B")]
+        [InlineData("TAL\nON")]
+        public void SetFavorite_refuses_names_that_cannot_round_trip(string name)
+        {
+            var favs = new List<string>();
+            Assert.False(PilotCallsign.SetFavorite(favs, name, true));
+            Assert.Empty(favs);
+        }
+
+        [Fact]
+        public void ParseFavorites_round_trips_and_tolerates_a_hand_edited_config()
+        {
+            Assert.Empty(PilotCallsign.ParseFavorites(null));
+            Assert.Equal(new[] { "VIPER", "ARMY AIR" },
+                PilotCallsign.ParseFavorites(PilotCallsign.FormatFavorites(new[] { "VIPER", "ARMY AIR" })));
+            Assert.Equal(new[] { "VIPER", "TALON", "COLT" },
+                PilotCallsign.ParseFavorites(" VIPER ,,viper,TALON,COLT,WOLF"));
+        }
     }
 }

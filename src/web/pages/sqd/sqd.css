@@ -221,6 +221,10 @@ select:focus { outline: 1px solid var(--no-green-dim); }
 .sqd-self-value { font-size: 22px; letter-spacing: 4px; color: var(--no-green); white-space: nowrap; }
 .sqd-self-line select { min-width: 0; height: 34px; padding: 0 8px; font-size: 14px; letter-spacing: 3px; }
 .sqd-self-line #sqd-self-callsign { min-width: 150px; }
+.sqd-pick { display: flex; align-items: center; gap: 6px; }
+.sqd-star { flex: none; width: 34px; height: 34px; padding: 0; font-size: 18px; letter-spacing: 0; }
+.sqd-star.on { border-color: var(--no-amber); color: var(--no-amber); }
+.sqd-star.on:hover { background: var(--no-amber); color: var(--no-ink); }
 .sqd-mini { display: flex; align-items: center; gap: 6px; }
 .sqd-mini span { font-size: 10px; letter-spacing: 2px; color: var(--no-text-faint); }
 .sqd-mini select { min-width: 60px; }
@@ -418,6 +422,9 @@ select:disabled { color: var(--no-gray); border-color: var(--no-panel-border); }
   .sqd-self-title { width: 100%; }
   .sqd-self-line .sqd-spacer { display: none; }
   .sqd-self-line select, .sqd-self-line #sqd-self-callsign { flex: 1 1 100%; min-width: 0; }
+  .sqd-pick { flex: 1 1 100%; }
+  .sqd-self-line .sqd-pick #sqd-self-callsign { flex: 1 1 auto; width: auto; }
+  .sqd-self-line .sqd-pick .sqd-star { flex: none; }
   .sqd-mini { flex: 1 1 40%; }
   .sqd-mini select { flex: 1 1 auto; width: auto; min-width: 0; }
   .sqd-self-line .sqd-btn { flex: 1 1 0; }

@@ -32,6 +32,7 @@ const selfNumber       = document.getElementById('sqd-self-number');
 const selfCancel       = document.getElementById('sqd-self-cancel');
 const selfClear        = document.getElementById('sqd-self-clear');
 const selfSet          = document.getElementById('sqd-self-set');
+const selfStar         = document.getElementById('sqd-self-star');
 const createSection    = document.getElementById('sqd-create-section');
 const createCallsign   = document.getElementById('sqd-create-callsign');
 const createFlights    = document.getElementById('sqd-create-flights');
@@ -61,8 +62,8 @@ const disbandBtn       = document.getElementById('sqd-disband');
 
 let state = null;   // last-known Squad.StateJson payload (null until the first successful poll)
 
-// Callsign picker (issue #42) — populated once at load, not rebuilt per render: the option list
-// itself never changes, only which <option> is selected.
+// Callsign picker (issue #42). Rebuilt only when the pilot's favorites change (renderFavorites),
+// not per render, so an open dropdown isn't disturbed by a state push.
 function fillOptions(select, values) {
   values.forEach(function (v) {
     const opt = document.createElement('option');
@@ -71,9 +72,27 @@ function fillOptions(select, values) {
   });
 }
 const ONE_TO_NINE = ['1', '2', '3', '4', '5', '6', '7', '8', '9'];
-fillOptions(createCallsign, SQUAD_CALLSIGNS);
-fillOptions(callsignSelect, SQUAD_CALLSIGNS);
-fillOptions(selfCallsign, SQUAD_CALLSIGNS);
+const callsignSelects = [createCallsign, callsignSelect, selfCallsign];
+const MAX_FAVORITES = 3;   // PilotCallsign.MaxFavorites
+// Favorites (state.me.favorites) head every callsign picker in their own group; the full list
+// follows, favorites included, so a name stays where the pilot expects it too.
+function fillCallsigns(select, favorites) {
+  const picked = select.value;
+  select.textContent = '';
+  if (favorites.length) {
+    const fav = document.createElement('optgroup');
+    fav.label = '★ FAVORITES';
+    fillOptions(fav, favorites);
+    const all = document.createElement('optgroup');
+    all.label = 'ALL CALLSIGNS';
+    fillOptions(all, SQUAD_CALLSIGNS);
+    select.append(fav, all);
+  } else {
+    fillOptions(select, SQUAD_CALLSIGNS);
+  }
+  if (picked) select.value = picked;
+}
+callsignSelects.forEach(function (s) { fillCallsigns(s, []); });
 fillOptions(selfFlight, ONE_TO_NINE);
 fillOptions(selfNumber, ONE_TO_NINE);
 
@@ -83,6 +102,7 @@ function factionSquads() { return (state && state.faction && state.faction.squad
 // This pilot's own callsign (state.me; empty callsign = none set), and anyone's by SteamID
 // (state.pilots[id] = {d: "VIPER 1-2", dup: another pilot flies the same}).
 function me() { return (state && state.me) || { callsign: '', flight: 1, number: 1 }; }
+function favorites() { return me().favorites || []; }
 function pilot(id) { return (state && state.pilots && state.pilots[id]) || null; }
 function pilotKey(id) { const p = pilot(id); return p ? p.d + (p.dup ? '!' : '') : ''; }
 function meDesignation() { const m = me(); return m.callsign ? m.callsign + ' ' + m.flight + '-' + m.number : ''; }
@@ -213,12 +233,13 @@ function renderSelf() {
     selfDup.style.display = also ? '' : 'none';
     selfDup.textContent = also ? 'ALSO FLOWN BY ' + also : '';
   }
+  renderStar();
 }
 selfChange.onclick = function () { editingSelf = true; render(); };
 selfCancel.onclick = function () { editingSelf = false; render(); };
 selfClear.onclick = function () {
   sendCommand('sqd.clear-self-callsign', {}).catch(function () {});
-  if (state) state.me = { callsign: '', flight: 1, number: 1 };   // shown at once; the pushed state confirms it
+  if (state) state.me = Object.assign({}, me(), { callsign: '', flight: 1, number: 1 });   // shown at once; the pushed state confirms it
   editingSelf = false;
   render();
 };
@@ -226,8 +247,43 @@ selfSet.onclick = function () {
   const next = { callsign: selfCallsign.value, flight: Number(selfFlight.value), number: Number(selfNumber.value) };
   if (!next.callsign) return;
   sendCommand('sqd.set-self-callsign', { name: next.callsign, index: next.flight, n: next.number }).catch(function () {});
-  if (state) state.me = next;   // shown at once; the pushed state confirms it
+  if (state) state.me = Object.assign({}, me(), next);   // shown at once; the pushed state confirms it
   editingSelf = false;
+  render();
+};
+
+// The star pins the callsign name picked in YOUR CALLSIGN to the top of every callsign picker.
+let favoritesSig = '';
+function isFavorite(name) {
+  return favorites().some(function (f) { return f.toUpperCase() === (name || '').toUpperCase(); });
+}
+function renderStar() {
+  const name = selfCallsign.value;
+  const on = isFavorite(name);
+  const full = !on && favorites().length >= MAX_FAVORITES;
+  selfStar.classList.toggle('on', on);
+  selfStar.textContent = on ? '★' : '☆';
+  selfStar.setAttribute('aria-pressed', String(on));
+  selfStar.disabled = full;
+  selfStar.title = full ? MAX_FAVORITES + ' favorites already: unpin one first'
+    : (on ? 'Unpin ' : 'Pin ') + name + (on ? ' from' : ' to') + ' the top of the callsign lists';
+}
+function renderFavorites() {
+  const sig = favorites().join(',');
+  if (sig !== favoritesSig) {
+    favoritesSig = sig;
+    callsignSelects.forEach(function (s) { fillCallsigns(s, favorites()); });
+  }
+}
+selfCallsign.onchange = renderStar;
+selfStar.onclick = function () {
+  const name = selfCallsign.value;
+  if (!name || !state) return;
+  const on = !isFavorite(name);
+  sendCommand('sqd.favorite-callsign', { name: name, on: on }).catch(function () {});
+  const next = on ? favorites().concat([name])
+    : favorites().filter(function (f) { return f.toUpperCase() !== name.toUpperCase(); });
+  state.me = Object.assign({}, me(), { favorites: next });   // shown at once; the pushed state confirms it
   render();
 };
 
@@ -303,6 +359,7 @@ function render() {
 
   // Top to bottom: YOUR CALLSIGN, CREATE SQUAD (only while role is "none", Squad.cs's CreateSquad
   // requires it), incoming invites, the pilot's own squad, then every other squad in the faction.
+  renderFavorites();
   renderSelf();
   createSection.style.display = noSquad ? '' : 'none';
   renderCreate();

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using BepInEx.Configuration;
 
 namespace NOXMFD
@@ -23,6 +24,12 @@ namespace NOXMFD
         internal static int Flight { get; private set; } = 1;
         internal static int Number { get; private set; } = 1;
 
+        private static ConfigEntry<string>? _favorites;
+        private static readonly List<string> _favoriteList = new List<string>();
+
+        // Callsign names starred on SQD, pinned at the top of its pickers (PilotCallsign's rules).
+        internal static IReadOnlyList<string> Favorites => _favoriteList;
+
         internal static bool IsSet => Name.Length > 0;
         internal static string Designation => IsSet ? SquadDesignations.Format(Name, Flight, Number) : string.Empty;
 
@@ -39,6 +46,18 @@ namespace NOXMFD
             {
                 Name = name; Flight = _flight.Value; Number = _number.Value;
             }
+            _favorites = config.Bind(section, "FavoriteCallsigns", string.Empty,
+                new ConfigDescription("Callsign names pinned at the top of the SQD pickers, comma-separated, starred on the SQD page.", null, Hidden));
+            _favoriteList.Clear();
+            _favoriteList.AddRange(PilotCallsign.ParseFavorites(_favorites.Value));
+        }
+
+        // false (nothing changed) when the name is invalid, already in/out, or the list is full.
+        internal static bool SetFavorite(string? name, bool on)
+        {
+            if (!PilotCallsign.SetFavorite(_favoriteList, name, on)) return false;
+            if (_favorites != null) _favorites.Value = PilotCallsign.FormatFavorites(_favoriteList);
+            return true;
         }
 
         // false (nothing changed) when the callsign is out of range. Writing the entries persists them at once.

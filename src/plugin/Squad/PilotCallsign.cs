@@ -1,3 +1,6 @@
+using System;
+using System.Collections.Generic;
+
 namespace NOXMFD
 {
     // A pilot's own callsign, "CALLSIGN F-N" (issue #107, docs/self-callsign.md): a name from the SQD
@@ -28,6 +31,39 @@ namespace NOXMFD
             bool ok = clean != null && NumberOk(flight) && NumberOk(number);
             callsign = ok ? clean! : string.Empty;
             return ok;
+        }
+
+        // Favorite callsign names, pinned at the top of the SQD pickers in the order they were
+        // starred. Stored as one comma-separated config string, so a name with a comma is refused
+        // (the picker list has none).
+        internal const int MaxFavorites = 3;
+
+        // A hand-edited config is tolerated: invalid names and repeats (any case) are dropped, the rest capped.
+        internal static List<string> ParseFavorites(string? stored)
+        {
+            var list = new List<string>();
+            foreach (string part in (stored ?? string.Empty).Split(','))
+                SetFavorite(list, part, true);
+            return list;
+        }
+
+        internal static string FormatFavorites(IEnumerable<string> favorites) => string.Join(",", favorites);
+
+        // Adds (on) or removes a name; false when nothing changed — already in/out, invalid, or the list is full.
+        internal static bool SetFavorite(List<string> favorites, string? name, bool on)
+        {
+            string? clean = CleanName(name);
+            if (clean == null || clean.IndexOf(',') >= 0) return false;
+            int at = favorites.FindIndex(f => string.Equals(f, clean, StringComparison.OrdinalIgnoreCase));
+            if (!on)
+            {
+                if (at < 0) return false;
+                favorites.RemoveAt(at);
+                return true;
+            }
+            if (at >= 0 || favorites.Count >= MaxFavorites) return false;
+            favorites.Add(clean);
+            return true;
         }
     }
 }

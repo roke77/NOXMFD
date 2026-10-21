@@ -367,6 +367,12 @@ namespace NOXMFD
             return true;
         }
 
+        // YOUR CALLSIGN's star: pins (on) or unpins a callsign name at the top of SQD's pickers.
+        internal static void SetFavoriteCallsign(string name, bool on)
+        {
+            if (SelfCallsign.SetFavorite(name, on)) RebuildState();
+        }
+
         // YOUR CALLSIGN's CLEAR: back to the Steam name. Allowed in a squad too — the pilot stays in
         // it and their row reads NO CALLSIGN, as for a pilot who never set one.
         internal static void ClearSelfCallsign()
@@ -975,11 +981,16 @@ namespace NOXMFD
               .Append(Esc(_role == Role.Member ? PlayerRoster.AircraftFor(_leaderId) : string.Empty)).Append('"');
             sb.Append(",\"callsign\":\"").Append(Esc(_callsign)).Append('"');
             sb.Append(",\"flight\":").Append(_flight.ToString(CultureInfo.InvariantCulture));
-            // This pilot's own callsign (YOUR CALLSIGN row); empty name = none set. Everyone's callsign,
+            // This pilot's own callsign (YOUR CALLSIGN row); empty name = none set. `favorites` are the
+            // names pinned at the top of every callsign picker. Everyone's callsign,
             // this pilot's included, is in `pilots` by SteamID, with whether another pilot flies the same.
             sb.Append(",\"me\":{\"callsign\":\"").Append(Esc(SelfCallsign.Name))
               .Append("\",\"flight\":").Append(SelfCallsign.Flight.ToString(CultureInfo.InvariantCulture))
-              .Append(",\"number\":").Append(SelfCallsign.Number.ToString(CultureInfo.InvariantCulture)).Append('}');
+              .Append(",\"number\":").Append(SelfCallsign.Number.ToString(CultureInfo.InvariantCulture))
+              .Append(",\"favorites\":[");
+            for (int i = 0; i < SelfCallsign.Favorites.Count; i++)
+                sb.Append(i > 0 ? ",\"" : "\"").Append(Esc(SelfCallsign.Favorites[i])).Append('"');
+            sb.Append("]}");
             sb.Append(",\"pilots\":").Append(FactionIdentity.PilotsJson(Designations()));
             sb.Append(",\"members\":").Append(MembersJsonServed(_members));
             sb.Append(",\"pendingInvites\":[");

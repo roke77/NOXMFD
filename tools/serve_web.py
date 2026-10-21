@@ -650,6 +650,8 @@ _SQD_SELF_NAME = "Falcon"   # only meaningful while role == leader — see _squa
 # see preview/captures/), pulled in from live captures rather than guessed names.
 _SQD_SELF_AIRCRAFT = "EW-25 Medusa"
 _SELF_CALLSIGN = {"callsign": "TALON", "flight": 1, "number": 1}
+# Callsign names pinned at the top of the SQD pickers (sqd.favorite-callsign), at most 3.
+_FAVORITES = ["TALON", "VIPER"]
 
 # Faction-mates in the match who aren't in this pilot's squad, as /server-players lists them.
 # `update` marks a NOXMFD too old to squad with this one.
@@ -808,7 +810,8 @@ def _squad_state():
         "leaderAircraft": _SQD.get("leaderAircraft", ""),
         "callsign": _SQD["callsign"],
         "flight": _SQD["flight"],
-        "me": {"callsign": own["callsign"], "flight": own["flight"], "number": own["number"]},
+        "me": {"callsign": own["callsign"], "flight": own["flight"], "number": own["number"],
+               "favorites": _FAVORITES},
         "pilots": _pilots_state(),
         "members": _SQD["members"],
         "pendingInvites": _SQD["pendingInvites"],
@@ -860,6 +863,16 @@ def _squad_command(env):
         return
     if cmd == "sqd.clear-self-callsign":
         _SELF_CALLSIGN = {"callsign": "", "flight": 1, "number": 1}
+        return
+    if cmd == "sqd.favorite-callsign":
+        name = str(env.get("name") or "").strip()[:20]
+        if not name:
+            return
+        if env.get("on"):
+            if name not in _FAVORITES and len(_FAVORITES) < 3:
+                _FAVORITES.append(name)
+        elif name in _FAVORITES:
+            _FAVORITES.remove(name)
         return
     if cmd == "sqd.create":
         if _SQD["role"] != "none" or not _own_callsign():
