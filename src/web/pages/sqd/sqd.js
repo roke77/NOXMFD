@@ -254,9 +254,8 @@ selfSet.onclick = function () {
 
 // The star pins the callsign name picked in YOUR CALLSIGN to the top of every callsign picker.
 let favoritesSig = '';
-function isFavorite(name) {
-  return favorites().some(function (f) { return f.toUpperCase() === (name || '').toUpperCase(); });
-}
+function sameName(a, b) { return a.toUpperCase() === (b || '').toUpperCase(); }
+function isFavorite(name) { return favorites().some(function (f) { return sameName(f, name); }); }
 function renderStar() {
   const name = selfCallsign.value;
   const on = isFavorite(name);
@@ -282,7 +281,7 @@ selfStar.onclick = function () {
   const on = !isFavorite(name);
   sendCommand('sqd.favorite-callsign', { name: name, on: on }).catch(function () {});
   const next = on ? favorites().concat([name])
-    : favorites().filter(function (f) { return f.toUpperCase() !== name.toUpperCase(); });
+    : favorites().filter(function (f) { return !sameName(f, name); });
   state.me = Object.assign({}, me(), { favorites: next });   // shown at once; the pushed state confirms it
   render();
 };

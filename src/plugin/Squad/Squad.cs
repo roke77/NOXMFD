@@ -370,7 +370,14 @@ namespace NOXMFD
         // YOUR CALLSIGN's star: pins (on) or unpins a callsign name at the top of SQD's pickers.
         internal static void SetFavoriteCallsign(string name, bool on)
         {
-            if (SelfCallsign.SetFavorite(name, on)) RebuildState();
+            // The page greys out a pin it can't make, so a refusal means a stale page or a bad request.
+            if (!SelfCallsign.SetFavorite(name, on))
+            {
+                PlayerNameOverride.SquadLog($"favorite callsign {(on ? "pin" : "unpin")} of '{name}' refused");
+                return;
+            }
+            PlayerNameOverride.SquadLog($"favorite callsigns: {PilotCallsign.FormatFavorites(SelfCallsign.Favorites)}");
+            RebuildState();
         }
 
         // YOUR CALLSIGN's CLEAR: back to the Steam name. Allowed in a squad too — the pilot stays in
@@ -987,10 +994,7 @@ namespace NOXMFD
             sb.Append(",\"me\":{\"callsign\":\"").Append(Esc(SelfCallsign.Name))
               .Append("\",\"flight\":").Append(SelfCallsign.Flight.ToString(CultureInfo.InvariantCulture))
               .Append(",\"number\":").Append(SelfCallsign.Number.ToString(CultureInfo.InvariantCulture))
-              .Append(",\"favorites\":[");
-            for (int i = 0; i < SelfCallsign.Favorites.Count; i++)
-                sb.Append(i > 0 ? ",\"" : "\"").Append(Esc(SelfCallsign.Favorites[i])).Append('"');
-            sb.Append("]}");
+              .Append(",\"favorites\":").Append(PresetSlots.StringArrayJson(SelfCallsign.Favorites)).Append('}');
             sb.Append(",\"pilots\":").Append(FactionIdentity.PilotsJson(Designations()));
             sb.Append(",\"members\":").Append(MembersJsonServed(_members));
             sb.Append(",\"pendingInvites\":[");

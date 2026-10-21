@@ -60,11 +60,11 @@ namespace NOXMFD
             return arr;
         }
 
-        internal static string StringArrayJson(string[] arr)
+        internal static string StringArrayJson(IReadOnlyList<string> arr)
         {
-            var sb = new StringBuilder(arr.Length * 12);
+            var sb = new StringBuilder(arr.Count * 12);
             sb.Append('[');
-            for (int i = 0; i < arr.Length; i++)
+            for (int i = 0; i < arr.Count; i++)
             {
                 if (i > 0) sb.Append(',');
                 sb.Append('"').Append(JsonLite.EscapeJson(arr[i])).Append('"');
