@@ -19,9 +19,13 @@ namespace NOXMFD
         private static readonly HashSet<string> _warned = new HashSet<string>(StringComparer.Ordinal);
         private static long _drainedSeq;   // our own cursor into Squadron's shared inbox
 
+        // A null or empty id is rejected here: the registry's dictionary would throw on null, and this
+        // is reached straight from the public Api.
+        private static bool Registered(string? id) => !string.IsNullOrEmpty(id) && ExtensionRegistry.TryGet(id!, out _);
+
         internal static bool SetHandler(string id, Api.MessageHandler? handler)
         {
-            if (!ExtensionRegistry.TryGet(id, out _)) return Reject(id, "handler", "is not a registered extension");
+            if (!Registered(id)) return Reject(id, "handler", "is not a registered extension");
             if (handler == null) _handlers.Remove(id);
             else _handlers[id] = handler;
             return true;
@@ -31,7 +35,7 @@ namespace NOXMFD
 
         internal static bool Send(string id, ulong to, string payload)
         {
-            if (!ExtensionRegistry.TryGet(id, out _)) return Reject(id, "send", "is not a registered extension");
+            if (!Registered(id)) return Reject(id, "send", "is not a registered extension");
             if (!ExtensionMessageWire.PayloadFits(payload))
                 return Reject(id, "size", $"message rejected: payload missing or over {ExtensionMessageWire.MaxPayloadBytes} bytes");
             if (to == 0 || to == Squadron.SelfId()) return false;

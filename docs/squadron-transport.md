@@ -332,6 +332,10 @@ with every member; members only ever talk to the leader, never each other):
   acceptance, updates in place on repeat sends, auto-reshare after its first share, and is removed
   by an id-only tombstone. Squad teardown clears pending points and unlocks accepted ones. See
   `docs/steer-points.md` for navigation semantics and the portable collection format.
+- `ext.<id>` — an installed extension's own messages (docs/extension-messaging.md), not part of
+  the squad protocol: `ExtensionMessages.cs` reads them from the shared inbox with its own cursor and
+  hands each to that extension's handler; `Squad.cs` ignores them like any type it doesn't know.
+  Sent only to peers `Presence` knows run NOXMFD.
 - Sent invites never expire — they live until the target accepts or declines, however long that
   takes. There is no delivery acknowledgment at the Steam messaging level, so a target with no mod
   installed looks identical to one still deciding, and a timeout couldn't tell the two apart
