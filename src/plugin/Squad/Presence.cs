@@ -153,6 +153,10 @@ namespace NOXMFD
             }
         }
 
+        // A faction-mate's identity as last announced, for the extension API's faction roster.
+        internal static bool TryGetIdentity(ulong steamId, out FactionIdentity.Identity id) =>
+            _identities.TryGet(steamId, Time.unscaledTime, PlayerRoster.InFaction, out id);
+
         // SteamID -> designation for every pilot heard with a callsign. Squad.Designations() adds our own.
         internal static Dictionary<ulong, string> Designations() =>
             _identities.Designations(Time.unscaledTime, PlayerRoster.InFaction);

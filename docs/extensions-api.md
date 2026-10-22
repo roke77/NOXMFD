@@ -2,11 +2,12 @@
 
 ## Status
 
-**Built and available as API version 7.** A separate BepInEx plugin can register an MFD page,
+**Built and available as API version 8.** A separate BepInEx plugin can register an MFD page,
 publish telemetry, receive commands on the Unity main thread, appear under the EXT navigation hub,
 provide an MJPEG feed, override MAP's unit icon colors (by faction, by type, or by one specific
-unit instance), drive a shared MAP highlight, and read and step the active WPT route — all without
-changing NOXMFD source.
+unit instance), drive a shared MAP highlight, read and step the active WPT route, read the faction's
+NOXMFD pilots and its own squad standing, and message other players' copies of itself
+(docs/extension-messaging.md) — all without changing NOXMFD source.
 
 The concrete example is
 [NOXMFD-Extension-Remote-Control-Missile-Camera-POC](https://github.com/roke77/NOXMFD-Extension-Remote-Control-Missile-Camera-POC),
@@ -39,7 +40,7 @@ Threading requirements differ by callback:
 - The command handler always runs on the Unity main thread after its request has been validated and
   queued.
 
-`Api.ApiVersion` is currently `6`. Breaking public-API changes require incrementing it. Runtime
+`Api.ApiVersion` is currently `8`. Breaking public-API changes require incrementing it. Runtime
 compatibility is informational; BepInEx's `MinimumVersion` is the load-time enforcement mechanism.
 
 ## 1. Page and asset serving
@@ -242,6 +243,22 @@ reads copies and steps progress through the same path WPT's per-waypoint reset u
 
 All four are main-thread only, like the store's mutators: call them from `Update()` or a command
 handler, never from the asset resolver.
+
+### Faction, squad and messaging
+
+```csharp
+ulong Api.LocalSteamId { get; }
+IReadOnlyList<FactionPilot> Api.GetFactionPilots();
+LocalSquad Api.GetLocalSquad();
+bool Api.SetMessageHandler(string id, Api.MessageHandler? handler);
+bool Api.SendMessage(string id, ulong to, string payload);
+```
+
+`ApiVersion` 8+ (docs/extension-messaging.md, asked for by the TAC extension). The roster and squad
+reads are views over `PlayerRoster`, `Presence` and the faction identity table; messages ride the
+squadron transport under the wire type `ext.<id>`, capped at 4096 UTF-8 bytes, sent only to peers
+known to run NOXMFD and delivered to the same extension id's handler on the main thread. All five
+are main-thread only.
 
 ## Known limitations
 

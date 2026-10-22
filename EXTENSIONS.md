@@ -17,7 +17,7 @@ seen NOXMFD's internals — everything you need is the public surface described 
 
 - [Prerequisites](#prerequisites)
 - [Quick start](#quick-start)
-- [The nine surfaces](#the-nine-surfaces)
+- [The twelve surfaces](#the-twelve-surfaces)
   - [1. Registering your extension](#1-registering-your-extension)
   - [2. Serving your page](#2-serving-your-page)
   - [3. Publishing telemetry](#3-publishing-telemetry)
@@ -27,6 +27,9 @@ seen NOXMFD's internals — everything you need is the public surface described 
   - [7. A shared MAP highlight](#7-a-shared-map-highlight)
   - [8. Continuous follow on MAP](#8-continuous-follow-on-map)
   - [9. The active WPT route](#9-the-active-wpt-route)
+  - [10. Who's in your faction](#10-whos-in-your-faction)
+  - [11. Your own squad](#11-your-own-squad)
+  - [12. Messages to other players](#12-messages-to-other-players)
 - [Appearing in the EXT nav — automatic](#appearing-in-the-ext-nav--automatic)
 - [Reusing NOXMFD's shared assets](#reusing-noxmfds-shared-assets)
 - [Versioning](#versioning)
@@ -89,10 +92,10 @@ Build, drop the DLL into `BepInEx/plugins/`, restart the game. Your page appears
 **EXT** nav, labeled "MY PAGE", reachable in both the classic bezel and F-35 layouts, in full
 view and split panes — you didn't write any of that wiring yourself.
 
-## The nine surfaces
+## The twelve surfaces
 
 Everything an extension can do goes through `NOXMFD.Api` (`using NOXMFD;`), a static class with
-nine capabilities. You don't need all nine — the quick-start example above only used the first.
+twelve capabilities. You don't need all twelve — the quick-start example above only used the first.
 
 ### 1. Registering your extension
 
@@ -384,6 +387,58 @@ if (rev != _lastRev)
 }
 ```
 
+### 10. Who's in your faction
+
+```csharp
+public static ulong LocalSteamId { get; }
+public static IReadOnlyList<FactionPilot> GetFactionPilots();
+```
+
+`GetFactionPilots` lists the faction-mates running NOXMFD right now, yourself excluded: each
+`FactionPilot` has `SteamId`, `Name` (their Steam name), `Designation` (`"VIPER 2-1"`), and the
+squad they announced (`SquadCallsign`, `SquadFlight`, `SquadLeaderId`). The callsign and squad
+fields are `""`/`0` for a pilot without them. The list is empty outside a mission and is a fresh
+copy every call. `LocalSteamId` is your own SteamID, `0` when Steam isn't available.
+
+### 11. Your own squad
+
+```csharp
+public static LocalSquad GetLocalSquad();
+```
+
+`Role` is `SquadRole.None`, `Leader` or `Member`; `Callsign`, `Flight` and `LeaderId` describe
+your squad (`""`/`0` outside one), and `Designation` is your own callsign designation. Poll it from
+`Update()`: there's no change event.
+
+### 12. Messages to other players
+
+```csharp
+public delegate void MessageHandler(ulong from, string payload);
+public static bool SetMessageHandler(string id, MessageHandler? handler);
+public static bool SendMessage(string id, ulong to, string payload);
+```
+
+Send a small text payload (at most 4096 UTF-8 bytes) to one faction-mate's copy of **your own**
+extension — the same `id` on their side — reliably and in order, over NOXMFD's existing Steam peer
+relay. Register one handler per extension; it runs on the main thread. `from` is the sender's
+SteamID, authenticated by Steam; the payload is untrusted text from another player's machine, so
+parse it defensively and decide whom to believe (for example, check a claim against
+`GetFactionPilots`).
+
+`SendMessage` only reaches players `GetFactionPilots` lists (or your squadmates): NOXMFD never
+opens a connection to a player who isn't running it. It returns `false` when the message is
+rejected — not registered, too large, unknown recipient — or Steam refuses it. Messages to a player
+who doesn't have your extension are silently dropped on their side.
+
+```csharp
+NOXMFD.Api.SetMessageHandler("tac", (from, payload) => Plugin.Log.LogInfo($"{from}: {payload}"));
+foreach (FactionPilot p in NOXMFD.Api.GetFactionPilots())
+    NOXMFD.Api.SendMessage("tac", p.SteamId, "{\"t\":\"hello\"}");
+```
+
+All three surfaces are main-thread only — call them from `Update()` or your command or message
+handler.
+
 ## Appearing in the EXT nav — automatic
 
 Once `RegisterExtension` succeeds, your `id`/`label` show up in `GET /ext-manifest`, which
@@ -426,7 +481,7 @@ changes. A hardcoded colour stays as it is under every theme.
 ## Versioning
 
 ```csharp
-public const int ApiVersion = 7;
+public const int ApiVersion = 8;
 ```
 
 `NOXMFD.Api.ApiVersion` is there if you want to branch on it at runtime, but the real enforcement

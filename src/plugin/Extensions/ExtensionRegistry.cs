@@ -55,6 +55,7 @@ namespace NOXMFD
         internal static void Unregister(string id)
         {
             lock (_extLock) _extensions.Remove(id);
+            ExtensionMessages.RemoveHandler(id);
             _slices.TryRemove(id, out _);
             _invalidPayloadWarnings.TryRemove("slice:" + id, out _);
         }

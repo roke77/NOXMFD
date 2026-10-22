@@ -35,6 +35,8 @@ namespace NOXMFD
             // cursor, same reason to drain at the main menu too (squad/fuel state shouldn't reset
             // just because nobody's flying yet).
             try { FuelBroadcast.Drain(); } catch (Exception ex) { StepGuard.Failed("FuelBroadcast.Drain", ex); }
+            // Extension messages (docs/extension-messaging.md): same shared inbox, own cursor.
+            try { ExtensionMessages.Drain(); } catch (Exception ex) { StepGuard.Failed("ExtensionMessages.Drain", ex); }
 
             try
             {

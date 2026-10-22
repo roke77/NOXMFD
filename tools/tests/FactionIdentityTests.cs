@@ -126,6 +126,18 @@ namespace NOXMFD.Tests
         }
 
         [Fact]
+        public void TryGet_returns_a_live_pilot_and_nothing_once_they_go_stale_or_leave()
+        {
+            var t = new Table();
+            t.Note(Member, InSquad(), 0f);
+            Assert.True(t.TryGet(Member, 1f, InFaction, out Identity id));
+            Assert.Equal(("TALON", 1, Leader), (id.SquadCallsign, id.SquadFlight, id.LeaderId));
+            Assert.False(t.TryGet(Other, 1f, InFaction, out _));
+            Assert.False(t.TryGet(Member, DesignationTtlSeconds + 1f, InFaction, out _));
+            Assert.False(t.TryGet(Member, 1f, _ => false, out _));
+        }
+
+        [Fact]
         public void Table_drops_a_pilot_who_left_the_faction()
         {
             var t = new Table();

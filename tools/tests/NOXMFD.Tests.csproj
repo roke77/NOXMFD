@@ -86,6 +86,7 @@
          no TelemetryServer/Keybinds touchpoint. -->
     <Compile Include="..\..\src\plugin\Input\RemoteInputState.cs" Link="Source\RemoteInputState.cs" />
     <Compile Include="..\..\src\plugin\Extensions\ExtensionJsonValidator.cs" Link="Source\ExtensionJsonValidator.cs" />
+    <Compile Include="..\..\src\plugin\Extensions\ExtensionMessageWire.cs" Link="Source\ExtensionMessageWire.cs" />
     <!-- IconColorRegistry.cs (docs/vanilla-icons-plus-extension.md) — pure BCL (System.Collections.
          Concurrent/Generic), no Unity/BepInEx touchpoint; TelemetrySnapshot.cs/TelemetryJson.cs
          above reference its TypeOverride type. -->

@@ -72,6 +72,9 @@ namespace NOXMFD
 
         internal static bool InFaction(ulong steamId) => _factionSince.ContainsKey(steamId);
 
+        // Everyone in the local faction on the last Refresh(), self included. Main thread only.
+        internal static IEnumerable<ulong> FactionSteamIds() => _factionSince.Keys;
+
         internal static float FactionSince(ulong steamId, out bool inFaction)
         {
             inFaction = _factionSince.TryGetValue(steamId, out float t);
