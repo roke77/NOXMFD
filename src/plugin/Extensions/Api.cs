@@ -128,5 +128,11 @@ namespace NOXMFD
         // order. Only that player's copy of the same extension receives it. False when rejected (not
         // registered, too large, recipient not known to run NOXMFD) or Steam refused the send.
         public static bool SendMessage(string id, ulong to, string payload) => ExtensionMessages.Send(id, to, payload);
+
+        // Selects a unit in this pilot's own in-game targeting, exactly as a MAP tap does: only a
+        // unit the player's side has detected, never a no-faction unit or one the TGT filters
+        // exclude, with the cockpit marker and select beep. Select-only. Main thread only. True when
+        // this call selected it; false when it was already selected or isn't selectable (logged).
+        public static bool SelectTarget(uint unitId) => CommandDispatcher.SelectById(unitId, "Api.SelectTarget");
     }
 }

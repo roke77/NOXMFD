@@ -17,7 +17,7 @@ seen NOXMFD's internals — everything you need is the public surface described 
 
 - [Prerequisites](#prerequisites)
 - [Quick start](#quick-start)
-- [The twelve surfaces](#the-twelve-surfaces)
+- [The thirteen surfaces](#the-thirteen-surfaces)
   - [1. Registering your extension](#1-registering-your-extension)
   - [2. Serving your page](#2-serving-your-page)
   - [3. Publishing telemetry](#3-publishing-telemetry)
@@ -30,6 +30,7 @@ seen NOXMFD's internals — everything you need is the public surface described 
   - [10. Who's in your faction](#10-whos-in-your-faction)
   - [11. Your own squad](#11-your-own-squad)
   - [12. Messages to other players](#12-messages-to-other-players)
+  - [13. Selecting a target](#13-selecting-a-target)
 - [Appearing in the EXT nav — automatic](#appearing-in-the-ext-nav--automatic)
 - [Reusing NOXMFD's shared assets](#reusing-noxmfds-shared-assets)
 - [Versioning](#versioning)
@@ -92,10 +93,10 @@ Build, drop the DLL into `BepInEx/plugins/`, restart the game. Your page appears
 **EXT** nav, labeled "MY PAGE", reachable in both the classic bezel and F-35 layouts, in full
 view and split panes — you didn't write any of that wiring yourself.
 
-## The twelve surfaces
+## The thirteen surfaces
 
 Everything an extension can do goes through `NOXMFD.Api` (`using NOXMFD;`), a static class with
-twelve capabilities. You don't need all twelve — the quick-start example above only used the first.
+thirteen capabilities. You don't need all thirteen — the quick-start example above only used the first.
 
 ### 1. Registering your extension
 
@@ -438,6 +439,19 @@ foreach (FactionPilot p in NOXMFD.Api.GetFactionPilots())
 
 All three surfaces are main-thread only — call them from `Update()` or your command or message
 handler.
+
+### 13. Selecting a target
+
+```csharp
+public static bool SelectTarget(uint unitId);
+```
+
+Selects a unit in the pilot's own in-game targeting, exactly as tapping it on MAP does: it has to
+be a live unit the player's side has detected, it's never a no-faction unit or one the pilot's TGT
+filters exclude, and the cockpit marker and select beep come along. Select-only — it never
+deselects. Returns `true` when this call selected the unit, `false` when it was already selected or
+isn't selectable (NOXMFD logs why). `unitId` is the same id a contact's `id` field carries.
+Main thread only.
 
 ## Appearing in the EXT nav — automatic
 

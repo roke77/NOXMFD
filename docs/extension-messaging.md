@@ -18,6 +18,7 @@ nothing in it knows about TAC.
 | `GetLocalSquad()` | This pilot's role (none/leader/member), squad callsign/flight/leader and own designation. |
 | `SetMessageHandler(id, handler)` | Receives this extension's messages, on the main thread. |
 | `SendMessage(id, to, payload)` | Sends one message to one faction-mate's copy of the same extension. |
+| `SelectTarget(unitId)` | Selects a unit in this pilot's own targeting, the way a MAP tap does — for TAC's ACQUIRE. |
 
 All of it is main-thread only, like the WPT reads (section 9 of `EXTENSIONS.md`).
 
@@ -45,13 +46,20 @@ All of it is main-thread only, like the WPT reads (section 9 of `EXTENSIONS.md`)
 6. **Own inbox cursor.** `ExtensionMessages.Drain` reads `Squadron`'s shared inbox at its own pace,
    like `Squad`, `Presence` and `FuelBroadcast`, from `MissionLifecycle` every frame — so messages
    flow at the main menu too. A handler that throws is logged and doesn't stop the drain.
-7. **Rejections log once** per extension and reason (not registered, oversize, unknown recipient),
+7. **Selecting goes through MAP's own path.** `SelectTarget` is `CommandDispatcher.SelectById`, the
+   body of MAP's `target.select`: the unit must be live and detected by the player's side (the
+   fog-of-war gate, docs/jamming-contact-telemetry-hardening.md F3), never no-faction, not excluded
+   by the TGT filters, and it goes through `CombatHUD.SelectUnit` for the marker and beep. An
+   extension gets the same rules instead of re-implementing them against the game.
+8. **Rejections log once** per extension and reason (not registered, oversize, unknown recipient),
    so an extension retrying every frame doesn't flood the log. `SendMessage` returns false in each
    case, and when Steam refuses the send.
 
 ## Files
 
 - `src/plugin/Extensions/Api.cs` — the public members.
+- `src/plugin/CommandDispatcher.cs` — `SelectById`, shared by MAP's `target.select` and
+  `Api.SelectTarget`.
 - `src/plugin/Extensions/ExtensionMessageWire.cs` — wire type and size rules (pure, tested in
   `tools/tests/ExtensionMessageWireTests.cs`).
 - `src/plugin/Extensions/ExtensionMessages.cs` — handlers, send checks, inbox drain.
@@ -69,3 +77,5 @@ Two NOXMFD clients in one faction, each with an extension that registers a handl
 - A `SendMessage` arrives at the other client's handler with the sender's SteamID; NOXMFD's squad
   features keep working alongside.
 - A send to a player without NOXMFD is rejected and logs once.
+- `SelectTarget` on a detected enemy selects it with the marker and beep; on an undetected or
+  filtered-out unit it does nothing and logs why.

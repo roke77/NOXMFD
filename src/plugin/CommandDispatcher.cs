@@ -441,15 +441,18 @@ namespace NOXMFD
         // has no de-dup). Routes through CombatHUD.SelectUnit so the cockpit marker recolours, the
         // select beep plays, and the DynamicMap icon syncs; falls back to the bare weaponManager op
         // for a contact the HUD isn't tracking.
-        private static void TargetSelect(CommandEnvelope env)
+        private static void TargetSelect(CommandEnvelope env) => SelectById(unchecked((uint)env.id), "target.select");
+
+        // A unit picked by id from outside the game's own UI — a MAP tap, or an extension through
+        // Api.SelectTarget. True when it ends up selected.
+        internal static bool SelectById(uint id, string source)
         {
-            uint id = unchecked((uint)env.id);
-            if (id == 0) { Plugin.Log?.LogInfo("[NOXMFD] target.select: id=0 (missing/unparsed) — ignored."); return; }
+            if (id == 0) { Plugin.Log?.LogInfo($"[NOXMFD] {source}: id=0 (missing/unparsed) — ignored."); return false; }
 
             if (!UnitRegistry.TryGetUnit(new PersistentID { Id = id }, out Unit unit) || unit == null || unit.disabled)
             {
-                Plugin.Log?.LogInfo($"[NOXMFD] target.select id={id}: no live unit (stale) — ignored.");
-                return;
+                Plugin.Log?.LogInfo($"[NOXMFD] {source} id={id}: no live unit (stale) — ignored.");
+                return false;
             }
 
             // This is the external entry point: the browser only ever sends ids it rendered from
@@ -461,16 +464,16 @@ namespace NOXMFD
             GameManager.GetLocalAircraft(out Aircraft ac);
             if (ac == null || ac.NetworkHQ == null)
             {
-                Plugin.Log?.LogInfo($"[NOXMFD] target.select id={id}: no local aircraft/HQ — ignored.");
-                return;
+                Plugin.Log?.LogInfo($"[NOXMFD] {source} id={id}: no local aircraft/HQ — ignored.");
+                return false;
             }
             if (!IsDetectedByPlayer(ac, unit))
             {
-                Plugin.Log?.LogInfo($"[NOXMFD] target.select id={id}: not visible to player — ignored.");
-                return;
+                Plugin.Log?.LogInfo($"[NOXMFD] {source} id={id}: not visible to player — ignored.");
+                return false;
             }
 
-            TrySelectTarget(unit, "target.select");
+            return TrySelectTarget(unit, source);
         }
 
         // Whether the player's side has actually detected this unit: the same faction-known / own-radar

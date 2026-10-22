@@ -252,13 +252,15 @@ IReadOnlyList<FactionPilot> Api.GetFactionPilots();
 LocalSquad Api.GetLocalSquad();
 bool Api.SetMessageHandler(string id, Api.MessageHandler? handler);
 bool Api.SendMessage(string id, ulong to, string payload);
+bool Api.SelectTarget(uint unitId);
 ```
 
 `ApiVersion` 8+ (docs/extension-messaging.md, asked for by the TAC extension). The roster and squad
 reads are views over `PlayerRoster`, `Presence` and the faction identity table; messages ride the
 squadron transport under the wire type `ext.<id>`, capped at 4096 UTF-8 bytes, sent only to peers
-known to run NOXMFD and delivered to the same extension id's handler on the main thread. All five
-are main-thread only.
+known to run NOXMFD and delivered to the same extension id's handler on the main thread.
+`SelectTarget` runs MAP's own `target.select` path (`CommandDispatcher.SelectById`), detection gate
+and TGT filters included. All six are main-thread only.
 
 ## Known limitations
 
