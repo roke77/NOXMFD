@@ -51,9 +51,12 @@ All of it is main-thread only, like the WPT reads (section 9 of `EXTENSIONS.md`)
    fog-of-war gate, docs/jamming-contact-telemetry-hardening.md F3), never no-faction, not excluded
    by the TGT filters, and it goes through `CombatHUD.SelectUnit` for the marker and beep. An
    extension gets the same rules instead of re-implementing them against the game.
-8. **Rejections log once** per extension and reason (not registered, oversize, unknown recipient),
-   so an extension retrying every frame doesn't flood the log. `SendMessage` returns false in each
-   case, and when Steam refuses the send.
+8. **Rejections log once** per extension and reason (not registered, oversize), and once per
+   recipient for an unknown one, so an extension retrying every frame doesn't flood the log.
+   `SendMessage` returns false in each case, and when Steam refuses the send. On the receiving side,
+   a message for an extension that isn't installed, or an oversize one, logs once per sender.
+   A temporary `[NOXMFD ext-link]` line records the first message each way per peer, for the TAC
+   two-player test; it comes out once TAC ships.
 
 ## Files
 
