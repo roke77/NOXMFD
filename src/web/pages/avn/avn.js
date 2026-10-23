@@ -24,9 +24,9 @@ const avnTileTurret = document.getElementById('avn-tile-turret');
 const IS_F35 = new URLSearchParams(location.search).has('f35');
 document.body.classList.toggle('f35', IS_F35);
 
-// Direct tile clicks/taps — the only way to toggle these on the F-35 layout (no bezel keys there
-// to wire externally); on the bezel this is an additional path to the same command the physical
-// key already sends. Group ids match the kind strings AvnStatusPolicy.tileClass expects.
+// Direct tile clicks/taps — the only way to toggle these in either layout: no bezel key drives them
+// (the bezel carries the Avionics hub switch). Group ids match the kind strings
+// AvnStatusPolicy.tileClass expects.
 [[avnTileGear, 'gear'], [avnTileRadar, 'radar'], [avnTileGuns, 'guns'], [avnTileEng, 'eng'],
  [avnTileAssist, 'assist'], [avnTileNvg, 'nvg'], [avnTileLights, 'lights'], [avnTileTurret, 'turret']]
   .forEach(function(pair) {

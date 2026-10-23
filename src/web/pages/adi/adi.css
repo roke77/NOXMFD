@@ -1,0 +1,40 @@
+/* ADI (docs/adi-hsi-pages.md). Equal side insets: the left one clears the shell's MAIN label, the
+   right one mirrors it so the instrument stays centred. Every size inside the SVG is in the
+   design's 890px-glass units and scales with the pane. */
+
+.adi-panel {
+  height: 100%;
+  box-sizing: border-box;
+  padding: clamp(4px, 1.2vmin, 10px) clamp(50px, 5.5vw, 56px);
+}
+.adi-svg { display: block; width: 100%; height: 100%; font-family: var(--no-font); }
+
+.adi-sky     { fill: var(--no-sky); }
+.adi-ground  { fill: var(--no-ground); }
+.adi-horizon { stroke: var(--no-white); stroke-width: 3; }
+.adi-rung    { stroke: var(--no-white); stroke-width: 2.4; }
+.adi-rung-label { fill: var(--no-white); font-size: 22px; text-anchor: middle; }
+.adi-rim     { fill: none; stroke: var(--no-white-dark); stroke-width: 2.5; }
+.adi-bank    { stroke: var(--no-white); }
+.adi-pointer { fill: var(--no-white); }
+.adi-symbol  { fill: none; stroke: var(--no-amber); stroke-width: 9; stroke-linejoin: round; stroke-linecap: round; }
+.adi-symbol-dot { fill: var(--no-amber); }
+.adi-slip-tube  { fill: none; stroke: var(--no-white-dark); stroke-width: 2; }
+.adi-slip-mark  { stroke: var(--no-white-dim); stroke-width: 2; }
+.adi-slip-ball  { fill: var(--no-white); }
+
+/* AoA and VVI bars */
+.adi-bar       { fill: var(--no-bg); stroke: var(--no-white-dark); stroke-width: 1.5; }
+.adi-tick      { stroke: var(--no-white); stroke-width: 2; }
+.adi-tick.zero { stroke-width: 3; }
+.adi-tick-minor { stroke: var(--no-white-dim); stroke-width: 1.5; }
+.adi-bar-label { fill: var(--no-white); font-size: 20px; }
+.adi-bar-line  { stroke: var(--no-white); stroke-width: 3; }
+.adi-unit      { fill: var(--no-label); font-size: 14px; letter-spacing: 1px; }
+
+.adi-label   { fill: var(--no-label); font-size: 20px; letter-spacing: 2px; }
+.adi-heading { fill: var(--no-label); font-size: 32px; }
+.adi-value   { fill: var(--no-green); font-size: 44px; }
+.adi-value.big { font-size: 56px; }
+.mid { text-anchor: middle; }
+.end { text-anchor: end; }

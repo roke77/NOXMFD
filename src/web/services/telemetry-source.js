@@ -61,6 +61,8 @@ export function gridEntryRange(meta) {
 // fallback below and _emitEmpties, so the two can't drift out of sync with each other.
 const AKF_EMPTY = { all: [], player: [], kills: { aircraft: 0, ship: 0, vehicle: 0, building: 0 },
                      value: 0, fundsGained: 0, fundsSpent: 0 };
+// No aircraft: the ADI/HSI pages blank their readouts.
+const ADI_EMPTY = { type: 'adi', present: false };
 
 // This document's MFD-instance id, for the server's instance registry (SOI — docs/keybinds-page.md).
 // sessionStorage, NOT localStorage: sessionStorage is scoped to the browsing context, so it stays
@@ -518,6 +520,18 @@ export class TelemetrySource {
       navLights: d.navlt === true,
     });
 
+    // ADI/HSI flight instruments (docs/adi-hsi-pages.md): the plugin's att block plus the own-ship
+    // values the tapes and ETE read. aoa/beta are null at taxi speed, as the game hides them.
+    const att = d.att;
+    const num = (v) => (typeof v === 'number' ? v : null);
+    this._postUp(att ? {
+      type: 'adi', present: true,
+      pitch: num(att.pitch), roll: num(att.roll), vs: num(att.vs), g: num(att.g),
+      aoa: num(att.aoa), beta: num(att.beta), mach: num(att.mach), turn: num(att.turn),
+      hdg: num(d.hdg), tas: num(d.tas), agl: num(d.agl), alt: d.world ? d.world.y : null,
+      metric: !!d.metric,
+    } : ADI_EMPTY);
+
     // Loadout (the WPN page mirrors it without opening its own /stream). masterArmsOn is mod state
     // (docs/radar-master-arms.md), not per-loadout, but rides the same message since the WPN page
     // is the only consumer of either — its ARM/SAFE controls always show regardless of the
@@ -591,6 +605,7 @@ export class TelemetrySource {
     this._postUp({ type: 'mw', items: [], metric: false });
     this._postUp({ type: 'hsd', metric: false, items: [], threats: [] });
     this._postUp({ type: 'avn', name: null, parts: null, failures: null, pylons: null, fuel: -1, throttle: -1, gearDown: false, radar: false, guns: false, ignition: false, assist: false, turret: false, nvg: false, navLights: false });
+    this._postUp(ADI_EMPTY);
     this._postUp({ type: 'tgt', present: false });
     this._postUp({ type: 'bdf', present: false });
     this._postUp({ type: 'pal', present: false });

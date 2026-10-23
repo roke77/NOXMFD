@@ -58,6 +58,15 @@ namespace NOXMFD
             // doesn't force renumbering every placeholder after it.
             sb.Append("\"mapReach\":{\"w\":").Append(s.MapReachW.ToString("0.0", CultureInfo.InvariantCulture))
               .Append(",\"h\":").Append(s.MapReachH.ToString("0.0", CultureInfo.InvariantCulture)).Append("},");
+            // ADI/HSI instruments (docs/adi-hsi-pages.md), one object like mapReach.
+            sb.Append("\"att\":{\"pitch\":").Append(Num(s.Pitch))
+              .Append(",\"roll\":").Append(Num(s.Roll))
+              .Append(",\"vs\":").Append(Num(s.Vs))
+              .Append(",\"g\":").Append(Num(s.GLoad))
+              .Append(",\"aoa\":").Append(Num(s.Aoa))
+              .Append(",\"beta\":").Append(Num(s.Beta))
+              .Append(",\"mach\":").Append(Num(s.Mach))
+              .Append(",\"turn\":").Append(Num(s.TurnRate)).Append("},");
             // The Next/Previous-focused locked target (issue #62) — a top-level id like mapReach,
             // since it's one value TGT/FCR/HSD all read, not scoped into any one of their own blocks.
             sb.Append("\"focusedTargetId\":").Append(s.FocusedTargetId).Append(',');
@@ -161,6 +170,10 @@ namespace NOXMFD
         }
 
         private static string JsonBool(bool value) => value ? "true" : "false";
+
+        // NaN/infinity aren't JSON; they mean "no value" (e.g. AoA at taxi speed).
+        private static string Num(float value) =>
+            float.IsNaN(value) || float.IsInfinity(value) ? "null" : value.ToString("0.00", CultureInfo.InvariantCulture);
 
         // Per-unit-type icon color overrides (docs/vanilla-icons-plus-extension.md), keyed by the
         // same type name a contact's "t" field and icon lookup use. factionFilter is included only

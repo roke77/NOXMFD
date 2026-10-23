@@ -346,6 +346,10 @@ namespace NOXMFD
             sb.Append(']');
             if (served)
             {
+                sb.Append(",\"directTo\":");
+                if (_directToKey == null) sb.Append("null");
+                else sb.Append("{\"x\":").Append(_directToX.ToString("0.0", CultureInfo.InvariantCulture))
+                       .Append(",\"z\":").Append(_directToZ.ToString("0.0", CultureInfo.InvariantCulture)).Append('}');
                 sb.Append(",\"pendingShared\":").Append(BuildPendingJson())
                   .Append(",\"pendingSharedSteerPoints\":").Append(BuildPendingSteerPointsJson());
             }
@@ -1052,6 +1056,34 @@ namespace NOXMFD
             Save();
         }
 
+        // ── direct-to origin for the HSI's course (docs/adi-hsi-pages.md) ─────────────────────
+        // A navigation target with no leg (an active steer point, or a route's first waypoint) gets
+        // its course from where the aircraft was when it became the target. Served so every display
+        // draws the same course; session-only, never persisted.
+        private static string? _directToKey;
+        private static float _directToX, _directToZ;
+
+        // Ticked at 1 Hz beside AdvanceIfNear, so the origin lands up to a second after activation.
+        public static void TrackDirectTo(float worldX, float worldZ)
+        {
+            string? key = DirectToKey();
+            if (key == _directToKey) return;
+            _directToKey = key;
+            _directToX = worldX;
+            _directToZ = worldZ;
+            RefreshServedJsonOnly();
+        }
+
+        // Identifies the leg-less target; null while a route leg (or nothing) is guiding.
+        private static string? DirectToKey()
+        {
+            Route? route = ActiveRoute;
+            if (route != null)
+                return route.NextIndex == 0 && route.Waypoints.Count > 0 ? "w:" + route.Id + "/" + route.Waypoints[0].Id : null;
+            SteerPoint? point = ActiveSteerPoint;
+            return point != null ? "s:" + point.Id : null;
+        }
+
         // ── in-process read for HudWaypointCue (no network round trip) ─────────────────────────
 
         public static bool TryGetActiveWaypoint(out float x, out float z, out string name, out int index)
@@ -1120,6 +1152,7 @@ namespace NOXMFD
             _activeSteerPointId = null;
             _pendingShared.Clear();
             _pendingSharedSteerPoints.Clear();
+            _directToKey = null;
             SendSquadData = null;
             RoutesJson = "{\"activeRouteId\":null,\"activeSteerPointId\":null,\"routes\":[],\"steerPoints\":[]}";
         }

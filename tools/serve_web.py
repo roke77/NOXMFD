@@ -398,6 +398,9 @@ def _wpt_options():
             {"id": "s_preview_tanker", "name": "TANKER", "x": 13200.0, "z": 11800.0,
              "sharedBy": "Foxtrot", "sharedWithSquad": False},
         ],
+        # Where the aircraft was when INGRESS became the target (RouteStore.TrackDirectTo): the
+        # HSI's direct-to course origin.
+        "directTo": {"x": 2000.0, "z": 1500.0},
         "pendingShared": [
             {"id": "r_sample_pending_share", "name": "RT-9B21C", "fromName": "Foxtrot", "waypointCount": 6},
         ],

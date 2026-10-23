@@ -19,14 +19,12 @@ const staticBehaviors = [...new Set(Object.values(NAV).flat()
   .filter(action => !(action in CLASSIC_SPLIT)))];
 const dynamicBehaviors = [
   'wpn-prev', 'wpn-next',
-  'avn-prev', 'avn-next',
   'main-prev', 'main-next',
   'map-nav-prev', 'map-nav-next',
   'ext-nav-prev', 'ext-nav-next',
   'weapon.select',
   'master-arms-on', 'master-arms-off',
   'combat-mode-aa', 'combat-mode-ag',
-  'avn.toggle',
   'tgp-manual-toggle',
   'tgp-ir-on', 'tgp-ir-off',
   'tgp-view-wtv', 'tgp-view-stv',

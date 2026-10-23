@@ -220,6 +220,7 @@ namespace NOXMFD
                     {
                         Vector3 advanceWorld = advanceAc.transform.position - Datum.originPosition;
                         RouteStore.AdvanceIfNear(advanceWorld.x, advanceWorld.z);
+                        RouteStore.TrackDirectTo(advanceWorld.x, advanceWorld.z);
                     }
                 }
                 catch (Exception ex) { StepGuard.Failed("RouteStore.AdvanceIfNear", ex); }
@@ -836,6 +837,18 @@ namespace NOXMFD
             // zero as the world re-centers. The true world coordinate is pos - Datum.originPosition.
             Vector3 world   = aircraft.transform.position - Datum.originPosition;
             float   heading = aircraft.transform.eulerAngles.y;
+            Vector3 euler   = aircraft.transform.eulerAngles;
+
+            // ADI/HSI reads, each as the game's own HUD app reads it (FlightInstrumentMath).
+            UnitPart? cockpit = aircraft.cockpit;
+            Vector3 localVel = cockpit != null && cockpit.rb != null
+                ? cockpit.transform.InverseTransformDirection(cockpit.rb.velocity) : Vector3.zero;
+            float gLoad = aircraft.pilots != null && aircraft.pilots.Length > 0 && aircraft.pilots[0] != null
+                ? Vector3.Dot(aircraft.pilots[0].GetAccel() + Vector3.up, aircraft.transform.up) : 1f;
+            // CockpitRB() dereferences cockpit itself, so it is only safe once cockpit is known.
+            Rigidbody? cockpitRb = cockpit != null ? aircraft.CockpitRB() : aircraft.rb;
+            float vs = cockpitRb != null ? Vector3.Dot(cockpitRb.velocity, Vector3.up) : 0f;
+            float turnRate = aircraft.rb != null ? FlightInstrumentMath.TurnRateDeg(aircraft.rb.angularVelocity.y) : 0f;
 
             PowerSupply ps     = aircraft.GetPowerSupply();
             float       ewKJ   = ps != null ? ps.GetChargeKJ() : -1f;
@@ -922,6 +935,14 @@ namespace NOXMFD
                 Rpm            = GetRpmLevel(aircraft),
                 HasAfterburner = _hasAfterburner,
                 AbStart        = _abStart,
+                Pitch          = FlightInstrumentMath.PitchDeg(euler.x),
+                Roll           = FlightInstrumentMath.RollDeg(euler.z),
+                Vs             = vs,
+                GLoad          = gLoad,
+                Aoa            = FlightInstrumentMath.AoaDeg(localVel.y, localVel.z, aircraft.speed),
+                Beta           = FlightInstrumentMath.BetaDeg(localVel.x, localVel.z, aircraft.speed),
+                Mach           = FlightInstrumentMath.Mach(aircraft.speed, LevelInfo.GetSpeedOfSound(world.y)),
+                TurnRate       = turnRate,
                 SelWeapon      = selWeapon,
                 SoftGun        = softGun,
                 SoftRel        = softRel,

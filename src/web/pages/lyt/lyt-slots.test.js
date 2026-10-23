@@ -18,7 +18,8 @@ const assert = require('assert');
   assert.deepStrictEqual([rows[1].label, rows[1].pages], ['WIDE R', ['HSD', 'WPN']]);
   assert.deepStrictEqual([rows[2].label, rows[2].pages], ['F_VIEW', ['RWR']]);
   // unknown variant → top/bottom split, a missing second page → MAIN (what the shell itself does)
-  assert.deepStrictEqual([rows[3].label, rows[3].pages], ['H_SPLIT', ['AVN', 'MAIN']]);
+  // ...and the avn page shows under its visible name, SYS
+  assert.deepStrictEqual([rows[3].label, rows[3].pages], ['H_SPLIT', ['SYS', 'MAIN']]);
   // unreadable data keeps the row, with nothing to draw
   assert.deepStrictEqual([rows[4].label, rows[4].rects.length, rows[4].pages.length], ['UNREADABLE', 0, 0]);
 

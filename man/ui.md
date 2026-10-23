@@ -89,6 +89,7 @@ lower case with dashes; any colour it leaves out keeps its default:
 | ACCENTS | `squad`, `mod-controls`, `mod-accent`, `friendly-tgt-td`, `friendly-hud` |
 | THREATS | `search`, `track`, `lock`, `jamming` |
 | MAP & SCOPE | `route`, `flown-route`, `target`, `neutral`, `nuclear-zone`, `hsd-symbology`, `hsd-aa-rings` |
+| INSTRUMENTS | `adi-sky`, `adi-ground` |
 | SOI | `soi` (a colour), `soi-style` (`solid`, `dashed`, `dotted` or `double`), `soi-width` (`sm`, `md` or `lg`), `soi-spacing` (`none`, `sm`, `md` or `lg`) |
 
 Colour values must be `#rrggbb`. A file without a `name` uses its file name; a file with no valid colour
