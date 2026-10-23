@@ -2,8 +2,9 @@
 
 ## Status
 
-**Built on `feature/adi-hsi-pages`; verified in the `serve_web` harness (classic full view and the
-F-35 glass) and by `tools/ci-check.ps1`, not yet in game.** See "Still to check in game".
+**Merged to `main` and released in 0.74.0 (issue #108); verified in the `serve_web` harness
+(classic full view and the F-35 glass) and by `tools/ci-check.ps1`, not yet in game.** See "Still
+to check in game".
 
 ## Request
 
