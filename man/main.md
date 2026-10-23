@@ -18,6 +18,8 @@ Under it, **URL not working? Check here** — tap **here** to show the two other
   network, including ones that can't open the name address (older Android). It changes when the
   PC's IP does.
 
+![MAIN with the PC and NET addresses shown](images/MAIN_URLS.png)
+
 With no name address (LAN access off), MAIN lists the localhost address, plus the LAN address if
 there is one, with no hint. If the LAN address is missing, the server fell back to localhost-only —
 see [NETWORKING.md](../NETWORKING.md) for why and how to fix it.

@@ -46,8 +46,8 @@ NO XMFD for you, and keeps it up to date.
    — on Windows, the `portable.exe` or the `.msi` installer.
 2. **Find "Nuclear Option eXternal MFD"** in NOMM's mod list and install it. NOMM pulls in
    BepInEx automatically if it isn't already present.
-3. **Launch the game** and open `http://localhost:5005/` in a browser. To reach it from a
-   tablet or phone on your network, see [NETWORKING.md](NETWORKING.md).
+3. **Launch the game** and open `http://localhost:5005/` in a browser. From a tablet or phone on
+   your network, open `http://noxmfd.local:5005/` — see [NETWORKING.md](NETWORKING.md).
 
 </details>
 
@@ -66,7 +66,7 @@ NO XMFD for you, and keeps it up to date.
    ```
 
 4. **Launch the game.** Open `http://localhost:5005/` in a browser to see the
-   display. To reach it from a tablet or phone on your network, see
+   display. From a tablet or phone on your network, open `http://noxmfd.local:5005/` — see
    [NETWORKING.md](NETWORKING.md).
 
 </details>

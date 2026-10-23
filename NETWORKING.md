@@ -67,6 +67,8 @@ Your router can hand the game PC a different IP from time to time, which breaks 
 - **`http://noxmfd.local:5005/`**, by default. The mod answers for the name in `LanName` (see
   [Config](#config)) itself. Change it to any name you like; if two PCs on the same network run
   the mod, give each a different name (`noxmfd`, `noxmfd2`).
+
+  ![LanName in the BepInEx F1 menu's Network section](man/images/NETWORK_CONFIG.png)
 - **Your PC's own name**, e.g. `http://gaming-pc.local:5005/`, when `LanName` is cleared. Windows
   answers for its own name on the local network. The name is the one in Settings › System › About;
   a default like `DESKTOP-7F3K2QX` works but is easier to remember after renaming it. MAIN shows no
