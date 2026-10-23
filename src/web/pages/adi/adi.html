@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>NO XMFD — ADI</title>
+<!--
+  ADI (docs/adi-hsi-pages.md), served at /adi: the attitude ball between airspeed and altitude
+  tapes, Mach and V/S above, G, max G, AoA and radar altitude below. A pure renderer of the
+  shell-relayed 'adi' slice; one SVG drawn in the approved design's 890px-glass coordinates and
+  scaled to the pane by its viewBox.
+-->
+<link rel="stylesheet" href="/assets/shared/font.css">
+<link rel="stylesheet" href="/assets/shared/theme.css">
+<link rel="stylesheet" href="/assets/pages/adi/adi.css">
+</head>
+<body>
+<div class="adi-panel">
+  <svg id="adi-svg" class="adi-svg" viewBox="56 14 778 862" preserveAspectRatio="xMidYMid meet"
+       role="img" aria-label="Attitude indicator with airspeed and altitude tapes"></svg>
+</div>
+<script src="/assets/pages/adi/adi-math.js"></script>
+<script src="/assets/pages/adi/adi.js"></script>
+</body>
+</html>
