@@ -711,5 +711,43 @@ namespace NOXMFD.Tests
             RouteStore.AdvanceIfNear(-9000f, 0f);                                // no change, no bump
             Assert.Equal(rev, RouteStore.Revision);
         }
+
+        [Fact]
+        public void Direct_to_origin_is_taken_when_a_steer_point_becomes_the_target()
+        {
+            RouteStore.AddSteerPoint(5000f, 5000f, "S1");   // becomes active: no route
+            RouteStore.TrackDirectTo(100f, 200f);
+            Assert.Contains("\"directTo\":{\"x\":100.0,\"z\":200.0}", RouteStore.RoutesJson);
+
+            RouteStore.TrackDirectTo(900f, 900f);            // same target: origin stays put
+            Assert.Contains("\"directTo\":{\"x\":100.0,\"z\":200.0}", RouteStore.RoutesJson);
+        }
+
+        [Fact]
+        public void Direct_to_applies_to_a_routes_first_waypoint_only()
+        {
+            RouteStore.CreateRoute("R");
+            RouteStore.AddWaypoint(0f, 10000f, "W0");
+            RouteStore.AddWaypoint(0f, 20000f, "W1");
+            RouteStore.TrackDirectTo(-50f, -50f);
+            Assert.Contains("\"directTo\":{\"x\":-50.0,\"z\":-50.0}", RouteStore.RoutesJson);
+
+            RouteStore.AdvanceIfNear(0f, 10000f);            // leg W0 -> W1 now guides
+            RouteStore.TrackDirectTo(0f, 10000f);
+            Assert.Contains("\"directTo\":null", RouteStore.RoutesJson);
+        }
+
+        [Fact]
+        public void Changing_the_steer_point_takes_a_new_origin()
+        {
+            RouteStore.AddSteerPoint(5000f, 5000f, "S1");
+            RouteStore.AddSteerPoint(8000f, 8000f, "S2");
+            RouteStore.SetActiveSteerPoint(null);
+            RouteStore.CycleSteerPoint(1);                    // S1
+            RouteStore.TrackDirectTo(1f, 1f);
+            RouteStore.CycleSteerPoint(1);                    // S2
+            RouteStore.TrackDirectTo(2f, 3f);
+            Assert.Contains("\"directTo\":{\"x\":2.0,\"z\":3.0}", RouteStore.RoutesJson);
+        }
     }
 }

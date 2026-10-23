@@ -220,6 +220,7 @@ namespace NOXMFD
                     {
                         Vector3 advanceWorld = advanceAc.transform.position - Datum.originPosition;
                         RouteStore.AdvanceIfNear(advanceWorld.x, advanceWorld.z);
+                        RouteStore.TrackDirectTo(advanceWorld.x, advanceWorld.z);
                     }
                 }
                 catch (Exception ex) { StepGuard.Failed("RouteStore.AdvanceIfNear", ex); }
