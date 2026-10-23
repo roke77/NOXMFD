@@ -23,7 +23,7 @@ The approved layouts are the "ADI B · Side tapes" and "HSI" boards on the Claud
 (890 px glass). Both keep a 64 px inset on **both** sides of the glass: the left one clears the
 shell's vertical MAIN label, and the right one mirrors it so the instrument sits centred. Labels are
 20 px near-white (`--no-label`) and values 44 px, at that glass size. The canvas's "ADI A · Classic
-ball" board was the runner-up.
+ball" board was the runner-up. Renders: `docs/images/adi-side-tapes.png` and `docs/images/hsi.png`.
 
 ## What the game provides
 
