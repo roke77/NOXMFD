@@ -1,5 +1,10 @@
 # LAN name URL
 
+## Status
+
+**Merged to `main` and released in 0.75.0; confirmed in game from a Mac and an Android phone.** See
+"Still needs a manual in-game check" for the rest.
+
 ## Goal
 
 A URL for the display that a player can write down once and that keeps working on any device on
