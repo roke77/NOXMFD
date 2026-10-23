@@ -108,6 +108,8 @@
   /* ADI attitude ball (docs/adi-hsi-pages.md): the sky and ground halves. */
   --no-sky:           #1f5f9e;
   --no-ground:        #6b4423;
+  /* HSI navigation symbology: bearing pointer and target readouts, the avionics magenta. */
+  --no-nav-magenta:   #ff50be;
 
   /* AFM damage silhouette. */
   --no-afm-marker:    #808080;   /* pylon marker until the first live pylon colour arrives */

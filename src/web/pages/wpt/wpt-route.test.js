@@ -180,4 +180,40 @@ assert.strictEqual(R.formatBearing(359.6), '000°');   // rounds up to 360, whic
   assert.strictEqual(R.timeline(6, 6).rows, 1);
 }
 
+// ── HSI course: leg, direct-to, cross-track, deviation, trend (docs/adi-hsi-pages.md) ──
+{
+  const near = (a, b, msg) => assert.ok(Math.abs(a - b) < 1e-6, `${msg}: expected ${b}, got ${a}`);
+  const legs = { activeRouteId: 'r1', routes: [route(1, [wp('a', 'A', 0, 0), wp('b', 'B', 1000, 1000)])] };
+
+  // Route past its first waypoint: the leg A -> B, bearing 045.
+  const leg = R.navCourse(legs);
+  near(leg.crsDeg, 45, 'leg course');
+  assert.deepStrictEqual([leg.fromX, leg.fromZ], [0, 0]);
+
+  // First waypoint: no leg, so the direct-to origin; null until the plugin has recorded it.
+  const first = { activeRouteId: 'r1', routes: [route(0, [wp('a', 'A', 0, 1000)])] };
+  assert.strictEqual(R.navCourse(first), null);
+  near(R.navCourse(Object.assign({ directTo: { x: 0, z: 0 } }, first)).crsDeg, 0, 'direct-to to the first waypoint');
+
+  // Steer point: direct-to as well.
+  const steer = { activeRouteId: null, activeSteerPointId: 's1', steerPoints: [wp('s1', 'S', 1000, 0)], directTo: { x: 0, z: 0 } };
+  near(R.navCourse(steer).crsDeg, 90, 'direct-to to a steer point');
+  assert.strictEqual(R.navCourse({ routes: [], steerPoints: [] }), null);
+
+  // Course due north from the origin: 500 m east of the line is right of course.
+  const north = { crsDeg: 0, fromX: 0, fromZ: 0 };
+  near(R.crossTrack(north, 500, 3000), 500, 'right of course is positive');
+  near(R.crossTrack(north, -500, 3000), -500, 'left of course is negative');
+  // Course due east: north of the line is left.
+  near(R.crossTrack({ crsDeg: 90, fromX: 0, fromZ: 0 }, 2000, 300), -300, 'north of an eastbound course is left');
+
+  // Right of course: the course is to the left, so the bar moves left. 1 nm = 1 dot; pinned at 2.4.
+  near(R.deviationDots(1852, false), -1, 'one nm right of course is one dot left');
+  near(R.deviationDots(-2000, true), 1, 'two km left of course is one metric dot right');
+  near(R.deviationDots(50000, false), -2.4, 'far off course pins the bar');
+
+  near(R.turnTrend(1.5, 6), 9, 'six seconds of a 1.5 deg/s turn');
+  near(R.turnTrend(-20, 6), -60, 'trend capped at 60');
+}
+
 console.log('wpt-route.test.js: OK');

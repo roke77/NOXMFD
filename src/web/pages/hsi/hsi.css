@@ -1,0 +1,30 @@
+/* HSI (docs/adi-hsi-pages.md). Same equal side insets as ADI; every size inside the SVG is in the
+   design's 890px-glass units and scales with the pane. */
+
+.hsi-panel {
+  height: 100%;
+  box-sizing: border-box;
+  padding: clamp(4px, 1.2vmin, 10px) clamp(50px, 5.5vw, 56px);
+}
+.hsi-svg { display: block; width: 100%; height: 100%; font-family: var(--no-font); }
+
+.hsi-card     { fill: var(--no-bg); stroke: var(--no-white-dark); stroke-width: 2; }
+.hsi-tick     { stroke: var(--no-white); stroke-width: 1.8; }
+.hsi-tick.major { stroke-width: 3; }
+.hsi-card-label { fill: var(--no-white); font-size: 32px; text-anchor: middle; }
+.hsi-card-label.cardinal { fill: var(--no-green); font-size: 40px; }
+.hsi-lubber   { fill: var(--no-white); }
+.hsi-trend    { fill: none; stroke: var(--no-green); stroke-width: 7; stroke-linecap: round; }
+.hsi-bearing  { fill: var(--no-nav-magenta); }
+.hsi-course   { fill: var(--no-amber); }
+.hsi-dot      { fill: none; stroke: var(--no-white); stroke-width: 2.5; }
+.hsi-ownship  { fill: none; stroke: var(--no-white); stroke-width: 5; stroke-linecap: round; }
+.hsi-box      { fill: var(--no-bg); stroke: var(--no-green); stroke-width: 2; }
+.hsi-heading  { fill: var(--no-green); font-size: 44px; text-anchor: middle; }
+.hsi-no-nav   { fill: var(--no-label); font-size: 24px; letter-spacing: 3px; text-anchor: middle; }
+
+.hsi-label { fill: var(--no-label); font-size: 20px; letter-spacing: 2px; }
+.hsi-value { fill: var(--no-green); font-size: 44px; }
+.hsi-value.nav    { fill: var(--no-nav-magenta); }
+.hsi-value.course { fill: var(--no-amber); }
+.end { text-anchor: end; }

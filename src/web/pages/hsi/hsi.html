@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>NO XMFD — HSI</title>
+<!--
+  HSI (docs/adi-hsi-pages.md), served at /hsi: a compass rose with a bearing pointer, course arrow
+  and deviation bar for the active waypoint or steer point, a 6-second turn arc, and readouts in the
+  corners. Reads the shell-relayed 'adi' slice (heading, turn rate, TAS), the 'mapinfo' slice
+  (own position) and the shared navigation library (wpt-routes). One SVG in the approved design's
+  890px-glass coordinates, scaled to the pane by its viewBox.
+-->
+<link rel="stylesheet" href="/assets/shared/font.css">
+<link rel="stylesheet" href="/assets/shared/theme.css">
+<link rel="stylesheet" href="/assets/pages/hsi/hsi.css">
+</head>
+<body>
+<div class="hsi-panel">
+  <svg id="hsi-svg" class="hsi-svg" viewBox="56 14 778 862" preserveAspectRatio="xMidYMid meet"
+       role="img" aria-label="Horizontal situation indicator"></svg>
+</div>
+<script src="/assets/pages/wpt/wpt-route.js"></script>
+<script src="/assets/pages/wpt/waypoints-store.js"></script>
+<script src="/assets/pages/adi/adi-math.js"></script>
+<script src="/assets/pages/hsi/hsi.js"></script>
+</body>
+</html>
