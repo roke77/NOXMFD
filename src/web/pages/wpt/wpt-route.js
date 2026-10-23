@@ -159,6 +159,15 @@
     return Math.max(-2.4, Math.min(2.4, -xtkM / dot));
   }
 
+  // Time to cover `distM` at `speedMs`: "mm:ss", or "h:mm:ss" from an hour. '—' when not moving.
+  function formatEte(distM, speedMs) {
+    if (!(speedMs > 1)) return '—';
+    const s = Math.round(distM / speedMs);
+    const h = Math.floor(s / 3600), mm = String(Math.floor((s % 3600) / 60)).padStart(2, '0');
+    const ss = String(s % 60).padStart(2, '0');
+    return h > 0 ? h + ':' + mm + ':' + ss : mm + ':' + ss;
+  }
+
   // Heading change over the next `seconds` at the current turn rate, capped for the trend arc.
   function turnTrend(turnDegPerSec, seconds) {
     return Math.max(-60, Math.min(60, turnDegPerSec * seconds));
@@ -216,7 +225,7 @@
     legLengths, routeLength, remainingDistance, timeline,
     waypointMarkerState, segmentReached,
     findRoute, findSteerPoint, navigationTarget,
-    navCourse, crossTrack, deviationDots, turnTrend,
+    navCourse, crossTrack, deviationDots, turnTrend, formatEte,
     serializeRoute, parseRouteJSON, serializeSteerPoints, parseSteerPointsJSON,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

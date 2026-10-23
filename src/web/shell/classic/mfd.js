@@ -121,8 +121,8 @@ const BEZEL_EXTRAS = {
   // same as MD staying 'akf'); MD (Mission Data) folds AKF/MIS/OBJ/BDF/PAL together
   // — landing on AKF by default (issue #34 follow-up; the other four are a switch away via
   // NAV.akf/NAV.mis/NAV.obj/NAV.bdf/NAV.pal) rather than its own MAIN entry; SQD is squad
-  // membership/invites (docs/squadron-transport.md). AFM is no longer here: it is one of the
-  // Avionics hub's pages, reached from NAV.main's AVN (docs/adi-hsi-pages.md).
+  // membership/invites (docs/squadron-transport.md). AFM is not here: it is one of the Avionics
+  // hub's pages, reached from NAV.main's AVN (docs/adi-hsi-pages.md).
   // All are frame-hosted pages that get their MAIN back from NAV like every other, so none needs an
   // entry of its own here beyond this one.
   // No bank/index/mark here (unlike lyt below): MAIN_SPLIT_ITEMS is the only consumer, in both full

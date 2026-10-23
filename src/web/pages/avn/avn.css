@@ -27,8 +27,8 @@
 }
 .avn-content.placed { display: flex; }
 
-/* Status-icon grid: 2 rows x 4 cols, fixed reading order matching mfd.js's AVN_TOGGLE_GROUPS
-   (GEAR/RADAR/GUNS/ENG, then ASSIST/NVG/LIGHTS/TURRET). No outer border, so the grid reads as one
+/* Status-icon grid: 2 rows x 4 cols, fixed reading order (GEAR/RADAR/GUNS/ENG, then
+   ASSIST/NVG/LIGHTS/TURRET). No outer border, so the grid reads as one
    instrument cluster rather than a boxed panel. Sized to its own content (icons are a fixed size,
    not stretched — see .avn-tile-icon below) rather than flex-growing, so the gauge grid below gets
    the rest of the available height. Side padding keeps every tile and its divider borders off the

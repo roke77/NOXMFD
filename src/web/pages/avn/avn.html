@@ -20,18 +20,16 @@
   from this page via send-command.js, same as TGT's own filter toggles; no bezel key drives them
   (the bezel carries the hub switch instead). On the F-35 layout the grid is hidden instead (layout-pages.js mounts this page at
   `/avn?f35`, avn.js's IS_F35): the master strip already shows those 8 flags (issue #35), so the
-  portal keeps just the gauges. All 8 tiles show whenever the grid is visible — bezel full view and
-  split alike (no per-pane pagination any more).
+  portal keeps just the gauges. All 8 tiles show whenever the grid is visible, bezel full view and
+  split alike.
 
   Shell -> page messages (all {mfd:true, ...}):
-    'avn'        : { name, fuel, throttle, heat, rpm, gearDown, radar, guns, …, visible, page, pages }
-                   — the live snapshot. `name` is presence-only now (drives the NO DATA empty
-                   state), never displayed. `visible`/`page`/`pages` (compact/split only — full view
-                   never sends them) name the pane's current 4-of-8 page; their absence means "show
-                   all 8, no indicator" (full view, or loaded outside a shell).
-    'avn-layout' : geometry. layout:'full' + geom {frameTop, frameHeight} (just the vertical band
-                   .avn-content centres in — no more per-tile leftSlots/rightSlots). layout:'compact'
-                   carries no geometry at all any more; the compact vertical band is a fixed margin.
+    'avn'        : { name, fuel, throttle, heat, rpm, gearDown, radar, guns, … } — the live
+                   snapshot. `name` is presence-only (drives the NO DATA empty state), never
+                   displayed.
+    'avn-layout' : full view only: layout:'full' + geom {frameTop, frameHeight}, the vertical band
+                   .avn-content centres in. Without it (split panes, outside a shell) the page uses
+                   its compact profile, a fixed margin.
     'orient'     : app-wide orientation (drives body.portrait/.landscape).
 -->
 <link rel="stylesheet" href="/assets/shared/font.css">

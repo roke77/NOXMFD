@@ -72,14 +72,6 @@
   let shownHdg = null, targetHdg = 0;
   let running = false, last = 0;
 
-  const pad3 = (d) => String(Math.round(((d % 360) + 360) % 360) % 360).padStart(3, '0');
-  function eteText(distM, tasMs) {
-    if (!(tasMs > 1)) return '—';
-    const s = Math.round(distM / tasMs);
-    const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
-    const mm = String(m).padStart(2, '0'), ss = String(sec).padStart(2, '0');
-    return h > 0 ? h + ':' + mm + ':' + ss : mm + ':' + ss;
-  }
 
   function drawCard() {
     card.setAttribute('transform', rotate(-(shownHdg || 0)));
@@ -105,11 +97,12 @@
   function render() {
     const metric = !!(adi.present ? adi.metric : mapinfo.metric);
     const u = AdiMath.units(metric);
-    const distUnit = metric ? 'KM' : 'NM', distK = metric ? 1 / 1000 : 1 / 1852;
+    const distUnit = WptRoute.distanceParts(0, metric)[1].toUpperCase();
+    const distText = (m) => WptRoute.distanceParts(m, metric)[0];
 
     if (adi.present && typeof adi.hdg === 'number') {
       targetHdg = adi.hdg;
-      headingText.textContent = pad3(adi.hdg);
+      headingText.textContent = WptRoute.formatBearing(adi.hdg).slice(0, 3);
       kickHeading();
     } else headingText.textContent = '—';
 
@@ -135,9 +128,9 @@
       const db = WptRoute.distanceBearing(mapinfo.x, mapinfo.z, target.point.x, target.point.z);
       bearing.setAttribute('transform', rotate(db.brgDeg));
       to.value.textContent = (target.kind === 'waypoint' ? 'WPT ' : 'STP ') + (target.index + 1);
-      brg.value.textContent = pad3(db.brgDeg) + '°';
-      dist.value.textContent = (db.distM * distK).toFixed(1);
-      ete.value.textContent = adi.present ? eteText(db.distM, adi.tas) : '—';
+      brg.value.textContent = WptRoute.formatBearing(db.brgDeg);
+      dist.value.textContent = distText(db.distM);
+      ete.value.textContent = adi.present ? WptRoute.formatEte(db.distM, adi.tas) : '—';
     } else {
       to.value.textContent = target ? (target.kind === 'waypoint' ? 'WPT ' : 'STP ') + (target.index + 1) : '—';
       brg.value.textContent = dist.value.textContent = ete.value.textContent = '—';
@@ -149,8 +142,8 @@
       const xt = WptRoute.crossTrack(c, mapinfo.x, mapinfo.z);
       course.setAttribute('transform', rotate(c.crsDeg));
       cdi.setAttribute('x', CX - 7 + WptRoute.deviationDots(xt, metric) * DOT_PX);
-      crs.value.textContent = pad3(c.crsDeg) + '°';
-      xtk.value.textContent = (xt >= 0 ? 'R ' : 'L ') + Math.abs(xt * distK).toFixed(1);
+      crs.value.textContent = WptRoute.formatBearing(c.crsDeg);
+      xtk.value.textContent = (xt >= 0 ? 'R ' : 'L ') + distText(Math.abs(xt));
     } else crs.value.textContent = xtk.value.textContent = '—';
   }
 

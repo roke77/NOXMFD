@@ -845,7 +845,9 @@ namespace NOXMFD
                 ? cockpit.transform.InverseTransformDirection(cockpit.rb.velocity) : Vector3.zero;
             float gLoad = aircraft.pilots != null && aircraft.pilots.Length > 0 && aircraft.pilots[0] != null
                 ? Vector3.Dot(aircraft.pilots[0].GetAccel() + Vector3.up, aircraft.transform.up) : 1f;
-            float vs = aircraft.CockpitRB() != null ? Vector3.Dot(aircraft.CockpitRB().velocity, Vector3.up) : 0f;
+            // CockpitRB() dereferences cockpit itself, so it is only safe once cockpit is known.
+            Rigidbody? cockpitRb = cockpit != null ? aircraft.CockpitRB() : aircraft.rb;
+            float vs = cockpitRb != null ? Vector3.Dot(cockpitRb.velocity, Vector3.up) : 0f;
             float turnRate = aircraft.rb != null ? FlightInstrumentMath.TurnRateDeg(aircraft.rb.angularVelocity.y) : 0f;
 
             PowerSupply ps     = aircraft.GetPowerSupply();

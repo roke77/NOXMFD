@@ -212,6 +212,10 @@ assert.strictEqual(R.formatBearing(359.6), '000°');   // rounds up to 360, whic
   near(R.deviationDots(-2000, true), 1, 'two km left of course is one metric dot right');
   near(R.deviationDots(50000, false), -2.4, 'far off course pins the bar');
 
+  assert.strictEqual(R.formatEte(28336, 220), '02:09');
+  assert.strictEqual(R.formatEte(220 * 3725, 220), '1:02:05');
+  assert.strictEqual(R.formatEte(5000, 0), '—');
+
   near(R.turnTrend(1.5, 6), 9, 'six seconds of a 1.5 deg/s turn');
   near(R.turnTrend(-20, 6), -60, 'trend capped at 60');
 }
