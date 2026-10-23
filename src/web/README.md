@@ -76,7 +76,7 @@ src/web/
                                            # width and spacing options; bootstraps from
                                            # GET /themes, then the shell's relayed 'themes-push'
             ui-tokens.js  .test.js        # the editable tokens, kept in step with ThemeColors.Tokens (C#)
-    wpn/  tgt/  tgp/  avn/  afm/  rwr/  rdr/  hsd/  hud/  bdf/  mis/  obj/  akf/  mapcfg/  tgpcfg/
+    wpn/  tgt/  tgp/  avn/  afm/  adi/  hsi/  rwr/  rdr/  hsd/  hud/  bdf/  mis/  obj/  akf/  mapcfg/  tgpcfg/
     doc/                                       # reactive MFD pages, one folder each (bdf.js doubles as PAL, ?pal;
                                                # akf = kill feed/session stats docs/akf-page.md; mapcfg/tgpcfg =
                                                # each page's own refresh-rate/quality settings, reached from that
@@ -162,7 +162,7 @@ reactive sink.
    WPN · TGT · TGP · AVN · AFM   pure reactive renderers — render to their own container,
    RWR · RDR · HUD · BDF/PAL     never know full-vs-split, never touch /stream. SQD/WPT/TD
    MIS · OBJ · KEYBINDS          also read the state/config pushes above instead of polling their
-                                 own REST endpoints on a timer.
+   ADI · HSI                     own REST endpoints on a timer.
 ```
 
 **Why MAP carries two hats (and it's deliberate):** MAP needs the raw stream anyway (live map,

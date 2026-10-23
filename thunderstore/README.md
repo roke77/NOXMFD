@@ -27,10 +27,10 @@ or with NOMM), remove that copy.
 
 ## Pages
 
-AFM (airframe), AVN (avionics), HUD config, extended keybinds, layouts, themes, MAP with
-waypoints and routes, kill feed, faction forces, kneeboard, mission info, objectives, FCR/HSD
-radar, RWR, squadrons, targeting-pod camera, target table, target hand-off, and weapon
-loadout. Third-party extensions can add their own pages.
+Avionics (attitude indicator, compass/HSI, airframe, systems), HUD config, extended keybinds,
+layouts, themes, MAP with waypoints and routes, kill feed, faction forces, kneeboard, mission
+info, objectives, FCR/HSD radar, RWR, squadrons, targeting-pod camera, target table, target
+hand-off, and weapon loadout. Third-party extensions can add their own pages.
 
 Full manual, extensions list and source:
 **[github.com/roke77/NOXMFD](https://github.com/roke77/NOXMFD)**

@@ -2,8 +2,8 @@
 
 ## Status
 
-**Planning; designs approved, open questions answered** (see Decisions). Nothing built yet.
-Branch `feature/adi-hsi-pages`.
+**Built on `feature/adi-hsi-pages`; verified in the `serve_web` harness (classic full view and the
+F-35 glass) and by `tools/ci-check.ps1`, not yet in game.** See "Still to check in game".
 
 ## Request
 
@@ -74,7 +74,7 @@ Layout ("ADI B · Side tapes"):
 ### Plugin changes
 
 New `TelemetrySnapshot` fields, read in `TelemetryReader`'s own-ship block next to `heading`, and
-appended in `TelemetryJson` with `sb.Append` (as `mapReach` is) rather than new `{N}` slots:
+appended in `TelemetryJson` with `sb.Append` (as `mapReach` is) as one `att` object:
 
 | JSON key | Field | Notes |
 |---|---|---|
@@ -160,23 +160,31 @@ MAIN's AVN key becomes the **Avionics** hub for four pages, with a left-bank swi
 The switch lists them alphabetically, and the AVN key opens the first one, ADI. AFM leaves
 MAIN's extras (`BEZEL_EXTRAS.main`, `f35.js`'s `MAIN_EXTRAS`), which frees a MAIN key.
 
-The AVN → SYS rename touches the page folder (`pages/avn/` → `pages/sys/`), its route, `NAV`
-entries, the embedded resources, `man/avn.md` and the docs that name the page.
+SYS is a **visible rename only**: the page keeps its id `avn`, its folder, the `/avn` route and the
+`avn.*` commands, so players' saved layouts and remote keybinds keep working. Everything a player
+reads says SYS: the bezel and F-35 labels, the page's title and empty state, LYT's layout list
+(`lyt-slots.js`) and the manual (`man/sys.md`).
+
+SYS no longer has bezel keys for its eight status toggles: in classic full view they left no room
+for the hub switch (MAIN plus eight toggles used nine of the twelve side keys). The tiles are
+tapped on the page itself, as on the F-35, in every layout; the split-pane toggle paging went with
+the keys.
 
 ## Wiring checklist
 
-Per [src-architecture.md](src-architecture.md) → "Shell hooks", for each of `adi` and `hsi`, and for
-the renamed `sys`:
+Per [src-architecture.md](src-architecture.md) → "Shell hooks", for each of `adi` and `hsi`:
 
 - `NAV` entries (`mfd.js`, `f35.js`, `nav-model.js`): the hub's switch row on each of the four
   pages, and the AVN key's action landing on ADI.
 - `layout-pages.js` `CLASSIC_FULL`, `split-slots.js`.
 - `mfd.js`: `showPage` + `mfdButton` cases (`classic-button-wiring.test.js` catches a missing one),
-  and a relay entry (`adi` slice; HSI added to `WPT_PAGES`).
+  and a relay entry (`adi` slice for ADI and HSI; HSI also in `MAPINFO_PAGES` for the mapinfo
+  slice).
 - `f35.js` slice map: `adi: ['adi']`, `hsi: ['mapinfo', 'wpt-routes', 'adi']`.
 - `TelemetryServer` routes and `NOXMFD.csproj` embedded resources for the new files
   (`server-route-coverage.test.js`).
 - A `man/` page for each, and `man/avn.md` → `man/sys.md`.
+- Each page loads the remote-keybind scripts (`remote-keybinds-coverage.test.js`).
 
 ## Testing
 
@@ -187,6 +195,16 @@ the renamed `sys`:
 - **In game:** ball direction and sign for pitch and roll, G and AoA against the game's own HUD
   readouts, slip ball direction, HSI bearing pointer against the WPT compass, and behaviour on
   respawn and aircraft change.
+
+## Still to check in game
+
+- Ball direction and sign for pitch and roll, and the slip ball's direction (its 10 px per degree
+  of sideslip is a starting guess).
+- G and AoA against the game's own HUD readouts; Mach and vertical speed against the HUD.
+- Turn rate sign and the 6-second arc against the actual heading change.
+- The direct-to origin appearing within a second of activating a steer point or a route.
+- HSI bearing pointer against WPT's compass; course and cross-track along a flown route leg.
+- Behaviour on respawn and aircraft change (max G resets on mission end, not on respawn).
 
 ## Decisions
 
@@ -203,3 +221,8 @@ The planning questions and their answers:
 7. **Update rate**: interpolate on the page; the telemetry rate doesn't change.
 8. **Combined page**: none; split view covers it.
 9. **In-cockpit MFD**: web only for now.
+
+Settled during implementation:
+
+10. **SYS rename depth**: the visible label only; the id, route and commands stay `avn`.
+11. **SYS toggle keys**: removed from the bezel; the hub switch takes their place.
