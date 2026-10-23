@@ -1446,8 +1446,10 @@
   }
 
   function setStripUrls(cfg) {
-    if (cfg && cfg.localhost) document.getElementById('ms-local').textContent = cfg.localhost;
-    document.getElementById('ms-lan').textContent = (cfg && cfg.lanUrl) || '';
+    // Only the name URL, the one address worth bookmarking since it survives an IP change.
+    // Localhost stands in when there is none (LAN access off), so the strip always shows a URL.
+    document.getElementById('ms-name').textContent =
+      (cfg && (cfg.nameUrl || cfg.localhost)) || 'http://localhost:5005';
     urlsLoaded = true;
     maybeRevealUrls();
   }

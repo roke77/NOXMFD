@@ -6,14 +6,24 @@ Landing page: connection status and the URL(s) to open the display.
 
 ## URLs
 
-Up to two addresses are shown, whichever open the display:
+MAIN shows the **name address** (`http://noxmfd.local:5005` by default): the `LanName` setting, or
+your PC's name if you clear it. It opens the display from other devices on your network and keeps
+working when the PC's IP changes, so it's the one to bookmark. See
+[NETWORKING.md](../NETWORKING.md#a-url-that-doesnt-change).
 
-- **`http://localhost:5005`** — always shown. Works from a browser on the same PC the game is
-  running on.
-- **A LAN address** (e.g. `http://192.168.1.42:5005`) — shown only when the server managed to bind
-  to your network interface, not just localhost. Use this one from a tablet, phone, or any other
-  device on the same local network. If it's missing, the server fell back to localhost-only — see
-  [NETWORKING.md](../NETWORKING.md) for why and how to fix it.
+Under it, **URL not working? Check here** — tap **here** to show the two other addresses:
+
+- **PC** — `http://localhost:5005`. Works from a browser on the same PC the game is running on.
+- **NET** — the LAN address (e.g. `http://192.168.1.42:5005`). Works from other devices on your
+  network, including ones that can't open the name address (older Android). It changes when the
+  PC's IP does.
+
+With no name address (LAN access off), MAIN lists the localhost address, plus the LAN address if
+there is one, with no hint. If the LAN address is missing, the server fell back to localhost-only —
+see [NETWORKING.md](../NETWORKING.md) for why and how to fix it.
+
+The F-35 layout's top strip shows only the name address, or `http://localhost:5005` when there's
+none.
 
 ## Connection status
 

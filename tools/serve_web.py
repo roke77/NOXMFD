@@ -284,6 +284,7 @@ def _config(port):
     return json.dumps({
         "localhost": f"http://localhost:{port}",
         "lanUrl": f"http://{lan_ip}:{port}" if lan_ip else "",
+        "nameUrl": f"http://noxmfd.local:{port}" if lan_ip else "",   # the plugin's default LanName
         "port": port,
         "version": _plugin_version(),
     }).encode("utf-8")

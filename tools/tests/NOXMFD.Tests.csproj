@@ -108,6 +108,9 @@
          behind /doc-image, pulled into its own pure file for the same reason as CommandContentType.cs/
          SoiRing.cs above: DocEndpoint.cs itself touches BepInEx.Paths/Plugin.Log, out of scope here. -->
     <Compile Include="..\..\src\plugin\Http\DocNameMatch.cs" Link="Source\DocNameMatch.cs" />
+    <!-- MdnsPacket.cs — the wire format behind MdnsResponder.cs's fixed LAN name; the socket half
+         stays out. Pure BCL. -->
+    <Compile Include="..\..\src\plugin\Http\MdnsPacket.cs" Link="Source\MdnsPacket.cs" />
   </ItemGroup>
 
 </Project>

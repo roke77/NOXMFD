@@ -1,18 +1,8 @@
 function setConfigUrls(cfg) {
-  const box = document.querySelector('.info-box');
   const status = document.getElementById('ib-status');
-  if (!box || !status || !status.parentNode) return;
+  if (!status || !status.parentNode) return;
 
-  const urls = [cfg && cfg.localhost ? cfg.localhost : 'http://localhost:5005'];
-  if (cfg && cfg.lanUrl) urls.push(cfg.lanUrl);
-
-  Array.prototype.slice.call(box.querySelectorAll('.ib-url')).forEach(function(el) { el.remove(); });
-  urls.forEach(function(url) {
-    const el = document.createElement('div');
-    el.className = 'ib-url';
-    el.textContent = url;
-    status.parentNode.insertBefore(el, status);
-  });
+  MainUrls.render(cfg, status);
 
   const versionEl = document.getElementById('ib-version');
   if (versionEl && cfg && cfg.version) versionEl.textContent = 'v' + cfg.version;

@@ -76,7 +76,9 @@ namespace NOXMFD
                 "TCP port the mod's HTTP/SSE server listens on; the tablet connects to http://<pc-ip>:<port>/. Change only if 5005 is taken. Requires a game restart, and must match the URL you open on the tablet.");
             var autoLan = Config.Bind("Network", "AutoSetupLanAccess", true,
                 "On first launch, if binding the LAN port is denied, automatically add the Windows URL reservation + firewall rule so a tablet can connect — ONLY works when the game is run as Administrator. Turn OFF to manage them yourself (see NETWORKING.md). No effect once configured. Localhost always works regardless.");
-            TelemetryServer.Configure(netPort.Value, autoLan.Value);
+            var lanName = Config.Bind("Network", "LanName", "noxmfd",
+                "Fixed LAN name: the mod answers for it on your network so a tablet can always open http://<name>.local:<port>/ (http://noxmfd.local:5005/ by default), whatever IP the PC gets. Letters, digits and '-' only. Clear it to use your PC's own name instead (http://<pc-name>.local:<port>/). Give each PC on the network a different name. Requires a game restart. See NETWORKING.md.");
+            TelemetryServer.Configure(netPort.Value, autoLan.Value, lanName.Value);
 
             // Read on every kill, so toggling it mid-mission takes effect at once.
             var killLog = Config.Bind("Kill log", "Enabled", false,

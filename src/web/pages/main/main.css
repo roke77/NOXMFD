@@ -20,6 +20,13 @@
   .ib-title  { font-size: clamp(20px, 2.6vh, 32px); font-weight: 900; margin-bottom: clamp(8px, 1.2vh, 14px); }
   .ib-url    { font-size: clamp(11px, 1.4vh, 18px); color: var(--no-green-dim); margin-bottom: clamp(8px, 1.2vh, 14px); }
   .ib-status { font-size: clamp(11px, 1.4vh, 18px); font-weight: bold; }
+  /* The "URL not working? Check here" hint under the name URL (main-urls.js) and the PC/NET
+     addresses its link reveals. Same look as the shell's full-view card, scaled to the pane; the link
+     itself (.ib-hint-link) is styled in theme.css. */
+  .ib-hint     { font-size: clamp(9px, 1.1vh, 14px); color: var(--no-gray); margin: calc(-1 * clamp(4px, 0.6vh, 8px)) 0 clamp(8px, 1.2vh, 14px); }
+  .ib-alt      { margin-bottom: clamp(8px, 1.2vh, 14px); }
+  .ib-alt-url  { font-size: clamp(10px, 1.2vh, 16px); color: var(--no-green-dim); }
+  .ib-alt-url + .ib-alt-url { margin-top: clamp(2px, 0.4vh, 6px); }
   /* Mod version, tucked in the card's own bottom-right corner — quiet gray, empty until /config
      answers. */
   .ib-version {
