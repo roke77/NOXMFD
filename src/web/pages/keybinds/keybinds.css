@@ -18,13 +18,14 @@ html, body { overflow: hidden; }
 /* Descriptions and notes read in the neutral instrument white LYT uses, so the green stays on names and values. */
 
 /* ── header ─────────────────────────────────────────────────────────────────────────────────── */
+/* Laid out like TGT's header (tgt.css .tgt-head): TGT's top inset, the title over a rule. */
 .kb-top {
   flex: none;
   display: flex;
-  align-items: center;
+  align-items: baseline;
   gap: 24px;
-  height: 56px;
-  border-bottom: 1px solid var(--no-panel-border);
+  padding: clamp(6px, 1.8vmin, 16px) 0 clamp(2px, 0.8vh, 6px);
+  border-bottom: 1px solid var(--no-green-dark);
 }
 .kb-top-side { display: flex; align-items: center; gap: 16px; }
 .kb-count { font-size: 12px; letter-spacing: 2px; color: var(--no-green-dim); }
