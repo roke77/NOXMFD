@@ -426,7 +426,9 @@ function placeSplitKey(m, label, action, paneTag, mark, pending) {
 // stood upright to clear it — in full view via .overlay.vmain, in a split pane via a per-label class
 // (renderSplitLabels). TGT's RESET FILTER, TD's squad buttons and BDF/PAL/MIS/OBJ's WARHEADS readout are that content —
 // on a narrow display the panel widens to the edge and a horizontal MAIN would sit over that
-// header. All are split-capable. ADI and HSI put their MACH / TO readout in that corner.
+// header. All are split-capable. The Avionics hub's four pages (ADI, AFM, HSI, SYS) all stand their
+// labels upright, so the hub's switch looks the same whichever page it is on.
+const AVIONICS_PAGES = ['adi', 'afm', 'hsi', 'avn'];
 // RDR/HSD are not in this list: their MAIN + FCR/HSD + R+ + R- row reads fine horizontal, not
 // cramped enough to need the narrow vertical treatment. KEY is in it: its section rail starts at the
 // left edge, where a horizontal label would cover it.
@@ -437,7 +439,7 @@ function placeSplitKey(m, label, action, paneTag, mark, pending) {
 // this same lone MAIN label (ext-nav.js), so there's no per-extension list to hardcode here the
 // way TGT/AKF/etc. are — this either clears real content (ATC's own table header, the reason this
 // was added) or costs nothing on a page with none.
-function isVmainPage(p) { return p === 'adi' || p === 'hsi' || p === 'tgt' || p === 'td' || p === 'sqd' || WPT_PAGES.indexOf(p) !== -1 || p === 'akf' || p === 'bdf' || p === 'pal' || p === 'mis' || p === 'obj' || p === 'lyt' || p === 'keys' || p === 'hud' || p === 'ui' || ExtNav.isExtensionPage(p); }
+function isVmainPage(p) { return AVIONICS_PAGES.indexOf(p) !== -1 || p === 'tgt' || p === 'td' || p === 'sqd' || WPT_PAGES.indexOf(p) !== -1 || p === 'akf' || p === 'bdf' || p === 'pal' || p === 'mis' || p === 'obj' || p === 'lyt' || p === 'keys' || p === 'hud' || p === 'ui' || ExtNav.isExtensionPage(p); }
 
 // The item count on each MAIN split page. Unlike WPN, MAIN reserves no fixed back-slot: PREV anchors
 // the first key only on pages past the first, NEXT the last key only on pages before the last, and

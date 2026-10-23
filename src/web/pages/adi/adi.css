@@ -23,15 +23,19 @@
 .adi-slip-mark  { stroke: var(--no-white-dim); stroke-width: 2; }
 .adi-slip-ball  { fill: var(--no-white); }
 
+/* AoA and VVI bars */
 .adi-tape      { fill: var(--no-bg); stroke: var(--no-white-dark); stroke-width: 1.5; }
 .adi-tick      { stroke: var(--no-white); stroke-width: 2; }
+.adi-tick.zero { stroke-width: 3; }
 .adi-tick-minor { stroke: var(--no-white-dim); stroke-width: 1.5; }
-.adi-tape-label { fill: var(--no-white); text-anchor: middle; }
-.adi-box       { fill: var(--no-bg); stroke: var(--no-green); stroke-width: 2.5; }
+.adi-bar-label { fill: var(--no-white); font-size: 20px; }
+.adi-bar-line  { stroke: var(--no-white); stroke-width: 3; }
+.adi-unit      { fill: var(--no-label); font-size: 14px; letter-spacing: 1px; }
 
-.adi-label { fill: var(--no-label); font-size: 20px; letter-spacing: 2px; }
-.adi-value { fill: var(--no-green); font-size: 44px; }
-.adi-value.white { fill: var(--no-white); }
+.adi-label   { fill: var(--no-label); font-size: 20px; letter-spacing: 2px; }
+.adi-heading { fill: var(--no-label); font-size: 32px; }
+.adi-value   { fill: var(--no-green); font-size: 44px; }
+.adi-value.big { font-size: 56px; }
 .adi-rule  { stroke: var(--no-green-dark); }
 .mid { text-anchor: middle; }
 .end { text-anchor: end; }

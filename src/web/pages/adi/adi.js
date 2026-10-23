@@ -1,6 +1,8 @@
-// ADI page (docs/adi-hsi-pages.md). Renders the shell-relayed 'adi' slice. The SVG is built once;
-// each frame only moves the ball, the tapes and the slip ball, easing toward the latest telemetry
-// (AdiMath) so the 10 Hz feed doesn't step.
+// ADI page (docs/adi-hsi-pages.md), laid out like the game's own BasicFlightInstruments panel:
+// heading and airspeed on top, the attitude ball between an AoA bar (left) and a VVI bar (right),
+// climb rate and altitude below. Renders the shell-relayed 'adi' slice. The SVG is built once; each
+// frame only moves the ball, the slip ball and the two bar pointers, easing toward the latest
+// telemetry (AdiMath) so the 10 Hz feed doesn't step.
 (function () {
   const NS = 'http://www.w3.org/2000/svg';
   const svg = document.getElementById('adi-svg');
@@ -12,18 +14,17 @@
     return e;
   }
 
-  const CX = 445, CY = 410, R = 260;
-  const K = 6;                 // px per degree of pitch
-  const TAPE_STEP_PX = 56;     // px per labelled tape step
+  const CX = 445, CY = 440, R = 235;
+  const K = 6;                     // px per degree of pitch
   // ponytail: 10 px per degree of sideslip, clamped to the tube; tune once flown in game.
   const SLIP_PX_PER_DEG = 10, SLIP_MAX_PX = 79;
+  const BAR_HALF = 235, BAR_TOP = CY - BAR_HALF;   // both bars centre on the horizon line
+  const AOA_MAX = 30;                    // the game's AoA indicator clamps at +/-30 degrees
   const D2R = Math.PI / 180;
   const polar = (r, a) => [CX + r * Math.sin(a * D2R), CY - r * Math.cos(a * D2R)];
+  const barY = (v, max) => CY - Math.max(-max, Math.min(max, v)) / max * BAR_HALF;
 
-  const defs = el('defs', {}, svg);
-  el('circle', { cx: CX, cy: CY, r: R }, el('clipPath', { id: 'adi-ball-clip' }, defs));
-  el('rect', { x: 64, y: 130, width: 100, height: 560 }, el('clipPath', { id: 'adi-spd-clip' }, defs));
-  el('rect', { x: 726, y: 130, width: 100, height: 560 }, el('clipPath', { id: 'adi-alt-clip' }, defs));
+  el('circle', { cx: CX, cy: CY, r: R }, el('clipPath', { id: 'adi-ball-clip' }, el('defs', {}, svg)));
 
   // ── attitude ball ─────────────────────────────────────────────────────────────────────────
   const ball = el('g', {}, el('g', { 'clip-path': 'url(#adi-ball-clip)' }, svg));
@@ -46,79 +47,85 @@
   const skyPointer = el('path', { d: `M${CX} ${CY - R + 3} l-14 26 h28 z`, class: 'adi-pointer' }, svg);
   el('path', { d: `M${CX - 134} ${CY} h86 l22 22 M${CX + 134} ${CY} h-86 l-22 22`, class: 'adi-symbol' }, svg);
   el('rect', { x: CX - 7.5, y: CY - 7.5, width: 15, height: 15, class: 'adi-symbol-dot' }, svg);
-  const SY = CY + R + 16;
+  const SY = CY + R + 14;
   el('rect', { x: CX - 92, y: SY, width: 184, height: 32, rx: 16, class: 'adi-slip-tube' }, svg);
   for (const s of [-1, 1]) el('line', { x1: CX + s * 20, y1: SY, x2: CX + s * 20, y2: SY + 32, class: 'adi-slip-mark' }, svg);
   const slipBall = el('circle', { cx: CX, cy: SY + 16, r: 13, class: 'adi-slip-ball' }, svg);
 
-  // ── tapes: marks rebuilt only when the value crosses a minor step, otherwise just scrolled ──
-  function tape(x, ticksRight, labelX, labelSize, clipId, boxPath, valueX, valueSize, headerX) {
-    el('rect', { x, y: 130, width: 100, height: 560, class: 'adi-tape' }, svg);
-    const scroll = el('g', {}, el('g', { 'clip-path': `url(#${clipId})` }, svg));
-    el('path', { d: boxPath, class: 'adi-box' }, svg);
-    const value = el('text', { x: valueX, y: CY + 14, class: 'adi-value mid', 'font-size': valueSize }, svg, '—');
-    const header = el('text', { x: headerX, y: 120, class: 'adi-label mid' }, svg);
-    let builtKey = null, base = 0;
-    return function update(v, u, name) {
-      header.textContent = name + ' ' + u.unit;
-      if (v == null) { value.textContent = '—'; scroll.style.display = 'none'; return; }
-      scroll.style.display = '';
-      const key = Math.floor(v / u.minor) + u.unit;
-      if (key !== builtKey) {
+  // ── side bars: AoA (left, labels outside) and VVI (right, labels outside) ──────────────────
+  // Rebuilt only when the scale changes (the VVI's follows the unit setting).
+  function bar(tubeX, labelsLeft, header) {
+    el('text', { x: tubeX + 16, y: BAR_TOP - 16, class: 'adi-label mid' }, svg, header);
+    el('rect', { x: tubeX, y: BAR_TOP, width: 32, height: 2 * BAR_HALF, class: 'adi-tape' }, svg);
+    const scale = el('g', {}, svg);
+    const unit = el('text', { x: tubeX + 16, y: BAR_TOP + 2 * BAR_HALF + 30, class: 'adi-unit mid' }, svg);
+    // Pointer: a line across the tube and a triangle on the ball side, pointing at the scale.
+    const pointer = el('g', {}, svg);
+    el('line', { x1: tubeX - 4, y1: 0, x2: tubeX + 36, y2: 0, class: 'adi-bar-line' }, pointer);
+    el('path', { d: labelsLeft ? `M${tubeX + 34} 0 l16 -11 v22 z` : `M${tubeX - 2} 0 l-16 -11 v22 z`, class: 'adi-pointer' }, pointer);
+    let builtKey = null;
+    return {
+      scale(max, tick, every, unitText) {
+        unit.textContent = unitText;
+        const key = max + '/' + tick + '/' + every;
+        if (key === builtKey) return;
         builtKey = key;
-        base = Math.floor(v / u.minor) * u.minor;
-        scroll.textContent = '';
-        for (const m of AdiMath.tapeMarks(base, u.step, u.minor, 6)) {
-          const y = CY - m.off * TAPE_STEP_PX;
-          const len = m.major ? 18 : 10;
-          const x1 = ticksRight ? x + 100 - len : x;
-          el('line', { x1, y1: y, x2: x1 + len, y2: y, class: m.major ? 'adi-tick' : 'adi-tick-minor' }, scroll);
-          if (m.major) el('text', { x: labelX, y: y + 8, class: 'adi-tape-label', 'font-size': labelSize }, scroll, m.v);
+        scale.textContent = '';
+        for (let v = -max; v <= max + 1e-9; v += tick) {
+          const y = barY(v, max), major = Math.abs(v % every) < 1e-9;
+          const len = v === 0 ? 32 : major ? 16 : 9;
+          const x1 = labelsLeft ? tubeX : tubeX + 32 - len;
+          el('line', { x1, y1: y, x2: x1 + len, y2: y, class: v === 0 ? 'adi-tick zero' : major ? 'adi-tick' : 'adi-tick-minor' }, scale);
+          if (major) el('text', { x: labelsLeft ? tubeX - 8 : tubeX + 40, y: y + 7, class: 'adi-bar-label' + (labelsLeft ? ' end' : '') }, scale, Math.abs(v));
         }
-      }
-      scroll.setAttribute('transform', `translate(0 ${((v - base) / u.step) * TAPE_STEP_PX})`);
-      value.textContent = Math.round(v);
+      },
+      move(v, max) {
+        pointer.style.display = v == null ? 'none' : '';
+        if (v != null) pointer.setAttribute('transform', `translate(0 ${barY(v, max)})`);
+      },
     };
   }
-  const spdTape = tape(64, true, 104, 24, 'adi-spd-clip',
-    `M58 ${CY - 28} h106 l14 28 l-14 28 h-106 z`, 112, 40, 114);
-  const altTape = tape(726, false, 788, 22, 'adi-alt-clip',
-    `M832 ${CY - 28} h-106 l-14 28 l14 28 h106 z`, 778, 36, 776);
+  const aoaBar = bar(92, true, 'AOA');
+  const vviBar = bar(766, false, 'VVI');
+  aoaBar.scale(AOA_MAX, 5, 10, 'DEG');
 
   // ── readouts ───────────────────────────────────────────────────────────────────────────
   function readout(x, y, label, cls, anchor) {
     const lbl = el('text', { x, y, class: 'adi-label ' + anchor }, svg, label);
     return { label: lbl, value: el('text', { x, y: y + 48, class: 'adi-value ' + cls + ' ' + anchor }, svg, '—') };
   }
+  // Top centre, as the game's panel: heading over airspeed. Bottom centre: climb rate over altitude.
+  const hdg = el('text', { x: CX, y: 46, class: 'adi-heading mid' }, svg, '—');
+  const tas = el('text', { x: CX, y: 110, class: 'adi-value big mid' }, svg, '—');
+  const vs = el('text', { x: CX, y: 772, class: 'adi-value mid' }, svg, '—');
+  const alt = el('text', { x: CX, y: 838, class: 'adi-value big mid' }, svg, '—');
   const mach = readout(64, 40, 'MACH', '', '');
-  const vs = readout(826, 40, 'V/S', '', 'end');
-  el('line', { x1: 64, y1: 744, x2: 826, y2: 744, class: 'adi-rule' }, svg);
-  for (const x of [254.5, 445, 635.5]) el('line', { x1: x, y1: 760, x2: x, y2: 864, class: 'adi-rule' }, svg);
-  const g = readout(159.3, 788, 'G', '', 'mid');
-  const gMax = readout(349.8, 788, 'MAX G', 'white', 'mid');
-  const aoa = readout(540.3, 788, 'AOA', '', 'mid');
-  const ralt = readout(730.8, 788, 'R-ALT', '', 'mid');
+  const g = readout(826, 40, 'G', '', 'end');
+  const gMax = el('text', { x: 826, y: 118, class: 'adi-label end' }, svg, '');
+  const aoa = readout(64, 768, 'AOA', '', '');
+  const ralt = readout(826, 768, 'R-ALT', '', 'end');
 
   // ── state ───────────────────────────────────────────────────────────────────────────────
   let units = AdiMath.units(false);
-  let present = false, maxG = null;
-  const target = { pitch: 0, roll: 0, slip: 0, spd: null, alt: null };
-  const shown = { pitch: 0, roll: 0, slip: 0, spd: null, alt: null };
+  let maxG = null;
+  const target = { pitch: 0, roll: 0, slip: 0, aoa: null, vvi: null };
+  const shown = { pitch: 0, roll: 0, slip: 0, aoa: null, vvi: null };
   let running = false, last = 0, first = true;
 
   function draw() {
     ball.setAttribute('transform', `rotate(${-shown.roll} ${CX} ${CY}) translate(0 ${shown.pitch * K})`);
     skyPointer.setAttribute('transform', `rotate(${-shown.roll} ${CX} ${CY})`);
     slipBall.setAttribute('cx', CX + Math.max(-SLIP_MAX_PX, Math.min(SLIP_MAX_PX, shown.slip * SLIP_PX_PER_DEG)));
-    spdTape(shown.spd, units.spd, 'TAS');
-    altTape(shown.alt, units.alt, 'ALT');
+    aoaBar.move(shown.aoa, AOA_MAX);
+    vviBar.move(shown.vvi, units.vvi.max);
   }
 
+  const near = (a, b) => (a == null || b == null ? a === b : Math.abs(a - b) < 0.01);
   function settled() {
-    const near = (a, b) => (a == null || b == null ? a === b : Math.abs(a - b) < 0.01);
     return near(shown.pitch, target.pitch) && Math.abs(AdiMath.angleDelta(shown.roll, target.roll)) < 0.01 &&
-           near(shown.slip, target.slip) && near(shown.spd, target.spd) && near(shown.alt, target.alt);
+           near(shown.slip, target.slip) && near(shown.aoa, target.aoa) && near(shown.vvi, target.vvi);
   }
+  const ease = (from, to, dt) => (to == null || from == null ? to : AdiMath.approach(from, to, dt));
 
   function frame(now) {
     const dt = Math.min(0.25, (now - last) / 1000);
@@ -126,8 +133,8 @@
     shown.pitch = AdiMath.approach(shown.pitch, target.pitch, dt);
     shown.roll = AdiMath.approachAngle(shown.roll, target.roll, dt);
     shown.slip = AdiMath.approach(shown.slip, target.slip, dt);
-    shown.spd = target.spd == null || shown.spd == null ? target.spd : AdiMath.approach(shown.spd, target.spd, dt);
-    shown.alt = target.alt == null || shown.alt == null ? target.alt : AdiMath.approach(shown.alt, target.alt, dt);
+    shown.aoa = ease(shown.aoa, target.aoa, dt);
+    shown.vvi = ease(shown.vvi, target.vvi, dt);
     draw();
     if (settled()) { running = false; return; }
     requestAnimationFrame(frame);
@@ -142,30 +149,34 @@
   }
 
   const fixed = (v, n, suffix) => (v == null ? '—' : v.toFixed(n) + (suffix || ''));
+  const withUnit = (v, unit) => (v == null ? '—' : Math.round(v) + ' ' + unit);
 
   function apply(m) {
-    present = m.present === true;
-    if (!present) {
+    if (m.present !== true) {
       maxG = null;
-      Object.assign(target, { pitch: 0, roll: 0, slip: 0, spd: null, alt: null });
-      for (const r of [mach, vs, g, gMax, aoa, ralt]) r.value.textContent = '—';
+      Object.assign(target, { pitch: 0, roll: 0, slip: 0, aoa: null, vvi: null });
+      for (const t of [hdg, tas, vs, alt, mach.value, g.value, aoa.value, ralt.value]) t.textContent = '—';
+      gMax.textContent = '';
       kick();
       return;
     }
     units = AdiMath.units(m.metric);
+    vviBar.scale(units.vvi.max, units.vvi.tick, units.vvi.every, units.vvi.unit);
     target.pitch = m.pitch || 0;
     target.roll = m.roll || 0;
     target.slip = m.beta || 0;
-    target.spd = m.tas == null ? null : m.tas * units.spd.k;
-    target.alt = m.alt == null ? null : m.alt * units.alt.k;
+    target.aoa = m.aoa;
+    target.vvi = m.vs == null ? null : m.vs * units.vvi.k;
     if (m.g != null) maxG = maxG == null ? m.g : Math.max(maxG, m.g);
 
+    hdg.textContent = m.hdg == null ? '—' : String(Math.round(((m.hdg % 360) + 360) % 360) % 360).padStart(3, '0') + '°';
+    tas.textContent = withUnit(m.tas == null ? null : m.tas * units.spd.k, units.spd.unit);
+    vs.textContent = m.vs == null ? '—'
+      : AdiMath.signed(Math.round(m.vs * units.vs.k / units.vs.round) * units.vs.round) + ' ' + units.vs.unit;
+    alt.textContent = withUnit(m.alt == null ? null : m.alt * units.alt.k, units.alt.unit);
     mach.value.textContent = fixed(m.mach, 2);
-    vs.label.textContent = 'V/S ' + units.vs.unit;
-    vs.value.textContent = m.vs == null ? '—'
-      : AdiMath.signed(Math.round(m.vs * units.vs.k / units.vs.round) * units.vs.round);
     g.value.textContent = fixed(m.g, 1);
-    gMax.value.textContent = fixed(maxG, 1);
+    gMax.textContent = maxG == null ? '' : 'MAX ' + maxG.toFixed(1);
     aoa.value.textContent = fixed(m.aoa, 1, '°');
     ralt.label.textContent = 'R-ALT ' + units.alt.unit;
     ralt.value.textContent = m.agl == null ? '—' : String(Math.round(m.agl * units.alt.k));
@@ -177,5 +188,6 @@
     if (m && m.mfd === true && m.type === 'adi') apply(m);
   });
 
+  vviBar.scale(units.vvi.max, units.vvi.tick, units.vvi.every, units.vvi.unit);
   draw();
 })();

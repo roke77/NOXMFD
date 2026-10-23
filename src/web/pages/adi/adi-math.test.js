@@ -19,13 +19,9 @@ assert.strictEqual(M.units(false).spd.unit, 'KT');
 assert.strictEqual(M.units(true).alt.unit, 'M');
 assert.ok(Math.abs(220 * M.units(false).spd.k - 427.6) < 0.1);
 
-// Tape marks: 428 kt with labels every 10 and ticks every 5, +/-5 labels shown.
-const marks = M.tapeMarks(428, 10, 5, 5);
-assert.strictEqual(marks[0].v, 380);
-assert.strictEqual(marks[marks.length - 1].v, 475);
-const m430 = marks.find((m) => m.v === 430);
-assert.ok(m430.major && Math.abs(m430.off - 0.2) < 1e-9, '430 is a labelled mark 0.2 steps above 428');
-assert.strictEqual(marks.find((m) => m.v === 425).major, false);
+// The VVI bar spans the game's own +/-50 m/s in either unit.
+assert.ok(Math.abs(50 * M.units(false).vvi.k - 9.84) < 0.01);
+assert.strictEqual(M.units(true).vvi.max, 50);
 
 assert.strictEqual(M.signed(2400), '+2400');
 assert.strictEqual(M.signed(-50), '-50');

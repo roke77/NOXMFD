@@ -487,6 +487,32 @@
       e.h = ((e._az + hdg + 180) % 360 + 360) % 360;
     }
   }
+  // A gentle simulated flight for the ADI/HSI pages (docs/adi-hsi-pages.md): a weaving, climbing
+  // and descending turn. Rewrites att, heading, airspeed and altitude each send; position stays
+  // put so MAP's picture doesn't drift off its contacts.
+  const FLIGHT = { t0: performance.now() / 1000, last: performance.now() / 1000,
+                   hdg: FRAME.hdg || 0, tas: FRAME.tas || 220,
+                   y: (FRAME.world && FRAME.world.y) || 3000, agl: FRAME.agl || 2500 };
+  FLIGHT.y0 = FLIGHT.y;
+  function flightTick() {
+    const now = performance.now() / 1000, t = now - FLIGHT.t0, dt = Math.min(0.5, now - FLIGHT.last);
+    FLIGHT.last = now;
+    const rad = Math.PI / 180;
+    const roll = 38 * Math.sin(t * 0.22) + 8 * Math.sin(t * 0.9);
+    const pitch = 7 * Math.sin(t * 0.17) + 2;
+    const tas = FLIGHT.tas + 25 * Math.sin(t * 0.11);
+    const turn = 9.81 * Math.tan(roll * rad) / tas / rad;
+    const vs = tas * Math.sin(pitch * rad) * 0.6;
+    const g = 1 / Math.cos(roll * rad) + 0.1 * Math.sin(t * 1.3);
+    FLIGHT.hdg = ((FLIGHT.hdg + turn * dt) % 360 + 360) % 360;
+    FLIGHT.y += vs * dt;
+    FRAME.hdg = FLIGHT.hdg;
+    FRAME.tas = tas;
+    if (FRAME.world) FRAME.world.y = FLIGHT.y;
+    FRAME.agl = Math.max(0, FLIGHT.agl + (FLIGHT.y - FLIGHT.y0));   // flat terrain under the mock
+    FRAME.att = { pitch, roll, vs, g, aoa: 2.5 + (g - 1) * 2.2, beta: 0.25 * Math.sin(t * 0.6),
+                  mach: tas / (340 - FLIGHT.y * 0.004), turn };
+  }
   // Animate each synthetic emitter's ping freshness (fr): bright on each sweep (every _p
   // seconds), fading to 0 over its tier lifetime — so the preview shows the diamonds "ping"
   // without a live game. A real capture carries its own fr and has no _p marker, so it's left
@@ -516,7 +542,7 @@
       // The frame is static EXCEPT the RWR ping freshness, which we re-tick each send so the
       // diamonds visibly pulse; ~6.7 Hz approximates the real 10 Hz stream (and keeps the
       // page's 2.5 s connection watchdog happy).
-      const tick = () => { rwrTickFreshness(); mwTickApproach(); this._send(JSON.stringify(FRAME)); };
+      const tick = () => { rwrTickFreshness(); mwTickApproach(); flightTick(); this._send(JSON.stringify(FRAME)); };
       // The MAP cursor rides its own event at a much higher rate than the frame (docs/map-cursor.md).
       // Mirrored here, repeat-suppressed exactly like the server, so the harness exercises the same
       // path the game does rather than a shortcut that would hide an ordering bug.

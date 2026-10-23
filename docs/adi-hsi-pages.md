@@ -18,7 +18,7 @@ ball above an HSI. The plan splits that into two independent MFD pages:
 
 Each page fills its own pane, so a pilot can put them in split view or show only one.
 
-The approved layouts are the "ADI B · Side tapes" and "HSI" boards on the Claude Design canvas
+The approved layouts start from the "ADI B · Side tapes" and "HSI" boards on the Claude Design canvas
 [ADI and HSI pages](https://claude.ai/artifact/4q4peWLtXDajDKnLwZ1cY1), drawn in the classic bezel
 (890 px glass). Both keep a 64 px inset on **both** sides of the glass: the left one clears the
 shell's vertical MAIN label, and the right one mirrors it so the instrument sits centred. Labels are
@@ -59,17 +59,19 @@ The own-ship frame already carries `hdg`, `tas`, `agl` and `world.y`. The shell 
 
 ## ADI page (`pages/adi/`)
 
-Layout ("ADI B · Side tapes"):
+Layout: the approved "ADI B · Side tapes" design, then reworked to follow the game's own
+`BasicFlightInstruments` panel (heading and speed on top, AoA and VSI bars either side of the
+ball, climb rate and altitude below):
 
-- **Attitude ball** in the centre, between the tapes: sky/ground split, pitch ladder (5° rungs,
-  labels every 10°), fixed bank scale (10/20/30/45/60) with a sky pointer that rolls with the
-  ball, fixed amber aircraft symbol, slip ball under the ball.
-- **Airspeed tape** down the left side and **altitude tape** down the right, each scrolling past a
-  fixed boxed pointer at horizon level that shows the exact value; the pointer has a notch facing
-  the ball. Airspeed: a mark every 5 kt, a number every 10 kt, ±50 kt visible. Altitude: a mark
-  every 50 ft, a number every 100 ft, ±500 ft visible. Tape headers: TAS KT and ALT FT.
-- **Top corners**: Mach (left), vertical speed (right).
-- **Bottom row**: four equal tiles: G, max G (session), AoA, radar altitude.
+- **Top centre**: heading, then true airspeed.
+- **Attitude ball** in the centre: sky/ground split, pitch ladder (5° rungs, labels every 10°),
+  fixed bank scale (10/20/30/45/60) with a sky pointer that rolls with the ball, fixed amber
+  aircraft symbol, slip ball under the ball.
+- **AOA bar** (left): ±30°, the game's own indicator clamp, zero on the horizon line.
+- **VVI bar** (right): ±50 m/s (the game's own VSI clamp), shown as ±10 ×1000 ft/min in imperial.
+- **Bottom centre**: climb rate, then altitude above sea level.
+- **Corners**: Mach and AoA on the left, G (with the session maximum) and radar altitude on the
+  right.
 
 ### Plugin changes
 
@@ -190,8 +192,9 @@ Per [src-architecture.md](src-architecture.md) → "Shell hooks", for each of `a
 
 - `wpt-route.test.js`: leg course, cross-track sign and scale, trend span.
 - `tools/tests/`: the plugin's attitude math helper (pitch wrap/sign, AoA, sideslip, at zero speed).
-- Harness: both pages in `serve_web.py` with mock frames, including roll through ±180, heading
-  through 0/360, and no navigation target.
+- Harness: both pages in `serve_web.py`, whose mock flies a weaving, climbing and descending turn
+  (`tools/preview-mock.js`), plus roll through ±180, heading through 0/360, and no navigation
+  target.
 - **In game:** ball direction and sign for pitch and roll, G and AoA against the game's own HUD
   readouts, slip ball direction, HSI bearing pointer against the WPT compass, and behaviour on
   respawn and aircraft change.
