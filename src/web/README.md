@@ -120,7 +120,9 @@ is left to the harness and the eye, not to Node asserts.
 
 Convention per page: `src/web/pages/<x>/<x>.{html,css,js}`, served at `/<x>`. The HTML links
 `/assets/shared/font.css` + `theme.css`, then its own `<x>.css`, and ends with `<script
-src="/assets/pages/<x>/<x>.js">`. Add files freely — the csproj embeds `src/web/**/*`.
+src="/assets/pages/<x>/<x>.js">`. Add files freely — the csproj embeds `src/web/**/*`. A page with
+a title header (TGT, HUD, LYT, KEY, UI) sizes and spaces it from `theme.css`'s `--page-title-size`,
+`--page-title-tracking`, `--page-head-gap` and `--page-top`, so every page title matches.
 
 ## Component roles — read this before touching the data path
 

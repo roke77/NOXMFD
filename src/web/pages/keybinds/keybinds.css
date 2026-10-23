@@ -24,14 +24,14 @@ html, body { overflow: hidden; }
   display: flex;
   align-items: baseline;
   gap: 24px;
-  padding: clamp(6px, 1.8vmin, 16px) 0 clamp(2px, 0.8vh, 6px);
+  padding: var(--page-top) 0 var(--page-head-gap);
   border-bottom: 1px solid var(--no-green-dark);
 }
 .kb-top-side { display: flex; align-items: center; gap: 16px; }
 .kb-count { font-size: 12px; letter-spacing: 2px; color: var(--no-green-dim); }
 .kb-back { float: none; padding: 0; font-size: 13px; letter-spacing: 1px; }
 /* Left-aligned in TGT's title size, like the other pages. */
-.kb-title { flex: 1; margin: 0; text-align: left; font-size: clamp(13px, 2.6vmin, 22px); letter-spacing: 0.08em; }
+.kb-title { flex: 1; margin: 0; text-align: left; font-size: var(--page-title-size); letter-spacing: var(--page-title-tracking); }
 
 .kb-body { flex: 1; min-height: 0; display: flex; }
 

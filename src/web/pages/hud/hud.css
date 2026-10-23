@@ -17,7 +17,7 @@ html, body {
   box-sizing: border-box;
   height: 100%;
   overflow-y: auto;
-  padding: clamp(6px, 1.8vmin, 16px) 14px 18px;   /* TGT's top inset */
+  padding: var(--page-top) 14px 18px;
   font-size: clamp(11px, 1.6vw, 18px);
   scrollbar-width: thin;
   scrollbar-color: var(--no-gray) transparent;
@@ -39,10 +39,10 @@ html, body {
 /* Header: TGT's title over a rule (tgt.css .tgt-head), with TGT's gap below it. */
 .hud-head {
   border-bottom: 1px solid var(--no-green-dark);
-  padding-bottom: clamp(2px, 0.8vh, 6px);
+  padding-bottom: var(--page-head-gap);
   margin-bottom: clamp(4px, 1.2vh, 12px);
 }
-.hud-title { font-size: clamp(13px, 2.6vmin, 22px); letter-spacing: 0.08em; color: var(--no-green); }
+.hud-title { font-size: var(--page-title-size); letter-spacing: var(--page-title-tracking); color: var(--no-green); }
 .hud-content {
   display: flex;
   flex-direction: column;
