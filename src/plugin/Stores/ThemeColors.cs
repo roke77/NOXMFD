@@ -27,6 +27,8 @@ namespace NOXMFD
             // Map & scope symbology
             "--no-route-cyan", "--no-reached-gray", "--no-target-orange", "--no-neutral-gray",
             "--no-nuclear-orange-rgb", "--no-hsd-pink-rgb", "--no-hsd-yellow-rgb",
+            // Instruments
+            "--no-sky", "--no-ground",
             // SOI focus ring and cursor
             "--no-soi", "--no-soi-style", "--no-soi-width", "--no-soi-inset",
         };
@@ -58,6 +60,8 @@ namespace NOXMFD
             // Map & scope symbology
             "route", "flown-route", "target", "neutral",
             "nuclear-zone", "hsd-symbology", "hsd-aa-rings",
+            // Instruments
+            "adi-sky", "adi-ground",
             // SOI
             "soi", "soi-style", "soi-width", "soi-spacing",
         };

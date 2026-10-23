@@ -159,6 +159,34 @@ const assert = require('assert');
     }
   }
 
+  // ADI/HSI slice (docs/adi-hsi-pages.md): the att block plus own-ship tas/alt/hdg; a frame
+  // without att (no aircraft) and mission-end both send present:false.
+  {
+    const messages = [];
+    const realWindow = global.window;
+    global.window = { parent: {} };
+    const srcAdi = new TelemetrySource({});
+    srcAdi._postUp = (m) => messages.push(m);
+
+    try {
+      srcAdi._emit({ hdg: 40, tas: 220, agl: 2580, world: { x: 0, y: 3000, z: 0 }, metric: false,
+        att: { pitch: 5, roll: 25, vs: 12, g: 1.1, aoa: null, beta: null, mach: 0.67, turn: 1.2 } });
+      assert.deepStrictEqual(messages.find((m) => m.type === 'adi'), {
+        type: 'adi', present: true, pitch: 5, roll: 25, vs: 12, g: 1.1, aoa: null, beta: null,
+        mach: 0.67, turn: 1.2, hdg: 40, tas: 220, agl: 2580, alt: 3000, metric: false });
+
+      messages.length = 0;
+      srcAdi._emit({ hdg: 40 });
+      assert.deepStrictEqual(messages.find((m) => m.type === 'adi'), { type: 'adi', present: false });
+
+      messages.length = 0;
+      srcAdi._emitEmpties();
+      assert.deepStrictEqual(messages.find((m) => m.type === 'adi'), { type: 'adi', present: false });
+    } finally {
+      global.window = realWindow;
+    }
+  }
+
   // The Next/Previous-focused locked target (issue #62, docs/tgt-cycle-focus.md) is one top-level
   // frame field that has to reach three independent feeds (TGT's 'targets', FCR's 'rdr', HSD's
   // 'hsd') unchanged, since each page compares its own contacts' ids against it. Also confirms the
