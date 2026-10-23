@@ -24,7 +24,7 @@
 .adi-slip-ball  { fill: var(--no-white); }
 
 /* AoA and VVI bars */
-.adi-tape      { fill: var(--no-bg); stroke: var(--no-white-dark); stroke-width: 1.5; }
+.adi-bar       { fill: var(--no-bg); stroke: var(--no-white-dark); stroke-width: 1.5; }
 .adi-tick      { stroke: var(--no-white); stroke-width: 2; }
 .adi-tick.zero { stroke-width: 3; }
 .adi-tick-minor { stroke: var(--no-white-dim); stroke-width: 1.5; }
@@ -36,6 +36,5 @@
 .adi-heading { fill: var(--no-label); font-size: 32px; }
 .adi-value   { fill: var(--no-green); font-size: 44px; }
 .adi-value.big { font-size: 56px; }
-.adi-rule  { stroke: var(--no-green-dark); }
 .mid { text-anchor: middle; }
 .end { text-anchor: end; }

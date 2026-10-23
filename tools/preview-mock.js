@@ -539,9 +539,9 @@
       // The server answers a new connection with the id it filed the client under, echoing the cid
       // the client sent. Same here, so telemetry-source settles on an id in the harness too.
       const cid = decodeURIComponent((/[?&]cid=([^&]*)/.exec(url) || [, ''])[1]);
-      // The frame is static EXCEPT the RWR ping freshness, which we re-tick each send so the
-      // diamonds visibly pulse; ~6.7 Hz approximates the real 10 Hz stream (and keeps the
-      // page's 2.5 s connection watchdog happy).
+      // The frame is static except what is re-ticked each send: RWR ping freshness (the diamonds
+      // pulse), the missile-warning approach and the simulated flight (ADI/HSI). ~6.7 Hz
+      // approximates the real 10 Hz stream (and keeps the page's 2.5 s connection watchdog happy).
       const tick = () => { rwrTickFreshness(); mwTickApproach(); flightTick(); this._send(JSON.stringify(FRAME)); };
       // The MAP cursor rides its own event at a much higher rate than the frame (docs/map-cursor.md).
       // Mirrored here, repeat-suppressed exactly like the server, so the harness exercises the same

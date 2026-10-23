@@ -56,7 +56,7 @@
   // Rebuilt only when the scale changes (the VVI's follows the unit setting).
   function bar(tubeX, labelsLeft, header) {
     el('text', { x: tubeX + 16, y: BAR_TOP - 16, class: 'adi-label mid' }, svg, header);
-    el('rect', { x: tubeX, y: BAR_TOP, width: 32, height: 2 * BAR_HALF, class: 'adi-tape' }, svg);
+    el('rect', { x: tubeX, y: BAR_TOP, width: 32, height: 2 * BAR_HALF, class: 'adi-bar' }, svg);
     const scale = el('g', {}, svg);
     const unit = el('text', { x: tubeX + 16, y: BAR_TOP + 2 * BAR_HALF + 30, class: 'adi-unit mid' }, svg);
     // Pointer: a line across the tube and a triangle on the ball side, pointing at the scale.
@@ -169,7 +169,7 @@
     target.vvi = m.vs == null ? null : m.vs * units.vvi.k;
     if (m.g != null) maxG = maxG == null ? m.g : Math.max(maxG, m.g);
 
-    hdg.textContent = m.hdg == null ? '—' : String(Math.round(((m.hdg % 360) + 360) % 360) % 360).padStart(3, '0') + '°';
+    hdg.textContent = m.hdg == null ? '—' : WptRoute.formatBearing(m.hdg);
     tas.textContent = withUnit(m.tas == null ? null : m.tas * units.spd.k, units.spd.unit);
     vs.textContent = m.vs == null ? '—'
       : AdiMath.signed(Math.round(m.vs * units.vs.k / units.vs.round) * units.vs.round) + ' ' + units.vs.unit;
