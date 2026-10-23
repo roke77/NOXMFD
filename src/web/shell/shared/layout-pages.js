@@ -23,6 +23,8 @@
     tgp:  '/tgp',
     avn:  '/avn',
     afm:  '/afm',
+    adi:  '/adi',   // the Avionics hub's attitude and navigation pages (docs/adi-hsi-pages.md)
+    hsi:  '/hsi',
     rwr:  '/rwr',
     rdr:  '/rdr',
     hsd:  '/hsd',
@@ -69,6 +71,8 @@
     map:  '/map-view?bare&relay=1',
     avn:  '/avn?bare',
     afm:  '/afm?bare',
+    adi:  '/adi?bare',
+    hsi:  '/hsi?bare',
     tgp:  '/tgp?bare',
     wpn:  '/wpn?bare',
     rwr:  '/rwr?bare',
@@ -106,6 +110,8 @@
     // shows those flags, so the portal keeps just the gauges.
     avn:  '/avn?f35',
     afm:  '/afm',   // reuses the avn feed — see PAGE_FEEDS in f35.js
+    adi:  '/adi',
+    hsi:  '/hsi',
     rwr:  '/rwr',
     rdr:  '/rdr',
     hsd:  '/hsd',

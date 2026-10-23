@@ -114,15 +114,15 @@ function fullViewSlot(i) { return i < 6 ? { bank: 'left', index: i } : { bank: '
 // it): the /lyt page in #page-frame carries the shell cards and the saved layouts, and SAVE/LOAD
 // LAYOUT are the keyboard shortcuts (dialogs: layout-keydown.js).
 const BEZEL_EXTRAS = {
-  // CFG, MD, RDR, AFM and SQD — the layout-owned MAIN items the six shared NAV items don't
+  // CFG, MD, RDR and SQD — the layout-owned MAIN items the six shared NAV items don't
   // cover. CFG opens the CFG group (HUD/KEY/LYT/RTS — cfg-rates experiment issue #39, HUD joined
   // that group and, like RTS, has no MAIN entry of its own anymore), landing on HUD by default
   // (mirrors MD's own sibling group below: action names whichever sibling is the landing page,
   // same as MD staying 'akf'); MD (Mission Data) folds AKF/MIS/OBJ/BDF/PAL together
   // — landing on AKF by default (issue #34 follow-up; the other four are a switch away via
-  // NAV.akf/NAV.mis/NAV.obj/NAV.bdf/NAV.pal) rather than its own MAIN entry; AFM shows the aircraft
-  // name + damage silhouette (split out of AVN, which is avionics only now); SQD is squad
-  // membership/invites (docs/squadron-transport.md).
+  // NAV.akf/NAV.mis/NAV.obj/NAV.bdf/NAV.pal) rather than its own MAIN entry; SQD is squad
+  // membership/invites (docs/squadron-transport.md). AFM is no longer here: it is one of the
+  // Avionics hub's pages, reached from NAV.main's AVN (docs/adi-hsi-pages.md).
   // All are frame-hosted pages that get their MAIN back from NAV like every other, so none needs an
   // entry of its own here beyond this one.
   // No bank/index/mark here (unlike lyt below): MAIN_SPLIT_ITEMS is the only consumer, in both full
@@ -131,7 +131,6 @@ const BEZEL_EXTRAS = {
     { label: 'CFG', action: 'hud' },   // CFG's own MAIN-entry action — lands on HUD now
     { label: 'MD', action: 'akf' },
     { label: 'RDR', action: 'rdr' },   // → RDR radar page (docs/rdr-page.md)
-    { label: 'AFM', action: 'afm' },   // → AFM airframe page (name + damage silhouette)
     { label: 'SQD', action: 'sqd' },   // → SQD squad page (docs/squadron-transport.md)
     // DOC is NOT here — it's the 6th member of the AKF/MIS/OBJ/BDF/PAL switch (nav-model.js's
     // NAV.akf etc.), reached via MD like the other five, not its own MAIN entry.
@@ -239,32 +238,6 @@ let panePages = ['main', 'main'];
 let paneWpnPage = [0, 0];
 const WPN_SPLIT_MAX = ClassicPaging.WPN_SPLIT_MAX;
 
-// AVN split pagination: a pane shows 4 of the 8 avn.toggle groups per page (item slots L1,L2,R1,R2
-// like WPN's), PREV/NEXT on the pane's top/bottom keys via listPaneLayout. Reset to 0 when a pane
-// (re)enters AVN — the groups never reorder, so unlike WPN there's no "selection" to auto-page to.
-let paneAvnPage = [0, 0];
-// The slice itself is pure (classic-paging.js); these wrappers just bind it to this pane's page
-// state and write the clamped index back, so every call site keeps its original signature.
-function avnPaneSlice(idx) {
-  const slice = ClassicPaging.avnPaneSlice(AVN_TOGGLE_GROUPS, paneAvnPage[idx]);
-  paneAvnPage[idx] = slice.pageIndex;
-  return slice;
-}
-// Wire this pane's 4 visible avn.toggle groups to the physical keys L.items resolves to — mirrors
-// wireWpnPaneWeaponKeys, plus an overlay text label (avnNavLabelText, the same abbreviations full
-// view's placeAvnNavLabels uses) since a split pane only exposes 4 of the 8 keys at a time and a
-// pilot can't tell which is which from the icon grid alone (unlike full view, where all 8 keys
-// have a fixed 1:1 row). No on/off colouring on the label itself — that state already shows on the
-// page's own tile grid, same as full view's labels.
-function wireAvnPaneToggleKeys(groups, L, paneTag) {
-  for (let i = 0; i < L.items.length && i < groups.length; i++) {
-    const key = keyBanks[L.items[i].bank][L.items[i].index];
-    if (!key) continue;
-    key.dataset.group = groups[i];
-    placeSplitKey(L.items[i], avnNavLabelText(groups[i]), 'avn.toggle', paneTag);
-  }
-}
-
 // ARM/SAFE/A-A/A-G (docs/radar-master-arms.md) in a split pane, and the pair-never-straddles-a-page
 // rule that shapes the slot list, live in classic-paging.js alongside the rest of the pagination.
 const buildWpnSplitPages = ClassicPaging.buildWpnSplitPages;
@@ -368,10 +341,9 @@ function setSplit(variant) {
   if (splitMode) {
     applySplitClasses();
     renderSplitLabels();            // key mapping is orientation-dependent
-    // Re-forward list-page geometry so WPN/AVN panes re-lay-out for the new orientation (else they
+    // Re-forward list-page geometry so WPN panes re-lay-out for the new orientation (else they
     // keep the previous layout's row arrangement — e.g. H's 2-column grid in a V column).
     forwardWpnLayoutToPanes();
-    forwardAvnLayoutToPanes();
     positionSoiRing();              // the panes moved (axis flip / v↔vw); re-frame the focused one
     return;
   }
@@ -427,13 +399,7 @@ function applySplitMode() {
 // a physical key via paneKey, which depends on the split orientation: top/bottom (H) gives each
 // pane both columns (pane 1 offset +3); left/right (V/VW) gives each pane its own column. Labels
 // are tagged with data-pane so the click dispatcher knows which pane to update.
-function isListPage(page) { return page === 'wpn' || page === 'avn'; }
-
-// The 8 avn.toggle groups, in the AVN page's own reading order (GEAR/RADAR/GUNS/ENG down the
-// left column, ASSIST/NVG/LIGHTS/TURRET down the right — see avn.js). Shared by full view (which
-// shows all 8 at once, no pagination needed — 8 fit in the 8 spare left/right keys) and split
-// (which pages through them 4 at a time, mirroring WPN's split pagination).
-const AVN_TOGGLE_GROUPS = ['gear', 'radar', 'guns', 'eng', 'assist', 'nvg', 'lights', 'turret'];
+function isListPage(page) { return page === 'wpn'; }
 
 // Physical keys for a paginated list page (WPN, MAIN) in split pane paneIdx, per orientation:
 //   h    → MAIN at the pane's L0, the 4 rows at L1,L2 + 2 of R0-R2, NEXT at the remaining R slot.
@@ -460,7 +426,7 @@ function placeSplitKey(m, label, action, paneTag, mark, pending) {
 // stood upright to clear it — in full view via .overlay.vmain, in a split pane via a per-label class
 // (renderSplitLabels). TGT's RESET FILTER, TD's squad buttons and BDF/PAL/MIS/OBJ's WARHEADS readout are that content —
 // on a narrow display the panel widens to the edge and a horizontal MAIN would sit over that
-// header. All are split-capable.
+// header. All are split-capable. ADI and HSI put their MACH / TO readout in that corner.
 // RDR/HSD are not in this list: their MAIN + FCR/HSD + R+ + R- row reads fine horizontal, not
 // cramped enough to need the narrow vertical treatment. KEY is in it: its section rail starts at the
 // left edge, where a horizontal label would cover it.
@@ -471,7 +437,7 @@ function placeSplitKey(m, label, action, paneTag, mark, pending) {
 // this same lone MAIN label (ext-nav.js), so there's no per-extension list to hardcode here the
 // way TGT/AKF/etc. are — this either clears real content (ATC's own table header, the reason this
 // was added) or costs nothing on a page with none.
-function isVmainPage(p) { return p === 'tgt' || p === 'td' || p === 'sqd' || WPT_PAGES.indexOf(p) !== -1 || p === 'akf' || p === 'bdf' || p === 'pal' || p === 'mis' || p === 'obj' || p === 'lyt' || p === 'keys' || p === 'hud' || p === 'ui' || ExtNav.isExtensionPage(p); }
+function isVmainPage(p) { return p === 'adi' || p === 'hsi' || p === 'tgt' || p === 'td' || p === 'sqd' || WPT_PAGES.indexOf(p) !== -1 || p === 'akf' || p === 'bdf' || p === 'pal' || p === 'mis' || p === 'obj' || p === 'lyt' || p === 'keys' || p === 'hud' || p === 'ui' || ExtNav.isExtensionPage(p); }
 
 // The item count on each MAIN split page. Unlike WPN, MAIN reserves no fixed back-slot: PREV anchors
 // the first key only on pages past the first, NEXT the last key only on pages before the last, and
@@ -661,16 +627,7 @@ function renderSplitLabels() {
     const slots = SPLIT_SLOTS[page] || (ExtNav.isExtensionPage(page) ? SPLIT_SLOTS.ext : undefined);
     if (!slots) continue;                            // not a split-capable page (e.g. LYT)
 
-    if (page === 'avn') {
-      // Paginated avn.toggle groups: MAIN (or PREV once scrolled) on the pane's top key, NEXT on
-      // its bottom key, 4 of the 8 groups on the item slots — same shape as WPN's split, own copy
-      // since AVN's slice is a plain fixed-list page (no weapons/controls mix to interleave).
-      const L = listPaneLayout(paneIdx, page);
-      const slice = avnPaneSlice(paneIdx);
-      placeSplitKey(L.main, slice.hasPrev ? 'PREV' : 'MAIN', slice.hasPrev ? 'avn-prev' : 'main', paneTag);
-      if (slice.hasNext) placeSplitKey(L.next, 'NEXT', 'avn-next', paneTag);
-      wireAvnPaneToggleKeys(slice.items, L, paneTag);
-    } else if (isListPage(page)) {
+    if (isListPage(page)) {
       // Paginated list (WPN): MAIN (or PREV once scrolled) on the pane's top key, NEXT on its
       // bottom key — positions per orientation via listPaneLayout; the 4 rows sit on .items.
       const L = listPaneLayout(paneIdx, page);
@@ -746,7 +703,6 @@ function paneNavigate(paneIdx, page) {
   if (page === 'main') paneMainPage[paneIdx] = 0;   // fresh pane always opens on MAIN's first page
   if (page === 'map')  paneMapNavPage[paneIdx] = 0; // fresh pane always opens on MAP's first nav page
   if (page === 'ext')  paneExtPage[paneIdx]    = 0; // fresh pane always opens on EXT's first nav page
-  if (page === 'avn')  paneAvnPage[paneIdx]  = 0;   // fresh pane always opens on the first 4 groups
   if (page === 'tgp')  paneTgpPage[paneIdx]  = 0;   // fresh pane always opens on TGP's first page
   if (MD_GROUP_PAGES[page]) paneMdPage[paneIdx] = 0;   // fresh pane always opens on that page's own first screen
   if (page === 'doc') paneDocView[paneIdx] = 'index';   // fresh pane always opens on DOC's own index
@@ -780,11 +736,8 @@ function forwardToFrame(payload) {
 function forwardStatusToPanes() {
   forwardToPanes('main', { mfd: true, type: 'status', cls: lastStatusCls, text: lastStatusText });
 }
-// No `visible`/page/pages any more: the icon grid always shows all 8, split or full — only the
-// pane's 4 physical toggle KEYS still page (avnPaneSlice, renderSplitLabels' avn branch), same as
-// WPN's list ever needing more rows than keys. The grid and the keys page independently now: the
-// page's own tiles show current state at a glance regardless of which 4 groups the bezel can
-// actuate this page.
+// The SYS page (id `avn`): its status tiles are toggled by tapping them on the page itself; no
+// bezel key drives them.
 function avnMsg() {
   return { mfd: true, type: 'avn', name: avnData.name, parts: avnData.parts,
            failures: avnData.failures, fuel: avnData.fuel, throttle: avnData.throttle,
@@ -797,27 +750,9 @@ function avnMsg() {
 function forwardAvnToPanes() { forwardToPanes('avn', avnMsg()); }
 // Full-view AVN: forward the snapshot to the #page-frame iframe (same payload as the panes).
 function forwardAvnToFrame() { forwardToFrame(avnMsg()); }
-// Split-pane AVN geometry: the pane's 4 visible toggle rows (avnPaneSlice) sit on the same
-// physical keys wireAvnPaneToggleKeys just wired — forward their vertical centres (+ per-item
-// side) the same way forwardWpnLayoutToPanes does for weapon rows, so the page can position its
-// tiles without knowing about bezel keys itself.
-function forwardAvnLayoutToPanes() {
-  paneIframes.forEach(function(iframe, idx) {
-    if (panePages[idx] !== 'avn') return;
-    if (!iframe.contentWindow) return;
-    const paneTop = iframe.getBoundingClientRect().top;
-    const L = listPaneLayout(idx, 'avn');
-    function cyOf(m) { const r = keyBanks[m.bank][m.index].getBoundingClientRect(); return r.top + r.height / 2 - paneTop; }
-    iframe.contentWindow.postMessage({
-      mfd: true, type: 'avn-layout', layout: 'compact',
-      slotYs: L.items.map(cyOf), sides: L.itemSides,
-    }, '*');
-  });
-}
 // Forward the full-view geometry: AVN's content block (icon grid + gauges) centres itself in the
 // band below the top bezel row, from below the first separator sep[0]'s row (sep1) to the bottom
-// strip. The icon grid is a plain CSS grid, not anchored to individual bezel-key rects (see
-// placeAvnNavLabels below for the per-key label anchoring instead).
+// strip. The icon grid is a plain CSS grid, not anchored to individual bezel-key rects.
 function forwardAvnLayoutToFrame() {
   const w = frameWin(); if (!w) return;
   const frameTop = pageFrame.getBoundingClientRect().top;
@@ -867,39 +802,6 @@ function forwardAfmLayoutToFrame() {
   w.postMessage({ mfd: true, type: 'afm-layout', layout: 'full', geom: geom }, '*');
 }
 
-// Shell-drawn NAV label per avn.toggle group (full view only — docs note this is a CLASSIC-bezel
-// pass; split pane keeps its existing label-less wireAvnPaneToggleKeys wiring unchanged), at the
-// same 8 physical keys wireAvnToggleKeysFull wires blind: left[1..4] then right[1..4]
-// (left[0] stays MAIN, via the generic full-view NAV sweep in showPage; left[5]/right[0]/right[5]
-// are spare). Clicking still dispatches avn.toggle the same way — this only ADDS a visible label so
-// a bezel key finally says what it does. Plain white text like every other NAV label (no on/off/
-// gear-down colouring here — that state already shows on the page's own tile grid). Built once per
-// page entry; the 8 groups never change, so unlike WPN's loadout-driven labels this never needs a
-// per-tick re-place.
-function placeAvnNavLabels() {
-  for (let i = 0; i < 4; i++) {
-    placeAvnLabel('left',  i + 1, AVN_TOGGLE_GROUPS[i]);
-    placeAvnLabel('right', i + 1, AVN_TOGGLE_GROUPS[i + 4]);
-  }
-}
-function placeAvnLabel(bankName, keyIndex, group) {
-  const key = keyBanks[bankName][keyIndex];
-  if (!key) return;
-  key.dataset.action = 'avn.toggle';
-  key.dataset.group  = group;
-  placeOverlayLabel(bankName, keyIndex, avnNavLabelText(group), 'avn.toggle');
-}
-// Labels over 4 characters get shortened by dropping vowels (RADAR -> RDR, TURRET -> TRRT) — these
-// bezel labels sit in a narrow fixed-width column (see .avn-icon-grid's matching inset in avn.css),
-// so a shorter label reads cleanly at a glance instead of getting cramped. Plain vowel-stripping
-// reads oddly for ASSIST/LIGHTS (SSST, LGHTS) — hand-picked instead of forcing a formula to fit two
-// exceptions. 4-and-under names (GEAR, GUNS, ENG, NVG) are already short enough, unchanged.
-const AVN_LABEL_ABBR = { assist: 'ASST', lights: 'LGHT' };
-function avnNavLabelText(group) {
-  if (AVN_LABEL_ABBR[group]) return AVN_LABEL_ABBR[group];
-  const upper = group.toUpperCase();
-  return upper.length > 4 ? upper.replace(/[AEIOU]/g, '') : upper;
-}
 function tgpMsg() { return { mfd: true, type: 'tgp', active: tgpActive, resolution: tgpResolution, quality: tgpQuality, data: tgpData, manual: tgpManual }; }
 function forwardTgpToPanes() { forwardToPanes('tgp', tgpMsg()); }
 // Full-view TGP: forward the lock flag to the #page-frame iframe (the page toggles its feed).
@@ -956,6 +858,13 @@ const SQD_STATE_PAGES = ['sqd', 'wpt', 'tgt', 'td'];
 // The navigation family (docs/wpt-rework.md): WPT manages routes and steer points, RTD and SPD are
 // their detail pages. All three read the mapinfo slice and switch between each other.
 const WPT_PAGES = ['wpt', 'rtd', 'spd'];
+// Everything that reads the mapinfo slice: the WPT family plus the HSI (docs/adi-hsi-pages.md).
+const MAPINFO_PAGES = WPT_PAGES.concat(['hsi']);
+// ADI and HSI read the adi slice (attitude, heading, turn rate, TAS).
+const ADI_PAGES = ['adi', 'hsi'];
+function adiMsg() { return Object.assign({ mfd: true, type: 'adi' }, adiData); }
+function forwardAdiToFrame() { if (adiData) forwardToFrame(adiMsg()); }
+function forwardAdiToPanes() { if (adiData) ADI_PAGES.forEach(function (p) { forwardToPanes(p, adiMsg()); }); }
 function sqdStateMsg() { return { mfd: true, type: 'sqd-state', data: sqdStateData }; }
 function forwardSqdStateToFrame() { if (sqdStateData) forwardToFrame(sqdStateMsg()); }
 function forwardSqdStateToPanes() { if (sqdStateData) SQD_STATE_PAGES.forEach(function (p) { forwardToPanes(p, sqdStateMsg()); }); }
@@ -1010,7 +919,7 @@ function forwardAkfToPanes() { forwardToPanes('akf', akfMsg()); }
 // the navigation library rather than this mapinfo slice.
 function wptMsg() { return Object.assign({ mfd: true, type: 'mapinfo' }, mapInfoData); }
 function forwardWptToFrame() { forwardToFrame(wptMsg()); }
-function forwardWptToPanes() { WPT_PAGES.forEach(function (p) { forwardToPanes(p, wptMsg()); }); }
+function forwardWptToPanes() { MAPINFO_PAGES.forEach(function (p) { forwardToPanes(p, wptMsg()); }); }
 // Slice the full loadout+controls to the page a given pane is scrolled to. Returns the visible
 // weapon rows (items — always a prefix of the page's 4 slots, since weapons never follow a control
 // within one page, see buildWpnSplitPages) plus the raw per-slot descriptors (slots — renderSplitLabels
@@ -1423,7 +1332,7 @@ paneIframes.forEach(function(iframe, idx) {
     forwardOrientationToPane(iframe);
     const page = panePages[idx];
     if      (page === 'main') forwardStatusToPanes();
-    else if (page === 'avn')  { forwardAvnToPanes(); forwardAvnLayoutToPanes(); }
+    else if (page === 'avn')  forwardAvnToPanes();
     else if (page === 'afm')  forwardAfmToPanes();
     else if (page === 'tgp')  forwardTgpToPanes();
     else if (page === 'rwr')  { forwardRwrToPanes(); forwardMwToPanes(); }
@@ -1437,6 +1346,8 @@ paneIframes.forEach(function(iframe, idx) {
     else if (page === 'obj')  forwardObjToPanes();
     else if (page === 'akf')  forwardAkfToPanes();
     else if (WPT_PAGES.indexOf(page) !== -1) forwardWptToPanes();
+    else if (page === 'adi')  forwardAdiToPanes();
+    else if (page === 'hsi')  { forwardAdiToPanes(); forwardWptToPanes(); }
     else if (page === 'wpn')  { forwardWpnToPanes(); forwardCmToPanes(); forwardWpnLayoutToPanes(); }
     else if (page === 'sqd')  forwardServerPlayersToPanes();
     else if (ExtNav.isExtensionPage(page)) forwardExtToPanes(page);
@@ -1474,6 +1385,8 @@ pageFrame.addEventListener('load', function() {
   else if (currentPage === 'obj') { forwardObjToFrame(); }
   else if (currentPage === 'akf') { forwardAkfToFrame(); }
   else if (WPT_PAGES.indexOf(currentPage) !== -1) { forwardWptToFrame(); }
+  else if (currentPage === 'adi') { forwardAdiToFrame(); }
+  else if (currentPage === 'hsi') { forwardAdiToFrame(); forwardWptToFrame(); }
   else if (currentPage === 'sqd') { forwardServerPlayersToFrame(); }
   else if (ExtNav.isExtensionPage(currentPage)) forwardExtToFrame(currentPage);
   // Not mutually exclusive with the chain above — see the pane-load handler's own comment.
@@ -1706,6 +1619,8 @@ let targetsData = { targets: [], focusedTargetId: 0, metric: false };
 // Latest AVN snapshot, mirrored from the map iframe's SSE feed. The shell keeps only this
 // state (the forwarders read it); all rendering — silhouette, failure labels, FUEL/THROTTLE
 // bars, the failure-label parsing/placement, the /airframe layout cache — lives in src/web/pages/avn/.
+// The adi slice (docs/adi-hsi-pages.md) for ADI and HSI; null until the first frame.
+let adiData = null;
 let avnData = { name: null, parts: null, failures: null, pylons: null, fuel: -1, throttle: -1, heat: -1, heatColor: null, rpm: -1, hasAb: false, abStart: 1, gearDown: false, radar: false, guns: false, ignition: false, assist: false, turret: false, nvg: false, navLights: false };
 
 // Latest RWR emitters + incoming missiles, mirrored from the map iframe's SSE feed. The shell
@@ -1770,11 +1685,11 @@ function clearKeyActions() {
   });
 }
 
-// PREV/NEXT actions across every paginated list (WPN's, MAIN's, AVN's) — bordered
+// PREV/NEXT actions across every paginated list (WPN's, MAIN's, MAP's, EXT's) — bordered
 // (.overlay-item.paging) so a paging control reads as distinct from a destination label, in both
 // full view and split.
 const PAGING_ACTIONS = { 'wpn-prev': true, 'wpn-next': true, 'main-prev': true, 'main-next': true,
-                          'avn-prev': true, 'avn-next': true, 'map-nav-prev': true, 'map-nav-next': true,
+                          'map-nav-prev': true, 'map-nav-next': true,
                           'ext-nav-prev': true, 'ext-nav-next': true };
 
 // `mark` lights the label in the engaged amber — only LAYOUT's current item uses it; every other
@@ -1907,16 +1822,18 @@ function showPage(name) {
     showFramePage('tgp');
     forwardTgpToFrame();
   }
-  // AVN renders in #page-frame too. Its MAIN label (NAV.avn) is placed by the generic sweep
-  // above; the 8 avn.toggle groups get their own keys + NAV labels here (placeAvnNavLabels), then
-  // forward the bezel geometry (full profile) + snapshot.
+  // The Avionics hub's pages (docs/adi-hsi-pages.md) render in #page-frame; their MAIN + four-way
+  // switch comes from the generic NAV sweep above. SYS (id avn) also gets the bezel geometry (full
+  // profile) + snapshot.
   if (name === 'avn') {
     showFramePage('avn');
-    placeAvnNavLabels();
     forwardAvnLayoutToFrame(); forwardAvnToFrame();
   }
-  // AFM renders in #page-frame too. Its only bezel key is the static MAIN label (NAV.afm, placed
-  // by the generic sweep above); forward the bezel geometry (full profile) + snapshot.
+  // ADI reads the adi slice; HSI that plus the mapinfo slice (the navigation library comes to it
+  // through the unconditional wpt-routes push).
+  if (name === 'adi') { showFramePage('adi'); forwardAdiToFrame(); }
+  if (name === 'hsi') { showFramePage('hsi'); forwardAdiToFrame(); forwardWptToFrame(); }
+  // AFM: forward the bezel geometry (full profile) + snapshot.
   if (name === 'afm') {
     showFramePage('afm');
     forwardAfmLayoutToFrame(); forwardAfmToFrame();
@@ -2052,7 +1969,8 @@ const RELAY_MESSAGES = Object.assign(Object.create(null), {
   // Colour themes (issue #105): every frame repaints first (theme-live.js), so the UI page reads the
   // new effective colours when it re-renders from the relayed state.
   'themes-push': { page: 'ui', set: function (m) { ThemeLive.apply(window, m.data && m.data.css); themesData = m; }, toFrame: forwardThemesToFrame, toPanes: forwardThemesToPanes },
-  mapinfo: { page: WPT_PAGES, set: function (m) { mapInfoData = m; }, toFrame: forwardWptToFrame, toPanes: forwardWptToPanes },
+  mapinfo: { page: MAPINFO_PAGES, set: function (m) { mapInfoData = m; }, toFrame: forwardWptToFrame, toPanes: forwardWptToPanes },
+  adi:     { page: ADI_PAGES, set: function (m) { adiData = m; }, toFrame: forwardAdiToFrame, toPanes: forwardAdiToPanes },
 });
 
 window.addEventListener('message', function(e) {
@@ -2202,7 +2120,7 @@ window.addEventListener('message', function(e) {
     };
     // AVN renders in the #page-frame iframe (full) or a pane (split); forward the snapshot.
     if (currentPage === 'avn' && !splitMode) forwardAvnToFrame();
-    if (splitMode) { forwardAvnToPanes(); forwardAvnLayoutToPanes(); }
+    if (splitMode) forwardAvnToPanes();
     // AFM shares this same snapshot (name/parts/failures) for its silhouette.
     if (currentPage === 'afm' && !splitMode) forwardAfmToFrame();
     if (splitMode) forwardAfmToPanes();
@@ -2306,7 +2224,7 @@ window.addEventListener('message', function(e) {
     // iframe (full) or a pane (split); forward on when it's the page in view.
     const r = RELAY_MESSAGES[m.type];
     r.set(m);
-    if ([].concat(r.page).indexOf(currentPage) !== -1 && !splitMode) r.toFrame();   // mapinfo feeds the WPT_PAGES family
+    if ([].concat(r.page).indexOf(currentPage) !== -1 && !splitMode) r.toFrame();   // mapinfo and adi each feed a family
     if (splitMode) r.toPanes();
   } else if (m.type === 'map-frame') {
     // Relayed straight to any split pane showing MAP (docs/mfd-shared-telemetry-connection.md) —
@@ -2599,13 +2517,6 @@ function mfdButton(el) {
       paneWpnPage[paneIdx] += (act === 'wpn-next' ? 1 : -1);
       forwardWpnToPanes();
       renderSplitLabels();
-    } else if (act === 'avn-prev' || act === 'avn-next') {
-      // AVN paging stays within the pane, same idea as WPN's — bump its page index and re-send
-      // the visible groups + labels + row geometry rather than navigating.
-      paneAvnPage[paneIdx] += (act === 'avn-next' ? 1 : -1);
-      forwardAvnToPanes();
-      renderSplitLabels();
-      forwardAvnLayoutToPanes();
     } else if (act === 'main-prev' || act === 'main-next') {
       // MAIN's own list paging — same idea as WPN's, but bumping paneMainPage (mainPaneSlice).
       paneMainPage[paneIdx] += (act === 'main-next' ? 1 : -1);
@@ -2674,10 +2585,6 @@ function mfdButton(el) {
       sendCommand('master-arms.set', { on: act === 'master-arms-on' }).catch(function() {});
     } else if (act === 'combat-mode-aa' || act === 'combat-mode-ag') {
       sendCommand('combat-mode.set', { group: act === 'combat-mode-aa' ? 'aa' : 'ag' }).catch(function() {});
-    } else if (act === 'avn.toggle') {
-      // An avionics toggle: mod/game state, not a destination page — same reasoning as
-      // weapon.select above. Only carries a data-pane tag so the SOI cursor can scope to it.
-      if (el.dataset.group) sendCommand('avn.toggle', { group: el.dataset.group }).catch(function() {});
     } else if (act === 'tgp-manual-toggle') {
       // MAN flips aircraft-global TGP manual mode without navigating the pane. The pane tag only
       // scopes the physical key to its split surface; treating the action as a page blanks it.
@@ -2708,15 +2615,14 @@ function mfdButton(el) {
     case 'map':  showPage('map');  break;
     case 'wpt':  showPage('wpt');  break;
     case 'rtd':  showPage('rtd');  break;
+    case 'adi':  showPage('adi');  break;
+    case 'hsi':  showPage('hsi');  break;
     case 'spd':  showPage('spd');  break;
     case 'wpn':       wpnPage = Math.max(0, selWpnPageFull()); showPage('wpn'); break;   // open on the selected weapon's page
     case 'wpn-prev':  wpnPage--;   showPage('wpn'); break;   // renderWpn clamps on overshoot
     case 'wpn-next':  wpnPage++;   showPage('wpn'); break;
     case 'weapon.select':                                    // WPN bezel key → select the aligned weapon
       if (el.dataset.wname) sendCommand('weapon.select', { wname: el.dataset.wname }).catch(function() {});
-      break;
-    case 'avn.toggle':                                       // AVN bezel key → toggle the aligned system
-      if (el.dataset.group) sendCommand('avn.toggle', { group: el.dataset.group }).catch(function() {});
       break;
     case 'master-arms-on':  sendCommand('master-arms.set', { on: true  }).catch(function() {}); break;
     case 'master-arms-off': sendCommand('master-arms.set', { on: false }).catch(function() {}); break;
@@ -3016,7 +2922,7 @@ window.addEventListener('resize', function() {
   // Re-align labels to the (moved) bezel keys. In split mode the labels belong to the
   // per-pane layout, so re-run renderSplitLabels — calling showPage(currentPage) here
   // would clobber the split bezel with the single-pane page's full 6-item layout.
-  if (splitMode) { renderSplitLabels(); forwardWpnLayoutToPanes(); forwardAvnLayoutToPanes(); }
+  if (splitMode) { renderSplitLabels(); forwardWpnLayoutToPanes(); }
   else           showPage(currentPage);
   positionSoiRing();   // the recess/panes resized — keep the ring on the focused surface
 });

@@ -61,16 +61,6 @@ const p1 = P.wpnPaneSlice(weapons(6), 1);
 assert.deepStrictEqual(p1.items.map(w => w.n), ['W4', 'W5'], 'page 1 items wrong');
 assert.strictEqual(p1.hasPrev, true, 'page 1 should offer PREV');
 
-// ── AVN: 8 groups over 4-key pages ─────────────────────────────────────────────────────
-const GROUPS = ['gear', 'radar', 'guns', 'eng', 'assist', 'nvg', 'lights', 'turret'];
-const a0 = P.avnPaneSlice(GROUPS, 0);
-assert.deepStrictEqual(a0.items, ['gear', 'radar', 'guns', 'eng'], 'AVN page 0 wrong');
-assert.deepStrictEqual([a0.page, a0.pages, a0.hasPrev, a0.hasNext], [1, 2, false, true], 'AVN page 0 nav wrong');
-const a1 = P.avnPaneSlice(GROUPS, 1);
-assert.deepStrictEqual(a1.items, ['assist', 'nvg', 'lights', 'turret'], 'AVN page 1 wrong');
-assert.deepStrictEqual([a1.page, a1.pages, a1.hasPrev, a1.hasNext], [2, 2, true, false], 'AVN page 1 nav wrong');
-assert.strictEqual(P.avnPaneSlice(GROUPS, 7).pageIndex, 1, 'AVN page did not clamp');
-
 // ── MAIN: every page but the last is exactly full, and none overflows the pane ─────────
 // PREV anchors the first key past page one, NEXT the last key before the last page — so a short
 // page anywhere but the end means a wasted key the pilot could have used.
@@ -132,7 +122,7 @@ const cell = k => k.bank + k.index;
 const allCells = L => [L.main, L.next].concat(L.items).map(cell);
 
 for (const variant of ['h', 'v', 'vw']) {
-  for (const page of ['wpn', 'avn', 'main', 'tgt']) {
+  for (const page of ['wpn', 'main', 'tgt']) {
     const panes = [0, 1].map(i => P.listPaneLayout(variant, i, page));
 
     panes.forEach((L, i) => {
@@ -167,7 +157,7 @@ assert.deepStrictEqual(allCells(P.listPaneLayout('v', 1, 'wpn')).sort(),
   ['right0', 'right1', 'right2', 'right3', 'right4', 'right5'],
   'vertical pane 1 should fill the right column');
 
-// WPN/AVN put NEXT top-right; other list pages have no top-right control and shift it to the
+// WPN puts NEXT top-right; other list pages have no top-right control and shift it to the
 // column's end. Pinned because the two branches are easy to conflate when editing the table.
 assert.deepStrictEqual(P.listPaneLayout('h', 0, 'wpn').next, { bank: 'right', index: 0 },
   'h/wpn NEXT should sit top-right');

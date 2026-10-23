@@ -167,6 +167,8 @@
     mapName: 'PREVIEW ISLAND', mission: 'Frontline Patrol — MOCK DATA',
     world: { x: -3000, y: 2500, z: 2000 },
     tas: 248, agl: 2500, hdg: 45,
+    // ADI/HSI instruments (docs/adi-hsi-pages.md): a climbing right turn.
+    att: { pitch: 5, roll: 25, vs: 12, g: 1.1, aoa: 2.8, beta: 0.5, mach: 0.75, turn: 1.1 },
     // AVN status tiles: a mix so the preview exercises on/off — gear down (red), radar emitting +
     // engine + flight-assist + nav-lights on (green), guns/turret/nvg off (gray).
     gear: 'down', radar: true, guns: false,

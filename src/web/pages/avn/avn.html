@@ -2,9 +2,10 @@
 <html>
 <head>
 <meta charset="utf-8">
-<title>NO XMFD — AVN</title>
+<title>NO XMFD — SYS</title>
 <!--
-  Bare AVN page served at /avn. Single source of truth for the avionics page (the 8 avn.toggle
+  The SYS page (id avn, served at /avn; one of the Avionics hub's pages, docs/adi-hsi-pages.md).
+  Single source of truth for the systems page (the 8 avn.toggle
   status tiles + FUEL/RPM/HEAT/THRL gauges) in BOTH layouts — a pure reactive renderer fed by the
   shell over postMessage. No damage silhouette or airframe name here any more — both moved out to
   the AFM page (src/web/pages/afm/), which owns airframe status; this page is avionics only.
@@ -16,10 +17,8 @@
   geom.frameTop/frameHeight — still "below the top bezel row", nothing to do with the silhouette
   that used to sit there; compact: a small top/bottom margin) and spans the full panel width.
   Each status tile is directly clickable/touchable — sends `avn.toggle` for its own group straight
-  from this page via send-command.js, same as TGT's own filter toggles. On the bezel, physical-key
-  wiring still exists too (mfd.js's full-view NAV labels + split's wireAvnPaneToggleKeys) and
-  dispatches the identical command — a key press and a tap on the tile itself are two paths to the
-  same toggle. On the F-35 layout the grid is hidden instead (layout-pages.js mounts this page at
+  from this page via send-command.js, same as TGT's own filter toggles; no bezel key drives them
+  (the bezel carries the hub switch instead). On the F-35 layout the grid is hidden instead (layout-pages.js mounts this page at
   `/avn?f35`, avn.js's IS_F35): the master strip already shows those 8 flags (issue #35), so the
   portal keeps just the gauges. All 8 tiles show whenever the grid is visible — bezel full view and
   split alike (no per-pane pagination any more).
@@ -41,7 +40,7 @@
 </head>
 <body>
   <div class="avn-panel" id="avn-panel">
-    <div class="avn-empty mfd-empty" id="avn-empty"><span class="mfd-empty-title">AVN</span>&mdash; NO DATA &mdash;</div>
+    <div class="avn-empty mfd-empty" id="avn-empty"><span class="mfd-empty-title">SYS</span>&mdash; NO DATA &mdash;</div>
     <!-- Shared tick ring for every gauge dial below (avn.html's <use> pattern) — lives outside
          .avn-content since <defs>/<use> just need matching ids anywhere in the document. -->
     <svg width="0" height="0" style="position:absolute" aria-hidden="true">

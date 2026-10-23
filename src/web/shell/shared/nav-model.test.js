@@ -56,9 +56,17 @@ assert.deepStrictEqual(NAV.hsd, [
 // NAV.ext's static baseline is exactly this shape too — see ext-nav.js for how it grows at
 // runtime (untested here on purpose; this file only sees the compile-time baseline). NAV.sqd is
 // the same shape too — see nav-model.js's own comment on why (reached from MAIN, not another
-// page's own nav row, same as HUD/CFG/MD/RDR/AFM).
-for (const page of ['avn', 'afm', 'rwr', 'tgt', 'ext', 'sqd']) {
+// page's own nav row, same as HUD/CFG/MD/RDR).
+for (const page of ['rwr', 'tgt', 'ext', 'sqd']) {
   assert.deepStrictEqual(NAV[page], [{ label: 'MAIN', action: 'main' }], `${page} should be just a MAIN back-button`);
+}
+
+// The Avionics hub (docs/adi-hsi-pages.md): MAIN's AVN key lands on ADI, and the four pages
+// switch between each other alphabetically, each marking itself. SYS is the `avn` page.
+assert.strictEqual(NAV.main.find(i => i.label === 'AVN').action, 'adi');
+for (const [page, label] of [['adi', 'ADI'], ['afm', 'AFM'], ['hsi', 'HSI'], ['avn', 'SYS']]) {
+  assert.deepStrictEqual(NAV[page].map(i => i.label), ['MAIN', 'ADI', 'AFM', 'HSI', 'SYS'], `${page}'s hub switch`);
+  assert.deepStrictEqual(NAV[page].filter(i => i.mark).map(i => i.label), [label], `${page} marks itself`);
 }
 
 // TGP gets a second item, CFG — its own layout renderer pins it to the bottom of its column
