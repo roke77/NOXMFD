@@ -164,8 +164,8 @@ conflict.
 ## Security & privacy
 
 NO XMFD is open source and collects nothing. Most of it runs entirely on your machine and local
-network: it runs a local web server (so a tablet can connect) and can optionally add a Windows
-firewall rule for its own port. The one exception is the squad feature (SQD/WPT-share/Target
+network: it runs a local web server (so a tablet can connect), answers local-network lookups for
+its `noxmfd.local` name, and can optionally add a Windows firewall rule for its own port. The one exception is the squad feature (SQD/WPT-share/Target
 Designator), which uses Steam's own peer-to-peer relay to talk to your squadmates over the
 internet — see [squadron-transport.md](docs/squadron-transport.md). Like all BepInEx mods it runs
 unsandboxed, so it's worth knowing exactly what it can access: see **[SECURITY.md](SECURITY.md)**

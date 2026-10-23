@@ -18,12 +18,16 @@ namespace NOXMFD
         // set from config by Configure() before Start(); the defaults match a fresh .cfg.
         internal static int Port { get; private set; } = 5005;
         private static bool _autoSetupLan = true;
+        private static string? _lanName;   // the fixed mDNS name; null = use the PC name
 
         // Called from Plugin.Awake before Start(), with the values from the plugin .cfg.
-        internal static void Configure(int port, bool autoSetupLan)
+        internal static void Configure(int port, bool autoSetupLan, string lanName)
         {
             if (port > 0 && port <= 65535) Port = port;
             _autoSetupLan = autoSetupLan;
+            _lanName = MdnsPacket.NormalizeName(lanName);
+            if (_lanName == null && !string.IsNullOrWhiteSpace(lanName))
+                Plugin.Log?.LogWarning($"[NOXMFD] LanName '{lanName}' isn't usable (letters, digits and '-', up to 63 characters); MAIN shows the PC name instead.");
         }
 
         private static readonly object          _lifecycleLock = new object();
@@ -196,6 +200,11 @@ namespace NOXMFD
         // to localhost-only. Exposed through /config so the shell and MAIN pane can render it.
         internal static string LanUrl { get; private set; } = "";
 
+        // The same server under a .local name that survives an IP change: the player's LanName
+        // when its mDNS responder is up, else this PC's own name, which Windows answers for itself.
+        // Empty when LAN access is off or the PC name isn't a valid DNS label.
+        internal static string NameUrl { get; private set; } = "";
+
         public static void Start()
         {
             lock (_lifecycleLock)
@@ -207,6 +216,7 @@ namespace NOXMFD
                 }
 
                 LanUrl = "";
+                NameUrl = "";
 
                 // Prefer binding all interfaces so a tablet on the LAN can reach us. Windows guards
                 // that with two gates (see NETWORKING.md): HTTP.sys needs a URL reservation for
@@ -265,6 +275,12 @@ namespace NOXMFD
                     {
                         LanUrl = $"http://{lanIp}:{Port}";
                         Plugin.Log?.LogInfo($"[NOXMFD] LAN access:  {LanUrl}/");
+                    }
+                    string name = _lanName != null && MdnsResponder.Start(_lanName) ? _lanName : PcNameLabel();
+                    if (name.Length > 0)
+                    {
+                        NameUrl = $"http://{name}.local:{Port}";
+                        Plugin.Log?.LogInfo($"[NOXMFD] LAN name:    {NameUrl}/");
                     }
                 }
                 else
@@ -371,6 +387,12 @@ namespace NOXMFD
             catch { return ""; }
         }
 
+        private static string PcNameLabel()
+        {
+            try { return MdnsPacket.NormalizeName(Dns.GetHostName().Split('.')[0]) ?? ""; }
+            catch (Exception ex) { Plugin.Log?.LogDebug($"[NOXMFD] Couldn't read the PC name: {ex.Message}"); return ""; }
+        }
+
         // Public so a process-replacement plugin can request cooperative shutdown through
         // reflection without taking a compile-time dependency on NOXMFD's internal server type.
         public static void Stop()
@@ -389,6 +411,8 @@ namespace NOXMFD
                 _acceptThread = null;
                 _cts = null;
                 LanUrl = "";
+                NameUrl = "";
+                MdnsResponder.Stop();
             }
 
             // Application.quitting and a replacement launcher may race to stop the same server.

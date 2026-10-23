@@ -83,3 +83,17 @@ body {
 .mfd-status.connected    { color: var(--no-green); }
 .mfd-status.disconnected { color: var(--no-red); }
 .mfd-status.waiting      { color: var(--no-amber); }
+/* The "here" in both classic MAIN cards' "URL not working? Check here" (main-urls.js): a button
+   that reads as a link. pointer-events:auto because the shell's card sits in the bezel overlay,
+   which turns hit-testing off so the bezel keys stay the only controls. */
+.ib-hint-link {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  text-decoration: underline;
+  cursor: pointer;
+  pointer-events: auto;
+}
+.ib-hint-link:hover, .ib-hint-link:focus-visible { color: var(--no-label); }

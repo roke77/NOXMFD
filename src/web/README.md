@@ -89,7 +89,8 @@ src/web/
                                                # its own; each extension serves its own page under /ext/<id>
                                                # (docs/extensions-api.md)
     keybinds/                                  # frame-hosted like the pages above, not a standalone document
-    main/                                      # the split-pane MAIN card (full-view MAIN is shell chrome)
+    main/                                      # the split-pane MAIN card (full-view MAIN is shell chrome);
+                                               # main-urls.js (+ .test.js) builds both cards' URL rows
 ```
 
 Two shells render the same pages: the classic bezel (`shell/classic/mfd.js`) and the F-35 glass

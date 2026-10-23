@@ -153,7 +153,6 @@ html, body {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.ms-url:empty { display: none; }   /* no LAN URL (no second NIC) → don't leave a blank line */
 /* Typewriter reveal, the same the bezel MAIN gives its URLs (mfd.css): the untyped tail stays in
    the flow but hidden so the caret never reflows the line, and the caret blinks. f35.js splits each
    line into these three spans while typing (typeStripUrls). */

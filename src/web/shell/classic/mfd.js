@@ -2290,16 +2290,7 @@ function setInfoUrls(cfg) {
   const status = document.getElementById('ib-status');
   if (!status || !status.parentNode) return;
 
-  const urls = [cfg && cfg.localhost ? cfg.localhost : 'http://localhost:5005'];
-  if (cfg && cfg.lanUrl) urls.push(cfg.lanUrl);
-
-  [].slice.call(infoBox.querySelectorAll('.ib-data .ib-url')).forEach(function(el) { el.remove(); });
-  urls.forEach(function(url) {
-    const el = document.createElement('div');
-    el.className = 'ib-url';
-    el.textContent = url;
-    status.parentNode.insertBefore(el, status);
-  });
+  MainUrls.render(cfg, status);
 
   // If /config arrives after the boot loader has revealed the rows, replay the typewriter
   // against the fresh URL nodes. During boot, runBootLoading() will call typewriterUrls().
