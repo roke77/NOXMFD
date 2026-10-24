@@ -39,6 +39,7 @@ src/web/
             classic/       mfd.html  mfd.css  mfd.js       # the classic bezel shell (host + router)
                            split-keymap.js                 # bezel key-slot logic (split panes)
                            classic-paging.js               # pure split-pane pagination + list-page key layout
+                           layout-pin.js                   # PIN/SWAP layout compare + saved-pin parsing
             f35/           f35.html  f35.css  f35.js       # a second shell: borderless F-35 glass, N portals
                            f35-glass.js  f35-wpn-paging.js  # portal merge/split geometry, WPN pagination
                            f35-strip.js                    # master-strip widget catalog + slot edits
