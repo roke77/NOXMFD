@@ -182,11 +182,11 @@
     heat: 0.62,   // AVN's HEAT gauge — mid-range so the preview isn't pinned at empty or full
     heatColor: '#ffaa00',   // stand-in for TelemetryReader.GetHeatColor's redGreenGradient sample (real plugin only, not reproducible here without the game's Gradient asset)
     rpm: 0.88,    // AVN's RPM gauge — high-but-not-pinned, like a jet cruising near max continuous
-    // softGun/softRel: the weapon-keybind soft selections (outlined on the WPN page). softRel differs
-    // from selWeapon so the outline is visible; a soft name equal to selWeapon must NOT outline.
-    iconOrient: true, iconScale: 1.1, selWeapon: 'AIM-9X', softGun: 'AIM-9X', softRel: 'GBU-12',
+    // softGun: a weapon-keybind soft selection (outlined on the WPN page). selWeapon/softRel are set
+    // below, after the loadout padding (PREVIEW_SEL_WEAPON), so they apply to a capture too.
+    iconOrient: true, iconScale: 1.1, softGun: 'AIM-9X',
     masterArmsOn: true,   // docs/radar-master-arms.md — flip to false in devtools to preview SAFE
-    combatMode: 'all',    // docs/radar-master-arms.md — 'all' | 'aa' | 'ag'
+    // combatMode is set below with the selected weapon (PREVIEW_SEL_WEAPON).
     loadout: [
       { n: 'AIM-9X',   a: 2, f: 2 },
       { n: 'AIM-120D', a: 4, f: 6 },
@@ -368,6 +368,17 @@
       if (!FRAME.loadout.some(x => x.n === w.n)) FRAME.loadout.push(w);
     }
   }
+
+  // The selected weapon (WPN's filled box, the F-35 strip's WPN MODES), over a capture's own too,
+  // and added to the loadout if the padding above didn't reach it — a selection is always one of
+  // its rows. softRel matches it, so a soft pick equal to the selection is shown NOT outlined;
+  // softGun (a different weapon) shows the outline. The Kingpin is air-to-ground, so combat mode is
+  // A/G to match (docs/radar-master-arms.md — 'all' | 'aa' | 'ag').
+  const PREVIEW_SEL_WEAPON = PREVIEW_EXTRA_WEAPONS[0];   // AGR-24 Kingpin, 6/6
+  if (!Array.isArray(FRAME.loadout)) FRAME.loadout = [];
+  if (!FRAME.loadout.some(x => x.n === PREVIEW_SEL_WEAPON.n)) FRAME.loadout.push(PREVIEW_SEL_WEAPON);
+  FRAME.selWeapon = FRAME.softRel = PREVIEW_SEL_WEAPON.n;
+  FRAME.combatMode = 'ag';
 
   // Synthetic radar emitters for the RWR page, authored as design intent (bearing relative to
   // the nose + signal power) and converted to world x,z against the active frame's ownship —
@@ -639,6 +650,10 @@
   window.__cursorSelect = () => { FRAME.cursorSelSeq = (FRAME.cursorSelSeq || 0) + 1; };
   // One MAP view-action press: 'toggle-follow' | 'zoom-in' | 'zoom-out'.
   window.__mapAct = (act) => { FRAME.mapAct = act; FRAME.mapActSeq = (FRAME.mapActSeq || 0) + 1; };
+  // Overwrite frame fields, as a command the mock can't see would leave them (master-arms.set,
+  // combat-mode.set, avn.toggle, a weapon switch): e.g.
+  // __setFrame({ masterArmsOn: false, combatMode: 'aa', gear: 'down', selWeapon: 'GBU-12 Paveway' }).
+  window.__setFrame = (s) => Object.assign(FRAME, s);
   // Hold/release Cursor Select by hand (docs/page-cursor.md) — stands in for a physically held key.
   window.__cursorHold = (held) => { FRAME.cursorSelHeld = !!held; };
 

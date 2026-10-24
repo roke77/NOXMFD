@@ -91,10 +91,25 @@ html, body {
 .conn-lost-dismiss:hover { opacity: 1; }
 .conn-lost-dismiss:focus-visible { outline: 1px solid var(--no-red); outline-offset: 2px; }
 
+/* The brand block: the wordmark stacked over the connection block, fixed at the strip's left end,
+   every line centred both ways in the strip's height. */
+.ms-brand {
+  flex: 0 0 auto;
+  min-width: 0;
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  text-align: center;
+}
+
 /* The wordmark. Styled text rather than an image — there is no served logo asset — in the display's
    primary green so it reads as the aircraft's own marking. */
 .ms-logo {
-  font-size: 22px;
+  font-size: 18px;
+  line-height: 1;
   font-weight: 700;
   letter-spacing: 2px;
   color: var(--no-green);
@@ -114,6 +129,7 @@ html, body {
 .ms-data {
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 2px;
   font-size: 13px;
   line-height: 1.3;
@@ -165,15 +181,14 @@ html, body {
 .ms-status.waiting      { color: var(--no-amber); }
 .ms-status.disconnected { color: var(--no-red); }
 
-/* THRL + FUEL, stacked, in the space between the connection block and the flags. AVN's bars can't
-   be hosted as they are — absolutely positioned, vertical, sized from rects the shell forwards —
-   so what comes across is the rule (avn-throttle-policy, shared) and the LOOK, rebuilt sideways:
-   see the tube below. What stays behind is the ¯\___ leader that tracks each fill's tip, which
-   needs a per-paint measurement and has nowhere to go in a bar this short. */
+/* THRL + FUEL, stacked, one widget. AVN's bars can't be hosted as they are — absolutely
+   positioned, vertical, sized from rects the shell forwards — so what comes across is the rule
+   (avn-throttle-policy, shared) and the LOOK, rebuilt sideways: see the tube below. What stays
+   behind is the ¯\___ leader that tracks each fill's tip, which needs a per-paint measurement and
+   has nowhere to go in a bar this short. Fills its slot's width. */
 .ms-gauges {
-  /* Takes the strip's slack: everything between the connection block and the flags is the
-     troughs'. */
-  flex: 1 1 auto;
+  flex: 1 1 160px;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 5px;
@@ -182,9 +197,9 @@ html, body {
   color: var(--no-green-dim);
 }
 .ms-gauge { display: flex; align-items: center; gap: 7px; }
-/* THRL and FUEL are four glyphs of the same monospace face, and the number's width is fixed below,
-   so both troughs start and end on the same x without either being told a width. */
-.ms-gauge-label { font-weight: bold; }
+/* The label's width is fixed in glyphs of the monospace face (RPM is one short of the others), and
+   the number's below, so a pair's troughs start and end on the same x. */
+.ms-gauge-label { font-weight: bold; width: 4ch; }
 /* Fixed and right-aligned: '--' → '8%' → '100%' → 'MIL' must not shuffle the row as it ticks. */
 .ms-gauge-num { width: 3.2em; text-align: right; }
 
@@ -213,8 +228,8 @@ html, body {
 
    Both lose exactly one horizontal edge, so both troughs stay the same height as each other; the
    fill keeps its 3px inset from the open edge, as AVN's does. */
-.ms-gauge.thr  .ms-tube { border-bottom: none; }
-.ms-gauge.fuel .ms-tube { border-top: none; }
+.ms-gauge:first-child .ms-tube { border-bottom: none; }
+.ms-gauge:last-child  .ms-tube { border-top: none; }
 
 /* The fill's box, inset from the frame the way AVN's padding insets its own. It exists so the
    fill's width:% is a percentage of the TROUGH rather than of the tube's padding box (which would
@@ -297,33 +312,59 @@ html, body {
 .ms-gauge.na .ms-fill { display: none; }
 .ms-gauge.na.fuel .ms-tube::before { background: var(--no-green-dark); }
 
-/* Avionics flags — one row at the right. Each is a label + icon like the AVN tile (avn.css
-   .avn-tile), and the colour class (off = gray, on = green, GEAR-down = red, from the shared
-   avn-status-policy) recolours label and glyph together via currentColor.
-
-   The gauges are what hold them here now: flex-grow resolves before auto margins are offered any
-   free space, so with .ms-gauges growing into the slack there is none left and this margin does
-   nothing. It stays as the fallback — take the gauges out and it is the only thing keeping the
-   flags off the mission block. */
+/* Avionics flags, one widget: each a lit toggle button in the WPN MODES switches' style — the name
+   in white, then a lamp, then the glyph. The colour class (off = gray, on = green, GEAR-down = red,
+   from the shared avn-status-policy) sets currentColor, which lights the lamp and the glyph
+   together; the name stays white either way. */
 .ms-flags {
-  margin-left: auto;
   display: flex;
-  gap: 14px;
+  gap: 6px;
 }
-.ms-flag {
+/* The strip's lit buttons — each flag here and WPN MODES' two switches — share one frame, the
+   HUD/TGT lit button's (lit-panel.css .lit): a stacked column on the control background. */
+.ms-flag,
+.ms-switch {
+  appearance: none;
+  font-family: var(--no-font);
+  background: var(--no-control-bg);
+  border: 1px solid var(--no-line);
+  border-radius: 5px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
+  cursor: pointer;
+}
+.ms-flag:active,
+.ms-switch:active { background: rgba(var(--no-green-rgb), 0.08); }
+.ms-flag:focus-visible,
+.ms-switch:focus-visible { outline: 2px solid var(--no-amber); outline-offset: 2px; }
+.ms-flag {
+  min-width: 54px;
+  gap: 4px;
+  padding: 4px 6px;
   color: var(--no-gray);   /* off / dim; on / gear-down override below */
-  cursor: pointer;         /* click-to-toggle; .pad-hoverable (theme.css) gives the hover wash */
-  padding: 2px 4px;
-  border-radius: 3px;
 }
 .ms-flag.on        { color: var(--no-green); }
 .ms-flag.gear-down { color: var(--no-red); }
-.ms-flag-label { font-size: 15px; font-weight: 900; letter-spacing: 1px; line-height: 1; }
-.ms-flag-icon  { width: 29px; height: 29px; display: block; }
+.ms-flag-label {
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 1px;
+  line-height: 1;
+  color: var(--no-white);
+}
+.ms-flag-lamp {
+  width: 100%;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--no-lamp-off);
+}
+.ms-flag.on .ms-flag-lamp,
+.ms-flag.gear-down .ms-flag-lamp {
+  background: currentColor;
+  box-shadow: 0 0 8px currentColor, 0 0 2px currentColor;
+}
+.ms-flag-icon  { width: 22px; height: 22px; display: block; }
 /* GEAR reuses the game-captured glyph as a recolourable mask (same asset and technique as
    avn.css .avn-mask-icon), so it turns green/gray/red with the rest. */
 .ms-flag-mask {
@@ -332,14 +373,14 @@ html, body {
           mask: url("/assets/pages/avn/gear-icon.png") no-repeat center / contain;
 }
 
-/* FULLSCREEN and WAKE (docs/screen-wake-lock.md) — the only things in the strip you press;
-   everything else in it is a readout. So both are drawn as the same button box: a border to say
-   it has an edge to hit, square and icon-only since there's nothing to read out. currentColor
-   ties that border to the item's own state, so it tracks the icon it rings — teal at rest, dark
-   against the hover fill. .nav-item.on already gives this shell's buttons the amber engaged
-   treatment WAKE needs, so neither button needs a rule of its own beyond this shared box. */
+/* EDIT, WAKE (docs/screen-wake-lock.md) and FULLSCREEN — the fixed group's buttons — share one
+   button box: a border to say it has an edge to hit, square and icon-only since there's nothing to
+   read out. currentColor ties that border to the item's own state, so it tracks the icon it rings —
+   teal at rest, dark against the hover fill. .nav-item.on already gives this shell's buttons the
+   amber engaged treatment WAKE and EDIT need, so none needs a rule of its own beyond this box. */
 .master-strip .ms-fll,
-.master-strip .ms-wake {
+.master-strip .ms-wake,
+.master-strip .ms-edit {
   border: 1px solid currentColor;
   border-radius: 3px;
   width: 34px;
@@ -375,6 +416,159 @@ html, body {
   font-size: 11px;
   letter-spacing: 1px;
   white-space: nowrap;
+}
+
+/* ── Strip widgets (docs/f35-strip-widgets.md) ─────────────────────────────────────────────
+   The slots row takes everything the two fixed blocks leave, split evenly between the slots. */
+.ms-widgets {
+  flex: 1 1 auto;
+  min-width: 0;
+  align-self: stretch;
+  display: flex;
+  gap: 16px;
+}
+
+/* A slot: the full strip height less a small top/bottom margin, so edit mode's dashed box clears
+   the strip's own bottom border. Its widget sits centred in it; the border is transparent outside
+   edit mode so nothing shifts when it turns on. */
+.ms-slot {
+  flex: 1 1 0;
+  min-width: 0;
+  position: relative;
+  margin: 6px 0;
+  padding: 0 14px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed transparent;
+  border-radius: 4px;
+  overflow: hidden;
+}
+.master-strip.editing .ms-slot { border-color: var(--no-teal); }
+/* Clears the corner X so it never sits on the widget's own right edge (the gauges' readout). */
+.master-strip.editing .ms-slot.filled { padding-right: 30px; }
+
+/* Edit mode's controls: an empty slot is one big + (the whole slot is the target, for touch), a
+   filled one has an X in its top-right corner. */
+.ms-slot-add,
+.ms-slot-clear {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--no-teal);
+  font-family: var(--no-font);
+  cursor: pointer;
+  display: none;
+}
+.ms-slot-add { position: absolute; inset: 0; font-size: 30px; line-height: 1; }
+.ms-slot-clear {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  z-index: 1;
+  width: 22px;
+  height: 22px;
+  font-size: 14px;
+  line-height: 1;
+}
+.ms-slot-add:hover, .ms-slot-clear:hover { color: var(--no-amber); }
+.master-strip.editing .ms-slot:not(.filled) .ms-slot-add,
+.master-strip.editing .ms-slot.filled .ms-slot-clear { display: block; }
+
+/* FLIGHT DATA and CLOCKS: a row of readouts, each a small unit label over the value, like a flag
+   over its icon. */
+.ms-readouts { display: flex; gap: 18px; }
+.ms-readout {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  white-space: nowrap;
+}
+.ms-readout-label { font-size: 11px; font-weight: bold; letter-spacing: 1px; color: var(--no-green-dim); }
+.ms-readout-value { font-size: 20px; line-height: 1; color: var(--no-green); min-width: 4ch; text-align: center; }
+
+/* WPN MODES: two lit switches in the style of the HUD/TGT pages' lit buttons (lit-panel.css) — a
+   lamp over each state's label, the current one glowing in its accent and its label in the same
+   colour. MODE's accent is amber; MASTER's is red on SAFE and green on ARM. The whole switch is the
+   button, in the lit-button frame shared with the flags (above). */
+.ms-wpn { display: flex; align-items: center; gap: 14px; }
+.ms-switch {
+  font-weight: bold;
+  padding: 4px 10px 5px;
+  gap: 5px;
+}
+.ms-switch-title { font-size: 11px; letter-spacing: 2px; color: var(--no-control-text-off); }
+.ms-switch-row { display: flex; gap: 8px; }
+.ms-seg {
+  --seg-accent: var(--no-amber);
+  min-width: 3.2em;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  letter-spacing: 1px;
+  color: var(--no-control-text-off);
+}
+.ms-seg::before {
+  content: '';
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--no-lamp-off);
+}
+.ms-seg[data-state="safe"] { --seg-accent: var(--no-red); }
+.ms-seg[data-state="arm"]  { --seg-accent: var(--no-green); }
+.ms-seg.on { color: var(--seg-accent); }
+.ms-seg.on::before { background: var(--seg-accent); box-shadow: 0 0 8px var(--seg-accent), 0 0 2px var(--seg-accent); }
+
+/* The selected weapon, ahead of the switches: name, WPN's ammo gauge (wpn.css .wp-bar — a pip per
+   round for small magazines, a proportional fill for the cannon), round count. Red when out. */
+.ms-weapon {
+  min-width: 112px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  color: var(--no-green);
+  white-space: nowrap;
+}
+.ms-weapon-name { font-size: 13px; font-weight: bold; letter-spacing: 1px; }
+.ms-weapon-count { font-size: 12px; color: var(--no-green-dim); }
+.ms-weapon-count b { color: var(--no-green); }
+.ms-weapon-bar:empty { display: none; }
+.ms-weapon-bar.pips { display: flex; gap: 2px; }
+.ms-weapon-bar.pips span { width: 7px; height: 9px; background: var(--no-green-dark); }
+.ms-weapon-bar.pips span.on { background: var(--no-green); }
+.ms-weapon-bar.fill {
+  width: 100px;
+  height: 7px;
+  border: 1px solid var(--no-green-dark);
+  background: rgba(var(--no-green-rgb), 0.05);
+  box-sizing: border-box;
+}
+.ms-weapon-bar.fill span { display: block; height: 100%; background: var(--no-green); }
+.ms-weapon.empty .ms-weapon-name,
+.ms-weapon.empty .ms-weapon-count,
+.ms-weapon.empty .ms-weapon-count b { color: var(--no-red); }
+.ms-weapon.empty .ms-weapon-bar.pips span { background: rgba(var(--no-red-rgb), 0.3); }
+.ms-weapon.empty .ms-weapon-bar.fill span { background: var(--no-red); }
+
+/* WAKE, FULLSCREEN and the pencil: always at the right end, never in a slot. The pencil takes the
+   amber .on treatment while editing. */
+.ms-fixed { flex: 0 0 auto; display: flex; align-items: center; gap: 12px; }
+.master-strip .ms-edit { font-size: 15px; line-height: 1; }
+
+/* The ADD list, inside the shared layout modal: one button per widget not on the strip. */
+.ms-add-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 6px;
+  max-height: 60vh;
+  overflow-y: auto;
 }
 
 /* The telemetry tap. Never seen: the MAP page owns the only EventSource('/stream') and posts the

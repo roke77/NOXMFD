@@ -1319,9 +1319,12 @@
 
     // The master strip isn't a portal, so it has no PAGE_FEEDS entry; the slices it shows are
     // handed to it straight from here. status → the connection line; avn → the flags and the
-    // THRL/FUEL gauges.
+    // THRL/FUEL gauges; adi/mis → the flight-data and mission-clock readouts.
     if (m.type === 'status') updateStripStatus(m);
     else if (m.type === 'avn') { updateStripFlags(m); updateStripGauges(m); }
+    else if (m.type === 'adi') paintAdiReadouts();
+    else if (m.type === 'mis') paintMisClocks();
+    else if (m.type === 'loadout') { paintWpnModes(); paintWeapon(); }
   });
 
   // WPN's rects are derived from its portal's box, so they go stale when it changes. The bezel
@@ -1361,8 +1364,12 @@
   const stripEl      = document.querySelector('.master-strip');
   const stripFlags   = [].slice.call(document.querySelectorAll('.ms-flag'));
   const stripStatus  = document.getElementById('ms-status');
+  const stripName    = document.getElementById('ms-name');
   const stripThr  = gauge('ms-thr', 'thr');
   const stripFuel = gauge('ms-fuel', 'fuel');
+  const stripRpm  = gauge('ms-rpm', 'rpm');
+  const stripHeat = gauge('ms-heat', 'heat');
+  let stripHeatColor = null;
 
   // Disconnect banner (issue #79) — dismiss/re-arm state machine lives in shell/shared/conn-lost-
   // banner.js (shared with mfd.js); this shell only supplies the [hidden] toggle.
@@ -1413,8 +1420,10 @@
     if (key === stripFlagsKey) return;
     stripFlagsKey = key;
     stripFlags.forEach(function (el) {
+      const active = !!m[el.dataset.field];
       el.classList.remove('on', 'off', 'gear-down');
-      el.classList.add(AvnStatusPolicy.tileClass(el.dataset.kind, !!m[el.dataset.field]));
+      el.classList.add(AvnStatusPolicy.tileClass(el.dataset.kind, active));
+      el.setAttribute('aria-pressed', active ? 'true' : 'false');
     });
     // DIAG98 (issue 98, temporary): report what the strip was painted with to the BepInEx log.
     sendCommand('diag.log', { group: 'f35 strip painted ' + stripFlags.filter(function (el) {
@@ -1442,14 +1451,30 @@
              (t.boundary !== null ? ' ab-capable' : '') + (t.zone === 'ab' ? ' ab-active' : ''),
              t.boundary);
 
-    const na = typeof m.fuel !== 'number' || m.fuel < 0;
-    const v  = na ? 0 : Math.max(0, Math.min(1, m.fuel));
-    setGauge(stripFuel, na, v, Math.round(v * 100) + '%',
-             v <= FUEL_CRITICAL ? ' critical' : v <= FUEL_CAUTION ? ' caution' : '');
+    percentGauge(stripFuel, m.fuel, function (v) {
+      return v <= FUEL_CRITICAL ? ' critical' : v <= FUEL_CAUTION ? ' caution' : '';
+    });
+
+    // RPM and HEAT carry no caution/critical zones, as on AVN: low RPM at idle is normal, and
+    // HEAT's warning is its colour — the game's own IR-gauge colour, computed plugin-side.
+    percentGauge(stripRpm, m.rpm);
+    percentGauge(stripHeat, m.heat);
+    if (m.heatColor !== stripHeatColor) {
+      stripHeatColor = m.heatColor;
+      stripHeat.fill.style.backgroundColor = m.heatColor || '';
+    }
+  }
+  // A plain 0..1 gauge read as a whole percent; a missing or negative value is no data (na).
+  // stateOf(v), when given, adds the warning class for the clamped value.
+  function percentGauge(g, value, stateOf) {
+    const na = typeof value !== 'number' || value < 0;
+    const v  = na ? 0 : Math.max(0, Math.min(1, value));
+    setGauge(g, na, v, Math.round(v * 100) + '%', stateOf ? stateOf(v) : '');
   }
 
-  // `kind` is 'thr' or 'fuel' and is written back every time: the tube's styling keys off it (only
-  // FUEL is segmented), and this assigns className wholesale rather than toggling each state off.
+  // `kind` is 'thr', 'fuel', 'rpm' or 'heat' and is written back every time: the tube's styling
+  // keys off it (only FUEL is segmented), and this assigns className wholesale rather than toggling
+  // each state off.
   // Skips all three writes (plus the AB-boundary custom property, thr only) when nothing in the
   // signature moved since the last call — thr/fuel are continuously-varying analog values, but the
   // actual writes are already quantized (a rounded % width, whole-percent text), so most 10 Hz ticks
@@ -1476,8 +1501,9 @@
   function setStripUrls(cfg) {
     // Only the name URL, the one address worth bookmarking since it survives an IP change.
     // Localhost stands in when there is none (LAN access off), so the strip always shows a URL.
-    document.getElementById('ms-name').textContent =
-      (cfg && (cfg.nameUrl || cfg.localhost)) || 'http://localhost:5005';
+    // Shown without its scheme: a browser fills in http:// on its own, and the brand block is narrow.
+    stripName.textContent =
+      ((cfg && (cfg.nameUrl || cfg.localhost)) || 'http://localhost:5005').replace(/^https?:\/\//, '');
     urlsLoaded = true;
     maybeRevealUrls();
   }
@@ -1609,6 +1635,206 @@
     wakeController.start();
   })();
 
+  // ── Strip widgets (docs/f35-strip-widgets.md) ────────────────────────────────────────────
+  // F35Strip.SLOTS slots sit between the fixed brand block and the fixed button group; the
+  // arrangement is one widget id (or null) per slot. Every widget element exists once, from
+  // f35.html or the readout groups below, and stays alive out of a slot — detached, still fed by
+  // the updaters above — so putting one back costs nothing and it shows the latest state at once.
+  // The slots are remembered per browser (localStorage) and travel in each saved layout
+  // (captureLayoutState).
+  const widgetsEl  = document.getElementById('ms-widgets');
+  const editBtn    = document.getElementById('ms-edit');
+  const STRIP_KEY  = 'f35-strip';
+  // FLIGHT DATA and CLOCKS: one widget each, a row of label-over-value readouts.
+  const readoutEls = {};
+  [['flight', F35Strip.FLIGHT], ['clocks', F35Strip.CLOCKS]].forEach(function (group) {
+    const box = document.createElement('div');
+    box.className = 'ms-readouts';
+    box.dataset.widget = group[0];
+    group[1].forEach(function (id) {
+      const el = document.createElement('div');
+      el.className = 'ms-readout';
+      el.innerHTML = '<span class="ms-readout-label"></span><span class="ms-readout-value"></span>';
+      box.appendChild(el);
+      readoutEls[id] = el;
+    });
+    widgetsEl.appendChild(box);
+  });
+  const widgetEls = {};
+  [].forEach.call(widgetsEl.querySelectorAll('[data-widget]'), function (el) { widgetEls[el.dataset.widget] = el; });
+
+  // Each slot holds its widget plus edit mode's two controls: + (empty slot) and X (filled slot).
+  // CSS shows whichever applies only while editing.
+  const slotEls = [];
+  for (let i = 0; i < F35Strip.SLOTS; i++) {
+    const slot = document.createElement('div');
+    slot.className = 'ms-slot';
+    const add = document.createElement('button');
+    add.type = 'button';
+    add.className = 'ms-slot-add';
+    add.textContent = '+';
+    add.setAttribute('aria-label', 'Add widget to slot ' + (i + 1));
+    add.addEventListener('click', function () { openAddWidget(i); });
+    const clear = document.createElement('button');
+    clear.type = 'button';
+    clear.className = 'ms-slot-clear';
+    clear.textContent = '✕';
+    clear.setAttribute('aria-label', 'Remove widget from slot ' + (i + 1));
+    clear.addEventListener('click', function () { setStrip(F35Strip.clear(stripSlots, i)); });
+    slot.append(add, clear);
+    slotEls.push(slot);
+  }
+
+  let stripSlots = loadStoredStrip() || F35Strip.DEFAULT;
+  let stripEditing = false;
+
+  // Guarded like setLayout: localStorage throws in some private-mode browsers.
+  function loadStoredStrip() {
+    try { return F35Strip.normalize(JSON.parse(localStorage.getItem(STRIP_KEY))); } catch (e) { return null; }
+  }
+  function setStrip(slots) {
+    stripSlots = slots;
+    try { localStorage.setItem(STRIP_KEY, JSON.stringify(slots)); } catch (e) {}
+    renderStrip();
+  }
+  // The first call also detaches the widgets f35.html declared loose in #ms-widgets.
+  function renderStrip() {
+    widgetsEl.textContent = '';
+    slotEls.forEach(function (slot, i) {
+      const id = stripSlots[i];
+      [].forEach.call(slot.querySelectorAll(':scope > [data-widget]'), function (el) { el.remove(); });
+      const el = id && widgetEls[id];
+      if (id && !el) console.warn('f35 strip: no element for widget', id);
+      if (el) slot.appendChild(el);
+      slot.classList.toggle('filled', !!el);
+      widgetsEl.appendChild(slot);
+    });
+    paintAdiReadouts();
+    paintMisClocks();
+    paintClock();
+  }
+
+  // A readout group off the strip isn't formatted at all ('adi' arrives every telemetry frame);
+  // renderStrip repaints it from the cached slice when it comes back.
+  function paintReadout(id, r) {
+    const el = readoutEls[id];
+    if (!r) return;
+    const label = el.firstChild, value = el.lastChild;
+    if (label.textContent !== r.label) label.textContent = r.label;
+    if (value.textContent !== r.value) value.textContent = r.value;
+  }
+  function paintAdiReadouts() {
+    if (!widgetEls.flight.isConnected) return;
+    const m = slices.adi;
+    const units = AdiMath.units(!!(m && m.metric));
+    F35Strip.FLIGHT.forEach(function (id) { paintReadout(id, F35Strip.readout(id, m, units, WptRoute.formatBearing)); });
+  }
+  function paintMisClocks() {
+    if (!widgetEls.clocks.isConnected) return;
+    paintReadout('mis-time', F35Strip.misClock('mis-time', slices.mis));
+    paintReadout('mis-dur', F35Strip.misClock('mis-dur', slices.mis));
+  }
+  function paintClock() {
+    if (widgetEls.clocks.isConnected) paintReadout('clock', F35Strip.localClock(new Date()));
+  }
+  setInterval(paintClock, 1000);
+
+  // WPN MODES: the state is read off the cached 'loadout' slice, the same one WPN's ARM/SAFE and
+  // A/A/A/G marks use, so a press only sends the command and the next frame lights the result.
+  // Painted off the strip too (unlike the readouts): it is two class flips, and only on a change.
+  const wpnSwitches = [document.getElementById('ms-master'), document.getElementById('ms-mode')];
+  let wpnModesKey = null;
+  function wpnStates() {
+    const l = slices.loadout;
+    return { master: l && l.masterArmsOn === false ? 'safe' : 'arm', mode: (l && l.combatMode) || 'all' };
+  }
+  function paintWpnModes() {
+    const s = wpnStates();
+    const key = s.master + '|' + s.mode;
+    if (key === wpnModesKey) return;
+    wpnModesKey = key;
+    wpnSwitches.forEach(function (b) {
+      const cur = s[b.dataset.switch];
+      [].forEach.call(b.querySelectorAll('.ms-seg'), function (seg) {
+        seg.classList.toggle('on', seg.dataset.state === cur);
+        if (seg.dataset.state === cur) b.setAttribute('aria-label', b.firstElementChild.textContent + ' ' + seg.textContent);
+      });
+    });
+  }
+  wpnSwitches[0].addEventListener('click', function () {
+    sendCommand('master-arms.set', { on: F35Strip.nextState('master', wpnStates().master) === 'arm' }).catch(function () {});
+  });
+  wpnSwitches[1].addEventListener('click', function () {
+    sendCommand('combat-mode.set', { group: F35Strip.nextState('mode', wpnStates().mode) }).catch(function () {});
+  });
+  paintWpnModes();
+
+  // The selected weapon (F35Strip.selectedAmmo), repainted only when its name or rounds change —
+  // 'loadout' arrives every telemetry frame but a weapon's count moves only on a shot or a switch.
+  const weaponEl = document.getElementById('ms-weapon');
+  const weaponName = document.getElementById('ms-weapon-name');
+  const weaponBar = document.getElementById('ms-weapon-bar');
+  const weaponCount = document.getElementById('ms-weapon-count');
+  let weaponKey = null;
+  function paintWeapon() {
+    const w = F35Strip.selectedAmmo(slices.loadout);
+    const key = w ? w.name + '|' + w.a + '|' + w.f : '';
+    if (key === weaponKey) return;
+    weaponKey = key;
+    weaponEl.classList.toggle('empty', !!(w && w.empty));
+    weaponName.textContent = w ? w.name : '--';
+    weaponCount.innerHTML = w && w.f > 0 ? '<b>' + w.a + '</b> / ' + w.f : '';
+    weaponBar.className = 'ms-weapon-bar ' + (w ? w.bar : 'none');
+    weaponBar.textContent = '';
+    if (w && w.bar === 'pips') {
+      for (let j = 0; j < w.f; j++) {
+        const pip = document.createElement('span');
+        if (j < w.a) pip.className = 'on';
+        weaponBar.appendChild(pip);
+      }
+    } else if (w && w.bar === 'fill') {
+      const fill = document.createElement('span');
+      fill.style.width = Math.min(100, w.a / w.f * 100) + '%';
+      weaponBar.appendChild(fill);
+    }
+  }
+  paintWeapon();
+
+  // In edit mode a widget is inert: the capture listener runs before the flags' avn.toggle and stops
+  // the event reaching it. The slot's own + and X pass through.
+  widgetsEl.addEventListener('click', function (e) {
+    if (!stripEditing || e.target.closest('.ms-slot-add, .ms-slot-clear')) return;
+    e.stopPropagation();
+    e.preventDefault();
+  }, true);
+
+  editBtn.addEventListener('click', function () {
+    stripEditing = !stripEditing;
+    stripEl.classList.toggle('editing', stripEditing);
+    editBtn.classList.toggle('on', stripEditing);
+    editBtn.setAttribute('aria-pressed', stripEditing ? 'true' : 'false');
+  });
+
+  // The catalog in the shared layout modal; a pick fills slot i.
+  function openAddWidget(i) {
+    const list = document.createElement('div');
+    list.className = 'layout-modal-body ms-add-list';
+    const avail = F35Strip.available(stripSlots);
+    if (!avail.length) list.textContent = 'Every widget is already on the strip.';
+    avail.forEach(function (w) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'layout-modal-btn';
+      b.textContent = w.label;
+      b.addEventListener('click', function () {
+        LayoutModal.close();
+        setStrip(F35Strip.place(stripSlots, i, w.id));
+      });
+      list.appendChild(b);
+    });
+    LayoutModal.open('ADD WIDGET', list);
+  }
+
   // ── SAVE/LOAD LAYOUT — browser-side keyboard shortcuts only, no joystick/HOTAS. ──
   // S saves the glass's current arrangement (F35Glass cells + each portal's page) under a name;
   // L opens a picker of every saved F-35 layout and applies the one clicked. Storage is
@@ -1616,13 +1842,16 @@
   // (including the bezel shell, which keeps its own list — see mfd.js's twin of this block —
   // filtered by `shell` so a browser is never offered an arrangement it can't apply).
   function captureLayoutState() {
-    return { cells: cells(), pages: portals.map(function (p) { return p.page(); }) };
+    return { cells: cells(), pages: portals.map(function (p) { return p.page(); }), strip: stripSlots.slice() };
   }
 
   // Rebuilds the glass directly from a saved arrangement, rather than replaying merge/split
   // actions to reach it — buildGlass()'s own addPortal always starts a portal at span 1, so this
   // is a small variant of it that seeds each portal's cell from the saved spec up front.
   function applyLayoutState(state) {
+    // A layout saved before the strip was editable carries no strip and leaves it as it is.
+    const strip = F35Strip.normalize(state && state.strip);
+    if (strip) setStrip(strip);
     const cs = state && state.cells;
     if (!cs || !F35Glass.valid(cs)) {
       buildGlass();
@@ -1653,6 +1882,7 @@
 
   loadStripUrls();
   runStripBoot();
+  renderStrip();
   // Extension nav discovery (docs/extensions-api.md) — fetches /ext-manifest and merges installed
   // extensions into NAV.ext / NAV[<id>]. Fire-and-forget at boot; also re-run every time EXT is
   // clicked (dispatch's 'ext' case) to pick up an extension that registered after this tab loaded.

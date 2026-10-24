@@ -24,8 +24,8 @@ With no name address (LAN access off), MAIN lists the localhost address, plus th
 there is one, with no hint. If the LAN address is missing, the server fell back to localhost-only —
 see [NETWORKING.md](../NETWORKING.md) for why and how to fix it.
 
-The F-35 layout's top strip shows only the name address, or `http://localhost:5005` when there's
-none.
+The F-35 layout's top strip shows only the name address, or `localhost:5005` when there's none,
+without the `http://` in front.
 
 ## Connection status
 

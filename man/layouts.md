@@ -40,11 +40,39 @@ screen divides into side-by-side portals, each an independent MFD, that you merg
 corner grips. Each portal keeps a narrow column of glass beside its page for the labels, so they
 never cover what the page shows; the grips sit at the bottom of those columns. MAP and TGP are the
 exception: the map and the camera feed fill the whole portal and their labels sit on top. A fixed
-strip across the top carries the aircraft-level readouts — connection,
-throttle and fuel, and the avionics flags — plus **WAKE** (keep the screen awake, same as
-CLASSIC's WAKE key above) and **FULLSCREEN**, beside each other at the strip's end. A dismissable
-red banner drops down from the strip on a connection loss, above every portal regardless of page —
-see [MAIN's Connection status](main.md#connection-status).
+strip across the top carries the **NO XMFD** wordmark with the connection address and status under
+it (left), two widget slots (middle), and **✎** (edit the strip), **WAKE** (keep the screen awake,
+same as CLASSIC's WAKE key above) and **FULLSCREEN** (right). A dismissable red banner drops down from the strip on a
+connection loss, above every portal regardless of page — see
+[MAIN's Connection status](main.md#connection-status).
+
+### Editing the top strip
+
+The two slots in the middle of the strip each hold one widget you choose; the left and right blocks
+are fixed. Tap **✎** to edit: each slot gets a dashed box.
+
+- An empty slot shows **+** in the middle — tap it to pick a widget for that slot:
+  - **THRL / FUEL** — the throttle and fuel gauges;
+  - **RPM / HEAT** — the engine RPM and heat gauges; HEAT's bar takes the cockpit IR gauge's colour,
+    as on AVN;
+  - **AVIONICS FLAGS** — the eight avionics flags, each a toggle button: its name, a lamp and its
+    icon, the lamp and icon lit green when on (GEAR red when down). Tap one to toggle it, as on AVN;
+  - **WPN MODES** — the selected weapon's name, its ammo gauge (as on WPN: a mark per round, or a
+    bar for the cannon) and its round count, red when it's out; then two switches, **MASTER**
+    (SAFE / ARM) and **MODE** (A/A / ALL / A/G). Tap a
+    switch to step it to the next state to the right; from the last it goes back to the first. The
+    lit state is the game's: SAFE red, ARM green, the mode amber;
+  - **FLIGHT DATA** — **ALT**, **R-ALT**, **TAS**, **HDG**, **V/S**, **G** and **MACH**, in the
+    game's units;
+  - **CLOCKS** — local time, mission time and mission elapsed (the mission clocks read `--` in
+    multiplayer).
+
+  A widget already in the other slot isn't offered.
+- A filled slot shows **✕** in its top-right corner — tap it to empty the slot.
+
+Tap **✎** again to finish. While editing, the flags don't toggle; WAKE and FULLSCREEN keep working.
+The strip is remembered in this browser, and **SAVE** stores it with the layout, so each saved F-35
+layout can carry its own strip. A layout saved before the strip was editable leaves it as it is.
 
 ![F-35 layout — MAIN](images/F-35%20MAIN.png)
 
