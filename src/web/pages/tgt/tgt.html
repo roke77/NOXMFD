@@ -28,7 +28,7 @@
     RESET FILTERS       → tgt.reset   (all filters back on)
     CLEAR TARGETS       → tgt.clear   (deselect every target)
     tap a target's row  → deselect it (target.deselect {id}) — anywhere on the row, no checkbox
-    designation dock    → ADD / REPLACE (td.accept {on}) or DISMISS (td.dismiss) — see the dock's own comment
+    designation dock    → ADD / REPLACE (td.accept {on}) or DISMISS (td.dismiss), AUTO ACCEPT (td.auto-accept {on}) — see the dock's own comment
 
   SRC column: SENSOR (live), DATALINK (relayed, still trustworthy), or STALE (relayed, no longer
   trustworthy — the same drift-past-threshold check that pops the "?" on the game's own TGP;
@@ -169,6 +169,7 @@
           <button type="button" class="tgt-td-btn add pad-hoverable" id="tgt-td-add"></button>
           <button type="button" class="tgt-td-btn replace pad-hoverable" id="tgt-td-replace" aria-label="Replace your targets with the leader's">REPLACE</button>
           <button type="button" class="tgt-td-btn dismiss pad-hoverable" id="tgt-td-dismiss" aria-label="Dismiss the designation">DISMISS</button>
+          <button type="button" class="lit tgt-td-auto pad-hoverable" id="tgt-td-auto" aria-pressed="false">AUTO ACCEPT</button>
         </div>
       </div>
     </div>

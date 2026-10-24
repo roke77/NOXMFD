@@ -755,7 +755,7 @@ namespace NOXMFD
                 case "wpt.route-deleted":      RouteStore.RemoveSharedRoute(dataPayload); break;
                 case "wpt.steerpoint":         RouteStore.ReceiveSharedSteerPoint(dataPayload, Labelled(_leaderId, _leaderName)); break;
                 case "wpt.steerpoint-deleted": RouteStore.RemoveSharedSteerPoint(dataPayload); break;
-                case "td.designate":           TdStore.ReceiveDesignation(dataPayload); break;
+                case "td.designate":           if (TdStore.ReceiveDesignation(dataPayload)) CommandDispatcher.TdAutoAccept(); break;
                     // Unknown type — e.g. a squadmate on a newer mod version — has no handler to
                     // apply it against; same "ignore what it cannot parse" versioned-wire reasoning
                     // Squadron.cs's own TryParse already uses.

@@ -159,6 +159,11 @@ list, over the rows, and stays until you answer it:
   how many that is.
 - **REPLACE** drops every target you currently have and selects the leader's instead.
 - **DISMISS** closes the bar without selecting anything.
+- **AUTO ACCEPT** (off by default) answers every designation with ADD for you. Turning it on adds
+  the one that's waiting; after that, each new designation is added the moment it arrives, and the
+  bar shows just its label and the lit AUTO ACCEPT button for 3 seconds before hiding again. Tap
+  AUTO ACCEPT while the bar is up to turn it back off. It also turns itself off when you leave the
+  squad or it gets a new leader.
 
 Designated targets still go through your own filters — one your filters leave out isn't selected.
 A new designation from your leader replaces one you haven't answered yet. While the bar is up, the
