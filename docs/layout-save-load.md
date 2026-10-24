@@ -100,6 +100,16 @@ mutations re-fetch and redraw the list in place rather than closing the modal, w
 `LayoutModal.pickList` takes a `fetchItems` function now instead of a static array — it owns its
 own "draw, then redraw after any row action" loop.
 
+## Follow-up, 2026-10-24: PIN pins a layout
+
+CLASSIC's PIN pins the whole arrangement (`captureArrangement`: split, variant, every pane's page)
+instead of the top-right pane's page, and SWAP toggles between that arrangement and the one it
+left (`applyArrangement`, the page/split half of `applyLayoutState`). PINNED shows while the
+screen matches the pin (`LayoutPin.sameArrangement`); a split change no longer clears the pin,
+since the pin no longer belongs to one pane. Saved layouts carry `pinnedLayout`; blobs saved with
+the single-page `pinnedPage` load it as a full view of that page (`LayoutPin.pinFromState`).
+Re-applying an arrangement reloads each pane, so per-pane scroll and list paging reset on SWAP.
+
 ## Post-ship fix, 2026-08-21: keydown only reached the top document
 
 Shipped in 0.25.0 with `window.addEventListener('keydown', ...)` on the shell's own top-level
@@ -132,7 +142,7 @@ correct modal.
 | `src/web/shell/shared/layout-store.js` | Fetch-on-open client (`/layout-options`, `layout.save`) — no background poll, layouts don't change on their own |
 | `src/web/shell/shared/layout-modal.js`, `layout-modal.css` | The shared modal primitive; `pickList` also renders inline rename/delete per row |
 | `src/web/shell/shared/layout-keybinds.js` | Reads the shared keybind-config push and matches a `keydown` against the configured save/load keys |
-| `src/web/shell/classic/mfd.js` | `captureLayoutState`/`applyLayoutState` — `{splitMode, splitVariant, pages, pinnedPage}`; two LYT nav items (`BEZEL_EXTRAS.lyt`); `handleLayoutKeydown` attached to every iframe the shell owns (map, page-frame, both split panes), not just the top document |
+| `src/web/shell/classic/mfd.js` | `captureLayoutState`/`applyLayoutState` — `{splitMode, splitVariant, pages, pinnedLayout}` (see "PIN pins a layout" below); two LYT nav items (`BEZEL_EXTRAS.lyt`); `handleLayoutKeydown` attached to every iframe the shell owns (map, page-frame, both split panes), not just the top document |
 | `src/web/shell/f35/f35.js`, `f35.html`, `f35.css` | `captureLayoutState`/`applyLayoutState` — `{cells, pages}`, rebuilding portals directly from a saved `F35Glass` arrangement rather than replaying merge/split actions; a second row of nav items in `#layout-picker`; `handleLayoutKeydown` attached to `#map-tap` and every portal's frame (`makePortal`) |
 | `src/web/pages/keybinds/keybinds.js` | Renders a key-only row (a keyboard cell, with KEYBOARD ONLY in the joystick column) |
 | `tools/serve_web.py` | Stateful mock: `/layout-options` + `layout.save`/`rename`/`delete` actually edit a mutable `LAYOUTS` list (mirrors the existing `KEYBINDS` mock), seeded with one CLASSIC + one F-35 demo layout; plus the two new `KEYBINDS` rows |

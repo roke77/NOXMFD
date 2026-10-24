@@ -1,6 +1,6 @@
 // SAVE/LOAD LAYOUT keyboard wiring, shared by both shells (mfd.js, f35.js). captureLayoutState/
 // applyLayoutState are passed in per shell because the state shape genuinely differs: classic's is
-// {splitMode, splitVariant, pages, pinnedPage}, f35's is {cells, pages}.
+// {splitMode, splitVariant, pages, pinnedLayout}, f35's is {cells, pages}.
 //
 // Classic <script>, not a module, same as layout-store.js/layout-modal.js — a plain global, no
 // build step.

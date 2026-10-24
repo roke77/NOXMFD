@@ -17,8 +17,10 @@ bottom.
   while on. The preference is remembered by the browser and reapplies after a reload. If the
   device can't be kept awake at all, the key turns itself back off and **WAKE LOCK FAILED**
   briefly appears in the corner of the screen.
-- **PIN** — pin a page.
-- **SWAP** — jump to/from the pinned page.
+- **PIN** — pin the current layout: the split (or full view) and the page in every pane. **PINNED**
+  shows in the corner while the screen matches it; press PIN again there to unpin. A full-view MAIN
+  can't be pinned.
+- **SWAP** — switch to the pinned layout, and back to the one you left on the next press.
 
 **Layout presets (bottom):**
 
