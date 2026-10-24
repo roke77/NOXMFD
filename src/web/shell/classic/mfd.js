@@ -520,7 +520,23 @@ function extPaneSlice(idx) {
   return slice;
 }
 
+// The tick-driven inputs split labels show: TGP's lit marks, WPN's names/ARM/MODE, and the pane pages
+// the ticks can move. 'tgp' and 'loadout' arrive every frame and almost never change any of these,
+// and a rebuild per tick tears down the label under the pilot's finger (and its hover/press state)
+// many times a second. Every other input changes through a deliberate action that renders anyway.
+let splitLabelsTickKey = null;
+function splitLabelsTickInputs() {
+  const m = tgpMarks();
+  return [m.man, m.clr, m.ir, m.wtv, m.stv, wpnData.masterArmsOn, wpnData.combatMode,
+          (wpnData.items || []).map(function (it) { return it.n; }).join(','),
+          paneWpnPage.join(','), paneTgpPage.join(',')].join('|');
+}
+function renderSplitLabelsOnTickChange() {
+  if (splitLabelsTickInputs() !== splitLabelsTickKey) renderSplitLabels();
+}
+
 function renderSplitLabels() {
+  splitLabelsTickKey = splitLabelsTickInputs();
   clearKeyActions();
   // .wpn-decor too: full view's MASTER/MODE and ZOOM decorators (docs/radar-master-arms.md) must
   // not survive entering split mode — split doesn't place them.
@@ -2112,7 +2128,7 @@ window.addEventListener('message', function(e) {
       forwardWpnToPanes();
       // Same guard the tgp branch below already uses — skip the label rebuild when no pane is even
       // showing WPN (docs/web-efficiency-audit.md finding 02).
-      if (panePages.indexOf('wpn') !== -1) renderSplitLabels();
+      if (panePages.indexOf('wpn') !== -1) renderSplitLabelsOnTickChange();
     }
   } else if (m.type === 'cm') {
     cmData = {
@@ -2137,7 +2153,7 @@ window.addEventListener('message', function(e) {
     if (currentPage === 'tgp' && !splitMode) { forwardTgpToFrame(); placeTgpNavLabels(); }
     if (splitMode) {
       forwardTgpToPanes();
-      if (panePages.indexOf('tgp') !== -1) renderSplitLabels();
+      if (panePages.indexOf('tgp') !== -1) renderSplitLabelsOnTickChange();
     }
   } else if (m.type.indexOf('ext_') === 0) {
     // Extension telemetry (docs/extensions-api.md) — one generic branch for every installed
