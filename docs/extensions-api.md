@@ -214,6 +214,18 @@ contact and leaves the view alone. Built for the ATC extension's TRACK ON MAP ch
 controller keeping MAP centered on whichever aircraft they're currently handling), but generic to
 any extension.
 
+```csharp
+Api.LocateOnMap(uint id);
+```
+
+`ApiVersion` 8+. `SetSelectedUnit(id)` plus a one-shot re-center: `SharedSelection.Center` bumps a
+count carried in the frame as `selectedUnitCenter`, and `map.js` centers on `selectedUnitId` once
+per change of that count — dropping FLW, and zooming to MAP's default zoom first when at full
+extent (where there's nothing to pan). The first frame MAP sees only records the count, so opening
+MAP later doesn't jump to an old request; a unit with no live contact on the next draw gets the
+ring but no re-center. A count rather than a flag, so the same unit can be located twice and MAP
+never has to acknowledge anything. Built for the TAC extension's LOCATE.
+
 ## 8. WPT navigation
 
 ```csharp

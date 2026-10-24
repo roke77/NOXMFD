@@ -61,7 +61,12 @@ let   followPlayer = false;    // when on (and zoomed in), keep the player icon 
 // d.selectedUnitTrack each frame, never persisted (renderFrame below resets it on disconnect the
 // same way followPlayer resets on a mission end).
 let   trackingSelectedUnit = false;
-let   gridOn       = false;    // coordinate grid overlay (issue #41), default off
+// LOCATE ON MAP's one-shot center (Api.LocateOnMap): d.selectedUnitCenter counts the requests, and
+// each change centers once on the next draw. null until the first frame, which only records the
+// count, so opening MAP later never jumps to an old request.
+let   centerSeq = null;
+let   centerPending = false;
+let   gridOn      = false;    // coordinate grid overlay (issue #41), default off
 
 // ── Waypoints/routes (issue #38) ──────────────────────────────────────────────────
 let   waypointRoute = null;    // WaypointsStore's active route, cached for drawWaypoints()
@@ -742,6 +747,21 @@ function drawOverlay() {
   // (engaging track already dropped followPlayer in renderFrame), this just picks which point to
   // read. A selected unit that's briefly missing from lastData.contacts (datalink gap) simply isn't
   // found this frame — the view holds still rather than snapping, and resumes once it reappears.
+  // A LOCATE ON MAP center comes first: it drops FLW (directly, not through setFollow, which would
+  // redraw from inside this draw) so the player-follow below doesn't pull the view straight back,
+  // and zooms in from full extent, where there is nothing to pan. A unit with no live contact
+  // this frame gets no center; the request is spent either way rather than jumping later.
+  if (centerPending) {
+    centerPending = false;
+    const located = lastData.selectedUnitId && lastData.contacts
+      && lastData.contacts.find(function(u) { return u.id === lastData.selectedUnitId; });
+    if (located) {
+      if (followPlayer) { followPlayer = false; source.emitFollow(false); }
+      if (view.zoom <= MIN_ZOOM) view.zoom = clampZoom(DEFAULT_ZOOM);
+      centerOn(located.x, located.z);
+      savePersistedView();
+    }
+  }
   if (trackingSelectedUnit && lastData.selectedUnitId && view.zoom > MIN_ZOOM && lastData.contacts) {
     const tracked = lastData.contacts.find(function(u) { return u.id === lastData.selectedUnitId; });
     if (tracked) centerOn(tracked.x, tracked.z);
@@ -982,6 +1002,10 @@ function renderFrame(d) {
   } else if (!d.selectedUnitTrack && trackingSelectedUnit) {
     trackingSelectedUnit = false;
   }
+  if (d.selectedUnitCenter !== centerSeq) {
+    if (centerSeq !== null) centerPending = true;
+    centerSeq = d.selectedUnitCenter;
+  }
   lastData = d;
   if (!viewActive) return;
   ensureIconImage(d.name);
@@ -1060,6 +1084,7 @@ function clearViewState() {
   view.zoom = 1; view.panX = 0; view.panY = 0;   // next mission starts at full extent
   followPlayer = false;                           // follow resets for the next mission
   trackingSelectedUnit = false;                   // ditto for TRACK ON MAP
+  centerPending = false;                          // and for a LOCATE ON MAP center not yet drawn
   oc.clearRect(0, 0, overlay.width, overlay.height);
   document.getElementById('map-panel').classList.remove('has-map');
   mapImg.src = '/map?t=' + Date.now();   // 404 now → falls back to the placeholder

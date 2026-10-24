@@ -357,6 +357,15 @@ NOXMFD.Api.SetSelectedUnitTrack(true);    // MAP now follows contactId
 NOXMFD.Api.SetSelectedUnitTrack(false);   // MAP stops following (stays where it was)
 ```
 
+For a one-off "show me this unit" instead of a follow, `LocateOnMap` (`ApiVersion` 8) does what
+`SetSelectedUnit` does and also centers MAP on the unit **once**: FLW drops, MAP zooms in first if
+it's at full extent, and after that the pilot pans freely. Calling it again re-centers again, even
+for the same unit. A unit MAP has no live contact for gets the ring but no re-center.
+
+```csharp
+NOXMFD.Api.LocateOnMap(contactId);   // ring it and center MAP on it, once
+```
+
 ### 9. The active WPT route
 
 ```csharp

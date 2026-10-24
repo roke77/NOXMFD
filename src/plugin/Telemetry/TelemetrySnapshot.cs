@@ -131,6 +131,10 @@ namespace NOXMFD
         // while SelectedUnitId is 0 — map.js just finds no matching contact and skips re-centering.
         public bool SelectedUnitTrack;
 
+        // How many LOCATE ON MAP re-centers have been asked for (SharedSelection.CenterSeq): MAP
+        // centers on SelectedUnitId once each time this changes.
+        public int SelectedUnitCenter;
+
         // weaponManager.GetTargetList()'s own order (persistentID.Id) — the exact order
         // TargetFocus's Cycle/Reconcile step through (TargetFocus.cs). TGT sorts its own
         // selected-target list to match, so Next/Previous visibly walks the table in the same

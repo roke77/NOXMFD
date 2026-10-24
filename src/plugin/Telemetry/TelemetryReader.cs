@@ -962,6 +962,7 @@ namespace NOXMFD
                 FocusedTargetId = TargetFocus.Id,
                 SelectedUnitId = SharedSelection.Id,
                 SelectedUnitTrack = SharedSelection.Track,
+                SelectedUnitCenter = SharedSelection.CenterSeq,
                 LockedTargetIds = _cachedLockedIds,
                 LockedTargetTti = _cachedLockedTti,
                 LockedTargetWpn = _cachedLockedWpn,

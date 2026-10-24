@@ -14,7 +14,8 @@ namespace NOXMFD
         // SetSelectedUnitTrack, the item 3 follow-on that lets an extension put MAP into
         // follow-this-unit mode instead of only highlighting it. 7 adds the WPT route/steer-point
         // reads and SetActiveRouteNextIndex, for coupling an autopilot to NOXMFD's route (issue #86).
-        // 8 adds the faction/squad reads and per-extension messaging (docs/extension-messaging.md).
+        // 8 adds the faction/squad reads and per-extension messaging (docs/extension-messaging.md),
+        // SelectTarget, and LocateOnMap (a one-shot MAP re-center on the selected unit).
         public const int ApiVersion = 8;
 
         // Called on an HTTP worker: relPath "" is the page's own HTML (/ext/<id>); otherwise it is
@@ -88,6 +89,12 @@ namespace NOXMFD
         // FLW key would), the same way it already re-centers on the player. off leaves MAP's pan
         // alone; it does not restore FLW. No effect until a non-zero id is also selected.
         public static void SetSelectedUnitTrack(bool on) => SharedSelection.SetTrack(on);
+
+        // LOCATE ON MAP: SetSelectedUnit plus one re-center of MAP on that unit, dropping FLW (and
+        // zooming in to MAP's default zoom first when it is at full extent, where there is nothing
+        // to pan). After that the pilot pans freely; nothing keeps following the unit. A unit MAP
+        // has no live contact for gets the ring but no re-center.
+        public static void LocateOnMap(uint id) => SharedSelection.Center(id);
 
         // WPT navigation (docs/extensions-api.md section 8). RouteStore stays the only authority on
         // route progress, and its data is main-thread only — call these from Update(), never from the
