@@ -1319,9 +1319,11 @@
 
     // The master strip isn't a portal, so it has no PAGE_FEEDS entry; the slices it shows are
     // handed to it straight from here. status → the connection line; avn → the flags and the
-    // THRL/FUEL gauges.
+    // THRL/FUEL gauges; adi/mis → the flight-data and mission-clock readouts.
     if (m.type === 'status') updateStripStatus(m);
     else if (m.type === 'avn') { updateStripFlags(m); updateStripGauges(m); }
+    else if (m.type === 'adi') paintAdiReadouts();
+    else if (m.type === 'mis') paintMisClocks();
   });
 
   // WPN's rects are derived from its portal's box, so they go stale when it changes. The bezel
@@ -1361,6 +1363,8 @@
   const stripEl      = document.querySelector('.master-strip');
   const stripFlags   = [].slice.call(document.querySelectorAll('.ms-flag'));
   const stripStatus  = document.getElementById('ms-status');
+  // Held from load: a widget off the strip is detached, and getElementById can't find it then.
+  const stripName    = document.getElementById('ms-name');
   const stripThr  = gauge('ms-thr', 'thr');
   const stripFuel = gauge('ms-fuel', 'fuel');
 
@@ -1476,7 +1480,7 @@
   function setStripUrls(cfg) {
     // Only the name URL, the one address worth bookmarking since it survives an IP change.
     // Localhost stands in when there is none (LAN access off), so the strip always shows a URL.
-    document.getElementById('ms-name').textContent =
+    stripName.textContent =
       (cfg && (cfg.nameUrl || cfg.localhost)) || 'http://localhost:5005';
     urlsLoaded = true;
     maybeRevealUrls();
@@ -1609,6 +1613,128 @@
     wakeController.start();
   })();
 
+  // ── Strip widgets (docs/f35-strip-widgets.md) ────────────────────────────────────────────
+  // The strip is an ordered list of widget ids (F35Strip). Every widget element exists once, from
+  // f35.html or READOUTS below, and stays alive off the strip — detached, still fed by the updaters
+  // above — so putting one back costs nothing and it shows the latest state at once. The list is
+  // remembered per browser (localStorage) and travels in each saved layout (captureLayoutState).
+  const widgetsEl  = document.getElementById('ms-widgets');
+  const editBtn    = document.getElementById('ms-edit');
+  const editTools  = document.getElementById('ms-edit-tools');
+  const STRIP_KEY  = 'f35-strip';
+  const ADI_READOUTS = ['alt', 'agl', 'tas', 'hdg', 'vs', 'g', 'mach'];
+  const READOUTS = ADI_READOUTS.concat(['clock', 'mis-time', 'mis-dur']);
+  READOUTS.forEach(function (id) {
+    const el = document.createElement('div');
+    el.className = 'ms-readout';
+    el.dataset.widget = id;
+    el.innerHTML = '<span class="ms-readout-label"></span><span class="ms-readout-value"></span>';
+    widgetsEl.appendChild(el);
+  });
+  const widgetEls = {};
+  [].forEach.call(widgetsEl.querySelectorAll('[data-widget]'), function (el) { widgetEls[el.dataset.widget] = el; });
+
+  let stripOrder = loadStoredStrip() || F35Strip.DEFAULT;
+  let stripSel = null;       // the selected widget's id in edit mode
+  let stripEditing = false;
+
+  // Guarded like setLayout: localStorage throws in some private-mode browsers.
+  function loadStoredStrip() {
+    try { return F35Strip.normalize(JSON.parse(localStorage.getItem(STRIP_KEY))); } catch (e) { return null; }
+  }
+  function setStrip(order) {
+    stripOrder = order;
+    try { localStorage.setItem(STRIP_KEY, JSON.stringify(order)); } catch (e) {}
+    renderStrip();
+  }
+  function renderStrip() {
+    widgetsEl.textContent = '';
+    stripOrder.forEach(function (id) { widgetsEl.appendChild(widgetEls[id]); });
+    if (stripOrder.indexOf(stripSel) === -1) stripSel = null;
+    markSel();
+    paintAdiReadouts();
+    paintMisClocks();
+    paintClock();
+  }
+  function markSel() {
+    Object.keys(widgetEls).forEach(function (id) { widgetEls[id].toggleAttribute('data-sel', id === stripSel); });
+    [].forEach.call(editTools.querySelectorAll('[data-tool]'), function (b) {
+      b.disabled = b.dataset.tool !== 'add' && !stripSel;
+    });
+  }
+
+  // Off-strip readouts are skipped; renderStrip repaints from the cached slice when one comes back.
+  function paintReadout(id, r) {
+    const el = widgetEls[id];
+    if (!el.isConnected || !r) return;
+    const label = el.firstChild, value = el.lastChild;
+    if (label.textContent !== r.label) label.textContent = r.label;
+    if (value.textContent !== r.value) value.textContent = r.value;
+  }
+  function paintAdiReadouts() {
+    const m = slices.adi;
+    const units = AdiMath.units(!!(m && m.metric));
+    ADI_READOUTS.forEach(function (id) { paintReadout(id, F35Strip.readout(id, m, units, WptRoute.formatBearing)); });
+  }
+  function paintMisClocks() {
+    paintReadout('mis-time', F35Strip.misClock('mis-time', slices.mis));
+    paintReadout('mis-dur', F35Strip.misClock('mis-dur', slices.mis));
+  }
+  function paintClock() { paintReadout('clock', F35Strip.localClock(new Date())); }
+  setInterval(paintClock, 1000);
+
+  // In edit mode a tap selects instead of acting: the capture listener runs before the flags'
+  // avn.toggle and the WAKE/FULLSCREEN handlers, and stops the event reaching them.
+  widgetsEl.addEventListener('click', function (e) {
+    if (!stripEditing) return;
+    e.stopPropagation();
+    e.preventDefault();
+    const w = e.target.closest('[data-widget]');
+    stripSel = w ? w.dataset.widget : null;
+    markSel();
+  }, true);
+
+  editBtn.addEventListener('click', function () {
+    stripEditing = !stripEditing;
+    stripEl.classList.toggle('editing', stripEditing);
+    editBtn.classList.toggle('on', stripEditing);
+    editBtn.setAttribute('aria-pressed', stripEditing ? 'true' : 'false');
+    stripSel = null;
+    markSel();
+  });
+
+  editTools.addEventListener('click', function (e) {
+    const b = e.target.closest('[data-tool]');
+    if (!b) return;
+    const tool = b.dataset.tool;
+    if (tool === 'left' || tool === 'right') setStrip(F35Strip.move(stripOrder, stripSel, tool === 'left' ? -1 : 1));
+    else if (tool === 'remove') setStrip(F35Strip.remove(stripOrder, stripSel));
+    else if (tool === 'add') openAddWidget();
+  });
+
+  // The catalog in the shared layout modal; the pick lands after the selection (or at the end)
+  // and becomes the selection, so it can be nudged into place straight away.
+  function openAddWidget() {
+    const list = document.createElement('div');
+    list.className = 'layout-modal-body ms-add-list';
+    const avail = F35Strip.available(stripOrder);
+    if (!avail.length) list.textContent = 'Every widget is already on the strip.';
+    avail.forEach(function (w) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'layout-modal-btn';
+      b.textContent = w.label;
+      b.addEventListener('click', function () {
+        LayoutModal.close();
+        const after = stripSel;
+        stripSel = w.id;
+        setStrip(F35Strip.add(stripOrder, w.id, after));
+      });
+      list.appendChild(b);
+    });
+    LayoutModal.open('ADD WIDGET', list);
+  }
+
   // ── SAVE/LOAD LAYOUT — browser-side keyboard shortcuts only, no joystick/HOTAS. ──
   // S saves the glass's current arrangement (F35Glass cells + each portal's page) under a name;
   // L opens a picker of every saved F-35 layout and applies the one clicked. Storage is
@@ -1616,13 +1742,16 @@
   // (including the bezel shell, which keeps its own list — see mfd.js's twin of this block —
   // filtered by `shell` so a browser is never offered an arrangement it can't apply).
   function captureLayoutState() {
-    return { cells: cells(), pages: portals.map(function (p) { return p.page(); }) };
+    return { cells: cells(), pages: portals.map(function (p) { return p.page(); }), strip: stripOrder.slice() };
   }
 
   // Rebuilds the glass directly from a saved arrangement, rather than replaying merge/split
   // actions to reach it — buildGlass()'s own addPortal always starts a portal at span 1, so this
   // is a small variant of it that seeds each portal's cell from the saved spec up front.
   function applyLayoutState(state) {
+    // A layout saved before the strip was editable carries no strip and leaves it as it is.
+    const strip = F35Strip.normalize(state && state.strip);
+    if (strip) setStrip(strip);
     const cs = state && state.cells;
     if (!cs || !F35Glass.valid(cs)) {
       buildGlass();
@@ -1653,6 +1782,7 @@
 
   loadStripUrls();
   runStripBoot();
+  renderStrip();
   // Extension nav discovery (docs/extensions-api.md) — fetches /ext-manifest and merges installed
   // extensions into NAV.ext / NAV[<id>]. Fire-and-forget at boot; also re-run every time EXT is
   // clicked (dispatch's 'ext' case) to pick up an extension that registered after this tab loaded.

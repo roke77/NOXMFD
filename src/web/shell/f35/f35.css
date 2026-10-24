@@ -165,23 +165,23 @@ html, body {
 .ms-status.waiting      { color: var(--no-amber); }
 .ms-status.disconnected { color: var(--no-red); }
 
-/* THRL + FUEL, stacked, in the space between the connection block and the flags. AVN's bars can't
-   be hosted as they are — absolutely positioned, vertical, sized from rects the shell forwards —
-   so what comes across is the rule (avn-throttle-policy, shared) and the LOOK, rebuilt sideways:
-   see the tube below. What stays behind is the ¯\___ leader that tracks each fill's tip, which
-   needs a per-paint measurement and has nowhere to go in a bar this short. */
-.ms-gauges {
-  /* Takes the strip's slack: everything between the connection block and the flags is the
-     troughs'. */
-  flex: 1 1 auto;
+/* THRL and FUEL. AVN's bars can't be hosted as they are — absolutely positioned, vertical, sized
+   from rects the shell forwards — so what comes across is the rule (avn-throttle-policy, shared) and
+   the LOOK, rebuilt sideways: see the tube below. What stays behind is the ¯\___ leader that tracks
+   each fill's tip, which needs a per-paint measurement and has nowhere to go in a bar this short.
+   Each grows into the strip's slack up to a cap, so a sparse strip doesn't stretch one trough
+   across the glass. */
+.ms-gauge {
+  flex: 1 1 140px;
+  min-width: 120px;
+  max-width: 320px;
   display: flex;
-  flex-direction: column;
-  gap: 5px;
+  align-items: center;
+  gap: 7px;
   font-size: 11px;
   letter-spacing: 1px;
   color: var(--no-green-dim);
 }
-.ms-gauge { display: flex; align-items: center; gap: 7px; }
 /* THRL and FUEL are four glyphs of the same monospace face, and the number's width is fixed below,
    so both troughs start and end on the same x without either being told a width. */
 .ms-gauge-label { font-weight: bold; }
@@ -205,16 +205,6 @@ html, body {
   background: var(--no-gauge-trough);
   overflow: hidden;
 }
-
-/* Each tube opens on the side facing the other, so the pair reads as one instrument rather than
-   two boxes. AVN's own frames are three-sided for the same reason — fuel drops its right border
-   and thr its left, both opening toward the silhouette they flank (avn.css). Stacked instead of
-   flanking, the sides that face each other are the bottom and the top.
-
-   Both lose exactly one horizontal edge, so both troughs stay the same height as each other; the
-   fill keeps its 3px inset from the open edge, as AVN's does. */
-.ms-gauge.thr  .ms-tube { border-bottom: none; }
-.ms-gauge.fuel .ms-tube { border-top: none; }
 
 /* The fill's box, inset from the frame the way AVN's padding insets its own. It exists so the
    fill's width:% is a percentage of the TROUGH rather than of the tube's padding box (which would
@@ -297,19 +287,9 @@ html, body {
 .ms-gauge.na .ms-fill { display: none; }
 .ms-gauge.na.fuel .ms-tube::before { background: var(--no-green-dark); }
 
-/* Avionics flags — one row at the right. Each is a label + icon like the AVN tile (avn.css
-   .avn-tile), and the colour class (off = gray, on = green, GEAR-down = red, from the shared
-   avn-status-policy) recolours label and glyph together via currentColor.
-
-   The gauges are what hold them here now: flex-grow resolves before auto margins are offered any
-   free space, so with .ms-gauges growing into the slack there is none left and this margin does
-   nothing. It stays as the fallback — take the gauges out and it is the only thing keeping the
-   flags off the mission block. */
-.ms-flags {
-  margin-left: auto;
-  display: flex;
-  gap: 14px;
-}
+/* Avionics flags. Each is a label + icon like the AVN tile (avn.css .avn-tile), and the colour
+   class (off = gray, on = green, GEAR-down = red, from the shared avn-status-policy) recolours label
+   and glyph together via currentColor. */
 .ms-flag {
   display: flex;
   flex-direction: column;
@@ -339,7 +319,8 @@ html, body {
    against the hover fill. .nav-item.on already gives this shell's buttons the amber engaged
    treatment WAKE needs, so neither button needs a rule of its own beyond this shared box. */
 .master-strip .ms-fll,
-.master-strip .ms-wake {
+.master-strip .ms-wake,
+.master-strip .ms-tool {
   border: 1px solid currentColor;
   border-radius: 3px;
   width: 34px;
@@ -375,6 +356,70 @@ html, body {
   font-size: 11px;
   letter-spacing: 1px;
   white-space: nowrap;
+}
+
+/* ── Strip widgets (docs/f35-strip-widgets.md) ─────────────────────────────────────────────
+   The widgets row takes everything the edit button leaves. Flags sit 14px apart, as the AVN row
+   they came from did; every other neighbour pair keeps the strip's 28px. Overflow clips: a strip
+   with more widgets than fit loses its right end, and edit mode is where the pilot trims it. */
+.ms-widgets {
+  flex: 1 1 auto;
+  min-width: 0;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 0 4px;   /* room for edit mode's outlines at the ends */
+  overflow: hidden;
+}
+.ms-widgets > :not(.ms-flag) + *,
+.ms-widgets > * + :not(.ms-flag) { margin-left: 14px; }
+
+.ms-spacer { flex: 1 1 0; align-self: stretch; }
+
+/* Flight-data and clock readouts: a small unit label over the value, like a flag over its icon. */
+.ms-readout {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  white-space: nowrap;
+}
+.ms-readout-label { font-size: 11px; font-weight: bold; letter-spacing: 1px; color: var(--no-green-dim); }
+.ms-readout-value { font-size: 20px; line-height: 1; color: var(--no-green); min-width: 4ch; text-align: center; }
+
+/* Edit mode: every widget is outlined as a tap target and the selected one is amber. The tools
+   only show while editing; the pencil itself takes the amber .on treatment. */
+.ms-edit-tools { display: none; gap: 6px; }
+.master-strip.editing .ms-edit-tools { display: flex; }
+.master-strip.editing .ms-widgets > [data-widget] {
+  outline: 1px dashed var(--no-teal);
+  outline-offset: 2px;
+  cursor: pointer;
+}
+.master-strip.editing .ms-widgets > [data-sel] { outline: 2px solid var(--no-amber); }
+.ms-tool:disabled { opacity: 0.35; pointer-events: none; }
+.master-strip .ms-tool { font-size: 15px; line-height: 1; }
+/* Invisible outside edit mode, so editing names it. */
+.master-strip.editing .ms-spacer {
+  min-width: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  letter-spacing: 1px;
+  color: var(--no-teal);
+}
+.master-strip.editing .ms-spacer::before { content: 'SPACER'; }
+
+/* The ADD list, inside the shared layout modal: one button per widget not on the strip. */
+.ms-add-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 6px;
+  max-height: 60vh;
+  overflow-y: auto;
 }
 
 /* The telemetry tap. Never seen: the MAP page owns the only EventSource('/stream') and posts the

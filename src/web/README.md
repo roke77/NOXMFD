@@ -41,6 +41,7 @@ src/web/
                            classic-paging.js               # pure split-pane pagination + list-page key layout
             f35/           f35.html  f35.css  f35.js       # a second shell: borderless F-35 glass, N portals
                            f35-glass.js  f35-wpn-paging.js  # portal merge/split geometry, WPN pagination
+                           f35-strip.js                    # master-strip widget catalog + list edits
   pages/
     map/    map.html  map.css  map.js     # the live map view (imports services/telemetry-source.js)
             map-transform.js              # its pure world⇄pixel maths (pan/zoom/letterbox)
@@ -204,7 +205,7 @@ selected FCR range follows the same pattern under `noxmfd.rdr.view`; HSD keeps i
   to both.
 - **F-35 (`shell/f35/`):** a third, N-way layout instead of full/split — up to 4 portals, each an
   independent `/<page>?bare` iframe; corner grips merge/split them (`f35-glass.js`). WPN's own
-  pagination is `f35-wpn-paging.js`.
+  pagination is `f35-wpn-paging.js`; the master strip's widget list is `f35-strip.js`.
 - **Every NAV destination resolves in both layouts**, so nothing renders dimmed. The two routing
   tables sit together in `shell/shared/layout-pages.js` for that reason, and `layout-coverage.test.js`
   fails by name if one layout gains a page the other lacks.

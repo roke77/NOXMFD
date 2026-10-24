@@ -24,16 +24,20 @@
   <iframe id="map-tap" src="/map-view?telemetry=1" title="telemetry"></iframe>
 
   <!-- Master strip: a fixed full-width bar across the top of the glass, the home for what belongs
-       to the aircraft rather than to any one portal (docs/layouts.md). Left to right: the wordmark,
-       the connection block (local + LAN URL and status, stacked), the THRL/FUEL gauges, the avionics
-       flags, and FULLSCREEN. f35.js fills the live values from the /config fetch and the status/avn
-       telemetry slices. -->
+       to the aircraft rather than to any one portal (docs/layouts.md). Its contents are widgets the
+       pilot picks and orders in edit mode (the pencil at the right end); the arrangement is
+       remembered per browser and saved with each F-35 layout preset. f35.js fills the live values
+       from the /config fetch and the status/avn/adi/mis telemetry slices. -->
   <!-- Starts .booting so the connection block is hidden until the loading bar finishes — the URLs
        are typed in (f35.js), and must never flash fully-formed first. -->
   <div class="master-strip booting">
-    <div class="ms-logo">NO XMFD</div>
+    <!-- The widgets (docs/f35-strip-widgets.md). Every widget the strip can show is declared here
+         once, under its data-widget id; f35.js re-parents them into the pilot's chosen order and
+         detaches the rest (the flight-data and clock readouts it builds itself, see READOUTS). -->
+    <div class="ms-widgets" id="ms-widgets">
+    <div class="ms-logo" data-widget="logo">NO XMFD</div>
 
-    <div class="ms-net">
+    <div class="ms-net" data-widget="net">
       <!-- Boot loader: a LOADING… bar (ported from the bezel MAIN's info box) shown while booting;
            at 100% f35.js reveals the data block and types the URLs. -->
       <div class="ms-loading">
@@ -46,92 +50,103 @@
       </div>
     </div>
 
-    <!-- THRL + FUEL, stacked — the AVN page's two gauges, laid horizontally. They read the same
-         'avn' slice that drives the flags, so no new telemetry: fuel and throttle were already in
-         it. The trough is .ms-tube — AVN's own gauge tube turned on its side (f35.css). -->
-    <div class="ms-gauges">
-      <div class="ms-gauge thr na" id="ms-thr">
-        <span class="ms-gauge-label">THRL</span>
-        <div class="ms-tube"><div class="ms-tube-inner"><div class="ms-fill" id="ms-thr-fill"></div></div></div>
-        <span class="ms-gauge-num" id="ms-thr-num">--</span>
-      </div>
-      <div class="ms-gauge fuel na" id="ms-fuel">
-        <span class="ms-gauge-label">FUEL</span>
-        <div class="ms-tube"><div class="ms-tube-inner"><div class="ms-fill" id="ms-fuel-fill"></div></div></div>
-        <span class="ms-gauge-num" id="ms-fuel-num">--</span>
-      </div>
+    <!-- THRL and FUEL — the AVN page's two gauges, laid horizontally. They read the same 'avn'
+         slice that drives the flags, so no new telemetry: fuel and throttle were already in it. The
+         trough is .ms-tube — AVN's own gauge tube turned on its side (f35.css). -->
+    <div class="ms-gauge thr na" id="ms-thr" data-widget="thr">
+      <span class="ms-gauge-label">THRL</span>
+      <div class="ms-tube"><div class="ms-tube-inner"><div class="ms-fill" id="ms-thr-fill"></div></div></div>
+      <span class="ms-gauge-num" id="ms-thr-num">--</span>
+    </div>
+    <div class="ms-gauge fuel na" id="ms-fuel" data-widget="fuel">
+      <span class="ms-gauge-label">FUEL</span>
+      <div class="ms-tube"><div class="ms-tube-inner"><div class="ms-fill" id="ms-fuel-fill"></div></div></div>
+      <span class="ms-gauge-num" id="ms-fuel-num">--</span>
     </div>
 
-    <!-- The eight avionics flags the AVN page shows, in one row — same labels and same glyphs
+    <!-- Takes the strip's slack, pushing whatever follows it to the right. -->
+    <div class="ms-spacer" data-widget="spacer"></div>
+
+    <!-- The eight avionics flags the AVN page shows, each its own widget — same labels and same glyphs
          (the inline SVGs are copied from avn.html; GEAR reuses the game-captured gear-icon.png
          mask). data-field names the avn-slice boolean; data-kind drives the colour via
          avn-status-policy.js (so GEAR-down-is-red lives in one place, shared with AVN). Icons use
          stroke/fill="currentColor", so the one colour class recolours label and glyph together. -->
-    <div class="ms-flags">
-      <div class="ms-flag off" data-kind="gear" data-field="gearDown">
-        <span class="ms-flag-label">GEAR</span>
-        <div class="ms-flag-icon ms-flag-mask"></div>
-      </div>
-      <div class="ms-flag off" data-kind="radar" data-field="radar">
-        <span class="ms-flag-label">RADAR</span>
-        <svg class="ms-flag-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M4.5 9.6a11 11 0 0 1 15 0"/><path d="M7.5 12.6a6.5 6.5 0 0 1 9 0"/>
-          <circle cx="12" cy="16.1" r="1.3" fill="currentColor" stroke="none"/>
-        </svg>
-      </div>
-      <div class="ms-flag off" data-kind="guns" data-field="guns">
-        <span class="ms-flag-label">GUNS</span>
-        <svg class="ms-flag-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M9 12h6"/><path d="M10.5 8H8a4 4 0 0 0 0 8h2.5"/><path d="M13.5 8H16a4 4 0 0 1 0 8h-2.5"/>
-        </svg>
-      </div>
-      <div class="ms-flag off" data-kind="eng" data-field="ignition">
-        <span class="ms-flag-label">ENG</span>
-        <svg class="ms-flag-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M3 10v6"/><path d="M12 5v3"/><path d="M10 5h4"/><path d="M5 13h-2"/><path d="M6 10h2l2 -2h3.382a1 1 0 0 1 .894 .553l1.448 2.894a1 1 0 0 0 .894 .553h1.382v-2h2a1 1 0 0 1 1 1v6a1 1 0 0 1 -1 1h-2v-2h-3v2a1 1 0 0 1 -1 1h-3.465a1 1 0 0 1 -.832 -.445l-1.703 -2.555h-2v-6"/>
-        </svg>
-      </div>
-      <div class="ms-flag off" data-kind="assist" data-field="assist">
-        <span class="ms-flag-label">ASSIST</span>
-        <svg class="ms-flag-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="8.5"/>
-          <path d="M5.3 12.3 H7.5 L10 13.7 L12 12.5 L14 13.7 L16.5 12.3 H18.7"/>
-        </svg>
-      </div>
-      <div class="ms-flag off" data-kind="nvg" data-field="nvg">
-        <span class="ms-flag-label">NVG</span>
-        <svg class="ms-flag-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M2.5 12s3.4-6.5 9.5-6.5 9.5 6.5 9.5 6.5-3.4 6.5-9.5 6.5-9.5-6.5-9.5-6.5z"/><circle cx="12" cy="12" r="3"/>
-        </svg>
-      </div>
-      <div class="ms-flag off" data-kind="lights" data-field="navLights">
-        <span class="ms-flag-label">LIGHTS</span>
-        <svg class="ms-flag-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="4.2"/><path d="M12 3.2v2"/><path d="M12 18.8v2"/><path d="M3.2 12h2"/><path d="M18.8 12h2"/><path d="M5.5 5.5l1.6 1.6"/><path d="M16.9 16.9l1.6 1.6"/><path d="M18.5 5.5l-1.6 1.6"/><path d="M7.1 16.9l-1.6 1.6"/>
-        </svg>
-      </div>
-      <div class="ms-flag off" data-kind="turret" data-field="turret">
-        <span class="ms-flag-label">TURRET</span>
-        <svg class="ms-flag-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M7.5 13 L4 18.5 H20 L16.5 13"/><path d="M8 13 V11 Q8 8 12 8 Q16 8 16 11 V13"/><path d="M8 10.8 H3 V12.8 H8"/>
-        </svg>
-      </div>
+    <div class="ms-flag off" data-widget="gear" data-kind="gear" data-field="gearDown">
+      <span class="ms-flag-label">GEAR</span>
+      <div class="ms-flag-icon ms-flag-mask"></div>
+    </div>
+    <div class="ms-flag off" data-widget="radar" data-kind="radar" data-field="radar">
+      <span class="ms-flag-label">RADAR</span>
+      <svg class="ms-flag-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4.5 9.6a11 11 0 0 1 15 0"/><path d="M7.5 12.6a6.5 6.5 0 0 1 9 0"/>
+        <circle cx="12" cy="16.1" r="1.3" fill="currentColor" stroke="none"/>
+      </svg>
+    </div>
+    <div class="ms-flag off" data-widget="guns" data-kind="guns" data-field="guns">
+      <span class="ms-flag-label">GUNS</span>
+      <svg class="ms-flag-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M9 12h6"/><path d="M10.5 8H8a4 4 0 0 0 0 8h2.5"/><path d="M13.5 8H16a4 4 0 0 1 0 8h-2.5"/>
+      </svg>
+    </div>
+    <div class="ms-flag off" data-widget="eng" data-kind="eng" data-field="ignition">
+      <span class="ms-flag-label">ENG</span>
+      <svg class="ms-flag-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 10v6"/><path d="M12 5v3"/><path d="M10 5h4"/><path d="M5 13h-2"/><path d="M6 10h2l2 -2h3.382a1 1 0 0 1 .894 .553l1.448 2.894a1 1 0 0 0 .894 .553h1.382v-2h2a1 1 0 0 1 1 1v6a1 1 0 0 1 -1 1h-2v-2h-3v2a1 1 0 0 1 -1 1h-3.465a1 1 0 0 1 -.832 -.445l-1.703 -2.555h-2v-6"/>
+      </svg>
+    </div>
+    <div class="ms-flag off" data-widget="assist" data-kind="assist" data-field="assist">
+      <span class="ms-flag-label">ASSIST</span>
+      <svg class="ms-flag-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="8.5"/>
+        <path d="M5.3 12.3 H7.5 L10 13.7 L12 12.5 L14 13.7 L16.5 12.3 H18.7"/>
+      </svg>
+    </div>
+    <div class="ms-flag off" data-widget="nvg" data-kind="nvg" data-field="nvg">
+      <span class="ms-flag-label">NVG</span>
+      <svg class="ms-flag-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M2.5 12s3.4-6.5 9.5-6.5 9.5 6.5 9.5 6.5-3.4 6.5-9.5 6.5-9.5-6.5-9.5-6.5z"/><circle cx="12" cy="12" r="3"/>
+      </svg>
+    </div>
+    <div class="ms-flag off" data-widget="lights" data-kind="lights" data-field="navLights">
+      <span class="ms-flag-label">LIGHTS</span>
+      <svg class="ms-flag-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="4.2"/><path d="M12 3.2v2"/><path d="M12 18.8v2"/><path d="M3.2 12h2"/><path d="M18.8 12h2"/><path d="M5.5 5.5l1.6 1.6"/><path d="M16.9 16.9l1.6 1.6"/><path d="M18.5 5.5l-1.6 1.6"/><path d="M7.1 16.9l-1.6 1.6"/>
+      </svg>
+    </div>
+    <div class="ms-flag off" data-widget="turret" data-kind="turret" data-field="turret">
+      <span class="ms-flag-label">TURRET</span>
+      <svg class="ms-flag-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M7.5 13 L4 18.5 H20 L16.5 13"/><path d="M8 13 V11 Q8 8 12 8 Q16 8 16 11 V13"/><path d="M8 10.8 H3 V12.8 H8"/>
+      </svg>
     </div>
 
-    <!-- WAKE LOCK FAILED (docs/screen-wake-lock.md) — hidden by default, shown for 5s by f35.js's
-         wake controller onError. Sits ahead of the buttons so it never gets clipped by them at a
-         narrow width. -->
-    <span class="ms-wake-error" id="ms-wake-error" role="status" hidden></span>
-    <!-- Screen wake-lock toggle (docs/screen-wake-lock.md), to the left of fullscreen. Same shared
-         controller as the bezel shell's WAKE key (shell/shared/wake-lock.js). -->
-    <button type="button" class="nav-item ms-wake" id="ms-wake" title="Keep screen awake" aria-pressed="false">
+    <!-- Screen wake-lock toggle (docs/screen-wake-lock.md). Same shared controller as the bezel
+         shell's WAKE key (shell/shared/wake-lock.js). -->
+    <button type="button" class="nav-item ms-wake" id="ms-wake" data-widget="wake" title="Keep screen awake" aria-pressed="false">
       <span class="ms-wake-icon" aria-hidden="true"></span>
     </button>
     <!-- Same fullscreen toggle as the bezel's top-key icon (mfd.css .ic-fullscreen), reused here
          since the F-35 shell has no bezel key bank to carry it. -->
-    <button type="button" class="nav-item ms-fll" id="ms-fll" title="Fullscreen">
+    <button type="button" class="nav-item ms-fll" id="ms-fll" data-widget="fll" title="Fullscreen">
       <span class="ms-fll-icon" aria-hidden="true"></span>
     </button>
+    </div>
+
+    <!-- WAKE LOCK FAILED (docs/screen-wake-lock.md) — hidden by default, shown for 5s by f35.js's
+         wake controller onError. Outside the widgets so it shows even when WAKE isn't on the strip
+         (a held lock still fails on a tab switch) and is never clipped by them. -->
+    <span class="ms-wake-error" id="ms-wake-error" role="status" hidden></span>
+    <!-- Edit mode's tools, shown only while editing: move the selected widget left/right, remove
+         it, or add one from the catalog after it. -->
+    <div class="ms-edit-tools" id="ms-edit-tools">
+      <button type="button" class="nav-item ms-tool" data-tool="left" title="Move left" aria-label="Move left">&#9664;</button>
+      <button type="button" class="nav-item ms-tool" data-tool="right" title="Move right" aria-label="Move right">&#9654;</button>
+      <button type="button" class="nav-item ms-tool" data-tool="remove" title="Remove" aria-label="Remove">&#10005;</button>
+      <button type="button" class="nav-item ms-tool" data-tool="add" title="Add widget" aria-label="Add widget">+</button>
+    </div>
+    <!-- Never a widget: it is the way into edit mode, so it can't be removed. -->
+    <button type="button" class="nav-item ms-tool ms-edit" id="ms-edit" title="Edit strip" aria-label="Edit strip" aria-pressed="false">&#9998;</button>
   </div>
 
   <!-- Connection-lost banner (issue #79): a sibling of .master-strip/.portals rather than a child of
@@ -187,6 +202,9 @@
      the MIL/AB split behind its THRL gauge. -->
 <script src="/assets/pages/avn/avn-status-policy.js"></script>
 <script src="/assets/pages/avn/avn-throttle-policy.js"></script>
+<!-- The strip's flight-data readouts convert units the way ADI does. -->
+<script src="/assets/pages/adi/adi-math.js"></script>
+<script src="/assets/shell/f35/f35-strip.js"></script>
 <!-- The shell reads the plugin-owned navigation cache to filter and relabel MAP's route/steer
      controls, sharing the same wrapper as its embedded MAP/WPT pages. -->
 <script src="/assets/pages/wpt/wpt-route.js"></script>
