@@ -348,6 +348,14 @@ SETTINGS (ON AT SPAWN, and HUD By Mode under INPUT & HUD), and the binds are spr
   smoke-test of these four patches specifically after every game update, alongside the usual
   `apicheck` run.
 
+## F-35 master strip — WPN MODES widget
+
+The F-35 strip's WPN MODES widget ([docs/f35-strip-widgets.md](f35-strip-widgets.md)) carries a
+second, always-visible pair of controls: MASTER (SAFE / ARM) and MODE (A/A / ALL / A/G), each one
+button that steps to the next state on a press. They send the same `master-arms.set` /
+`combat-mode.set` commands as WPN's ARM/SAFE and A/A/A/G, and light from the same `loadout` slice
+fields. Unlike WPN's pair, MODE has ALL as a state of its own rather than as "hold to reset".
+
 ## HUD filter automation on combat mode — [issue #50](https://github.com/roke77/NOXMFD/issues/50)
 
 **Status:** in-game tested (2026-08-22), one bug found and fixed (see Related fixes below). Reusing

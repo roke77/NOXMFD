@@ -1,78 +1,68 @@
 // F-35 master strip widgets (docs/f35-strip-widgets.md) — pure, DOM-free, so f35-strip.test.js can
-// check it in Node. The strip's arrangement is an ordered list of widget ids; f35.js owns the
-// elements (each declared once in f35.html under its data-widget id) and only re-parents them in
-// this order.
+// check it in Node. Between the fixed brand block (left) and the fixed WAKE/FULLSCREEN/EDIT group
+// (right) the strip has SLOTS widget slots; its arrangement is one widget id (or null, empty) per
+// slot. f35.js owns the elements and only re-parents them into their slots.
 (function (root) {
-  // Every widget the strip can show, in the order the ADD list offers them. `label` is the name
-  // the ADD list and edit mode show.
+  var SLOTS = 2;
+
+  // Every widget a slot can hold. The ADD list shows them by label, A-Z (available).
   var CATALOG = [
-    { id: 'logo',     label: 'NO XMFD LOGO' },
-    { id: 'net',      label: 'CONNECTION' },
     { id: 'gauges',   label: 'THRL / FUEL' },
-    { id: 'alt',      label: 'ALT' },
-    { id: 'agl',      label: 'R-ALT' },
-    { id: 'tas',      label: 'TAS' },
-    { id: 'hdg',      label: 'HDG' },
-    { id: 'vs',       label: 'V/S' },
-    { id: 'g',        label: 'G' },
-    { id: 'mach',     label: 'MACH' },
-    { id: 'clock',    label: 'LOCAL TIME' },
-    { id: 'mis-time', label: 'MISSION TIME' },
-    { id: 'mis-dur',  label: 'MISSION ELAPSED' },
-    { id: 'spacer',   label: 'SPACER' },
-    { id: 'gear',     label: 'GEAR FLAG' },
-    { id: 'radar',    label: 'RADAR FLAG' },
-    { id: 'guns',     label: 'GUNS FLAG' },
-    { id: 'eng',      label: 'ENG FLAG' },
-    { id: 'assist',   label: 'ASSIST FLAG' },
-    { id: 'nvg',      label: 'NVG FLAG' },
-    { id: 'lights',   label: 'LIGHTS FLAG' },
-    { id: 'turret',   label: 'TURRET FLAG' },
+    { id: 'engine',   label: 'RPM / HEAT' },
+    { id: 'flags',    label: 'AVIONICS FLAGS' },
+    { id: 'wpn',      label: 'WPN MODES' },
+    { id: 'flight',   label: 'FLIGHT DATA' },
+    { id: 'clocks',   label: 'CLOCKS' },
   ];
+  // The readouts inside the two readout widgets, left to right: FLIGHT DATA from the 'adi' slice
+  // (readout below), CLOCKS from the browser clock and the 'mis' slice (localClock/misClock).
+  var FLIGHT = ['alt', 'agl', 'tas', 'hdg', 'vs', 'g', 'mach'];
+  var CLOCKS = ['clock', 'mis-time', 'mis-dur'];
+
+  // WPN MODES' two switches, their states left to right as drawn. A press moves to the next state
+  // to the right, wrapping from the last back to the first. The ids are the wire values: MODE's
+  // are combat-mode.set's groups; MASTER's map to master-arms.set's on flag in f35.js.
+  var SWITCHES = { master: ['safe', 'arm'], mode: ['aa', 'all', 'ag'] };
+  // An unknown current state (no data yet) steps to the first one.
+  function nextState(sw, cur) {
+    var s = SWITCHES[sw];
+    return s[(s.indexOf(cur) + 1) % s.length];
+  }
   var KNOWN = {};
   CATALOG.forEach(function (w) { KNOWN[w.id] = w; });
 
-  // The strip a fresh browser starts with: the fixed strip this feature replaced, with the spacer
-  // where the flags' margin-left:auto used to push them right. WAKE, FULLSCREEN and the edit button
-  // aren't widgets — they sit in a fixed group after the list (f35.html .ms-fixed).
-  var DEFAULT = ['logo', 'net', 'gauges', 'spacer',
-                 'gear', 'radar', 'guns', 'eng', 'assist', 'nvg', 'lights', 'turret'];
+  // A fresh browser's strip: THRL/FUEL, then the avionics flags.
+  var DEFAULT = ['gauges', 'flags'];
 
-  // A stored or preset-carried list → a clean one: known ids only, each once. null when `list`
-  // isn't an array at all, so a preset saved before the strip was editable leaves the strip alone.
-  // An empty array is valid (a pilot may clear the strip).
-  function normalize(list) {
-    if (!Array.isArray(list)) return null;
-    var seen = {};
-    return list.filter(function (id) {
-      if (typeof id !== 'string' || !KNOWN[id] || seen[id]) return false;
-      seen[id] = true;
-      return true;
-    });
-  }
-
-  // dir -1 = one place left, +1 = one place right. Out-of-range moves return the list unchanged.
-  function move(list, id, dir) {
-    var i = list.indexOf(id), j = i + dir;
-    if (i === -1 || j < 0 || j >= list.length) return list.slice();
-    var out = list.slice();
-    out[i] = out[j];
-    out[j] = id;
+  // A stored or preset-carried arrangement → exactly SLOTS entries, each a known id or null, no id
+  // twice (a widget is one element, so it can only be in one slot). null when `slots` isn't an
+  // array at all, so a preset saved before the strip was editable leaves the strip alone.
+  function normalize(slots) {
+    if (!Array.isArray(slots)) return null;
+    var seen = {}, out = [];
+    for (var i = 0; i < SLOTS; i++) {
+      var id = slots[i];
+      var ok = typeof id === 'string' && !!KNOWN[id] && !seen[id];
+      if (ok) seen[id] = true;
+      out.push(ok ? id : null);
+    }
     return out;
   }
 
-  function remove(list, id) { return list.filter(function (x) { return x !== id; }); }
-
-  // Inserts after `afterId` (the selected widget), or at the end when nothing is selected.
-  function add(list, id, afterId) {
-    if (list.indexOf(id) !== -1 || !KNOWN[id]) return list.slice();
-    var out = list.slice(), at = out.indexOf(afterId);
-    out.splice(at === -1 ? out.length : at + 1, 0, id);
-    return out;
+  // Puts `id` in slot i. A widget already in another slot moves out of it, so a slot list never
+  // holds one twice.
+  function place(slots, i, id) {
+    if (!KNOWN[id] || i < 0 || i >= slots.length) return slots.slice();
+    return slots.map(function (x, j) { return j === i ? id : (x === id ? null : x); });
   }
 
-  // What the ADD list offers: catalog widgets not already on the strip.
-  function available(list) { return CATALOG.filter(function (w) { return list.indexOf(w.id) === -1; }); }
+  function clear(slots, i) { return slots.map(function (x, j) { return j === i ? null : x; }); }
+
+  // What the ADD list offers: catalog widgets in no slot, alphabetical by label.
+  function available(slots) {
+    return CATALOG.filter(function (w) { return slots.indexOf(w.id) === -1; })
+      .sort(function (a, b) { return a.label < b.label ? -1 : a.label > b.label ? 1 : 0; });
+  }
 
   function pad(n) { return (n < 10 ? '0' : '') + n; }
   // Whole seconds → HH:MM:SS, the format MIS shows (mis.js fmtHms, which takes hours).
@@ -115,8 +105,24 @@
     return { label: 'LOCAL', value: pad(date.getHours()) + ':' + pad(date.getMinutes()) + ':' + pad(date.getSeconds()) };
   }
 
-  var api = { CATALOG: CATALOG, DEFAULT: DEFAULT, normalize: normalize, move: move, remove: remove,
-              add: add, available: available, hms: hms, readout: readout, misClock: misClock,
+  // WPN MODES' selected-weapon block, from the 'loadout' slice's items ({n, a, f}: name, rounds
+  // left, capacity) and selWeapon. The gauge follows WPN's rule (wpn.js PIP_MAX/renderBar): one pip
+  // per round up to 12 rounds of capacity, a proportional fill above that, none without a
+  // capacity. null when nothing is selected or the selection isn't in the loadout.
+  var PIP_MAX = 12;
+  function selectedAmmo(l) {
+    var name = l && l.selWeapon;
+    var w = name && (l.items || []).filter(function (x) { return x && x.n === name; })[0];
+    if (!w) return null;
+    var a = Math.max(0, w.a | 0), f = Math.max(0, w.f | 0);
+    return { name: w.n, a: a, f: f, bar: f === 0 ? 'none' : f <= PIP_MAX ? 'pips' : 'fill',
+             empty: f > 0 && a === 0 };
+  }
+
+  var api = { SLOTS: SLOTS, CATALOG: CATALOG, FLIGHT: FLIGHT, CLOCKS: CLOCKS, DEFAULT: DEFAULT,
+              SWITCHES: SWITCHES, nextState: nextState, selectedAmmo: selectedAmmo,
+              normalize: normalize, place: place,
+              clear: clear, available: available, hms: hms, readout: readout, misClock: misClock,
               localClock: localClock };
   root.F35Strip = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

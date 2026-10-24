@@ -1,19 +1,28 @@
 // Self-check for f35-strip. Run: node f35-strip.test.js
 //
-// Guards the strip's list edits and the preset round trip: a saved list must come back with only
-// known, unique ids (a renamed or removed widget must not break LOAD), a pre-feature preset must
-// leave the strip alone, and the readouts must convert units the way ADI does.
+// Guards the slot edits and the preset round trip: a saved arrangement must come back as exactly
+// SLOTS entries of known, unique ids or null (a renamed or removed widget must not break LOAD), a
+// pre-feature preset must leave the strip alone, and the readouts must convert units the way ADI
+// does.
 const assert = require('assert');
 const S = require('./f35-strip.js');
 const AdiMath = require('../../pages/adi/adi-math.js');
 
-// normalize: non-arrays are "no strip in this preset"; junk and duplicates drop out.
+assert.strictEqual(S.SLOTS, 2);
+
+// normalize: non-arrays are "no strip in this preset"; always SLOTS long; junk and repeats → null.
 assert.strictEqual(S.normalize(undefined), null);
 assert.strictEqual(S.normalize({}), null);
-assert.deepStrictEqual(S.normalize([]), []);
-assert.deepStrictEqual(S.normalize(['alt', 'nope', 'alt', 3, 'gauges']), ['alt', 'gauges']);
-// WAKE/FULLSCREEN are fixed chrome, never list entries.
-assert.deepStrictEqual(S.normalize(['wake', 'fll', 'logo']), ['logo']);
+assert.deepStrictEqual(S.normalize([]), [null, null]);
+assert.deepStrictEqual(S.normalize(['flight']), ['flight', null]);
+assert.deepStrictEqual(S.normalize(['flight', 'flight']), ['flight', null]);
+assert.deepStrictEqual(S.normalize(['nope', 'gauges', 'flags']), [null, 'gauges']);
+assert.deepStrictEqual(S.normalize([null, 'clocks']), [null, 'clocks']);
+assert.deepStrictEqual(S.normalize(['engine', 'gauges']), ['engine', 'gauges']);
+// The readouts are inside FLIGHT DATA / CLOCKS, never slot contents on their own.
+assert.deepStrictEqual(S.normalize(['alt', 'clock']), [null, null]);
+// The brand block and WAKE/FULLSCREEN are fixed chrome, never slot contents.
+assert.deepStrictEqual(S.normalize(['logo', 'wake']), [null, null]);
 assert.deepStrictEqual(S.normalize(S.DEFAULT), S.DEFAULT);
 
 // Every default and catalog id is unique and known.
@@ -21,20 +30,37 @@ const ids = S.CATALOG.map(w => w.id);
 assert.strictEqual(new Set(ids).size, ids.length);
 S.DEFAULT.forEach(id => assert.ok(ids.includes(id), id));
 
-// move: swaps with the neighbour; edges are no-ops.
-assert.deepStrictEqual(S.move(['a', 'b', 'c'], 'b', -1), ['b', 'a', 'c']);
-assert.deepStrictEqual(S.move(['a', 'b', 'c'], 'b', 1), ['a', 'c', 'b']);
-assert.deepStrictEqual(S.move(['a', 'b'], 'a', -1), ['a', 'b']);
-assert.deepStrictEqual(S.move(['a', 'b'], 'b', 1), ['a', 'b']);
-
-// add: after the selection, else at the end; never twice, never unknown.
-assert.deepStrictEqual(S.add(['logo', 'net'], 'alt', 'logo'), ['logo', 'alt', 'net']);
-assert.deepStrictEqual(S.add(['logo', 'net'], 'alt', null), ['logo', 'net', 'alt']);
-assert.deepStrictEqual(S.add(['alt'], 'alt', null), ['alt']);
-assert.deepStrictEqual(S.add(['alt'], 'bogus', null), ['alt']);
-assert.deepStrictEqual(S.remove(['a', 'b'], 'a'), ['b']);
+// place: fills a slot; a widget already elsewhere moves; unknown ids and bad slots are no-ops.
+assert.deepStrictEqual(S.place([null, null], 1, 'flight'), [null, 'flight']);
+assert.deepStrictEqual(S.place(['flight', 'clocks'], 1, 'flight'), [null, 'flight']);
+assert.deepStrictEqual(S.place([null, null], 0, 'bogus'), [null, null]);
+assert.deepStrictEqual(S.place([null, null], 2, 'flight'), [null, null]);
+assert.deepStrictEqual(S.clear(['flight', 'clocks'], 0), [null, 'clocks']);
 assert.ok(!S.available(S.DEFAULT).some(w => S.DEFAULT.includes(w.id)));
-assert.strictEqual(S.available([]).length, S.CATALOG.length);
+assert.strictEqual(S.available([null, null]).length, S.CATALOG.length);
+// The ADD list is alphabetical by label.
+const labels = S.available([null, null]).map(w => w.label);
+assert.deepStrictEqual(labels, labels.slice().sort());
+assert.strictEqual(labels[0], 'AVIONICS FLAGS');
+
+// WPN MODES switches: step right, wrap at the end; no data yet steps to the first state.
+assert.strictEqual(S.nextState('master', 'safe'), 'arm');
+assert.strictEqual(S.nextState('master', 'arm'), 'safe');
+assert.strictEqual(S.nextState('mode', 'aa'), 'all');
+assert.strictEqual(S.nextState('mode', 'all'), 'ag');
+assert.strictEqual(S.nextState('mode', 'ag'), 'aa');
+assert.strictEqual(S.nextState('mode', undefined), 'aa');
+
+// Selected weapon: pips up to 12 rounds of capacity, a fill above, empty when out of rounds.
+const lo = { selWeapon: 'AIM-9X', items: [{ n: 'GUN', a: 300, f: 400 }, { n: 'AIM-9X', a: 2, f: 2 }, { n: 'GBU-12', a: 0, f: 2 }] };
+assert.deepStrictEqual(S.selectedAmmo(lo), { name: 'AIM-9X', a: 2, f: 2, bar: 'pips', empty: false });
+assert.strictEqual(S.selectedAmmo(Object.assign({}, lo, { selWeapon: 'GUN' })).bar, 'fill');
+assert.strictEqual(S.selectedAmmo(Object.assign({}, lo, { selWeapon: 'GBU-12' })).empty, true);
+assert.strictEqual(S.selectedAmmo({ selWeapon: 'X', items: [{ n: 'X', a: 0, f: 12 }] }).bar, 'pips');
+assert.strictEqual(S.selectedAmmo({ selWeapon: 'X', items: [{ n: 'X', a: 1, f: 0 }] }).bar, 'none');
+assert.strictEqual(S.selectedAmmo(Object.assign({}, lo, { selWeapon: 'NOPE' })), null);
+assert.strictEqual(S.selectedAmmo({ selWeapon: null, items: lo.items }), null);
+assert.strictEqual(S.selectedAmmo(undefined), null);
 
 // hms
 assert.strictEqual(S.hms(0), '00:00:00');

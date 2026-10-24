@@ -262,6 +262,11 @@ view's own layout.
 
 ### Content
 
+> The strip's content is now pilot-chosen: a fixed brand block (wordmark, name URL, status) on the
+> left, two widget slots, and a fixed ✎ / WAKE / FULLSCREEN group on the right — see
+> [docs/f35-strip-widgets.md](f35-strip-widgets.md). The list below records the original fixed
+> strip.
+
 Left to right:
 
 - **Wordmark** — `NO XMFD`, styled text (there is no served logo asset yet).
