@@ -389,8 +389,8 @@ the jet keeps its buttons in a ring of glass around the window, not on it.
   (`--osb-w`), an upright-label column (`--osb-vw`, the text pages in
   `f35.js UPRIGHT_LABELS`, the same set the bezel stands up), a grip-only
   column (`--osb-band`), or nothing at all on a right side with neither.
-- Grips sit at the foot of their side's column, under its labels (a 7th
-  grid row, `--osb-foot`).
+- Grips sit in a 7th foot row under the labels. Every portal keeps that row,
+  grip or not, so labels line up across neighbouring portals.
 - The edge grid and the iframe share the same top, so WPN's forwarded row
   rects take their row height from the grid itself. WPN's row hits span the
   L column and the page band beside it.

@@ -471,7 +471,7 @@ html, body {
      of glass beside the page window rather than on top of it, so nothing either draws can cover a
      page's own controls. Each column is only as wide as what is in it, so the page gets the rest:
        --osb-label  a label column: --osb-w for horizontal labels, --osb-vw for upright ones (.osb-v)
-       --osb-band   a grip's square, and the foot row it takes under the labels on its side
+       --osb-band   a grip's square, and the height of the foot row it sits in
        --osb-left / --osb-right  the two columns, set by the classes below (f35.js renderNav and
                     setGrips): the left always carries labels; the right only when the page puts
                     labels there (.osb-r) or a grip sits in that corner (.grip-r), otherwise none.
@@ -482,7 +482,6 @@ html, body {
   --osb-label: var(--osb-w);
   --osb-left: var(--osb-label);
   --osb-right: 0px;
-  --osb-foot: 0px;
   /* Framed on all four sides, as the reference display frames each of its windows. Each portal is
      a whole MFD, so it is drawn as a whole box rather than being merely divided from its
      neighbour — which is also why this needs no knowledge of the arrangement: merging removes a
@@ -528,10 +527,6 @@ html, body {
 .portal.grip-r         { --osb-right: var(--osb-band); }
 .portal.osb-r          { --osb-right: var(--osb-label); }
 .portal.osb-r.grip-r   { --osb-right: max(var(--osb-label), var(--osb-band)); }
-/* A grip under a label column pushes that column's labels up off it; a grip alone in its column
-   (.grip-r without .osb-r) has the column to itself and needs no foot row. */
-.portal.grip-l,
-.portal.grip-r.osb-r   { --osb-foot: var(--osb-band); }
 
 /* The page window: full height, between the two OSB columns. Explicit width because an iframe is
    a replaced element — left/right alone won't stretch it. */
@@ -606,10 +601,11 @@ html, body {
    physical keys describe too, so a NAV item's index maps to a cell exactly as it maps to a key
    slot (f35.js cellOf). The grid shares the page window's top, so a row band here is the same
    band of the page (f35.js forwardWpnLayout reads the row height back from it); the 7th row is
-   the grip's foot; the middle column is the page window itself, which only WPN's row hits reach
+   the grips' foot row, kept in every portal so labels line up across the glass whichever corner
+   a grip is in; the middle column is the page window itself, which only WPN's row hits reach
    into. */
 .nav-grid.edge {
-  grid-template-rows: repeat(6, 1fr) var(--osb-foot);
+  grid-template-rows: repeat(6, 1fr) var(--osb-band);
   grid-template-columns: var(--osb-left) 1fr var(--osb-right);
 }
 

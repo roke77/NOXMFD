@@ -552,7 +552,7 @@
     function forwardWpnLayout() {
       const w = frameWin();
       if (!w) return;
-      // The grid's own first row, not frame height / ROWS: the grip's foot row (f35.css --osb-foot)
+      // The grid's own first row, not frame height / ROWS: the grips' foot row (f35.css)
       // can take a slice of the height below the six label rows.
       const rowH = parseFloat(getComputedStyle(grid).gridTemplateRows);
       const slots = [];
