@@ -1,13 +1,15 @@
 # F-35 master strip widgets
 
+## Status
+
+**Status: merged to `main` and released in 0.78.0.** Harness-verified and checked in game.
+
 ## Goal
 
 The F-35 shell's master strip (the fixed bar across the top of the glass) holds widgets the pilot
 picks in place, instead of fixed chrome. The arrangement is saved with each F-35
 layout preset, so different presets can carry different strips, and LOAD restores the strip along
 with the portals and their pages.
-
-Branch: `feature/f35-topbar-widgets`.
 
 ## Decisions (agreed with the user)
 
@@ -78,6 +80,5 @@ Branch: `feature/f35-topbar-widgets`.
 - WPN MODES in the harness: presses send `master-arms.set`/`combat-mode.set` with the next state,
   and the lit segment follows the mock's `loadout` (`__setFrame` in `tools/preview-mock.js`); the
   weapon block shows pips (AIM-9X 1/2), a fill (GUN 310/400), red when empty (0/1), and `--`.
-- Still needs a live-game check: WPN MODES against the cockpit's master arm and combat mode, both
-  ways (a press here, and the keybinds changing it while the strip shows it); ALT/R-ALT/TAS/HDG/V/S/G/MACH against the cockpit instruments in
-  both unit settings, and MISSION TIME/ELAPSED against the MIS page in a single-player mission.
+- Checked in game: the strip's widgets against the cockpit — FLIGHT DATA, CLOCKS, HEAT's colour and
+  WPN MODES.
