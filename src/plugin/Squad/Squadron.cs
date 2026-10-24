@@ -310,8 +310,8 @@ namespace NOXMFD
         }
 
         // Shared, never mutated — the common-case return when nothing new has arrived, which is
-        // every frame that isn't carrying actual squad/presence traffic. Both callers (Squad.Drain,
-        // Presence.Drain) only ever read the result.
+        // every frame that isn't carrying actual squad/presence traffic. Every reader (Squad, Presence,
+        // FuelBroadcast, ExtensionMessages) only ever reads the result.
         private static readonly List<Inbound> _emptySince = new List<Inbound>();
 
         // Everything newer than `afterSeq`, oldest first. Squad.Drain() and Presence.Drain() each

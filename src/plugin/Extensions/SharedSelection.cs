@@ -31,5 +31,18 @@ namespace NOXMFD
         internal static bool Track => Volatile.Read(ref _track);
 
         internal static void SetTrack(bool on) => Volatile.Write(ref _track, on);
+
+        // LOCATE ON MAP's one-shot center: each call selects the unit and bumps this count, and MAP
+        // centers on the unit once per change. A count rather than a flag, so locating the same unit
+        // twice centers twice and MAP needs no way to acknowledge it.
+        private static int _centerSeq;
+
+        internal static int CenterSeq => Volatile.Read(ref _centerSeq);
+
+        internal static void Center(uint id)
+        {
+            Set(id);
+            Interlocked.Increment(ref _centerSeq);
+        }
     }
 }

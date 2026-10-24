@@ -589,5 +589,15 @@ namespace NOXMFD.Tests
 
             Assert.False((bool)root["selectedUnitTrack"]!);
         }
+
+        [Fact]
+        public void SelectedUnitCenter_is_a_top_level_count_map_reads_beside_selectedUnitId()
+        {
+            var s = default(TelemetrySnapshot);
+            s.SelectedUnitCenter = 3;
+
+            Assert.Equal(3.0, Root(s)["selectedUnitCenter"]);
+            Assert.Equal(0.0, Root(default(TelemetrySnapshot))["selectedUnitCenter"]);
+        }
     }
 }

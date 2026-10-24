@@ -615,6 +615,12 @@
   window.__setSoiTarget = (cid, pane = 0) => { FRAME.soiTarget = cid || ''; FRAME.soiPane = cid ? pane : -1; };
   window.__soiPress = (act) => { FRAME.soiAct = act; FRAME.soiSeq = (FRAME.soiSeq || 0) + 1; };
 
+  // An extension's LOCATE ON MAP by hand (Api.LocateOnMap): ring the unit and bump the count MAP
+  // centers on. Same "present from frame 1" reasoning as the SOI counter above.
+  FRAME.selectedUnitId     = FRAME.selectedUnitId     || 0;
+  FRAME.selectedUnitCenter = FRAME.selectedUnitCenter || 0;
+  window.__locateOnMap = (id) => { FRAME.selectedUnitId = id; FRAME.selectedUnitCenter++; };
+
   // Drive the MAP cursor by hand (docs/map-cursor.md): no game, so nothing moves it or presses
   // Cursor Select on its own. Same "present from frame 1" reasoning as the SOI fields above.
   FRAME.cursorX       = FRAME.cursorX       || 0;

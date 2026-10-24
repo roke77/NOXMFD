@@ -199,6 +199,16 @@ namespace NOXMFD
                 return list;
             }
 
+            // One pilot's identity as last heard, under the same liveness rule as Designations and
+            // Squads. False for a pilot never heard from, out of the faction, or silent too long.
+            internal bool TryGet(ulong steamId, float now, Func<ulong, bool> inFaction, out Identity id)
+            {
+                id = default;
+                if (!_entries.TryGetValue(steamId, out Entry e) || !Live(steamId, e, now, inFaction)) return false;
+                id = e.Id;
+                return true;
+            }
+
             private static bool Live(ulong id, Entry e, float now, Func<ulong, bool> inFaction) =>
                 now - e.At < DesignationTtlSeconds && inFaction(id);
         }

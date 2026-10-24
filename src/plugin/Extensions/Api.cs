@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 namespace NOXMFD
 {
     // Public extension API (docs/extensions-api.md). Callable from an extension's Awake()/Update()
@@ -12,7 +14,9 @@ namespace NOXMFD
         // SetSelectedUnitTrack, the item 3 follow-on that lets an extension put MAP into
         // follow-this-unit mode instead of only highlighting it. 7 adds the WPT route/steer-point
         // reads and SetActiveRouteNextIndex, for coupling an autopilot to NOXMFD's route (issue #86).
-        public const int ApiVersion = 7;
+        // 8 adds the faction/squad reads and per-extension messaging (docs/extension-messaging.md),
+        // SelectTarget, and LocateOnMap (a one-shot MAP re-center on the selected unit).
+        public const int ApiVersion = 8;
 
         // Called on an HTTP worker: relPath "" is the page's own HTML (/ext/<id>); otherwise it is
         // an asset under that path. Return null for 404. Content-Type is inferred from its path suffix.
@@ -86,6 +90,12 @@ namespace NOXMFD
         // alone; it does not restore FLW. No effect until a non-zero id is also selected.
         public static void SetSelectedUnitTrack(bool on) => SharedSelection.SetTrack(on);
 
+        // LOCATE ON MAP: SetSelectedUnit plus one re-center of MAP on that unit, dropping FLW (and
+        // zooming in to MAP's default zoom first when it is at full extent, where there is nothing
+        // to pan). After that the pilot pans freely; nothing keeps following the unit. A unit MAP
+        // has no live contact for gets the ring but no re-center.
+        public static void LocateOnMap(uint id) => SharedSelection.Center(id);
+
         // WPT navigation (docs/extensions-api.md section 8). RouteStore stays the only authority on
         // route progress, and its data is main-thread only — call these from Update(), never from the
         // asset resolver. An active route owns navigation even when complete; only with no active
@@ -101,5 +111,35 @@ namespace NOXMFD
         // Jumps the active route's progress to index (clamped to 0..Points.Length), as WPT's
         // per-waypoint reset does. False when no route is active.
         public static bool SetActiveRouteNextIndex(int index) => RouteStore.ResetWaypoint(index);
+
+        // Faction, squad and messaging (docs/extension-messaging.md). Main thread only, like the WPT
+        // reads: call from Update() or your command/message handler.
+
+        // This pilot's SteamID; 0 when Steam isn't available.
+        public static ulong LocalSteamId => Squadron.SelfId();
+
+        // Faction-mates running NOXMFD right now (self excluded), each with the callsign and squad
+        // they announced. Empty outside a mission. A fresh list every call.
+        public static IReadOnlyList<FactionPilot> GetFactionPilots() => ExtensionSquadView.FactionPilots();
+
+        public static LocalSquad GetLocalSquad() => ExtensionSquadView.Local();
+
+        // Receives this extension's messages from other players, on the main thread. from is the
+        // sender's SteamID, authenticated by Steam; payload is untrusted text — validate it.
+        public delegate void MessageHandler(ulong from, string payload);
+
+        // One handler per extension; null removes it. False if id isn't a registered extension.
+        public static bool SetMessageHandler(string id, MessageHandler? handler) => ExtensionMessages.SetHandler(id, handler);
+
+        // Sends payload (at most 4096 UTF-8 bytes) to one faction-mate running NOXMFD, reliably and in
+        // order. Only that player's copy of the same extension receives it. False when rejected (not
+        // registered, too large, recipient not known to run NOXMFD) or Steam refused the send.
+        public static bool SendMessage(string id, ulong to, string payload) => ExtensionMessages.Send(id, to, payload);
+
+        // Selects a unit in this pilot's own in-game targeting, exactly as a MAP tap does: only a
+        // unit the player's side has detected, never a no-faction unit or one the TGT filters
+        // exclude, with the cockpit marker and select beep. Select-only. Main thread only. True when
+        // this call selected it; false when it was already selected or isn't selectable (logged).
+        public static bool SelectTarget(uint unitId) => CommandDispatcher.SelectById(unitId, "Api.SelectTarget");
     }
 }
