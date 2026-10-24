@@ -477,8 +477,15 @@ function fitLabelGutters() {
     f.style.setProperty('--gutter-r', right ? Math.ceil(right + LABEL_GUTTER_PAD) + 'px' : '0px');
   });
 }
-// Class changes too: a label lit after placement (.on adds padding and an outline) grows.
-new MutationObserver(fitLabelGutters).observe(overlayEl, { childList: true, subtree: true, attributeFilter: ['class'] });
+// Labels are the overlay's direct children; class changes count too, since a label lit after
+// placement (.on adds padding and an outline) grows. The subtree is watched only for those class
+// changes — the info box's status text also lives under #overlay and changes several times a second.
+new MutationObserver(function (records) {
+  const labelsChanged = records.some(function (r) {
+    return r.type === 'childList' ? r.target === overlayEl : r.target.classList.contains('overlay-item');
+  });
+  if (labelsChanged) fitLabelGutters();
+}).observe(overlayEl, { childList: true, subtree: true, attributeFilter: ['class'] });
 
 function isVmainPage(p) { return AVIONICS_PAGES.indexOf(p) !== -1 || p === 'tgt' || p === 'td' || p === 'sqd' || WPT_PAGES.indexOf(p) !== -1 || p === 'akf' || p === 'bdf' || p === 'pal' || p === 'mis' || p === 'obj' || p === 'lyt' || p === 'keys' || p === 'hud' || p === 'ui' || ExtNav.isExtensionPage(p); }
 
