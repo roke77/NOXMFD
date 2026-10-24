@@ -273,6 +273,9 @@ Still needs an in-game check with two players:
 
 ## AUTO ACCEPT on the TGT dock (feature/tgt-td-auto-accept)
 
+**Status: merged to `main` and released in 0.76.0; not yet checked in game.** See "Still needs an
+in-game check" below.
+
 A lit **AUTO ACCEPT** toggle sits right of DISMISS on the member's dock, off by default. While on,
 every designation is answered with ADD automatically.
 
