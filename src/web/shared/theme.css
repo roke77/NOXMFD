@@ -6,6 +6,12 @@
 @import url("/colors-override.css");
 :root {
   --no-font: 'Share Tech Mono', 'Courier New', monospace;
+  /* Page header, as TGT's (tgt.css .tgt-head): one title size and tracking, the gap from the title
+     to the rule under it, and the panel's top inset. TGT, HUD, LYT, KEY and UI all read these. */
+  --page-title-size: clamp(13px, 2.6vmin, 22px);
+  --page-title-tracking: 0.08em;
+  --page-head-gap: clamp(2px, 0.8vh, 6px);
+  --page-top: clamp(6px, 1.8vmin, 16px);
   /* The PAD cursor's sprite (docs/page-cursor.md, docs/map-cursor.md): a HUD-green crosshair,
      shared by every page carrying a PAD cursor so a HOTAS pilot sees the same mark everywhere it
      appears. 24x24, centred at 12,12. */
@@ -77,3 +83,17 @@ body {
 .mfd-status.connected    { color: var(--no-green); }
 .mfd-status.disconnected { color: var(--no-red); }
 .mfd-status.waiting      { color: var(--no-amber); }
+/* The "here" in both classic MAIN cards' "URL not working? Check here" (main-urls.js): a button
+   that reads as a link. pointer-events:auto because the shell's card sits in the bezel overlay,
+   which turns hit-testing off so the bezel keys stay the only controls. */
+.ib-hint-link {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  text-decoration: underline;
+  cursor: pointer;
+  pointer-events: auto;
+}
+.ib-hint-link:hover, .ib-hint-link:focus-visible { color: var(--no-label); }

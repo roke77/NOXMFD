@@ -33,12 +33,12 @@ CAPTURES = ROOT / "preview" / "captures"
 PORT = 8783   # separate from serve_web.py's own default 8782, so a manually-running preview
               # server is never disturbed by this script's own instance
 
-# label -> showPage() action name. The 19 real NAV destinations, LYT excluded (a picker overlay,
+# label -> showPage() action name. The real NAV destinations, LYT excluded (a picker overlay,
 # not a distinct page — see docs/user-manuals.md). showPage is a plain global in mfd.js (a classic
 # script, not a module), so it's callable directly via page.evaluate() — far more robust than
 # simulating physical bezel-key clicks for each one.
 PAGES = [
-    ("AFM", "afm"), ("AVN", "avn"),
+    ("ADI", "adi"), ("AFM", "afm"), ("HSI", "hsi"), ("SYS", "avn"),
     ("HUD", "hud"), ("KEY", "keys"), ("RTS", "rates"),
     ("EXT", "ext"),
     ("MAIN", "main"),

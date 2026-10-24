@@ -11,7 +11,7 @@ html, body { height: 100%; margin: 0; }
   /* The shell stands its nav labels upright on this page, on whichever edge the layout puts them,
      so both sides get HUD/TGT's inset. */
   --edge-pad: clamp(34px, 5vw, 48px);
-  padding: 14px var(--edge-pad) 18px;
+  padding: var(--page-top) var(--edge-pad) 18px;
   max-width: calc(1100px + 2 * var(--edge-pad));
   margin: 0 auto;
   font-size: clamp(11px, 1.6vw, 18px);
@@ -26,11 +26,11 @@ html, body { height: 100%; margin: 0; }
 /* The title sits over a rule, like TGT's header (tgt.css .tgt-head). */
 .ui-title {
   margin: 0;
-  padding-bottom: clamp(2px, 0.8vh, 6px);
+  padding-bottom: var(--page-head-gap);
   border-bottom: 1px solid var(--no-green-dark);
-  font-size: 1.15em;
+  font-size: var(--page-title-size);
   font-weight: normal;
-  letter-spacing: 0.3em;
+  letter-spacing: var(--page-title-tracking);
   color: var(--no-green);
 }
 .ui-heading {

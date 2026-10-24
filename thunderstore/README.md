@@ -13,7 +13,8 @@ Developed with AI assistance (Claude).
 
 1. Install with the Thunderstore Mod Manager or r2modman. BepInEx is installed automatically.
 2. Launch the game through the mod manager.
-3. Open `http://localhost:5005/` in a browser. To use a tablet or phone on your network, see
+3. Open `http://localhost:5005/` in a browser. From a tablet or phone on your network, open
+   `http://noxmfd.local:5005/` — see
    [NETWORKING.md](https://github.com/roke77/NOXMFD/blob/main/NETWORKING.md).
 
 ## Your files
@@ -27,10 +28,10 @@ or with NOMM), remove that copy.
 
 ## Pages
 
-AFM (airframe), AVN (avionics), HUD config, extended keybinds, layouts, themes, MAP with
-waypoints and routes, kill feed, faction forces, kneeboard, mission info, objectives, FCR/HSD
-radar, RWR, squadrons, targeting-pod camera, target table, target hand-off, and weapon
-loadout. Third-party extensions can add their own pages.
+Avionics (attitude indicator, compass/HSI, airframe, systems), HUD config, extended keybinds,
+layouts, themes, MAP with waypoints and routes, kill feed, faction forces, kneeboard, mission
+info, objectives, FCR/HSD radar, RWR, squadrons, targeting-pod camera, target table, target
+hand-off, and weapon loadout. Third-party extensions can add their own pages.
 
 Full manual, extensions list and source:
 **[github.com/roke77/NOXMFD](https://github.com/roke77/NOXMFD)**

@@ -105,6 +105,12 @@
   --no-neutral-gray:  #9aa0a6;   /* neutral faction until the game's HUD colours arrive */
   --no-grid-label:    rgba(196, 255, 176, 0.75);
 
+  /* ADI attitude ball (docs/adi-hsi-pages.md): the sky and ground halves. */
+  --no-sky:           #1f5f9e;
+  --no-ground:        #6b4423;
+  /* HSI navigation symbology: bearing pointer and target readouts, the avionics magenta. */
+  --no-nav-magenta:   #ff50be;
+
   /* AFM damage silhouette. */
   --no-afm-marker:    #808080;   /* pylon marker until the first live pylon colour arrives */
   --no-afm-destroyed: rgb(178, 0, 64);

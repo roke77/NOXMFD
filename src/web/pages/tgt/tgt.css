@@ -20,7 +20,7 @@ html, body {
   position: relative;   /* positions the PAD cursor (docs/page-cursor.md, .pad-cursor) */
   display: flex; flex-direction: column;
   gap: clamp(4px, 1.2vh, 12px);
-  padding: clamp(6px, 1.8vmin, 16px);
+  padding: var(--page-top);
   /* Extra side inset: the shell's vertical MAIN bezel label hugs an edge here, so keep the clickable
      content clear of it. Both sides get the inset because the label can land on either edge — the
      left in full view and the left/top split pane, the right in a V-split's right pane — and the page
@@ -34,9 +34,9 @@ html, body {
 .tgt-head {
   display: flex; align-items: baseline; justify-content: space-between;
   border-bottom: 1px solid var(--no-green-dark);
-  padding-bottom: clamp(2px, 0.8vh, 6px);
+  padding-bottom: var(--page-head-gap);
 }
-.tgt-title { font-size: clamp(13px, 2.6vmin, 22px); letter-spacing: 0.08em; color: var(--no-green); }
+.tgt-title { font-size: var(--page-title-size); letter-spacing: var(--page-title-tracking); color: var(--no-green); }
 
 /* PRESETS / FILTERS sections: a muted, letter-spaced heading over its controls. */
 .tgt-presets, .tgt-filter-section {

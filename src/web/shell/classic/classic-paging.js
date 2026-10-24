@@ -21,9 +21,6 @@
   // Full view: 5 line-select slots (keys 1..5).
   const WPN_MAX_DISPLAY = 5;
 
-  // AVN: a pane shows 4 of the 8 avn.toggle groups per page.
-  const AVN_PANE_PAGE_SIZE = 4;
-
   // Physical keys a split pane exposes for the MAIN list.
   const MAIN_PANE_SLOTS = 6;
 
@@ -70,21 +67,6 @@
              page: maxPage > 0 ? p + 1 : 1, pages: maxPage + 1, pageIndex: p };
   }
 
-  function avnPaneSlice(groups, page) {
-    const list = groups || [];
-    const maxPage = Math.ceil(list.length / AVN_PANE_PAGE_SIZE) - 1;
-    const p = clamp(page, maxPage);
-    const start = p * AVN_PANE_PAGE_SIZE;
-    return {
-      items: list.slice(start, start + AVN_PANE_PAGE_SIZE),
-      hasPrev: p > 0,
-      hasNext: p < maxPage,
-      page: p + 1,   // 1-indexed, mirrors wpnPaneSlice, for a "PAGE x/y" indicator
-      pages: maxPage + 1,
-      pageIndex: p,
-    };
-  }
-
   // MAIN items per page: fills the pane's keys, minus PREV (all but first page) and NEXT (all but last).
   function mainPageSizes(total) {
     const sizes = [];
@@ -109,13 +91,13 @@
   }
 
   // Fixed bezel key positions for a list page's nav/item rows, per split orientation.
-  // 'h' (top/bottom): both columns kept, offset by 3 for the bottom pane. WPN/AVN put NEXT
+  // 'h' (top/bottom): both columns kept, offset by 3 for the bottom pane. WPN puts NEXT
   // top-right; other pages have no top-right control, so NEXT sits at the column end instead.
   // 'v'/'vw' (left/right): pane owns one column — MAIN at top, NEXT at bottom, items between.
   function listPaneLayout(variant, paneIdx, page) {
     if (variant === 'h') {
       const off = paneIdx * 3;
-      if (page === 'wpn' || page === 'avn') {
+      if (page === 'wpn') {
         return {
           main: { bank: 'left', index: off }, next: { bank: 'right', index: off },
           items: [{ bank: 'left', index: off + 1 }, { bank: 'left', index: off + 2 },
@@ -165,9 +147,9 @@
     return { positions: positions, cells: cells };
   }
 
-  const api = { buildWpnSplitPages, wpnPaneSlice, avnPaneSlice, mainPageSizes, mainPaneSlice,
+  const api = { buildWpnSplitPages, wpnPaneSlice, mainPageSizes, mainPaneSlice,
                 listPaneLayout, pagedListCells, pageOfSelection,
-                WPN_SPLIT_MAX, WPN_MAX_DISPLAY, WPN_SPLIT_CONTROLS, AVN_PANE_PAGE_SIZE, MAIN_PANE_SLOTS };
+                WPN_SPLIT_MAX, WPN_MAX_DISPLAY, WPN_SPLIT_CONTROLS, MAIN_PANE_SLOTS };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.ClassicPaging = api;
 })(typeof self !== 'undefined' ? self : this);

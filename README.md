@@ -46,8 +46,8 @@ NO XMFD for you, and keeps it up to date.
    — on Windows, the `portable.exe` or the `.msi` installer.
 2. **Find "Nuclear Option eXternal MFD"** in NOMM's mod list and install it. NOMM pulls in
    BepInEx automatically if it isn't already present.
-3. **Launch the game** and open `http://localhost:5005/` in a browser. To reach it from a
-   tablet or phone on your network, see [NETWORKING.md](NETWORKING.md).
+3. **Launch the game** and open `http://localhost:5005/` in a browser. From a tablet or phone on
+   your network, open `http://noxmfd.local:5005/` — see [NETWORKING.md](NETWORKING.md).
 
 </details>
 
@@ -66,7 +66,7 @@ NO XMFD for you, and keeps it up to date.
    ```
 
 4. **Launch the game.** Open `http://localhost:5005/` in a browser to see the
-   display. To reach it from a tablet or phone on your network, see
+   display. From a tablet or phone on your network, open `http://noxmfd.local:5005/` — see
    [NETWORKING.md](NETWORKING.md).
 
 </details>
@@ -81,8 +81,11 @@ pilot, with HOTAS-friendly keybinds to match.
 
 ### MFD pages
 
-- **[AFM](man/afm.md)** — airframe status and damage.
-- **[AVN](man/avn.md)** — avionics gauges and system toggles.
+- **AVN** — avionics hub.
+  - **[ADI](man/adi.md)** — attitude indicator with airspeed and altitude tapes.
+  - **[AFM](man/afm.md)** — airframe status and damage.
+  - **[HSI](man/hsi.md)** — compass and navigation to the active waypoint or steer point.
+  - **[SYS](man/sys.md)** — engine and fuel gauges and system toggles.
 - **CFG** — configuration and settings hub.
   - **[HUD](man/hud.md)** — in-cockpit HUD config.
   - **[KEY](man/keybinds.md)** — extended keybinds.
@@ -161,8 +164,8 @@ conflict.
 ## Security & privacy
 
 NO XMFD is open source and collects nothing. Most of it runs entirely on your machine and local
-network: it runs a local web server (so a tablet can connect) and can optionally add a Windows
-firewall rule for its own port. The one exception is the squad feature (SQD/WPT-share/Target
+network: it runs a local web server (so a tablet can connect), answers local-network lookups for
+its `noxmfd.local` name, and can optionally add a Windows firewall rule for its own port. The one exception is the squad feature (SQD/WPT-share/Target
 Designator), which uses Steam's own peer-to-peer relay to talk to your squadmates over the
 internet — see [squadron-transport.md](docs/squadron-transport.md). Like all BepInEx mods it runs
 unsandboxed, so it's worth knowing exactly what it can access: see **[SECURITY.md](SECURITY.md)**

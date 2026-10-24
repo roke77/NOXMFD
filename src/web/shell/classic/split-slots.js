@@ -27,12 +27,16 @@
     // docs/doc-page.md) grew NAV.akf etc. to 7 items (NAV.doc to 10), past the budget — mfd.js's
     // mdPaneSlice paginates that group instead.
     //
-    // AVN / AFM / TGP / RWR / TGT / HUD in a split pane each expose their single MAIN back-button
-    // on the pane's top-left slot (L0 for top, physically L3 for bottom); it navigates only that
-    // pane. TGT's filter toggles and HUD's toggles are clickable inside the pane iframe, so like
-    // the others they need no key labels beyond MAIN.
-    avn: [ { side: 'left', slot: 0 } ],
-    afm: [ { side: 'left', slot: 0 } ],
+    // TGP / RWR / TGT in a split pane each expose their single MAIN back-button on the pane's
+    // top-left slot (L0 for top, physically L3 for bottom); it navigates only that pane. TGT's
+    // filter toggles are clickable inside the pane iframe, so it needs no key labels beyond MAIN.
+    //
+    // The Avionics hub (ADI/AFM/HSI/SYS, docs/adi-hsi-pages.md): MAIN plus the four-way switch,
+    // the CFG group's fill below. SYS is the `avn` page; its status tiles are clickable in the pane.
+    adi: [ { side: 'left', slot: 0 }, { side: 'left', slot: 1 }, { side: 'left', slot: 2 }, { side: 'right', slot: 0 }, { side: 'right', slot: 1 } ],
+    afm: [ { side: 'left', slot: 0 }, { side: 'left', slot: 1 }, { side: 'left', slot: 2 }, { side: 'right', slot: 0 }, { side: 'right', slot: 1 } ],
+    hsi: [ { side: 'left', slot: 0 }, { side: 'left', slot: 1 }, { side: 'left', slot: 2 }, { side: 'right', slot: 0 }, { side: 'right', slot: 1 } ],
+    avn: [ { side: 'left', slot: 0 }, { side: 'left', slot: 1 }, { side: 'left', slot: 2 }, { side: 'right', slot: 0 }, { side: 'right', slot: 1 } ],
     // TGP gets a second item now (CFG) — pinned to the bottom of the left column (slot 2, the
     // last slot before a page would spill onto the right bank), mirroring full view's own
     // bottom-of-column placement (mfd.js's dedicated 'tgp' branch) at this pane's smaller 3-slot

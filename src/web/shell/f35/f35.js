@@ -66,6 +66,8 @@
   const PAGE_FEEDS = {
     avn: ['avn'],
     afm: ['avn'],   // AFM shares AVN's snapshot (name/parts/failures/pylons) — see forwardSlice's afm case
+    adi: ['adi'],                            // attitude + tapes (docs/adi-hsi-pages.md)
+    hsi: ['adi', 'mapinfo', 'wpt-routes'],   // heading/turn/TAS + own position + navigation library
     rwr: ['rwr', 'mw'],       // scope contacts + incoming-missile warnings
     tgt: ['tgt', 'targets', 'sqd-state', 'td-state-push'],   // sqd/td-state: leader-only TD column
     td: ['targets', 'sqd-state', 'td-state-push'],   // Target Designator (issue #47) — mirrors TGT's
@@ -121,9 +123,9 @@
 
   // Screens this layout puts on MAIN beyond NAV's — can't go in NAV since NAV is the bezel's menu
   // too, and it has six physical keys for six items. Kept here, they stay F-35's business and the
-  // bezel is unaffected (there CFG, MD, RDR, AFM and SQD are their own BEZEL_EXTRAS keys). Each of
+  // bezel is unaffected (there CFG, MD, RDR and SQD are their own BEZEL_EXTRAS keys). Each of
   // these has an F35_PAGES entry and renders as a real page (docs/bdf-page.md, src-architecture.md).
-  // CFG, MD, RDR, AFM and SQD are frame pages with an F35_PAGES entry — CFG opens the CFG group
+  // CFG, MD, RDR and SQD are frame pages with an F35_PAGES entry — CFG opens the CFG group
   // (HUD/KEY/LYT/RTS — cfg-rates experiment issue #39), landing on HUD by default (mirrors MD
   // staying 'akf' — the action names whichever sibling is the landing page; HUD joined this group
   // and no longer has a MAIN entry of its own, same as RTS). Selecting LYT from that group still
@@ -140,7 +142,6 @@
     { label: 'CFG', action: 'hud' },   // CFG's own MAIN-entry action — lands on HUD now
     { label: 'MD', action: 'akf' },
     { label: 'RDR', action: 'rdr' },   // → RDR hub, landing on FCR at /rdr (docs/rdr-fcr-hsd.md)
-    { label: 'AFM', action: 'afm' },   // → AFM airframe page — mirrors BEZEL_EXTRAS.main
     { label: 'SQD', action: 'sqd' },   // → SQD squad page (docs/squadron-transport.md) — mirrors BEZEL_EXTRAS.main
     // DOC is NOT here — it's the 6th member of the AKF/MIS/OBJ/BDF/PAL switch (docs/doc-page.md),
     // reached via MD like the other five, not its own MAIN_EXTRAS entry.
@@ -1445,8 +1446,10 @@
   }
 
   function setStripUrls(cfg) {
-    if (cfg && cfg.localhost) document.getElementById('ms-local').textContent = cfg.localhost;
-    document.getElementById('ms-lan').textContent = (cfg && cfg.lanUrl) || '';
+    // Only the name URL, the one address worth bookmarking since it survives an IP change.
+    // Localhost stands in when there is none (LAN access off), so the strip always shows a URL.
+    document.getElementById('ms-name').textContent =
+      (cfg && (cfg.nameUrl || cfg.localhost)) || 'http://localhost:5005';
     urlsLoaded = true;
     maybeRevealUrls();
   }

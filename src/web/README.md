@@ -76,7 +76,7 @@ src/web/
                                            # width and spacing options; bootstraps from
                                            # GET /themes, then the shell's relayed 'themes-push'
             ui-tokens.js  .test.js        # the editable tokens, kept in step with ThemeColors.Tokens (C#)
-    wpn/  tgt/  tgp/  avn/  afm/  rwr/  rdr/  hsd/  hud/  bdf/  mis/  obj/  akf/  mapcfg/  tgpcfg/
+    wpn/  tgt/  tgp/  avn/  afm/  adi/  hsi/  rwr/  rdr/  hsd/  hud/  bdf/  mis/  obj/  akf/  mapcfg/  tgpcfg/
     doc/                                       # reactive MFD pages, one folder each (bdf.js doubles as PAL, ?pal;
                                                # akf = kill feed/session stats docs/akf-page.md; mapcfg/tgpcfg =
                                                # each page's own refresh-rate/quality settings, reached from that
@@ -89,7 +89,8 @@ src/web/
                                                # its own; each extension serves its own page under /ext/<id>
                                                # (docs/extensions-api.md)
     keybinds/                                  # frame-hosted like the pages above, not a standalone document
-    main/                                      # the split-pane MAIN card (full-view MAIN is shell chrome)
+    main/                                      # the split-pane MAIN card (full-view MAIN is shell chrome);
+                                               # main-urls.js (+ .test.js) builds both cards' URL rows
 ```
 
 Two shells render the same pages: the classic bezel (`shell/classic/mfd.js`) and the F-35 glass
@@ -120,7 +121,9 @@ is left to the harness and the eye, not to Node asserts.
 
 Convention per page: `src/web/pages/<x>/<x>.{html,css,js}`, served at `/<x>`. The HTML links
 `/assets/shared/font.css` + `theme.css`, then its own `<x>.css`, and ends with `<script
-src="/assets/pages/<x>/<x>.js">`. Add files freely — the csproj embeds `src/web/**/*`.
+src="/assets/pages/<x>/<x>.js">`. Add files freely — the csproj embeds `src/web/**/*`. A page with
+a title header (TGT, HUD, LYT, KEY, UI) sizes and spaces it from `theme.css`'s `--page-title-size`,
+`--page-title-tracking`, `--page-head-gap` and `--page-top`, so every page title matches.
 
 ## Component roles — read this before touching the data path
 
@@ -162,7 +165,7 @@ reactive sink.
    WPN · TGT · TGP · AVN · AFM   pure reactive renderers — render to their own container,
    RWR · RDR · HUD · BDF/PAL     never know full-vs-split, never touch /stream. SQD/WPT/TD
    MIS · OBJ · KEYBINDS          also read the state/config pushes above instead of polling their
-                                 own REST endpoints on a timer.
+   ADI · HSI                     own REST endpoints on a timer.
 ```
 
 **Why MAP carries two hats (and it's deliberate):** MAP needs the raw stream anyway (live map,

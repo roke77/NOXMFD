@@ -116,6 +116,10 @@ namespace NOXMFD
                 TelemetryAssets.ServeAssetRel(ctx, "pages/wpt/wpt.html");
             else if (path == "/rtd")   // route details; ?spd = the steer-point view (docs/wpt-rework.md)
                 TelemetryAssets.ServeAssetRel(ctx, "pages/rtd/rtd.html");
+            else if (path == "/adi")   // attitude (docs/adi-hsi-pages.md)
+                TelemetryAssets.ServeAssetRel(ctx, "pages/adi/adi.html");
+            else if (path == "/hsi")   // compass and navigation (docs/adi-hsi-pages.md)
+                TelemetryAssets.ServeAssetRel(ctx, "pages/hsi/hsi.html");
             else if (path == "/sqd")
                 TelemetryAssets.ServeAssetRel(ctx, "pages/sqd/sqd.html");
             else if (path == "/hud")

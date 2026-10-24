@@ -66,6 +66,17 @@ namespace NOXMFD
         public bool   HasAfterburner;  // airframe has a reheat zone
         public float  AbStart;         // throttle fraction where MIL ends / afterburner begins (1 = none)
 
+        // ADI/HSI instruments (docs/adi-hsi-pages.md), from FlightInstrumentMath. Degrees unless
+        // noted. Aoa and Beta are NaN below FlightInstrumentMath.AoaMinSpeed (serialized as null).
+        public float  Pitch;      // nose-up positive
+        public float  Roll;       // right-wing-down positive
+        public float  Vs;         // vertical speed, m/s
+        public float  GLoad;      // G along the aircraft's up axis, as the game's G readout
+        public float  Aoa;
+        public float  Beta;       // sideslip, right positive
+        public float  Mach;
+        public float  TurnRate;   // degrees/second, right positive
+
         // Currently selected systems (for highlighting).
         public string SelWeapon;   // weaponName of the selected weapon
         public string SoftGun;     // gun soft-selection (WeaponSelectors) — WPN page outline

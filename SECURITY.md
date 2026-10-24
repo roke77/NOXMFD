@@ -30,6 +30,10 @@ which virus-scans and manually reviews uploads.
   routes the bytes but doesn't inspect or vouch for their content; that's the extension's own code
   doing the same thing any other installed BepInEx plugin can already do (see the trust model
   above).
+- **Answers mDNS for its LAN name** — while LAN access is on, it listens on UDP port 5353 for
+  local-network name lookups of `<name>.local` (`[Network] LanName`, `noxmfd` by default) and
+  answers with this PC's LAN address, nothing else. Clear `LanName` to turn this off. mDNS is link-local
+  multicast and never leaves your network. See [`MdnsResponder.cs`](src/plugin/Http/MdnsResponder.cs).
 - **Sends input to the game, for explicit keybind actions** — tap-to-target, and the mod's own
   extended keybinds (countermeasures, gear, weapon cycling/fire, and the immersion binds: radar,
   engine, and Master Arm on/off, combat-mode select). Each goes through the game's own APIs (the
@@ -92,8 +96,8 @@ which virus-scans and manually reviews uploads.
   telemetry, auto-update, or "phone-home" of any kind — the squad feature's Steam P2P traffic is
   addressed to specific players (faction-mates for the presence beacon, your own squad for
   everything else), not a general internet service, and only exists at all because you're playing
-  a multiplayer match to begin with. (The one plain network syscall outside the web server and the
-  squad transport is a UDP socket briefly opened toward `8.8.8.8` purely to ask Windows which local
+  a multiplayer match to begin with. (The one plain network syscall outside the web server, the
+  squad transport and the mDNS responder is a UDP socket briefly opened toward `8.8.8.8` purely to ask Windows which local
   network interface would route outbound — **no data is ever sent** through it; it exists only to
   discover your LAN IP to show on the display. See `DetectLanIp` in
   [`TelemetryServer.cs`](src/plugin/Http/TelemetryServer.cs).)

@@ -132,6 +132,47 @@
     return point ? { kind: 'steerpoint', point, index: (data.steerPoints || []).indexOf(point) } : null;
   }
 
+  // The HSI's course (docs/adi-hsi-pages.md): the active leg's bearing, or for a target with no leg
+  // (a steer point, a route's first waypoint) the bearing from the plugin's direct-to origin.
+  // { crsDeg, fromX, fromZ }, or null with no target or before the origin is recorded.
+  function navCourse(data) {
+    const t = navigationTarget(data);
+    if (!t) return null;
+    let from = data.directTo || null;
+    if (t.kind === 'waypoint' && t.index > 0) from = findRoute(data.routes, data.activeRouteId).waypoints[t.index - 1];
+    if (!from) return null;
+    const db = distanceBearing(from.x, from.z, t.point.x, t.point.z);
+    if (db.distM < 1) return null;
+    return { crsDeg: db.brgDeg, fromX: from.x, fromZ: from.z };
+  }
+
+  // Signed distance of (ownX, ownZ) from the course line, metres; positive = right of course.
+  function crossTrack(course, ownX, ownZ) {
+    const r = course.crsDeg * Math.PI / 180;
+    return (ownX - course.fromX) * Math.cos(r) - (ownZ - course.fromZ) * Math.sin(r);
+  }
+
+  // Deviation-bar position in dots: 1 nm per dot (2 km when metric), pinned just past two dots.
+  // Positive = bar right, i.e. the course line is right of the aircraft.
+  function deviationDots(xtkM, metric) {
+    const dot = metric ? 2000 : 1852;
+    return Math.max(-2.4, Math.min(2.4, -xtkM / dot));
+  }
+
+  // Time to cover `distM` at `speedMs`: "mm:ss", or "h:mm:ss" from an hour. '—' when not moving.
+  function formatEte(distM, speedMs) {
+    if (!(speedMs > 1)) return '—';
+    const s = Math.round(distM / speedMs);
+    const h = Math.floor(s / 3600), mm = String(Math.floor((s % 3600) / 60)).padStart(2, '0');
+    const ss = String(s % 60).padStart(2, '0');
+    return h > 0 ? h + ':' + mm + ':' + ss : mm + ':' + ss;
+  }
+
+  // Heading change over the next `seconds` at the current turn rate, capped for the trend arc.
+  function turnTrend(turnDegPerSec, seconds) {
+    return Math.max(-60, Math.min(60, turnDegPerSec * seconds));
+  }
+
   // The portable export shape: name + ordered waypoint name/x/z only — no internal ids, no live
   // progress (nextIndex). Ids are storage bookkeeping, meaningless to whoever the route is shared
   // with; progress is "how far THIS pilot got," not part of the route's own definition, and
@@ -184,6 +225,7 @@
     legLengths, routeLength, remainingDistance, timeline,
     waypointMarkerState, segmentReached,
     findRoute, findSteerPoint, navigationTarget,
+    navCourse, crossTrack, deviationDots, turnTrend, formatEte,
     serializeRoute, parseRouteJSON, serializeSteerPoints, parseSteerPointsJSON,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

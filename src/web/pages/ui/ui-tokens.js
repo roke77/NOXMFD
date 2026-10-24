@@ -39,6 +39,10 @@
       ['--no-hsd-pink-rgb',  'HSD SYMBOLOGY'],
       ['--no-hsd-yellow-rgb','HSD AA RINGS'],
     ] },
+    { title: 'INSTRUMENTS', tokens: [
+      ['--no-sky',           'ADI SKY'],
+      ['--no-ground',        'ADI GROUND'],
+    ] },
     { title: 'SOI', tokens: [
       ['--no-soi',           'COLOUR', 'soi'],
       ['--no-soi-style',     'STYLE',  'soi-style', ['solid', 'dashed', 'dotted', 'double']],

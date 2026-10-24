@@ -17,6 +17,25 @@ namespace NOXMFD.Tests
         private static List<object?> Arr(object? v) => (List<object?>)v!;
 
         [Fact]
+        public void Attitude_block_carries_the_instrument_values_and_nulls_a_missing_aoa()
+        {
+            var att = Obj(Root(new TelemetrySnapshot
+            {
+                Pitch = 5.5f, Roll = -30f, Vs = 12.25f, GLoad = 1.2f,
+                Aoa = float.NaN, Beta = float.NaN, Mach = 0.66f, TurnRate = -1.5f,
+            })["att"]);
+
+            Assert.Equal(5.5, (double)att["pitch"]!, 2);
+            Assert.Equal(-30.0, (double)att["roll"]!, 2);
+            Assert.Equal(12.25, (double)att["vs"]!, 2);
+            Assert.Equal(1.2, (double)att["g"]!, 2);
+            Assert.Null(att["aoa"]);
+            Assert.Null(att["beta"]);
+            Assert.Equal(0.66, (double)att["mach"]!, 2);
+            Assert.Equal(-1.5, (double)att["turn"]!, 2);
+        }
+
+        [Fact]
         public void Default_snapshot_reports_every_optional_block_absent_and_every_array_empty()
         {
             var root = Root(default);
