@@ -377,7 +377,7 @@ body.unavailable .tgt-unavailable { display: block; }
   flex: none; width: 6px; height: 56%;
   background: var(--no-amber); box-shadow: 0 0 10px rgba(var(--no-amber-rgb), 0.7);
 }
-.tgt-td-toggle, .tgt-td-btn {
+.tgt-td-toggle, .tgt-td-btn, .tgt-td-auto {
   font-family: var(--no-font);
   height: 76%;
   cursor: pointer;
@@ -394,18 +394,24 @@ body.unavailable .tgt-unavailable { display: block; }
 }
 .tgt-td-label { overflow: hidden; text-overflow: ellipsis; }
 .tgt-td-show { flex: none; font-size: 0.75em; color: var(--no-label); }
-.tgt-td-btn {
+.tgt-td-btn, .tgt-td-auto {
   flex: none;
   padding: 0 clamp(8px, 1.6vw, 16px);
+  font-size: clamp(9px, 1.7vmin, 15px);
+}
+.tgt-td-btn {
   border: 1.5px solid var(--no-white-dark);
   border-radius: 3px;
   background: var(--no-bg);
   color: var(--no-white-dim);
-  font-size: clamp(9px, 1.7vmin, 15px);
 }
 .tgt-td-btn.add     { border-color: var(--no-green); color: var(--no-green); }
 .tgt-td-btn.replace { border-color: var(--no-amber); color: var(--no-amber); }
 .tgt-td-btn:active  { background: rgba(var(--no-green-rgb), 0.08); }
+/* AUTO ACCEPT: a .lit toggle (shared/lit-panel.css). While on, the bar keeps only its label. */
+.tgt-td-auto { gap: 0.35em; }
+.tgt-td-dock.auto .tgt-td-show, .tgt-td-dock.auto .tgt-td-btn { display: none; }
+.tgt-td-toggle:disabled { cursor: default; }
 /* The designated names, opened from the bar's label, stacked just above it. */
 .tgt-td-drawer {
   position: absolute; left: 0; right: 0; bottom: calc(var(--tgt-td-dock-h) + 6px);

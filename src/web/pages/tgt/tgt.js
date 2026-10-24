@@ -84,6 +84,17 @@ function applyTdState(s) {
   const st = (s && s.state) || {};
   tdAssignments = st.assignments || {};
   tdDesignated = st.designated || [];
+  autoAccept = !!st.autoAccept;
+  autoAccepted = st.autoAccepted || 0;
+  const seq = st.autoSeq || 0;
+  // The first state only records where the sequence stands, so a reload doesn't replay the last take.
+  if (autoSeqSeen !== null && seq !== autoSeqSeen) {
+    autoShowing = true;
+    clearTimeout(autoTimer);
+    autoTimer = setTimeout(function () { autoShowing = false; renderDock(); }, AUTO_SHOW_MS);
+  }
+  autoSeqSeen = seq;
+  if (!autoAccept) autoShowing = false;
   renderDock();
   renderTargets();
 }
@@ -92,8 +103,17 @@ function applyTdState(s) {
 // The leader's DESIGNATE lands here as TdStore's pending `designated` list; the dock floats over
 // the bottom of the target list until ADD / REPLACE / DISMISS answers it (the plugin then clears
 // `designated`, and the next td-state push hides it). The drawer's open/closed state is local.
+// AUTO ACCEPT is the plugin's (TdStore): it ADDs each designation on arrival, so `designated` stays
+// empty. Each take (a new `autoSeq`) instead shows the bar for AUTO_SHOW_MS with just the take's size
+// (`autoAccepted`) and the toggle — the only window in which AUTO ACCEPT can be turned back off.
+const AUTO_SHOW_MS = 3000;
 let tdDesignated = [];
 let dockOpen = false;
+let autoAccept = false;
+let autoAccepted = 0;
+let autoSeqSeen = null;
+let autoShowing = false;
+let autoTimer = 0;
 let dockKey = null;   // what the open drawer was last built from
 const dockEl = document.getElementById('tgt-td-dock');
 const dockDrawer = document.getElementById('tgt-td-drawer');
@@ -101,15 +121,20 @@ const dockToggle = document.getElementById('tgt-td-toggle');
 const dockHead = document.getElementById('tgt-td-label');
 const dockShow = document.getElementById('tgt-td-show');
 const dockAdd = document.getElementById('tgt-td-add');
+const dockAuto = document.getElementById('tgt-td-auto');
 function renderDock() {
-  const pending = tdDesignated.length > 0;
-  dockEl.hidden = !pending;
-  panel.classList.toggle('has-td-dock', pending);
-  if (!pending) { dockOpen = false; return; }
+  const shown = tdDesignated.length > 0 || (autoAccept && autoShowing);
+  dockEl.hidden = !shown;
+  panel.classList.toggle('has-td-dock', shown);
+  if (!shown || autoAccept) dockOpen = false;
+  dockEl.classList.toggle('auto', autoAccept);
+  dockAuto.setAttribute('aria-pressed', autoAccept ? 'true' : 'false');
+  dockToggle.disabled = autoAccept;
+  if (!shown) return;
   const listed = new Set(targets.map(function (t) { return t.id; }));
   const fresh = tdDesignated.filter(function (t) { return !listed.has(t.id); }).length;
   const leader = squadState ? (memberLabel(squadState.leaderId) || 'LEADER') : 'LEADER';
-  dockHead.textContent = leader + ' DESIGNATED ' + tdDesignated.length;
+  dockHead.textContent = leader + ' DESIGNATED ' + (autoAccept ? autoAccepted : tdDesignated.length);
   dockShow.textContent = dockOpen ? 'HIDE ▾' : 'SHOW ▴';
   dockToggle.setAttribute('aria-expanded', dockOpen ? 'true' : 'false');
   dockAdd.textContent = 'ADD ' + fresh;
@@ -141,6 +166,7 @@ dockToggle.addEventListener('click', function () { dockOpen = !dockOpen; renderD
 dockAdd.addEventListener('click', function () { send('td.accept', { on: false }); });
 document.getElementById('tgt-td-replace').addEventListener('click', function () { send('td.accept', { on: true }); });
 document.getElementById('tgt-td-dismiss').addEventListener('click', function () { send('td.dismiss'); });
+dockAuto.addEventListener('click', function () { send('td.auto-accept', { on: !autoAccept }); });
 fetch('/squad').then(function (r) { return r.ok ? r.json() : null; }).then(applySquad).catch(function () {});
 fetch('/td-state').then(function (r) { return r.ok ? r.json() : null; }).then(applyTdState).catch(function () {});
 window.addEventListener('message', function (e) {

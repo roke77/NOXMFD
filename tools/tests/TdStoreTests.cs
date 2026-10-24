@@ -11,7 +11,7 @@ namespace NOXMFD.Tests
         // JavaScript holds exactly, so the state carries them as strings.
         private const ulong A = 76561198000000001, B = 76561198000000002, C = 76561198000000003, D = 76561198000000004;
         private static readonly List<ulong> Members = new List<ulong> { A, B, C };
-        private const string Empty = "{\"assignments\":{},\"sent\":{},\"designated\":[]}";
+        private const string Empty = "{\"assignments\":{},\"sent\":{},\"designated\":[],\"autoAccept\":false,\"autoAccepted\":0,\"autoSeq\":0}";
 
         public TdStoreTests()
         {
@@ -166,6 +166,33 @@ namespace NOXMFD.Tests
             Assert.True(TdStore.AcceptDesignated());
             Assert.Empty(TdStore.Designated);
             Assert.False(TdStore.AcceptDesignated());   // nothing pending any more
+        }
+
+        // The ADD itself is CommandDispatcher.TdAutoAccept's; the store keeps the last designation's
+        // size so TGT's dock (and its toggle) stay up after the accept empties the pending list.
+        [Fact]
+        public void AutoAccept_takes_over_what_is_pending_and_counts_each_new_designation()
+        {
+            TdStore.ReceiveDesignation("[{\"id\":1},{\"id\":2}]");
+            Assert.True(TdStore.SetAutoAccept(true));
+            Assert.False(TdStore.SetAutoAccept(true));   // already on
+            Assert.Contains("\"autoAccept\":true,\"autoAccepted\":2,\"autoSeq\":1", TdStore.StateJson);
+
+            // A same-size designation still bumps autoSeq, so TGT shows the dock for it too.
+            TdStore.AcceptDesignated();
+            TdStore.ReceiveDesignation("[{\"id\":3},{\"id\":4}]");
+            Assert.Contains("\"autoAccepted\":2,\"autoSeq\":2", TdStore.StateJson);
+
+            TdStore.SetAutoAccept(false);
+            Assert.Contains("\"autoAccept\":false,\"autoAccepted\":0,\"autoSeq\":2", TdStore.StateJson);
+        }
+
+        [Fact]
+        public void OnSquadEnded_turns_auto_accept_off_but_keeps_its_sequence()
+        {
+            TdStore.SetAutoAccept(true);
+            TdStore.OnSquadEnded();
+            Assert.Contains("\"autoAccept\":false,\"autoAccepted\":0,\"autoSeq\":1", TdStore.StateJson);
         }
 
         [Fact]

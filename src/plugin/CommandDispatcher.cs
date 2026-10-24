@@ -58,6 +58,7 @@ namespace NOXMFD
                                 // tgp.view.set : desired view state (true = STV, false = WTV)
                                 // tgp.zoom.set : held state — true on press, false on release
                                 // td.accept : true = REPLACE (drop every current lock first), false = ADD
+                                // td.auto-accept : desired AUTO ACCEPT state
                                 // soi.include : desired included state (true = back in the SOI ring)
                                 // hsd.set-view : desired mode (true = DEP, false = CEN)
                                 // sqd.favorite-callsign : true = pin, false = unpin
@@ -168,6 +169,7 @@ namespace NOXMFD
                 { "td.designate",           TdDesignate },
                 { "td.accept",              e => TdAccept(replace: e.on) },
                 { "td.dismiss",             e => TdStore.ClearDesignated() },
+                { "td.auto-accept",         e => { if (TdStore.SetAutoAccept(e.on)) TdAutoAccept(); } },
                 // TGP page's CLR/IR button pair (docs/tgp-manual-control.md's NAV additions) —
                 // explicit-state twin of the tgp-manual-ir-toggle keybind, same "set" shape as
                 // master-arms.set above rather than a blind flip. MAN (the page's own manual-mode
@@ -853,6 +855,14 @@ namespace NOXMFD
             }
             TdStore.AcceptDesignated();
             Plugin.Log?.LogInfo($"[NOXMFD] td.accept ({(replace ? "replace" : "add")}) — selected {acquired} target(s).");
+        }
+
+        // AUTO ACCEPT (TdStore.AutoAccept): ADD whatever is pending, on receipt (Squad.HandleData)
+        // and when the toggle turns on. Main thread only, like TdAccept itself. An empty
+        // designation (the leader withdrawing one) has nothing to add, so it skips TdAccept's log.
+        internal static void TdAutoAccept()
+        {
+            if (TdStore.AutoAccept && TdStore.Designated.Count > 0) TdAccept(replace: false);
         }
 
         // td.column's id list, sent as a JSON array in `text` — the leader's table lives in the
