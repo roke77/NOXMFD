@@ -334,13 +334,11 @@ function applySplitClasses() {
 // or — if already split — just switch orientation, keeping each pane's page + scroll state and
 // only re-laying the container (CSS) and re-mapping the bezel labels to the new key columns.
 function setSplit(variant) {
-  // Flipping the split axis (H<->V family) moves which pane is top-right, so the pin no longer
-  // points at that corner — clear it. Staying within the V family (v<->vw) keeps the same pane.
-  if (splitMode && (splitVariant === 'h') !== (variant === 'h')) clearPin();
   splitVariant = variant;
   if (splitMode) {
     applySplitClasses();
     renderSplitLabels();            // key mapping is orientation-dependent
+    renderIndicators();             // the arrangement changed → PINNED chip visibility follows
     // Re-forward list-page geometry so WPN panes re-lay-out for the new orientation (else they
     // keep the previous layout's row arrangement — e.g. H's 2-column grid in a V column).
     forwardWpnLayoutToPanes();
@@ -355,10 +353,6 @@ function setSplit(variant) {
 
 function applySplitMode() {
   syncMapActivity();
-  // Crossing the full<->split boundary changes what PIN/SWAP target (the single stack vs. the
-  // top-right pane), so the two contexts never share a pin — start each side clean. Same-axis
-  // and v<->vw reconfigs return early in setSplit and never reach here, so they keep their pin.
-  clearPin();
   applySplitClasses();
   // The vertical-MAIN overlay style is full-view only (TGT / HUD / BDF / PAL); split entry doesn't
   // go through showPage, so drop it here or its label style would leak onto the split MAIN labels.
@@ -1466,13 +1460,13 @@ pageFrame.addEventListener('load', function() {
     pageFrame.contentWindow.postMessage({ mfd: true, action: 'cursor-focus', on: true }, '*');
 });
 
-// Top-right indicator stack (PINNED). pinnedPage tracks which page (if any) is currently pinned.
-// indicatorOrder records the chronological order indicators were turned on — the first activated
+// Top-right indicator stack (PINNED). pinnedLayout is the pinned arrangement (captureArrangement's
+// shape), or null when nothing is pinned. indicatorOrder records the chronological order indicators were turned on — the first activated
 // stays at the right edge and later arrivals stack to its left, matching how chips render with
 // flex-direction:row-reverse on #mfd-indicators. (FOLLOW was once a chip here too; it now lights
 // its own FLW label instead — markFollowLabels.)
 const indicatorsEl = document.getElementById('mfd-indicators');
-let pinnedPage    = null;
+let pinnedLayout  = null;
 // Map follow state, mirrored from the map iframe(s) via postMessage: one for the full-view map,
 // and one per pane in a split, since each MAP pane follows independently. Both drive the FLW label.
 let followOn      = false;
@@ -1486,7 +1480,7 @@ let paneGridOn    = [false, false];
 let slewOn        = false;
 let paneSlewOn    = [false, false];
 let indicatorOrder = [];   // ['pinned'] — kept a list, since the stack is built to hold more
-// Last non-pinned page we left to jump to pinnedPage via SWAP. Lets the second SWAP
+// Last non-pinned arrangement we left to jump to pinnedLayout via SWAP. Lets the second SWAP
 // press return there. Cleared whenever the pin itself changes (re-pin or unpin) since
 // the partner relationship is tied to the current pin.
 let swapPartner   = null;
@@ -1519,26 +1513,29 @@ const wakeController = WakeLock.createBrowserController({
   },
 });
 
-// Which pane sits in the screen's top-right corner — where PIN/SWAP act in split mode. H_SPLIT
-// stacks top/bottom so it's the top pane (0); the V splits sit left/right so it's the right pane (1).
-function topRightPane() { return splitVariant === 'h' ? 0 : 1; }
+// Pin an arrangement, resetting the SWAP cycle (the partner is tied to the pin). Appending to
+// indicatorOrder lands PINNED to the LEFT of any chip activated earlier, and to the right of any
+// activated later this session.
+function setPin(arr) {
+  pinnedLayout = arr;
+  swapPartner = null;
+  if (indicatorOrder.indexOf('pinned') === -1) indicatorOrder.push('pinned');
+  renderIndicators();
+}
 
-// Drop the pin (and its SWAP partner) and pull the PINNED chip. Shared by the pin toggle-off and
-// the split-axis-flip reset.
+// Drop the pin (and its SWAP partner) and pull the PINNED chip.
 function clearPin() {
-  pinnedPage = null;
+  pinnedLayout = null;
   swapPartner = null;
   indicatorOrder = indicatorOrder.filter(function(x) { return x !== 'pinned'; });
   renderIndicators();
 }
 
 function indicatorVisible(name) {
-  // PINNED tracks the pinned page in whichever context owns PIN: the top-right pane in split
-  // mode, the single stack in full view. (FOLLOW is shown on the FLW label itself — see
-  // markFollowLabels.)
+  // PINNED shows while the screen matches the pinned arrangement. (FOLLOW is shown on the FLW
+  // label itself — see markFollowLabels.)
   if (name === 'pinned') {
-    return pinnedPage !== null &&
-      (splitMode ? panePages[topRightPane()] === pinnedPage : currentPage === pinnedPage);
+    return pinnedLayout !== null && LayoutPin.sameArrangement(captureArrangement(), pinnedLayout);
   }
   return false;
 }
@@ -2782,38 +2779,30 @@ function mfdButton(el) {
       applySplitMode();
       break;
     case 'swap': {
-      // Toggle between the pinned page and the last page we swapped from.
-      //   - On a non-pinned page: remember it as the partner, jump to pinned.
-      //   - On the pinned page with a known partner: jump back to the partner.
-      //   - Otherwise (nothing pinned, or on pinned with no partner yet): no-op.
-      // In split mode this drives the top-right pane (paneNavigate) instead of the full stack.
-      if (pinnedPage === null) break;
-      const tr = splitMode ? topRightPane() : -1;
-      const here = splitMode ? panePages[tr] : currentPage;
-      const goTo = splitMode ? function(p) { paneNavigate(tr, p); }
-                             : function(p) { showPage(p); };
-      if (here === pinnedPage) {
+      // Toggle between the pinned arrangement and the last one we swapped from.
+      //   - Off the pinned arrangement: remember this one as the partner, apply the pinned one.
+      //   - On it with a known partner: apply the partner.
+      //   - Otherwise (nothing pinned, or on the pin with no partner yet): no-op.
+      // ponytail: re-applying an arrangement reloads each pane's page, so per-pane scroll and
+      // list paging reset; keeping them would mean snapshotting each pane's own state too.
+      if (pinnedLayout === null) break;
+      const here = captureArrangement();
+      if (LayoutPin.sameArrangement(here, pinnedLayout)) {
         if (swapPartner === null) break;
-        goTo(swapPartner);
+        applyArrangement(swapPartner);
       } else {
         swapPartner = here;
-        goTo(pinnedPage);
+        applyArrangement(pinnedLayout);
       }
-      renderIndicators();   // the page in the pinned context changed → PINNED chip visibility follows
+      renderIndicators();   // the arrangement changed → PINNED chip visibility follows
       break;
     }
     case 'pin': {
-      // Pin/unpin the page in the active context: the top-right pane in split mode, else the
-      // full-view page. MENU ('main') is never pinnable.
-      const page = splitMode ? panePages[topRightPane()] : currentPage;
-      if (page === 'main') break;
-      if (pinnedPage === page) { clearPin(); break; }   // toggle off
-      // First time on, or switching the pin to a new page: append so we land to the LEFT of any
-      // chip activated earlier (FOLLOW), and to the right of any activated later this session.
-      pinnedPage = page;
-      swapPartner = null;   // the partner is tied to the pin — reset the SWAP cycle
-      if (indicatorOrder.indexOf('pinned') === -1) indicatorOrder.push('pinned');
-      renderIndicators();
+      // Pin/unpin the whole current arrangement — split, variant and every pane's page.
+      const here = captureArrangement();
+      if (!LayoutPin.pinnable(here)) break;
+      if (pinnedLayout && LayoutPin.sameArrangement(here, pinnedLayout)) { clearPin(); break; }   // toggle off
+      setPin(here);
       break;
     }
     // Every other case above is a literal, authored page id — an installed extension's is a
@@ -3032,18 +3021,23 @@ window.addEventListener('wptroutes:changed', function() {
 // Storage is server-side (LayoutStore.cs), so a layout saved here shows up on every other
 // connected browser (including the F-35 shell, which keeps its own list — see f35.js's twin of
 // this block — filtered by `shell` so a browser is never offered an arrangement it can't apply).
-function captureLayoutState() {
-  const state = splitMode
+// The split, its variant and every pane's page — what PIN pins and SWAP restores.
+function captureArrangement() {
+  return splitMode
     ? { splitMode: true, splitVariant: splitVariant, pages: panePages.slice() }
     : { splitMode: false, pages: [currentPage] };
+}
+
+function captureLayoutState() {
+  const state = captureArrangement();
   // The PIN — a layout saved while the LYT page is showing (it has no per-pane content, so it's
-  // always full-view) remembers LYT itself, not whatever page the pilot actually cares about.
-  // Carrying pinnedPage along lets a single SWAP after LOAD jump straight back to it.
-  state.pinnedPage = pinnedPage;
+  // always full-view) remembers LYT itself, not whatever arrangement the pilot actually cares
+  // about. Carrying pinnedLayout along lets a single SWAP after LOAD jump straight back to it.
+  state.pinnedLayout = pinnedLayout;
   return state;
 }
 
-function applyLayoutState(state) {
+function applyArrangement(state) {
   const pages = (state && state.pages && state.pages.length) ? state.pages : ['main'];
   if (state && state.splitMode) {
     const validVariant = ['v', 'vw', 'vwr'].indexOf(state.splitVariant) !== -1;
@@ -3057,6 +3051,10 @@ function applyLayoutState(state) {
   } else {
     showPage(pages[0] || 'main');
   }
+}
+
+function applyLayoutState(state) {
+  applyArrangement(state);
   // Panes the layout keeps out of the SOI rotation (the LYT page's edit dialog writes `soi`, one
   // entry per pane, a full view's single one included); a layout without one leaves the current
   // membership alone.
@@ -3065,19 +3063,9 @@ function applyLayoutState(state) {
       sendCommand('soi.include', { cid: myCid, n: pane, on: on !== false }).catch(function() {});
     });
   }
-  // Restore the pin last — applySplitMode (above, on any full<->split transition) already clears
-  // it via clearPin(), so setting it before that point would just have it wiped again. 'main' is
-  // never a valid pin (mirrors the PIN key's own guard) — a corrupted/hand-edited layout blob
-  // degrades to no pin rather than an unreachable one.
-  const restoredPin = state && state.pinnedPage;
-  if (restoredPin && restoredPin !== 'main') {
-    pinnedPage = restoredPin;
-    swapPartner = null;
-    if (indicatorOrder.indexOf('pinned') === -1) indicatorOrder.push('pinned');
-    renderIndicators();
-  } else {
-    clearPin();
-  }
+  const restoredPin = LayoutPin.pinFromState(state);
+  if (restoredPin) setPin(restoredPin);
+  else clearPin();
 }
 
 // SOI include/exclude checkboxes (issue #58), shown above LOAD LAYOUT's list — describes this
