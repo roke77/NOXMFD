@@ -125,6 +125,7 @@ Known extensions:
 - **[ATC](https://github.com/roke77/NOXMFD-Extension-ATC)** — ATC traffic management / flight-progress display for NOXMFD.
 - **[NOAutopilot](https://github.com/roke77/NOXMFD-Extension-NOAutopilot)** — an Auto pilot page for NOXMFD that controls the NOAutopilot mod.
 - **[SRS](https://github.com/roke77/NOXMFD-Extension-SRS)** — an SRS radio page for NOXMFD that shows and tunes your SRS radios.
+- **[TAC](https://github.com/roke77/NOXMFD-Extension-TAC)** — a Tactical Command target board for NOXMFD: TAC officers assign targets to squadrons, squad leaders acquire and report them.
 
 ## Reporting & collaboration
 
