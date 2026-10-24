@@ -116,11 +116,38 @@ DOC_IMAGE_SVG_TEMPLATE = (
     '<text x="200" y="155" fill="#39ff14" font-size="18" text-anchor="middle" '
     'font-family="monospace">{name}</text></svg>')
 
-# Mock TGP feed frame (the real one is a captured still off /tgp.mjpg — see capture_assets.py).
-TGP_SVG = ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 240">'
-           '<rect width="320" height="240" fill="none" stroke="#39ff14" stroke-width="3"/>'
-           '<text x="160" y="128" fill="#39ff14" font-size="20" text-anchor="middle" '
-           'font-family="monospace">NO CAPTURE</text></svg>')
+# Mock TGP feed frame (the real one is a captured still off /tgp.mjpg — see capture_assets.py): a
+# white-hot FLIR-style scene in the feed's 3:2, busy enough to judge label legibility over video —
+# bright sky glare top-left, hot vehicles and buildings, dark ground.
+TGP_SVG = (
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 480">'
+    '<defs>'
+    '<linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">'
+    '<stop offset="0" stop-color="#d8d8d8"/><stop offset="1" stop-color="#7a7a7a"/></linearGradient>'
+    '<linearGradient id="gnd" x1="0" y1="0" x2="0" y2="1">'
+    '<stop offset="0" stop-color="#5a5a5a"/><stop offset="1" stop-color="#262626"/></linearGradient>'
+    '<radialGradient id="hot"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>'
+    '<filter id="blur"><feGaussianBlur stdDeviation="1.2"/></filter>'
+    '</defs>'
+    '<rect width="720" height="480" fill="url(#gnd)"/>'
+    '<rect width="720" height="150" fill="url(#sky)"/>'
+    '<circle cx="90" cy="40" r="120" fill="url(#hot)" opacity="0.6"/>'
+    '<g filter="url(#blur)">'
+    '<path d="M0 150 L80 128 L170 142 L260 118 L360 140 L470 112 L560 136 L640 120 L720 138 L720 160 L0 160Z" fill="#4a4a4a"/>'
+    '<path d="M300 480 L380 160 L400 160 L520 480Z" fill="#3a3a3a"/>'
+    '<path d="M345 480 L389 160 L391 160 L455 480Z" fill="#6e6e6e" opacity="0.5"/>'
+    '<rect x="120" y="200" width="90" height="60" fill="#8c8c8c"/><rect x="120" y="190" width="90" height="12" fill="#a8a8a8"/>'
+    '<rect x="230" y="215" width="50" height="45" fill="#7a7a7a"/>'
+    '<rect x="540" y="190" width="110" height="70" fill="#858585"/><rect x="560" y="210" width="20" height="14" fill="#f0f0f0"/>'
+    '<g fill="#1e1e1e"><circle cx="40" cy="300" r="26"/><circle cx="75" cy="320" r="22"/><circle cx="650" cy="330" r="30"/>'
+    '<circle cx="690" cy="300" r="24"/><circle cx="600" cy="420" r="34"/><circle cx="100" cy="430" r="30"/></g>'
+    '<g fill="#f4f4f4"><rect x="408" y="282" width="46" height="20" rx="4"/><rect x="420" y="272" width="20" height="12" rx="3"/>'
+    '<rect x="352" y="232" width="34" height="15" rx="3"/></g>'
+    '<rect x="380" y="300" width="100" height="10" fill="#fff" opacity="0.35"/>'
+    '</g>'
+    '<g stroke="#000" stroke-width="2" fill="none" opacity="0.8">'
+    '<path d="M360 220 V230 M360 250 V260 M340 240 H350 M370 240 H380"/></g>'
+    '</svg>')
 
 MIME = {'.css': 'text/css', '.js': 'text/javascript', '.woff2': 'font/woff2', '.html': 'text/html',
         '.json': 'application/json', '.png': 'image/png', '.svg': 'image/svg+xml', '.jpg': 'image/jpeg'}
