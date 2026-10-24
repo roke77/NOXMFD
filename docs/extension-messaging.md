@@ -2,6 +2,9 @@
 
 ## Status
 
+**Status: merged to `main` and released in 0.77.0.** The faction roster, own-squad reads, messaging
+and `SelectTarget` ran in two-player TAC matches; `LocateOnMap` is not yet checked in game.
+
 Built as extension API version 8. Asked for by the TAC extension
 ([NOXMFD-Extension-TAC](https://github.com/roke77/NOXMFD-Extension-TAC), its `docs/tac-plan.md`,
 "NOXMFD API additions"), which needs one player per faction to coordinate targets with every squad
