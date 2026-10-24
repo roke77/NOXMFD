@@ -1,10 +1,10 @@
-/* HSI (docs/adi-hsi-pages.md). Same equal side insets as ADI; every size inside the SVG is in the
-   design's 890px-glass units and scales with the pane. */
+/* HSI (docs/adi-hsi-pages.md). Every size inside the SVG is in the design's 890px-glass units and
+   scales with the pane. */
 
 .hsi-panel {
   height: 100%;
   box-sizing: border-box;
-  padding: clamp(4px, 1.2vmin, 10px) clamp(50px, 5.5vw, 56px);
+  padding: clamp(4px, 1.2vmin, 10px) 0;
 }
 .hsi-svg { display: block; width: 100%; height: 100%; font-family: var(--no-font); }
 

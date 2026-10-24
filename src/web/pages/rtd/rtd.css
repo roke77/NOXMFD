@@ -25,10 +25,6 @@ button { font-size: inherit; }
   display: flex; flex-direction: column;
   gap: 0.75em;
   padding: clamp(6px, 1.8vmin, 16px);
-  /* Wider than TGT's clamp(34px, 5vw, 48px): this family's own label is the lit one, and its
-     outlined box reaches ~46px in from the edge, past 5vw in a half-width pane. */
-  padding-left: clamp(50px, 5.5vw, 56px);
-  padding-right: clamp(50px, 5.5vw, 56px);
   /* --fs is the design's 16px; the timeline places its pieces off it (rtd.js), whatever each
      piece's own text size. */
   --fs: clamp(11px, 2vmin, 18px);

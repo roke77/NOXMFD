@@ -37,7 +37,10 @@ bottom.
 A borderless, touch-driven layout modelled on the real F-35's panoramic cockpit display: there
 are no bezel keys — the navigation labels are drawn on the glass and tapped directly, and the
 screen divides into side-by-side portals, each an independent MFD, that you merge and split with
-corner grips. A fixed strip across the top carries the aircraft-level readouts — connection,
+corner grips. Each portal keeps a narrow column of glass beside its page for the labels, so they
+never cover what the page shows; the grips sit at the bottom of those columns. MAP and TGP are the
+exception: the map and the camera feed fill the whole portal and their labels sit on top. A fixed
+strip across the top carries the aircraft-level readouts — connection,
 throttle and fuel, and the avionics flags — plus **WAKE** (keep the screen awake, same as
 CLASSIC's WAKE key above) and **FULLSCREEN**, beside each other at the strip's end. A dismissable
 red banner drops down from the strip on a connection loss, above every portal regardless of page —

@@ -379,6 +379,8 @@ function applySplitMode() {
     paneSlewOn = [false, false];     // fresh panes start disarmed
     paneIframes[0].src = paneUrl(panePages[0]);
     paneIframes[1].src = paneUrl(panePages[1]);
+    syncLabelInset(paneIframes[0], panePages[0]);
+    syncLabelInset(paneIframes[1], panePages[1]);
     renderSplitLabels();
     refreshFollowIndicator();
   } else {
@@ -431,7 +433,7 @@ function placeSplitKey(m, label, action, paneTag, mark, pending) {
 // RDR/HSD are not in this list: their MAIN + FCR/HSD + R+ + R- row reads fine horizontal, not
 // cramped enough to need the narrow vertical treatment. KEY is in it: its section rail starts at the
 // left edge, where a horizontal label would cover it.
-// HUD is in it too; hud.css reserves left/right padding just wide enough for the upright label.
+// HUD is in it too.
 // Every extension page gets this treatment too, unconditionally — NOXMFD has no way to ask a
 // third-party extension whether its own page has top-left content (RegisterExtension declares no
 // such flag, EXTENSIONS.md), and the one item every extension page's own NAV[<id>] ever carries is
@@ -439,6 +441,52 @@ function placeSplitKey(m, label, action, paneTag, mark, pending) {
 // way TGT/AKF/etc. are — this either clears real content (ATC's own table header, the reason this
 // was added) or costs nothing on a page with none.
 const AVIONICS_PAGES = ['adi', 'afm', 'hsi', 'avn'];
+
+// Pages whose frame this layout insets from the left/right edges (.label-inset, mfd.css), so the
+// labels it draws on the glass there never cover page content. The spacing is the layout's, not
+// the page's: a page fills whatever box it is given, and the F-35 frame gives it a different one.
+// Not the pages that lay themselves out against the bezel keys (AVN, AFM, WPN) or are pictures the
+// labels sit on (MAP, TGP, RWR, RDR/HSD).
+const LABEL_INSET_PAGES = { adi: 1, hsi: 1, wpt: 1, rtd: 1, spd: 1, tgt: 1, td: 1, sqd: 1, akf: 1, bdf: 1,
+                            pal: 1, mis: 1, obj: 1, lyt: 1, keys: 1, hud: 1, ui: 1 };
+function syncLabelInset(iframe, page) {
+  iframe.classList.toggle('label-inset', !!LABEL_INSET_PAGES[page] || ExtNav.isExtensionPage(page));
+}
+
+// Each inset frame's gutters, sized to the left/right labels that land on it: the widest one's
+// reach into the frame plus LABEL_GUTTER_PAD, or nothing on a side with no label. Measured rather
+// than fixed because the footprint varies (upright vs horizontal, lit vs plain, full view vs a
+// split pane's own column), and a fixed worst case wastes most of it. Driven off the overlay's
+// own child changes, so every path that re-places labels (page change, split change, resize,
+// paging) re-fits without each having to remember to.
+const LABEL_GUTTER_PAD = 6;
+function fitLabelGutters() {
+  const labels = overlayEl.querySelectorAll('.overlay-item.left, .overlay-item.right');
+  [pageFrame].concat(paneIframes).forEach(function (f) {
+    if (!f.classList.contains('label-inset')) return;
+    const r = f.getBoundingClientRect();
+    if (!r.width) return;   // hidden (full view's frame in split, or the reverse)
+    let left = 0, right = 0;
+    labels.forEach(function (el) {
+      const l = el.getBoundingClientRect();
+      if (l.bottom <= r.top || l.top >= r.bottom || l.right <= r.left || l.left >= r.right) return;
+      if (l.left + l.width / 2 < r.left + r.width / 2) left = Math.max(left, l.right - r.left);
+      else right = Math.max(right, r.right - l.left);
+    });
+    f.style.setProperty('--gutter-l', left ? Math.ceil(left + LABEL_GUTTER_PAD) + 'px' : '0px');
+    f.style.setProperty('--gutter-r', right ? Math.ceil(right + LABEL_GUTTER_PAD) + 'px' : '0px');
+  });
+}
+// Labels are the overlay's direct children; class changes count too, since a label lit after
+// placement (.on adds padding and an outline) grows. The subtree is watched only for those class
+// changes — the info box's status text also lives under #overlay and changes several times a second.
+new MutationObserver(function (records) {
+  const labelsChanged = records.some(function (r) {
+    return r.type === 'childList' ? r.target === overlayEl : r.target.classList.contains('overlay-item');
+  });
+  if (labelsChanged) fitLabelGutters();
+}).observe(overlayEl, { childList: true, subtree: true, attributeFilter: ['class'] });
+
 function isVmainPage(p) { return AVIONICS_PAGES.indexOf(p) !== -1 || p === 'tgt' || p === 'td' || p === 'sqd' || WPT_PAGES.indexOf(p) !== -1 || p === 'akf' || p === 'bdf' || p === 'pal' || p === 'mis' || p === 'obj' || p === 'lyt' || p === 'keys' || p === 'hud' || p === 'ui' || ExtNav.isExtensionPage(p); }
 
 // The item count on each MAIN split page. Unlike WPN, MAIN reserves no fixed back-slot: PREV anchors
@@ -726,6 +774,7 @@ function paneNavigate(paneIdx, page) {
   if (page === 'doc') paneDocView[paneIdx] = 'index';   // fresh pane always opens on DOC's own index
   paneFollowOn[paneIdx] = false;   // iframe reloads; follow restarts off (re-reported on load)
   LayoutPages.navigateFrame(paneIframes[paneIdx], url);
+  syncLabelInset(paneIframes[paneIdx], page);
   renderSplitLabels();
   refreshFollowIndicator();        // entering/leaving MAP changes whether the chip shows
   reportSoiPage();                 // this pane's content changed — tell the server if it's now
@@ -1756,6 +1805,7 @@ function showPage(name) {
   // BDF's WARHEADS readout), so a horizontal label doesn't cover it. HUD clears the same corner a
   // different way — see isVmainPage below. See .overlay.vmain in mfd.css and isVmainPage below.
   overlayEl.classList.toggle('vmain', isVmainPage(name));
+  syncLabelInset(pageFrame, name);
   infoBox.classList.toggle('show', name === 'main');
   const frameUrl = frameUrlFor(name);
   screenEl.classList.toggle('page-on', !!frameUrl);   // WPN/TGT/TGP/AVN render in #page-frame

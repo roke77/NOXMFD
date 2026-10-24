@@ -304,6 +304,9 @@
     ? Object.assign({}, DEFAULT_FRAME, window.__PREVIEW_FRAME__,
         { targets: window.__PREVIEW_FRAME__.targets || DEFAULT_FRAME.targets })
     : DEFAULT_FRAME;
+  // TGP shows its feed (the captured still, or serve_web.py's TGP_SVG) instead of NO LOCK — set
+  // after the merge because a capture taken without a lock carries tgpActive:false.
+  FRAME.tgpActive = true;
 
   // One nuclear exclusion zone (MAP's orange ring, FactionHQ.GetExclusionZones) placed off the
   // active frame's ownship so it lands on-screen for any capture: {id,x,z,r}, metres.

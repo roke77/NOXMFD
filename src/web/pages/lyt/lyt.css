@@ -11,11 +11,9 @@ html, body {
 }
 button { font-family: inherit; }
 
-/* Equal insets, the same as the other pages with a stood-up MAIN label (isVmainPage in mfd.js):
-   they clear the bezel's key column on each side, so the content takes everything between. */
 .lyt-panel {
   min-height: 100%;
-  padding: var(--page-top) clamp(34px, 5vw, 48px) 20px;
+  padding: var(--page-top) 14px 20px;
   display: flex; flex-direction: column; gap: 14px;
 }
 

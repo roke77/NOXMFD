@@ -2,10 +2,11 @@
 // the bezel shell does.
 //
 // What this layout owns (the doc's four: frame + label placement + split behaviour + page geometry):
-//   • frame           — none. f35.html/css are borderless; the page IS the display.
-//   • label placement — a grid drawn over the page, in one of two modes (NAV_LAYOUT below):
-//                       'edge' hugs the left column like the bezel's key bank; 'center' puts the
-//                       labels in the middle of the glass for MAIN, which has no page behind them.
+//   • frame           — the PCD's OSB side zones. No bezel: each portal keeps a column of glass
+//                       either side of its page window for the labels and grips (f35.css .portal).
+//   • label placement — a grid, in one of two modes (NAV_LAYOUT below): 'edge' puts the labels
+//                       in the L/R OSB columns, where the bezel has its key banks; 'center'
+//                       puts them in the middle of the glass for MAIN, which has no page behind them.
 //   • split behaviour — portals. Four side-by-side MFDs, each with its own page, labels and
 //                       state; the corner grips merge adjacent ones and split them back. The
 //                       arrangement rule is f35-glass.js. Nothing of the bezel's split machinery
@@ -293,6 +294,18 @@
   // which is exactly the split the seam predicts.
   const NAV_LAYOUT = { main: 'center' };
 
+  // Pages whose window fills the whole portal, under the OSB columns, instead of sitting between them.
+  // MAP and TGP are pictures, not content a label can cover: they give up the columns' clear glass
+  // for the extra picture, and their labels and grips sit on top of it.
+  const FULL_BLEED = { map: true, tgp: true };
+
+  // Pages whose edge labels stand upright (.osb-v, f35.css): text pages that want the width more
+  // than the labels need it, so their OSB columns shrink to one glyph. Extension pages join them
+  // in renderNav. The text pages of the set the bezel stands up (mfd.js isVmainPage); its
+  // instrument pages (ADI/HSI/AFM/AVN) and WPT keep horizontal labels here.
+  const UPRIGHT_LABELS = { tgt: true, sqd: true, akf: true, bdf: true, pal: true, mis: true, obj: true,
+                           keys: true, hud: true, ui: true };
+
   const slices  = Object.create(null);   // the tap's latest message, by type — shared by all portals
   // Not the source of orientation — a portal measures its own box for that (forwardOrientation).
   // This only says "the glass turned", which is one of the things that resizes a portal.
@@ -417,6 +430,9 @@
     // portal's current index at click time, which merging shifts.
     function setGrips(specs) {
       el.querySelectorAll('.portal-grip').forEach(function (g) { g.remove(); });
+      // A grip's corner reserves room in that side's OSB column (f35.css --osb-left/--osb-right).
+      el.classList.toggle('grip-l', specs.some(function (s) { return s.corner === 'left'; }));
+      el.classList.toggle('grip-r', specs.some(function (s) { return s.corner === 'right'; }));
       specs.forEach(function (spec) {
         el.appendChild(makeGrip(spec, function (action) { onGrip(api, action); }));
       });
@@ -530,14 +546,18 @@
       if (currentPage === 'wpn') { markMasterArms(); markCombatMode(); }
     }
 
-    // Row 1 is the CM band; rows 2..6 are the weapon slots; the image spans rows 2..6. The grid and
-    // the frame fill the same box — the grid is inset:0 in the portal, the frame is 100%/100% of it
-    // — so a row's offset is already the frame's own coordinate space, with no frameTop to subtract
-    // unlike the bezel reading shell-side separators. (The portal's border shrinks both together.)
+    // Row 1 is the CM band; rows 2..6 are the weapon slots; the image spans rows 2..6. The edge grid
+    // and the frame share the same top (f35.css) — so a row's offset is already the frame's own
+    // coordinate space, with no frameTop to subtract unlike the bezel reading shell-side separators.
     function forwardWpnLayout() {
       const w = frameWin();
       if (!w) return;
-      const rowH = frame.getBoundingClientRect().height / ROWS;
+      // The grid's own first row, not frame height / ROWS: the grips' foot row (f35.css)
+      // can take a slice of the height below the six label rows.
+      // showPage forwards before renderNav switches the grid to 'edge', so the grid can still be the
+      // previous screen's; the frame's load forwards again once it is WPN's.
+      if (!grid.classList.contains('edge')) return;
+      const rowH = parseFloat(getComputedStyle(grid).gridTemplateRows);
       const slots = [];
       for (let k = 0; k < WPN_MAX_DISPLAY; k++) slots.push({ top: (k + 1) * rowH, height: rowH });
       w.postMessage({ mfd: true, type: 'wpn-layout', layout: 'full', slots: slots,
@@ -808,7 +828,14 @@
       grid.dataset.page = currentPage;   // lets f35.css special-case a page's labels (see TGT)
       grid.toggleAttribute('data-ext', ExtNav.isExtensionPage(currentPage));   // any extension page, same reason
       grid.textContent = '';
-      itemsFor(currentPage).forEach(function (item, i) {
+      // Size the OSB columns (f35.css --osb-label/--osb-right) before anything below measures a
+      // label: upright labels take a narrower column, and the right one exists only when used.
+      const items = itemsFor(currentPage);
+      el.classList.toggle('osb-v', mode === 'edge' &&
+                          (!!UPRIGHT_LABELS[currentPage] || ExtNav.isExtensionPage(currentPage)));
+      el.classList.toggle('osb-r', mode === 'edge' &&
+                          items.some(function (item, i) { return (item.cell || cellOf(i)).col === 2; }));
+      items.forEach(function (item, i) {
         // An item may name its own cell (WPN's NEXT sits top-right); otherwise it takes the
         // index's. NAV items never carry placement — nav-model.test.js enforces that — so this
         // only ever fires for items this layout built itself.
@@ -820,13 +847,13 @@
         }
         const wired = canDo(item.action);
         const b = document.createElement('button');
-        b.className   = 'nav-item' + (wired ? '' : ' pending') + (cell.col === 2 ? ' col-right' : '')
+        b.className   = 'nav-item' + (wired ? '' : ' pending')
                        + (item.mark ? ' on' : '');   // e.g. NAV.bdf/NAV.pal lighting the live one
         b.textContent = item.label;
         b.dataset.action = item.action;   // markFollow finds FLW by this
         if (mode === 'edge') {
           b.style.gridRow    = String(cell.row);
-          b.style.gridColumn = String(cell.col);
+          b.style.gridColumn = cell.col === 2 ? '3' : '1';   // the L / R OSB columns; 2 is the page window
         }
         if (wired && item.action in COMBAT_MODE_ACTIONS) {
           // Press-and-HOLD resets combat mode to ALL (see the COMBAT_MODE_ACTIONS comment above) —
@@ -941,6 +968,7 @@
       currentPage = name;
       wpnNavKey = '';   // entering any page redraws the grid; don't let a stale key suppress it
       if (name === 'doc') docView = 'index';   // fresh portal always opens on DOC's own index
+      frame.classList.toggle('full-bleed', !!FULL_BLEED[name]);
       // A page with no content of its own (MAIN) blanks the frame rather than hiding it: the
       // iframe's background is the glass colour, so what shows through is the label grid on black.
       LayoutPages.navigateFrame(frame, F35_PAGES[name] || (ExtNav.isExtensionPage(name) ? '/ext/' + name : 'about:blank'));

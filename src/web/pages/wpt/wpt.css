@@ -1,7 +1,6 @@
 /* WPT page (docs/wpt-rework.md, design "WPT A · Routes"): route cards and the fixed steer-point
    group on the left, the open route or group on the right. Same full-panel frame as TGT: a header
-   with a green-dark rule, and side insets that clear the shell's upright bezel labels. Sizes are em
-   of .wpt-panel's font-size (1em = the design's 16px at full view), so a split pane scales down. */
+   with a green-dark rule. Sizes are em of .wpt-panel's font-size (1em = the design's 16px at full view), so a split pane scales down. */
 
 * { box-sizing: border-box; }
 
@@ -27,10 +26,6 @@ button { font-size: inherit; }
   display: flex; flex-direction: column;
   gap: 0.5em;
   padding: clamp(6px, 1.8vmin, 16px);
-  /* Wider than TGT's clamp(34px, 5vw, 48px): this family's own label is the lit one, and its
-     outlined box reaches ~46px in from the edge, past 5vw in a half-width pane. */
-  padding-left: clamp(50px, 5.5vw, 56px);
-  padding-right: clamp(50px, 5.5vw, 56px);
   /* --fs is the design's 16px; table columns size off it so header and rows line up whatever
      their own text size. */
   --fs: clamp(12px, 2.1vmin, 19px);

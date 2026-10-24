@@ -371,6 +371,50 @@ is built. Because the bar is fixed there is no per-toggle recompute; the nav
 grids need nothing (`edge` is rows of the portal's height, `center` is
 `cq`-sized), and the corner grips sit at the portal's own bottom.
 
+## The OSB frame
+
+Players reported the corner grips covering page controls (MAP's SLEW and its
+GRID readout): labels and grips were drawn on top of the page, and every
+bottom corner was already in use. A player pointed at the real PCD's OSB zone
+diagram (T1-T5, L1-L6, R1-R6, B1-B5 around each window), which answers it:
+the jet keeps its buttons in a ring of glass around the window, not on it.
+
+- Each portal's page window is full height, between two OSB side columns
+  (`f35.css .portal`). The edge label grid's outer columns are the L/R
+  zones; its middle column is the page window. There are no top/bottom rows:
+  nothing used T1-T5, and the page wanted the height.
+- Our 6-per-side NAV maps 1:1 onto the 7x5 window's L1-L6/R1-R6, so no NAV
+  or page changes were needed.
+- Each column is only as wide as what is in it: a horizontal-label column
+  (`--osb-w`), an upright-label column (`--osb-vw`, the text pages in
+  `f35.js UPRIGHT_LABELS`, the same set the bezel stands up), a grip-only
+  column (`--osb-band`), or nothing at all on a right side with neither.
+- Grips sit in a 7th foot row under the labels. Every portal keeps that row,
+  grip or not, so labels line up across neighbouring portals.
+- The edge grid and the iframe share the same top, so WPN's forwarded row
+  rects take their row height from the grid itself. WPN's row hits span the
+  L column and the page band beside it.
+- Upright labels stay, now to narrow the column rather than to dodge page
+  content.
+- MAP and TGP are the exceptions (`f35.js FULL_BLEED`): their window fills
+  the whole portal and the labels and grips sit over the picture, as before.
+  TGP's labels keep their translucent scrim for that. The map's own GRID
+  readout can sit under a grip again.
+- Label spacing belongs to the layout, not the page. Pages used to pad their
+  own sides to clear the bezel's labels (34-48px on TGT/TD/SQD/AKF/MD/HUD/UI/
+  KEY/LYT, 50-56px on ADI/HSI/WPT/RTD), which doubled up inside the ring.
+  They now fill whatever box they get; the classic layout insets its frame
+  and split panes instead (`mfd.js LABEL_INSET_PAGES`), drawn as a
+  glass-coloured border inside the frame so a V-split's divider stays
+  centred. Each side's border is measured off the labels on it
+  (`fitLabelGutters`): ~34px for an upright label, wider when one is lit,
+  none on a side without labels. AVN's 90px icon-row padding is still
+  page-side: it lines up with the bezel's key labels rather than a gutter.
+
+Open: a quarter-width portal at 1280 is still tight for the horizontal-label
+pages (WPN, TGP, RDR); whether narrow portals should drop the columns (the
+jet's small windows have no OSBs) is undecided.
+
 ## Out of scope
 
 - Changing page content or the SSE/telemetry contract — both are
