@@ -467,13 +467,22 @@ html, body {
   min-width: 0;
   overflow: hidden;
   container-type: size;
-  /* The OSB frame — the real PCD's zone ring (T1-T5 / L1-L6 / R1-R6 / B1-B5): labels and grips
-     live in a ring of glass around the page window rather than on top of it, so nothing either
-     draws can cover a page's own controls. --osb-w is a side column, wide enough for a four-glyph
-     label; --osb-band is the top/bottom row, tall enough for a grip. Both are read by children,
-     so their cq units resolve against this portal. */
+  /* The OSB frame — the real PCD's side zones (L1-L6 / R1-R6): labels and grips live in columns
+     of glass beside the page window rather than on top of it, so nothing either draws can cover a
+     page's own controls. Each column is only as wide as what is in it, so the page gets the rest:
+       --osb-label  a label column: --osb-w for horizontal labels, --osb-vw for upright ones (.osb-v)
+       --osb-band   a grip's square, and the foot row it takes under the labels on its side
+       --osb-left / --osb-right  the two columns, set by the classes below (f35.js renderNav and
+                    setGrips): the left always carries labels; the right only when the page puts
+                    labels there (.osb-r) or a grip sits in that corner (.grip-r), otherwise none.
+     Read by children, so the cq units resolve against this portal. */
   --osb-w: clamp(56px, 18cqw, 76px);
+  --osb-vw: 34px;
   --osb-band: clamp(44px, 6cqh, 56px);   /* floor keeps the grip a 36px touch target */
+  --osb-label: var(--osb-w);
+  --osb-left: var(--osb-label);
+  --osb-right: 0px;
+  --osb-foot: 0px;
   /* Framed on all four sides, as the reference display frames each of its windows. Each portal is
      a whole MFD, so it is drawn as a whole box rather than being merely divided from its
      neighbour — which is also why this needs no knowledge of the arrangement: merging removes a
@@ -514,24 +523,32 @@ html, body {
    portals are away — the layout picker takes their place, and it draws no frame of its own. */
 .portals { margin-top: -2px; }
 
-/* The page window: the portal minus the OSB ring. Explicit width/height because an iframe is a
-   replaced element — left/right/top/bottom alone won't stretch it. */
+.portal.osb-v          { --osb-label: var(--osb-vw); }
+.portal.grip-l         { --osb-left: max(var(--osb-label), var(--osb-band)); }
+.portal.grip-r         { --osb-right: var(--osb-band); }
+.portal.osb-r          { --osb-right: var(--osb-label); }
+.portal.osb-r.grip-r   { --osb-right: max(var(--osb-label), var(--osb-band)); }
+/* A grip under a label column pushes that column's labels up off it; a grip alone in its column
+   (.grip-r without .osb-r) has the column to itself and needs no foot row. */
+.portal.grip-l,
+.portal.grip-r.osb-r   { --osb-foot: var(--osb-band); }
+
+/* The page window: full height, between the two OSB columns. Explicit width because an iframe is
+   a replaced element — left/right alone won't stretch it. */
 .page-frame {
   position: absolute;
-  top: var(--osb-band);
-  left: var(--osb-w);
+  top: 0;
+  left: var(--osb-left);
   display: block;
-  width: calc(100% - 2 * var(--osb-w));
-  height: calc(100% - 2 * var(--osb-band));
+  width: calc(100% - var(--osb-left) - var(--osb-right));
+  height: 100%;
   border: 0;
   background: var(--no-bg);
 }
 /* f35.js FULL_BLEED: the page takes the whole portal and the ring's labels and grips sit over it. */
 .page-frame.full-bleed {
-  top: 0;
   left: 0;
   width: 100%;
-  height: 100%;
 }
 
 /* ── Corner grips ──────────────────────────────────────────────────────────────────────
@@ -541,8 +558,8 @@ html, body {
    renderNav. The same teal as the labels: both name a control rather than report instrument data.
 
    Square, and the triangle fills it: the whole square is the target, so there is no dead padding
-   around a small mark to tap and miss. Sized to the bottom OSB row, so it sits in the ring below
-   the side column and never over the page. */
+   around a small mark to tap and miss. Sized to --osb-band, so it sits at the foot of its OSB
+   column, under that column's labels and never over the page. */
 .portal-grip {
   position: absolute;
   bottom: 4px;
@@ -587,14 +604,13 @@ html, body {
 
 /* 'edge' — the OSB side columns, L1-L6 and R1-R6. 6 rows is deliberately the geometry the bezel's
    physical keys describe too, so a NAV item's index maps to a cell exactly as it maps to a key
-   slot (f35.js cellOf). The grid spans the page window's height, so a row band here is the same
-   band of the page (WPN's forwarded rects rely on it); the middle column is the page window
-   itself, which only WPN's row hits reach into. */
+   slot (f35.js cellOf). The grid shares the page window's top, so a row band here is the same
+   band of the page (f35.js forwardWpnLayout reads the row height back from it); the 7th row is
+   the grip's foot; the middle column is the page window itself, which only WPN's row hits reach
+   into. */
 .nav-grid.edge {
-  top: var(--osb-band);
-  bottom: var(--osb-band);
-  grid-template-rows: repeat(6, 1fr);
-  grid-template-columns: var(--osb-w) 1fr var(--osb-w);
+  grid-template-rows: repeat(6, 1fr) var(--osb-foot);
+  grid-template-columns: var(--osb-left) 1fr var(--osb-right);
 }
 
 /* 'center' — for a screen whose labels ARE the content (MAIN: no page renders behind them).
@@ -631,6 +647,14 @@ html, body {
   justify-self: center;
   align-self: center;
   padding: 4px 3px;
+}
+/* f35.js UPRIGHT_LABELS: text pages stand their labels up, so the column is one glyph wide and the
+   page gets the width back. */
+.portal.osb-v .nav-grid.edge .nav-item {
+  writing-mode: vertical-rl;
+  text-orientation: upright;
+  letter-spacing: 0;
+  padding: 3px 4px;
 }
 
 /* WPN's weapon rows are drawn by the page, aligned to rows 2-6 by the rects we forward. These

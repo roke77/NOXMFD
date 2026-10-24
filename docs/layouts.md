@@ -379,18 +379,24 @@ bottom corner was already in use. A player pointed at the real PCD's OSB zone
 diagram (T1-T5, L1-L6, R1-R6, B1-B5 around each window), which answers it:
 the jet keeps its buttons in a ring of glass around the window, not on it.
 
-- Each portal insets its page iframe by `--osb-w` on the sides and
-  `--osb-band` top and bottom (`f35.css .portal`). The edge label grid's
-  outer columns are the L/R zones; its middle column is the page window.
+- Each portal's page window is full height, between two OSB side columns
+  (`f35.css .portal`). The edge label grid's outer columns are the L/R
+  zones; its middle column is the page window. There are no top/bottom rows:
+  nothing used T1-T5, and the page wanted the height.
 - Our 6-per-side NAV maps 1:1 onto the 7x5 window's L1-L6/R1-R6, so no NAV
   or page changes were needed.
-- Grips sit in the bottom band, below the side columns. The top band is kept
-  empty for the jet's proportions.
-- The edge grid and the iframe share the same top and height, so WPN's
-  forwarded row rects stay valid unchanged. WPN's row hits span the L column
-  and the page band beside it.
-- The upright-MAIN workaround (TGT/SQD/AKF/MD/HUD/UI/extensions) and TGP's
-  label scrim are gone from the F-35: labels no longer sit over any page.
+- Each column is only as wide as what is in it: a horizontal-label column
+  (`--osb-w`), an upright-label column (`--osb-vw`, the text pages in
+  `f35.js UPRIGHT_LABELS`, the same set the bezel stands up), a grip-only
+  column (`--osb-band`), or nothing at all on a right side with neither.
+- Grips sit at the foot of their side's column, under its labels (a 7th
+  grid row, `--osb-foot`).
+- The edge grid and the iframe share the same top, so WPN's forwarded row
+  rects take their row height from the grid itself. WPN's row hits span the
+  L column and the page band beside it.
+- TGP's label scrim is gone from the F-35: labels no longer sit over any
+  page. Upright labels stay, now to narrow the column rather than to dodge
+  page content.
 - MAP is the exception (`f35.js FULL_BLEED`): its window fills the whole
   portal and the ring's labels and grips sit over the map, as before. The
   map's own GRID readout can sit under a grip again.
@@ -403,9 +409,9 @@ the jet keeps its buttons in a ring of glass around the window, not on it.
   V-split's divider stays centred. AVN's 90px icon-row padding is still
   page-side: it lines up with the bezel's key labels rather than a gutter.
 
-Open: a quarter-width portal at 1280 leaves a ~204px page window; whether
-narrow portals should drop the ring (the jet's small windows have no OSBs)
-is undecided.
+Open: a quarter-width portal at 1280 is still tight for the horizontal-label
+pages (WPN, TGP, RDR); whether narrow portals should drop the columns (the
+jet's small windows have no OSBs) is undecided.
 
 ## Out of scope
 

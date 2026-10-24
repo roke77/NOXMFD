@@ -299,6 +299,12 @@
   // glass for the extra map, and its labels and grips sit on top of it.
   const FULL_BLEED = { map: true };
 
+  // Pages whose edge labels stand upright (.osb-v, f35.css): text pages that want the width more
+  // than the labels need it, so their OSB columns shrink to one glyph. Extension pages join them
+  // in renderNav — the same set the bezel stands up (mfd.js isVmainPage).
+  const UPRIGHT_LABELS = { tgt: true, sqd: true, akf: true, bdf: true, pal: true, mis: true, obj: true,
+                           keys: true, hud: true, ui: true };
+
   const slices  = Object.create(null);   // the tap's latest message, by type — shared by all portals
   // Not the source of orientation — a portal measures its own box for that (forwardOrientation).
   // This only says "the glass turned", which is one of the things that resizes a portal.
@@ -423,6 +429,9 @@
     // portal's current index at click time, which merging shifts.
     function setGrips(specs) {
       el.querySelectorAll('.portal-grip').forEach(function (g) { g.remove(); });
+      // A grip's corner reserves room in that side's OSB column (f35.css --osb-left/--osb-right).
+      el.classList.toggle('grip-l', specs.some(function (s) { return s.corner === 'left'; }));
+      el.classList.toggle('grip-r', specs.some(function (s) { return s.corner === 'right'; }));
       specs.forEach(function (spec) {
         el.appendChild(makeGrip(spec, function (action) { onGrip(api, action); }));
       });
@@ -543,7 +552,9 @@
     function forwardWpnLayout() {
       const w = frameWin();
       if (!w) return;
-      const rowH = frame.getBoundingClientRect().height / ROWS;
+      // The grid's own first row, not frame height / ROWS: the grip's foot row (f35.css --osb-foot)
+      // can take a slice of the height below the six label rows.
+      const rowH = parseFloat(getComputedStyle(grid).gridTemplateRows);
       const slots = [];
       for (let k = 0; k < WPN_MAX_DISPLAY; k++) slots.push({ top: (k + 1) * rowH, height: rowH });
       w.postMessage({ mfd: true, type: 'wpn-layout', layout: 'full', slots: slots,
@@ -814,7 +825,14 @@
       grid.dataset.page = currentPage;   // lets f35.css special-case a page's labels (see TGT)
       grid.toggleAttribute('data-ext', ExtNav.isExtensionPage(currentPage));   // any extension page, same reason
       grid.textContent = '';
-      itemsFor(currentPage).forEach(function (item, i) {
+      // Size the OSB columns (f35.css --osb-label/--osb-right) before anything below measures a
+      // label: upright labels take a narrower column, and the right one exists only when used.
+      const items = itemsFor(currentPage);
+      el.classList.toggle('osb-v', mode === 'edge' &&
+                          (!!UPRIGHT_LABELS[currentPage] || ExtNav.isExtensionPage(currentPage)));
+      el.classList.toggle('osb-r', mode === 'edge' &&
+                          items.some(function (item, i) { return (item.cell || cellOf(i)).col === 2; }));
+      items.forEach(function (item, i) {
         // An item may name its own cell (WPN's NEXT sits top-right); otherwise it takes the
         // index's. NAV items never carry placement — nav-model.test.js enforces that — so this
         // only ever fires for items this layout built itself.
