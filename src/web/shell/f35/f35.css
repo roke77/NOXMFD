@@ -165,23 +165,24 @@ html, body {
 .ms-status.waiting      { color: var(--no-amber); }
 .ms-status.disconnected { color: var(--no-red); }
 
-/* THRL and FUEL. AVN's bars can't be hosted as they are — absolutely positioned, vertical, sized
-   from rects the shell forwards — so what comes across is the rule (avn-throttle-policy, shared) and
-   the LOOK, rebuilt sideways: see the tube below. What stays behind is the ¯\___ leader that tracks
-   each fill's tip, which needs a per-paint measurement and has nowhere to go in a bar this short.
-   Each grows into the strip's slack up to a cap, so a sparse strip doesn't stretch one trough
-   across the glass. */
-.ms-gauge {
-  flex: 1 1 140px;
-  min-width: 120px;
-  max-width: 320px;
+/* THRL + FUEL, stacked, one widget. AVN's bars can't be hosted as they are — absolutely
+   positioned, vertical, sized from rects the shell forwards — so what comes across is the rule
+   (avn-throttle-policy, shared) and the LOOK, rebuilt sideways: see the tube below. What stays
+   behind is the ¯\___ leader that tracks each fill's tip, which needs a per-paint measurement and
+   has nowhere to go in a bar this short. Grows into the strip's slack up to a cap, so a sparse
+   strip doesn't stretch the troughs across the glass. */
+.ms-gauges {
+  flex: 1 1 160px;
+  min-width: 140px;
+  max-width: 480px;
   display: flex;
-  align-items: center;
-  gap: 7px;
+  flex-direction: column;
+  gap: 5px;
   font-size: 11px;
   letter-spacing: 1px;
   color: var(--no-green-dim);
 }
+.ms-gauge { display: flex; align-items: center; gap: 7px; }
 /* THRL and FUEL are four glyphs of the same monospace face, and the number's width is fixed below,
    so both troughs start and end on the same x without either being told a width. */
 .ms-gauge-label { font-weight: bold; }
@@ -205,6 +206,16 @@ html, body {
   background: var(--no-gauge-trough);
   overflow: hidden;
 }
+
+/* Each tube opens on the side facing the other, so the pair reads as one instrument rather than
+   two boxes. AVN's own frames are three-sided for the same reason — fuel drops its right border
+   and thr its left, both opening toward the silhouette they flank (avn.css). Stacked instead of
+   flanking, the sides that face each other are the bottom and the top.
+
+   Both lose exactly one horizontal edge, so both troughs stay the same height as each other; the
+   fill keeps its 3px inset from the open edge, as AVN's does. */
+.ms-gauge.thr  .ms-tube { border-bottom: none; }
+.ms-gauge.fuel .ms-tube { border-top: none; }
 
 /* The fill's box, inset from the frame the way AVN's padding insets its own. It exists so the
    fill's width:% is a percentage of the TROUGH rather than of the tube's padding box (which would
@@ -359,7 +370,7 @@ html, body {
 }
 
 /* ── Strip widgets (docs/f35-strip-widgets.md) ─────────────────────────────────────────────
-   The widgets row takes everything the edit button leaves. Flags sit 14px apart, as the AVN row
+   The widgets row takes everything the fixed group (.ms-fixed) leaves. Flags sit 14px apart, as the AVN row
    they came from did; every other neighbour pair keeps the strip's 28px. Overflow clips: a strip
    with more widgets than fit loses its right end, and edit mode is where the pilot trims it. */
 .ms-widgets {
@@ -391,6 +402,9 @@ html, body {
 
 /* Edit mode: every widget is outlined as a tap target and the selected one is amber. The tools
    only show while editing; the pencil itself takes the amber .on treatment. */
+/* WAKE, FULLSCREEN and the pencil, plus edit mode's tools ahead of them: always at the right end,
+   never part of the widget list. */
+.ms-fixed { flex: 0 0 auto; display: flex; align-items: center; gap: 12px; }
 .ms-edit-tools { display: none; gap: 6px; }
 .master-strip.editing .ms-edit-tools { display: flex; }
 .master-strip.editing .ms-widgets > [data-widget] {

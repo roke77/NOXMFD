@@ -1684,7 +1684,8 @@
   setInterval(paintClock, 1000);
 
   // In edit mode a tap selects instead of acting: the capture listener runs before the flags'
-  // avn.toggle and the WAKE/FULLSCREEN handlers, and stops the event reaching them.
+  // avn.toggle, and stops the event reaching it. WAKE/FULLSCREEN sit outside #ms-widgets, so they
+  // keep working while editing.
   widgetsEl.addEventListener('click', function (e) {
     if (!stripEditing) return;
     e.stopPropagation();

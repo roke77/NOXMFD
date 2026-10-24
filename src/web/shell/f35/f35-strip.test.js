@@ -11,7 +11,9 @@ const AdiMath = require('../../pages/adi/adi-math.js');
 assert.strictEqual(S.normalize(undefined), null);
 assert.strictEqual(S.normalize({}), null);
 assert.deepStrictEqual(S.normalize([]), []);
-assert.deepStrictEqual(S.normalize(['alt', 'nope', 'alt', 3, 'fll']), ['alt', 'fll']);
+assert.deepStrictEqual(S.normalize(['alt', 'nope', 'alt', 3, 'gauges']), ['alt', 'gauges']);
+// WAKE/FULLSCREEN are fixed chrome, never list entries.
+assert.deepStrictEqual(S.normalize(['wake', 'fll', 'logo']), ['logo']);
 assert.deepStrictEqual(S.normalize(S.DEFAULT), S.DEFAULT);
 
 // Every default and catalog id is unique and known.
@@ -26,8 +28,8 @@ assert.deepStrictEqual(S.move(['a', 'b'], 'a', -1), ['a', 'b']);
 assert.deepStrictEqual(S.move(['a', 'b'], 'b', 1), ['a', 'b']);
 
 // add: after the selection, else at the end; never twice, never unknown.
-assert.deepStrictEqual(S.add(['logo', 'fll'], 'alt', 'logo'), ['logo', 'alt', 'fll']);
-assert.deepStrictEqual(S.add(['logo', 'fll'], 'alt', null), ['logo', 'fll', 'alt']);
+assert.deepStrictEqual(S.add(['logo', 'net'], 'alt', 'logo'), ['logo', 'alt', 'net']);
+assert.deepStrictEqual(S.add(['logo', 'net'], 'alt', null), ['logo', 'net', 'alt']);
 assert.deepStrictEqual(S.add(['alt'], 'alt', null), ['alt']);
 assert.deepStrictEqual(S.add(['alt'], 'bogus', null), ['alt']);
 assert.deepStrictEqual(S.remove(['a', 'b'], 'a'), ['b']);

@@ -14,11 +14,14 @@ Branch: `feature/f35-topbar-widgets`.
 - **Editing in place.** A pencil button at the strip's right end toggles edit mode. In edit mode
   every widget is outlined, a tap selects one (amber), and a tool group (◀ ▶ ✕ +) moves, removes or
   adds after the selection. ◀ ▶ buttons rather than drag, so it works by touch on a tablet with no
-  extra gesture code. The pencil is not a widget, so the way into edit mode can't be removed.
+  extra gesture code.
+- **WAKE, FULLSCREEN and the pencil are fixed**, not widgets: one group pinned to the strip's right
+  end (`.ms-fixed`), with edit mode's tools showing just ahead of it. The way into edit mode can't
+  be removed, and WAKE/FULLSCREEN keep working while editing.
 - **"Configured" means which widgets and in what order.** No per-widget settings in v1. The
   readouts follow the game's unit setting (`adi.metric`), the same as ADI.
-- **Catalog v1:** today's strip split into widgets (logo, connection, THRL, FUEL, each of the eight
-  avionics flags, WAKE, FULLSCREEN), flight-data readouts from the existing `adi` slice (ALT, R-ALT,
+- **Catalog v1:** today's strip split into widgets (logo, connection, THRL/FUEL as one stacked
+  widget, each of the eight avionics flags), flight-data readouts from the existing `adi` slice (ALT, R-ALT,
   TAS, HDG, V/S, G, MACH), clocks (browser local time; mission time of day and elapsed from the
   existing `mis` slice), and a SPACER that takes the slack. No new telemetry.
 - **Persistence: presets plus last-used.** The list is stored per browser in `localStorage`
@@ -39,21 +42,22 @@ Branch: `feature/f35-topbar-widgets`.
   (`getElementById` can't find a detached element). Readouts skip painting while off the strip and
   repaint from the cached slice on `renderStrip`.
 - Edit mode's tap-to-select is one capture-phase click listener on `#ms-widgets`; it stops the
-  event before a flag's `avn.toggle` or the WAKE/FULLSCREEN handlers.
+  event before a flag's `avn.toggle`. The fixed group sits outside `#ms-widgets`, so it isn't caught.
 - The ADD list reuses the shared `LayoutModal.open`.
-- The default list is the pre-feature strip, with THRL/FUEL now side by side (each its own widget)
-  instead of stacked, and a SPACER where the flags' `margin-left: auto` used to push them right.
+- The default list is the pre-feature strip, with a SPACER where the flags' `margin-left: auto`
+  used to push them right.
 
 ## Known limits
 
-- A strip with more widgets than fit clips at its right end (`overflow: hidden`), as the fixed
-  strip did at narrow widths; edit mode is where the pilot trims it.
+- A strip with more widgets than fit clips the widget row's right end (`overflow: hidden`); the
+  fixed group stays visible, so edit mode is always reachable to trim it.
 - The F-35 LOAD picker shows names only, so it doesn't preview a layout's strip.
 
 ## Verification
 
 - `f35-strip.test.js`: normalize, list edits, unit conversion, clocks.
-- `serve_web.py` harness at 1800 px: default strip matches the old one; add/move/remove in edit
+- `serve_web.py` harness at 1800 px: default strip matches the old one, with the fixed group at
+  the right end in and out of edit mode; add/move/remove in edit
   mode; a flag tap in edit mode sends no `avn.toggle`; the strip survives a reload; SAVE writes
   `strip` into the layout blob and LOAD restores it after the strip was changed.
 - Still needs a live-game check: ALT/R-ALT/TAS/HDG/V/S/G/MACH against the cockpit instruments in

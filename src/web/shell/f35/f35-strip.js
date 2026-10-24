@@ -8,8 +8,7 @@
   var CATALOG = [
     { id: 'logo',     label: 'NO XMFD LOGO' },
     { id: 'net',      label: 'CONNECTION' },
-    { id: 'thr',      label: 'THRL GAUGE' },
-    { id: 'fuel',     label: 'FUEL GAUGE' },
+    { id: 'gauges',   label: 'THRL / FUEL' },
     { id: 'alt',      label: 'ALT' },
     { id: 'agl',      label: 'R-ALT' },
     { id: 'tas',      label: 'TAS' },
@@ -29,16 +28,15 @@
     { id: 'nvg',      label: 'NVG FLAG' },
     { id: 'lights',   label: 'LIGHTS FLAG' },
     { id: 'turret',   label: 'TURRET FLAG' },
-    { id: 'wake',     label: 'WAKE LOCK' },
-    { id: 'fll',      label: 'FULLSCREEN' },
   ];
   var KNOWN = {};
   CATALOG.forEach(function (w) { KNOWN[w.id] = w; });
 
   // The strip a fresh browser starts with: the fixed strip this feature replaced, with the spacer
-  // where the flags' margin-left:auto used to push them right.
-  var DEFAULT = ['logo', 'net', 'thr', 'fuel', 'spacer',
-                 'gear', 'radar', 'guns', 'eng', 'assist', 'nvg', 'lights', 'turret', 'wake', 'fll'];
+  // where the flags' margin-left:auto used to push them right. WAKE, FULLSCREEN and the edit button
+  // aren't widgets — they sit in a fixed group after the list (f35.html .ms-fixed).
+  var DEFAULT = ['logo', 'net', 'gauges', 'spacer',
+                 'gear', 'radar', 'guns', 'eng', 'assist', 'nvg', 'lights', 'turret'];
 
   // A stored or preset-carried list → a clean one: known ids only, each once. null when `list`
   // isn't an array at all, so a preset saved before the strip was editable leaves the strip alone.

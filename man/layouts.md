@@ -48,19 +48,20 @@ see [MAIN's Connection status](main.md#connection-status).
 
 ### Editing the top strip
 
-The strip is made of widgets you choose and order. Tap **✎** at its right end to edit: every widget
-gets a dashed outline, and tapping one selects it (amber). Then:
+The strip is made of widgets you choose and order. **WAKE**, **FULLSCREEN** and **✎** stay fixed at
+its right end and aren't widgets. Tap **✎** to edit: every widget gets a dashed outline, and tapping
+one selects it (amber). Then:
 
 - **◀ ▶** — move the selected widget one place left or right;
 - **✕** — remove it;
-- **+** — add a widget after the selection (or at the end): the logo, connection, THRL and FUEL
-  gauges, each avionics flag on its own, WAKE, FULLSCREEN, the flight-data readouts **ALT**,
+- **+** — add a widget after the selection (or at the end): the logo, connection, the THRL/FUEL
+  gauges (one widget, stacked), each avionics flag on its own, the flight-data readouts **ALT**,
   **R-ALT**, **TAS**, **HDG**, **V/S**, **G** and **MACH** (in the game's units), the clocks
   **LOCAL TIME**, **MISSION TIME** and **MISSION ELAPSED** (the mission clocks read `--` in
   multiplayer), and a **SPACER** that pushes everything after it to the right.
 
-Tap **✎** again to finish. While editing, a tap on a flag or button selects it instead of pressing
-it. The strip is remembered in this browser, and **SAVE** stores it with the layout, so each saved
+Tap **✎** again to finish. While editing, a tap on a flag selects it instead of toggling it; WAKE
+and FULLSCREEN keep working. The strip is remembered in this browser, and **SAVE** stores it with the layout, so each saved
 F-35 layout can carry its own strip. A layout saved before the strip was editable leaves it as it is.
 
 ![F-35 layout — MAIN](images/F-35%20MAIN.png)
