@@ -372,13 +372,16 @@
   // The selected weapon (WPN's filled box, the F-35 strip's WPN MODES), over a capture's own too,
   // and added to the loadout if the padding above didn't reach it — a selection is always one of
   // its rows. softRel matches it, so a soft pick equal to the selection is shown NOT outlined;
-  // softGun (a different weapon) shows the outline. The Kingpin is air-to-ground, so combat mode is
-  // A/G to match (docs/radar-master-arms.md — 'all' | 'aa' | 'ag').
-  const PREVIEW_SEL_WEAPON = PREVIEW_EXTRA_WEAPONS[0];   // AGR-24 Kingpin, 6/6
+  // softGun (a different weapon) shows the outline. The selection must be a weapon the captures
+  // carry a `weapon:` sprite for, or WPN's selected-weapon image is the /weapon placeholder; the
+  // 30mm Rotary Cannon is one, and its row is added here (at a captured count) when the frame has
+  // none. The gun fires in either combat mode, so mode is ALL (docs/radar-master-arms.md —
+  // 'all' | 'aa' | 'ag').
+  const PREVIEW_SEL_WEAPON = { n: '30mm Rotary Cannon', a: 591, f: 750 };
   if (!Array.isArray(FRAME.loadout)) FRAME.loadout = [];
   if (!FRAME.loadout.some(x => x.n === PREVIEW_SEL_WEAPON.n)) FRAME.loadout.push(PREVIEW_SEL_WEAPON);
   FRAME.selWeapon = FRAME.softRel = PREVIEW_SEL_WEAPON.n;
-  FRAME.combatMode = 'ag';
+  FRAME.combatMode = 'all';
 
   // Synthetic radar emitters for the RWR page, authored as design intent (bearing relative to
   // the nose + signal power) and converted to world x,z against the active frame's ownship —
