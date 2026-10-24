@@ -2,10 +2,11 @@
 // the bezel shell does.
 //
 // What this layout owns (the doc's four: frame + label placement + split behaviour + page geometry):
-//   • frame           — none. f35.html/css are borderless; the page IS the display.
-//   • label placement — a grid drawn over the page, in one of two modes (NAV_LAYOUT below):
-//                       'edge' hugs the left column like the bezel's key bank; 'center' puts the
-//                       labels in the middle of the glass for MAIN, which has no page behind them.
+//   • frame           — the PCD's OSB ring. No bezel: each portal insets its page window and keeps
+//                       a ring of glass around it for the labels and grips (f35.css .portal).
+//   • label placement — a grid, in one of two modes (NAV_LAYOUT below): 'edge' puts the labels
+//                       in the ring's L/R columns, where the bezel has its key banks; 'center'
+//                       puts them in the middle of the glass for MAIN, which has no page behind them.
 //   • split behaviour — portals. Four side-by-side MFDs, each with its own page, labels and
 //                       state; the corner grips merge adjacent ones and split them back. The
 //                       arrangement rule is f35-glass.js. Nothing of the bezel's split machinery
@@ -530,10 +531,10 @@
       if (currentPage === 'wpn') { markMasterArms(); markCombatMode(); }
     }
 
-    // Row 1 is the CM band; rows 2..6 are the weapon slots; the image spans rows 2..6. The grid and
-    // the frame fill the same box — the grid is inset:0 in the portal, the frame is 100%/100% of it
-    // — so a row's offset is already the frame's own coordinate space, with no frameTop to subtract
-    // unlike the bezel reading shell-side separators. (The portal's border shrinks both together.)
+    // Row 1 is the CM band; rows 2..6 are the weapon slots; the image spans rows 2..6. The edge grid
+    // and the frame share the same top and height (both sit between the OSB ring's top and bottom
+    // rows, f35.css) — so a row's offset is already the frame's own coordinate space, with no
+    // frameTop to subtract unlike the bezel reading shell-side separators.
     function forwardWpnLayout() {
       const w = frameWin();
       if (!w) return;
@@ -820,13 +821,13 @@
         }
         const wired = canDo(item.action);
         const b = document.createElement('button');
-        b.className   = 'nav-item' + (wired ? '' : ' pending') + (cell.col === 2 ? ' col-right' : '')
+        b.className   = 'nav-item' + (wired ? '' : ' pending')
                        + (item.mark ? ' on' : '');   // e.g. NAV.bdf/NAV.pal lighting the live one
         b.textContent = item.label;
         b.dataset.action = item.action;   // markFollow finds FLW by this
         if (mode === 'edge') {
           b.style.gridRow    = String(cell.row);
-          b.style.gridColumn = String(cell.col);
+          b.style.gridColumn = cell.col === 2 ? '3' : '1';   // the L / R OSB columns; 2 is the page window
         }
         if (wired && item.action in COMBAT_MODE_ACTIONS) {
           // Press-and-HOLD resets combat mode to ALL (see the COMBAT_MODE_ACTIONS comment above) —

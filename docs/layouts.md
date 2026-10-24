@@ -371,6 +371,32 @@ is built. Because the bar is fixed there is no per-toggle recompute; the nav
 grids need nothing (`edge` is rows of the portal's height, `center` is
 `cq`-sized), and the corner grips sit at the portal's own bottom.
 
+## The OSB frame
+
+Players reported the corner grips covering page controls (MAP's SLEW and its
+GRID readout): labels and grips were drawn on top of the page, and every
+bottom corner was already in use. A player pointed at the real PCD's OSB zone
+diagram (T1-T5, L1-L6, R1-R6, B1-B5 around each window), which answers it:
+the jet keeps its buttons in a ring of glass around the window, not on it.
+
+- Each portal insets its page iframe by `--osb-w` on the sides and
+  `--osb-band` top and bottom (`f35.css .portal`). The edge label grid's
+  outer columns are the L/R zones; its middle column is the page window.
+- Our 6-per-side NAV maps 1:1 onto the 7x5 window's L1-L6/R1-R6, so no NAV
+  or page changes were needed.
+- Grips sit in the bottom band, below the side columns. The top band is kept
+  empty for the jet's proportions.
+- The edge grid and the iframe share the same top and height, so WPN's
+  forwarded row rects stay valid unchanged. WPN's row hits span the L column
+  and the page band beside it.
+- The upright-MAIN workaround (TGT/SQD/AKF/MD/HUD/UI/extensions) and TGP's
+  label scrim are gone from the F-35: labels no longer sit over any page.
+  The page-side `--edge-pad` in HUD/UI stays — the bezel still needs it.
+
+Open: a quarter-width portal at 1280 leaves a ~204px page window; whether
+narrow portals should drop the ring (the jet's small windows have no OSBs)
+is undecided.
+
 ## Out of scope
 
 - Changing page content or the SSE/telemetry contract — both are
