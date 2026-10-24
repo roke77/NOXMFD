@@ -295,9 +295,9 @@
   const NAV_LAYOUT = { main: 'center' };
 
   // Pages whose window fills the whole portal, under the OSB ring, instead of sitting inside it.
-  // MAP is a picture to pan around, not content a label can cover: it gives up the ring's clear
-  // glass for the extra map, and its labels and grips sit on top of it.
-  const FULL_BLEED = { map: true };
+  // MAP and TGP are pictures, not content a label can cover: they give up the columns' clear glass
+  // for the extra picture, and their labels and grips sit on top of it.
+  const FULL_BLEED = { map: true, tgp: true };
 
   // Pages whose edge labels stand upright (.osb-v, f35.css): text pages that want the width more
   // than the labels need it, so their OSB columns shrink to one glyph. Extension pages join them

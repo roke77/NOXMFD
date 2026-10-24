@@ -394,12 +394,12 @@ the jet keeps its buttons in a ring of glass around the window, not on it.
 - The edge grid and the iframe share the same top, so WPN's forwarded row
   rects take their row height from the grid itself. WPN's row hits span the
   L column and the page band beside it.
-- TGP's label scrim is gone from the F-35: labels no longer sit over any
-  page. Upright labels stay, now to narrow the column rather than to dodge
-  page content.
-- MAP is the exception (`f35.js FULL_BLEED`): its window fills the whole
-  portal and the ring's labels and grips sit over the map, as before. The
-  map's own GRID readout can sit under a grip again.
+- Upright labels stay, now to narrow the column rather than to dodge page
+  content.
+- MAP and TGP are the exceptions (`f35.js FULL_BLEED`): their window fills
+  the whole portal and the labels and grips sit over the picture, as before.
+  TGP's labels keep their translucent scrim for that. The map's own GRID
+  readout can sit under a grip again.
 - Label spacing belongs to the layout, not the page. Pages used to pad their
   own sides to clear the bezel's labels (34-48px on TGT/TD/SQD/AKF/MD/HUD/UI/
   KEY/LYT, 50-56px on ADI/HSI/WPT/RTD), which doubled up inside the ring.

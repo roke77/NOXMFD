@@ -644,6 +644,19 @@ html, body {
   align-self: center;
   padding: 4px 3px;
 }
+/* TGP's labels sit on its live picture (f35.js FULL_BLEED), so each gets a small translucent pill —
+   the same --no-scrim the page's own stat overlay uses (tgp.css .tgp-ov-stat) — to stay readable
+   over a bright patch of video. */
+.nav-grid[data-page="tgp"] .nav-item {
+  background: var(--no-scrim);
+  border-radius: 2px;
+}
+/* Hover keeps the layout's teal fill; without this the pill above wins on specificity and hover
+   only changes the text colour, reading as the label vanishing. */
+@media (hover: hover) {
+  .nav-grid[data-page="tgp"] .nav-item:hover { background: var(--no-teal); color: var(--no-ink); }
+}
+
 /* f35.js UPRIGHT_LABELS: text pages stand their labels up, so the column is one glyph wide and the
    page gets the width back. */
 .portal.osb-v .nav-grid.edge .nav-item {
