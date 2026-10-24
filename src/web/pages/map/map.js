@@ -886,8 +886,9 @@ function drawOverlay() {
   // persistent dashed ring on whichever unit SharedSelection currently names, id-anchored like
   // clickFlash above but never fades (an extension clears it explicitly, by sending id 0, rather
   // than this timing out). Deliberately not drawn if the unit isn't in hitTargets this frame (off
-  // screen or no longer a live contact) rather than guessing a stale position. No auto-pan/center
-  // yet — ATC→MAP only, see the doc for why MAP's own click isn't wired to drive this.
+  // screen or no longer a live contact) rather than guessing a stale position. Centering is
+  // drawOverlay's follow section's job (LOCATE ON MAP once, TRACK ON MAP continuously). Extension →
+  // MAP only; see the doc for why MAP's own click isn't wired to drive this.
   if (lastData.selectedUnitId) {
     for (let i = 0; i < hitTargets.length; i++) {
       if (hitTargets[i].id !== lastData.selectedUnitId) continue;

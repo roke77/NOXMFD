@@ -44,5 +44,16 @@ namespace NOXMFD.Tests
             SharedSelection.SetTrack(false);
             Assert.False(SharedSelection.Track);
         }
+
+        [Fact]
+        public void Center_selects_the_unit_and_bumps_the_count_every_call()
+        {
+            int before = SharedSelection.CenterSeq;
+            SharedSelection.Center(789);
+            Assert.Equal(789u, SharedSelection.Id);
+            SharedSelection.Center(789);   // the same unit again still asks MAP to center again
+            Assert.Equal(before + 2, SharedSelection.CenterSeq);
+            SharedSelection.Set(0);
+        }
     }
 }
