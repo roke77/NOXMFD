@@ -18,9 +18,6 @@ html, body {
   display: flex; flex-direction: column;
   gap: clamp(4px, 1.2vh, 10px);
   padding: clamp(6px, 1.8vmin, 16px);
-  /* Matches BDF/MIS/OBJ's own inset (isVmainPage) for the shell's vertical MAIN/MD bezel label. */
-  padding-left: clamp(34px, 5vw, 48px);
-  padding-right: clamp(34px, 5vw, 48px);
 }
 /* 3-column grid, not plain centered text: a matching spacer on the left keeps the title truly
    centered regardless of the density toggle's own width on the right. */

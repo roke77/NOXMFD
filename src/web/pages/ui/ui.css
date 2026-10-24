@@ -8,11 +8,8 @@ html, body { height: 100%; margin: 0; }
   box-sizing: border-box;
   height: 100%;
   overflow-y: auto;
-  /* The shell stands its nav labels upright on this page, on whichever edge the layout puts them,
-     so both sides get HUD/TGT's inset. */
-  --edge-pad: clamp(34px, 5vw, 48px);
-  padding: var(--page-top) var(--edge-pad) 18px;
-  max-width: calc(1100px + 2 * var(--edge-pad));
+  padding: var(--page-top) 14px 18px;
+  max-width: calc(1100px + 2 * 14px);   /* HUD's: the padding counts toward it */
   margin: 0 auto;
   font-size: clamp(11px, 1.6vw, 18px);
   /* The slim grey scrollbar every other NOXMFD list draws (tgt.css, page-chrome.css). */

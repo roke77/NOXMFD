@@ -8,16 +8,14 @@
 #pad-cursor { position: fixed; }
 
 /* Fills the pane: the panel is the page's scroller (when the fixed sections outgrow a small pane),
-   and the player list takes whatever height is left and scrolls inside it. The shell draws its MAIN
-   label upright along the left edge (isVmainPage), so the same side padding on both sides clears it
-   and keeps the content centred. */
+   and the player list takes whatever height is left and scrolls inside it. */
 html, body { height: 100%; overflow: hidden; }
 .sqd-panel {
   max-width: none;
   height: 100%;
   box-sizing: border-box;
   margin: 0;
-  padding: 14px 48px 22px;
+  padding: 14px 14px 22px;
   display: flex;
   flex-direction: column;
   overflow-y: auto;

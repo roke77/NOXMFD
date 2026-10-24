@@ -1,6 +1,6 @@
 /* TD (Target Designator, issue #47, docs/target-designator.md) page styles. Same full-panel layout
    as TGT (tgt.css): a full-height flex column whose matrix scrolls on its own, with the action
-   buttons pinned under it, and the same side inset that clears the shell's vertical bezel label. */
+   buttons pinned under it. */
 
 * { box-sizing: border-box; }
 
@@ -13,8 +13,6 @@
   display: flex; flex-direction: column;
   gap: clamp(4px, 1.4vh, 12px);
   padding: clamp(6px, 1.8vmin, 16px);
-  padding-left: clamp(34px, 5vw, 48px);
-  padding-right: clamp(34px, 5vw, 48px);
 }
 
 .td-head {

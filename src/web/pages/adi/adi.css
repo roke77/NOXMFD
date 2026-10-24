@@ -1,11 +1,10 @@
-/* ADI (docs/adi-hsi-pages.md). Equal side insets: the left one clears the shell's MAIN label, the
-   right one mirrors it so the instrument stays centred. Every size inside the SVG is in the
-   design's 890px-glass units and scales with the pane. */
+/* ADI (docs/adi-hsi-pages.md). Every size inside the SVG is in the design's 890px-glass units and
+   scales with the pane. */
 
 .adi-panel {
   height: 100%;
   box-sizing: border-box;
-  padding: clamp(4px, 1.2vmin, 10px) clamp(50px, 5.5vw, 56px);
+  padding: clamp(4px, 1.2vmin, 10px) 0;
 }
 .adi-svg { display: block; width: 100%; height: 100%; font-family: var(--no-font); }
 

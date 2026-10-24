@@ -353,6 +353,19 @@
     background: var(--no-bg);
   }
   .screen.page-on > #page-frame { display: block; }
+  /* mfd.js LABEL_INSET_PAGES: the page's viewport stops short of the left/right edges, leaving the
+     glass there to the labels this layout draws on it. A glass-coloured border rather than a
+     smaller box: the border is inside the frame's own box, so the full view and both split panes
+     (.split-pane.label-inset below) keep their size and only the page inside shrinks — margins
+     would push a V-split's divider off centre. --label-gutter clears an upright label even when it
+     is lit (.on's outline reaches ~46px in), down to a half-width split pane. */
+  .screen { --label-gutter: clamp(50px, 5.5vw, 56px); }
+  #page-frame.label-inset,
+  .split-pane.label-inset {
+    box-sizing: border-box;
+    border-left: var(--label-gutter) solid var(--no-bg);
+    border-right: var(--label-gutter) solid var(--no-bg);
+  }
   .screen.split   > #page-frame { display: none; }
   /* CRT boot warm-up, DE-SYNCED. Instead of one veil over the whole recess, the two
      content layers boot independently: the white menu labels (.overlay-item) strike first,
@@ -568,8 +581,7 @@
      switch (issue #82) as a 7th item changed that: it's the one item that lands on the right bank
      (fullViewSlot), and it reads oddly left horizontal while its 6 siblings are vertical — hence
      both banks here now, matching split mode's own per-item .vlabel treatment below (which already
-     covered both). HUD stays horizontal — its own CSS pads around the label's width instead
-     (hud.css). */
+     covered both). */
   .overlay.vmain .overlay-item.left,
   .overlay.vmain .overlay-item.right {
     writing-mode: vertical-rl;

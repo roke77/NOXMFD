@@ -1,14 +1,13 @@
 /* Extended-keybinds page — header, section rail and one scrolling column: SETTINGS tiles, then the
    binds as function | keyboard | joystick tables grouped in flight order. */
 
-/* The panel fills the pane and the column scrolls inside it, so the rail stays put. The side
-   padding is the same on both edges and just clears the bezel's upright nav labels (TGT's value). */
+/* The panel fills the pane and the column scrolls inside it, so the rail stays put. */
 html, body { overflow: hidden; }
 .kb-panel {
   max-width: none;
   height: 100vh;
   margin: 0;
-  padding: 0 clamp(34px, 5vw, 48px);
+  padding: 0 14px;
   display: flex;
   flex-direction: column;
 }

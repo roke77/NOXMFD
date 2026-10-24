@@ -391,7 +391,17 @@ the jet keeps its buttons in a ring of glass around the window, not on it.
   and the page band beside it.
 - The upright-MAIN workaround (TGT/SQD/AKF/MD/HUD/UI/extensions) and TGP's
   label scrim are gone from the F-35: labels no longer sit over any page.
-  The page-side `--edge-pad` in HUD/UI stays — the bezel still needs it.
+- MAP is the exception (`f35.js FULL_BLEED`): its window fills the whole
+  portal and the ring's labels and grips sit over the map, as before. The
+  map's own GRID readout can sit under a grip again.
+- Label spacing belongs to the layout, not the page. Pages used to pad their
+  own sides to clear the bezel's labels (34-48px on TGT/TD/SQD/AKF/MD/HUD/UI/
+  KEY/LYT, 50-56px on ADI/HSI/WPT/RTD), which doubled up inside the ring.
+  They now fill whatever box they get; the classic layout insets its frame
+  and split panes instead (`mfd.js LABEL_INSET_PAGES`, one
+  `--label-gutter`), drawn as a glass-coloured border inside the frame so a
+  V-split's divider stays centred. AVN's 90px icon-row padding is still
+  page-side: it lines up with the bezel's key labels rather than a gutter.
 
 Open: a quarter-width portal at 1280 leaves a ~204px page window; whether
 narrow portals should drop the ring (the jet's small windows have no OSBs)
