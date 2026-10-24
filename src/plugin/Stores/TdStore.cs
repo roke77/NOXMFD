@@ -11,7 +11,7 @@ namespace NOXMFD
     // target/member pair, a whole row or a whole column at once), then DESIGNATEs (pushes) each
     // member's targets to that member over the squad transport (Squad.SendDataTo). Members are keyed
     // by SteamID (issue #107): squads no longer number their members. The member answers on their own
-    // TGT page: ADD, REPLACE or DISMISS. No persistence (like Squad.cs/RouteStore's shared state),
+    // TGT page: ADD, REPLACE or DISMISS, or AUTO ACCEPT to ADD every one on arrival. No persistence (like Squad.cs/RouteStore's shared state),
     // everything here resets on plugin restart.
     //
     // The target ROWS themselves (name/grid/range/faction/datalink) are never computed here — they
@@ -51,6 +51,17 @@ namespace NOXMFD
         // Replaced wholesale on every receipt (a repeat DESIGNATE replaces, never merges — see
         // ReceiveDesignation).
         private static List<Row> _designated = new List<Row>();
+
+        // Member-only AUTO ACCEPT on TGT's dock: while on, every designation is ADDed on receipt
+        // (CommandDispatcher.TdAutoAccept) instead of waiting. _autoAccepted is the size of the
+        // last one, so the dock still has something to show once _designated has been emptied by the
+        // accept. _autoSeq counts those takes so TGT can tell a new one (it shows the dock for a few
+        // seconds per take) even when it is the same size as the last; plugin-lifetime, never reset,
+        // so it can't come back round to a value a page has already seen.
+        private static bool _autoAccept;
+        private static int _autoAccepted;
+        private static int _autoSeq;
+        internal static bool AutoAccept => _autoAccept;
 
         // Server-thread-readable cache, same threading contract as Squad.StateJson/RouteStore.RoutesJson:
         // every mutator below runs on the Unity main thread only, and rebuilds this string
@@ -172,6 +183,7 @@ namespace NOXMFD
                 rows.Add(new Row(unchecked((uint)idd), n, g, r, f, dl));
             }
             _designated = rows;
+            if (_autoAccept) { _autoAccepted = rows.Count; _autoSeq++; }
             RebuildState();
             LogInfo?.Invoke($"[NOXMFD] td.receive-designation: {rows.Count} target(s) received.");
             return true;
@@ -196,6 +208,17 @@ namespace NOXMFD
             return true;
         }
 
+        // Turning it on takes over whatever is pending right now too (the caller ADDs it).
+        internal static bool SetAutoAccept(bool on)
+        {
+            if (_autoAccept == on) return false;
+            _autoAccept = on;
+            _autoAccepted = on ? _designated.Count : 0;
+            if (on) _autoSeq++;
+            RebuildState();
+            return true;
+        }
+
         // ADD/REPLACE read this to select the pending targets in-game — the unit lookup/selection
         // lives in CommandDispatcher.TdAccept (next to ClearDatalinkTargets/ClearStaleTargets),
         // since that needs Unit/UnitRegistry, not this file.
@@ -209,10 +232,12 @@ namespace NOXMFD
         // squad session that produced them.
         internal static void OnSquadEnded()
         {
-            bool changed = _assignments.Count > 0 || _sent.Count > 0 || _designated.Count > 0;
+            bool changed = _assignments.Count > 0 || _sent.Count > 0 || _designated.Count > 0 || _autoAccept;
             _assignments.Clear();
             _sent.Clear();
             _designated = new List<Row>();
+            _autoAccept = false;
+            _autoAccepted = 0;
             if (changed) RebuildState();
         }
 
@@ -252,7 +277,10 @@ namespace NOXMFD
                   .Append(",\"dl\":").Append(row.Dl ? "true" : "false")
                   .Append('}');
             }
-            sb.Append(']').Append('}');
+            sb.Append("],\"autoAccept\":").Append(_autoAccept ? "true" : "false")
+              .Append(",\"autoAccepted\":").Append(_autoAccepted.ToString(CultureInfo.InvariantCulture))
+              .Append(",\"autoSeq\":").Append(_autoSeq.ToString(CultureInfo.InvariantCulture))
+              .Append('}');
             return sb.ToString();
         }
 
@@ -270,6 +298,9 @@ namespace NOXMFD
             _assignments.Clear();
             _sent.Clear();
             _designated = new List<Row>();
+            _autoAccept = false;
+            _autoAccepted = 0;
+            _autoSeq = 0;
             StateJson = BuildStateJson();
         }
     }

@@ -270,3 +270,38 @@ Still needs an in-game check with two players:
 - The manual screenshots (`TD_SQD_LEADER.png`, `TGT_TD_DOCK.png`, `TGT_TD_DOCK_OPEN.png`) are the real
   pages rendered in the harness with sample data, framed in the classic bezel — retake them in-game
   if they drift from what a live squad shows.
+
+## AUTO ACCEPT on the TGT dock (feature/tgt-td-auto-accept)
+
+A lit **AUTO ACCEPT** toggle sits right of DISMISS on the member's dock, off by default. While on,
+every designation is answered with ADD automatically.
+
+**Plugin-side, not a page timer.** `TdStore` owns the flag (`SetAutoAccept`, `td.auto-accept {on}`)
+and `Squad.HandleData` calls `CommandDispatcher.TdAutoAccept()` right after
+`TdStore.ReceiveDesignation`, on the same main-thread `Drain` — so a designation is ADDed whether or
+not any TGT page is open, and exactly once however many are. Turning the toggle on also ADDs the
+designation pending at that moment. An empty designation (the leader withdrawing one) has nothing to
+add. `OnSquadEnded` turns it off, like the rest of the member-side TD state.
+
+**Keeping the toggle reachable.** The toggle only exists on the dock, and an accepted designation
+empties `designated`, which would hide the dock. `td-state` therefore also carries `autoAccepted` (the
+last auto-ADDed designation's size, for the label) and `autoSeq` (a plugin-lifetime counter bumped
+per auto take, so a same-size designation still reads as new). On each new `autoSeq` TGT shows the
+bar — label plus the lit toggle; SHOW, ADD, REPLACE and DISMISS hidden, drawer shut — for 3 s
+(`AUTO_SHOW_MS`), the window in which AUTO ACCEPT can be turned off. A page's first `td-state` only
+records the current `autoSeq`, so a reload doesn't replay the last take.
+
+### Verification
+
+`tools/ci-check.ps1` green, with `TdStoreTests` covering the takeover-on-enable, the per-receipt
+count/sequence, and `OnSquadEnded`. In the `serve_web.py` harness (its TD mock mirrors the
+auto-accept path): turning the toggle on ADDs the pending 6 and shows the label-only bar, a new
+designation shows it again with its own count, the bar hides 3.0 s after the update lands, and
+turning it off with nothing pending hides the bar.
+
+Still needs an in-game check with two players:
+
+- With AUTO ACCEPT on, a leader's DESIGNATE is selected in-game as ADD (existing locks kept) with no
+  TGT page open, and the bar flashes for 3 s on every open TGT.
+- Turning AUTO ACCEPT on while a designation is pending selects it.
+- Leaving the squad, or a leader change, turns AUTO ACCEPT off.

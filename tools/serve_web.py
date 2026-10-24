@@ -938,8 +938,9 @@ def _squad_command(env):
 # back to this same browser as a pending one — the TGT page's dock then shows it, and ADD /
 # REPLACE / DISMISS can be exercised here too (the leader never receives one in the real plugin).
 # With several member lists sent at once, the last one wins, same as a repeat DESIGNATE replacing
-# the previous one. ADD/REPLACE just close the dock: nothing is selected in-game here.
-_TD = {"assignments": {}, "sent": {}, "designated": []}
+# the previous one. ADD/REPLACE just close the dock: nothing is selected in-game here, and AUTO
+# ACCEPT likewise just closes each designation on arrival, keeping its size in autoAccepted.
+_TD = {"assignments": {}, "sent": {}, "designated": [], "autoAccept": False, "autoAccepted": 0, "autoSeq": 0}
 
 
 def _td_state():
@@ -997,10 +998,23 @@ def _td_command(env):
             return
         _TD["sent"][peer] = sorted(r["id"] for r in rows if isinstance(r, dict) and "id" in r)
         _TD["designated"] = rows
+        if _TD["autoAccept"]:
+            _TD["autoAccepted"] = len(rows)
+            _TD["autoSeq"] += 1
+            _TD["designated"] = []
     elif cmd == "td.accept":
         _TD["designated"] = []
     elif cmd == "td.dismiss":
         _TD["designated"] = []
+    elif cmd == "td.auto-accept":
+        # Mirrors TdStore.SetAutoAccept + CommandDispatcher.TdAutoAccept: turning it on takes over
+        # whatever is pending.
+        on = bool(env.get("on"))
+        _TD["autoAccept"] = on
+        _TD["autoAccepted"] = len(_TD["designated"]) if on else 0
+        if on:
+            _TD["autoSeq"] += 1
+            _TD["designated"] = []
 
 
 # WPT showcase route (issue #38) — a real route drawn by hand in this harness (6 waypoints, a loop
