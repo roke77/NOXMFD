@@ -404,9 +404,11 @@ the jet keeps its buttons in a ring of glass around the window, not on it.
   own sides to clear the bezel's labels (34-48px on TGT/TD/SQD/AKF/MD/HUD/UI/
   KEY/LYT, 50-56px on ADI/HSI/WPT/RTD), which doubled up inside the ring.
   They now fill whatever box they get; the classic layout insets its frame
-  and split panes instead (`mfd.js LABEL_INSET_PAGES`, one
-  `--label-gutter`), drawn as a glass-coloured border inside the frame so a
-  V-split's divider stays centred. AVN's 90px icon-row padding is still
+  and split panes instead (`mfd.js LABEL_INSET_PAGES`), drawn as a
+  glass-coloured border inside the frame so a V-split's divider stays
+  centred. Each side's border is measured off the labels on it
+  (`fitLabelGutters`): ~34px for an upright label, wider when one is lit,
+  none on a side without labels. AVN's 90px icon-row padding is still
   page-side: it lines up with the bezel's key labels rather than a gutter.
 
 Open: a quarter-width portal at 1280 is still tight for the horizontal-label

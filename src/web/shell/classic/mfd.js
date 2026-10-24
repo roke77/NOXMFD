@@ -453,6 +453,33 @@ function syncLabelInset(iframe, page) {
   iframe.classList.toggle('label-inset', !!LABEL_INSET_PAGES[page] || ExtNav.isExtensionPage(page));
 }
 
+// Each inset frame's gutters, sized to the left/right labels that land on it: the widest one's
+// reach into the frame plus LABEL_GUTTER_PAD, or nothing on a side with no label. Measured rather
+// than fixed because the footprint varies (upright vs horizontal, lit vs plain, full view vs a
+// split pane's own column), and a fixed worst case wastes most of it. Driven off the overlay's
+// own child changes, so every path that re-places labels (page change, split change, resize,
+// paging) re-fits without each having to remember to.
+const LABEL_GUTTER_PAD = 6;
+function fitLabelGutters() {
+  const labels = overlayEl.querySelectorAll('.overlay-item.left, .overlay-item.right');
+  [pageFrame].concat(paneIframes).forEach(function (f) {
+    if (!f.classList.contains('label-inset')) return;
+    const r = f.getBoundingClientRect();
+    if (!r.width) return;   // hidden (full view's frame in split, or the reverse)
+    let left = 0, right = 0;
+    labels.forEach(function (el) {
+      const l = el.getBoundingClientRect();
+      if (l.bottom <= r.top || l.top >= r.bottom || l.right <= r.left || l.left >= r.right) return;
+      if (l.left + l.width / 2 < r.left + r.width / 2) left = Math.max(left, l.right - r.left);
+      else right = Math.max(right, r.right - l.left);
+    });
+    f.style.setProperty('--gutter-l', left ? Math.ceil(left + LABEL_GUTTER_PAD) + 'px' : '0px');
+    f.style.setProperty('--gutter-r', right ? Math.ceil(right + LABEL_GUTTER_PAD) + 'px' : '0px');
+  });
+}
+// Class changes too: a label lit after placement (.on adds padding and an outline) grows.
+new MutationObserver(fitLabelGutters).observe(overlayEl, { childList: true, subtree: true, attributeFilter: ['class'] });
+
 function isVmainPage(p) { return AVIONICS_PAGES.indexOf(p) !== -1 || p === 'tgt' || p === 'td' || p === 'sqd' || WPT_PAGES.indexOf(p) !== -1 || p === 'akf' || p === 'bdf' || p === 'pal' || p === 'mis' || p === 'obj' || p === 'lyt' || p === 'keys' || p === 'hud' || p === 'ui' || ExtNav.isExtensionPage(p); }
 
 // The item count on each MAIN split page. Unlike WPN, MAIN reserves no fixed back-slot: PREV anchors
