@@ -294,6 +294,11 @@
   // which is exactly the split the seam predicts.
   const NAV_LAYOUT = { main: 'center' };
 
+  // Pages whose window fills the whole portal, under the OSB ring, instead of sitting inside it.
+  // MAP is a picture to pan around, not content a label can cover: it gives up the ring's clear
+  // glass for the extra map, and its labels and grips sit on top of it.
+  const FULL_BLEED = { map: true };
+
   const slices  = Object.create(null);   // the tap's latest message, by type — shared by all portals
   // Not the source of orientation — a portal measures its own box for that (forwardOrientation).
   // This only says "the glass turned", which is one of the things that resizes a portal.
@@ -944,6 +949,7 @@
       if (name === 'doc') docView = 'index';   // fresh portal always opens on DOC's own index
       // A page with no content of its own (MAIN) blanks the frame rather than hiding it: the
       // iframe's background is the glass colour, so what shows through is the label grid on black.
+      frame.classList.toggle('full-bleed', !!FULL_BLEED[name]);
       LayoutPages.navigateFrame(frame, F35_PAGES[name] || (ExtNav.isExtensionPage(name) ? '/ext/' + name : 'about:blank'));
       forwardToPage();
       renderNav();   // forwardToPage reruns on the frame's load
