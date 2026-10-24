@@ -2,10 +2,10 @@
 // the bezel shell does.
 //
 // What this layout owns (the doc's four: frame + label placement + split behaviour + page geometry):
-//   • frame           — the PCD's OSB ring. No bezel: each portal insets its page window and keeps
-//                       a ring of glass around it for the labels and grips (f35.css .portal).
+//   • frame           — the PCD's OSB side zones. No bezel: each portal keeps a column of glass
+//                       either side of its page window for the labels and grips (f35.css .portal).
 //   • label placement — a grid, in one of two modes (NAV_LAYOUT below): 'edge' puts the labels
-//                       in the ring's L/R columns, where the bezel has its key banks; 'center'
+//                       in the L/R OSB columns, where the bezel has its key banks; 'center'
 //                       puts them in the middle of the glass for MAIN, which has no page behind them.
 //   • split behaviour — portals. Four side-by-side MFDs, each with its own page, labels and
 //                       state; the corner grips merge adjacent ones and split them back. The
@@ -294,14 +294,15 @@
   // which is exactly the split the seam predicts.
   const NAV_LAYOUT = { main: 'center' };
 
-  // Pages whose window fills the whole portal, under the OSB ring, instead of sitting inside it.
+  // Pages whose window fills the whole portal, under the OSB columns, instead of sitting between them.
   // MAP and TGP are pictures, not content a label can cover: they give up the columns' clear glass
   // for the extra picture, and their labels and grips sit on top of it.
   const FULL_BLEED = { map: true, tgp: true };
 
   // Pages whose edge labels stand upright (.osb-v, f35.css): text pages that want the width more
   // than the labels need it, so their OSB columns shrink to one glyph. Extension pages join them
-  // in renderNav — the same set the bezel stands up (mfd.js isVmainPage).
+  // in renderNav. The text pages of the set the bezel stands up (mfd.js isVmainPage); its
+  // instrument pages (ADI/HSI/AFM/AVN) and WPT keep horizontal labels here.
   const UPRIGHT_LABELS = { tgt: true, sqd: true, akf: true, bdf: true, pal: true, mis: true, obj: true,
                            keys: true, hud: true, ui: true };
 
@@ -546,14 +547,16 @@
     }
 
     // Row 1 is the CM band; rows 2..6 are the weapon slots; the image spans rows 2..6. The edge grid
-    // and the frame share the same top and height (both sit between the OSB ring's top and bottom
-    // rows, f35.css) — so a row's offset is already the frame's own coordinate space, with no
-    // frameTop to subtract unlike the bezel reading shell-side separators.
+    // and the frame share the same top (f35.css) — so a row's offset is already the frame's own
+    // coordinate space, with no frameTop to subtract unlike the bezel reading shell-side separators.
     function forwardWpnLayout() {
       const w = frameWin();
       if (!w) return;
       // The grid's own first row, not frame height / ROWS: the grips' foot row (f35.css)
       // can take a slice of the height below the six label rows.
+      // showPage forwards before renderNav switches the grid to 'edge', so the grid can still be the
+      // previous screen's; the frame's load forwards again once it is WPN's.
+      if (!grid.classList.contains('edge')) return;
       const rowH = parseFloat(getComputedStyle(grid).gridTemplateRows);
       const slots = [];
       for (let k = 0; k < WPN_MAX_DISPLAY; k++) slots.push({ top: (k + 1) * rowH, height: rowH });
@@ -965,9 +968,9 @@
       currentPage = name;
       wpnNavKey = '';   // entering any page redraws the grid; don't let a stale key suppress it
       if (name === 'doc') docView = 'index';   // fresh portal always opens on DOC's own index
+      frame.classList.toggle('full-bleed', !!FULL_BLEED[name]);
       // A page with no content of its own (MAIN) blanks the frame rather than hiding it: the
       // iframe's background is the glass colour, so what shows through is the label grid on black.
-      frame.classList.toggle('full-bleed', !!FULL_BLEED[name]);
       LayoutPages.navigateFrame(frame, F35_PAGES[name] || (ExtNav.isExtensionPage(name) ? '/ext/' + name : 'about:blank'));
       forwardToPage();
       renderNav();   // forwardToPage reruns on the frame's load

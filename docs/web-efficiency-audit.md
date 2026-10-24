@@ -142,6 +142,12 @@ renderSplitLabels();`. This one is the only miss, confirmed by checking all 8 ca
 **Fix:** `if (panePages.indexOf('wpn') !== -1) renderSplitLabels();` — one line, mirrors the
 existing correct pattern exactly.
 
+Follow-up (2026-10-24): the pane guard was not enough. With a pane actually showing TGP or WPN,
+both the `tgp` and `loadout` handlers still rebuilt every split label each frame, so labels
+flickered and dropped hover/press state. They now call `renderSplitLabelsOnTickChange()`, which
+rebuilds only when a tick-driven input the labels show changes (TGP marks, WPN names/ARM/MODE,
+pane pages).
+
 ### 03 — Full-view WPN/TGP nav labels and the F-35 master strip repaint unconditionally [verified]
 
 Three related sites, same root cause:
