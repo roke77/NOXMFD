@@ -41,9 +41,7 @@ namespace NOXMFD
             if (to == 0 || to == Squadron.SelfId()) return false;
             if (!Presence.HasNoxmfd(to) && !Squad.SquadmateSteamIds().Contains(to))
                 return Reject(id, "peer:" + to, $"message to {to} rejected: not known to run NOXMFD");
-            bool ok = Squadron.SendTo(to, ExtensionMessageWire.TypeFor(id), payload);
-            if (ok) FirstLink("out", id, to);
-            return ok;
+            return Squadron.SendTo(to, ExtensionMessageWire.TypeFor(id), payload);
         }
 
         // Called once per frame from MissionLifecycle, right after Squadron.Poll() — an independent
@@ -67,20 +65,9 @@ namespace NOXMFD
                         Plugin.Log?.LogWarning($"[NOXMFD] oversize '{id}' message from {m.From} dropped.");
                     continue;
                 }
-                FirstLink("in", id, m.From);
                 try { h(m.From, m.Payload); }
                 catch (Exception ex) { Plugin.Log?.LogWarning($"[NOXMFD] extension '{id}' message handler threw: {ex.Message}"); }
             }
-        }
-
-        // ponytail: field diagnostics for the TAC extension's first two-player test — the first
-        // message each way per peer and extension, wall-clock stamped like Squadron.LinkLog so two
-        // players' logs line up. Remove (grep FirstLink) once TAC has shipped.
-        private static readonly HashSet<string> _linked = new HashSet<string>(StringComparer.Ordinal);
-        private static void FirstLink(string dir, string id, ulong peer)
-        {
-            if (_linked.Add(dir + "|" + id + "|" + peer))
-                Plugin.Log?.LogInfo($"[NOXMFD ext-link {DateTime.Now:HH:mm:ss}] first '{ExtensionMessageWire.TypeFor(id)}' message {(dir == "in" ? "from" : "to")} {peer}");
         }
 
         // Logged once per extension and kind, so an extension retrying every frame doesn't flood the log.

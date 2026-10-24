@@ -58,8 +58,6 @@ All of it is main-thread only, like the WPT reads (section 9 of `EXTENSIONS.md`)
    recipient for an unknown one, so an extension retrying every frame doesn't flood the log.
    `SendMessage` returns false in each case, and when Steam refuses the send. On the receiving side,
    a message for an extension that isn't installed, or an oversize one, logs once per sender.
-   A temporary `[NOXMFD ext-link]` line records the first message each way per peer, for the TAC
-   two-player test; it comes out once TAC ships.
 
 ## Files
 
