@@ -599,5 +599,17 @@ namespace NOXMFD.Tests
             Assert.Equal(3.0, Root(s)["selectedUnitCenter"]);
             Assert.Equal(0.0, Root(default(TelemetrySnapshot))["selectedUnitCenter"]);
         }
+
+        [Fact]
+        public void Ping_carries_mission_state_soi_focus_and_the_extension_slices()
+        {
+            var ping = (Dictionary<string, object?>)JsonLite.Parse(
+                TelemetryJson.Ping(true, "\"soiTarget\":\"MAP\",\"soiPane\":-1", "{\"srs\":{\"ok\":true}}"))!;
+
+            Assert.Equal(true, ping["ping"]);
+            Assert.Equal(true, ping["missionRunning"]);
+            Assert.Equal("MAP", ping["soiTarget"]);
+            Assert.Equal(true, Obj(Obj(ping["ext"])["srs"])["ok"]);
+        }
     }
 }

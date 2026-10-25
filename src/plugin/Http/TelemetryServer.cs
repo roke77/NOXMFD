@@ -72,6 +72,7 @@ namespace NOXMFD
         private static long             _frameVersion = -1;
         private static long             _frameSoiVersion = -1;   // see SetSoiTarget — the target moves independently of the snapshot
         private static bool             _frameMissionRunning;    // see SetMissionRunning — same reasoning, for a mission with no aircraft yet
+        private static long             _frameSlicesVersion = -1; // ExtensionRegistry.SlicesVersion, for the ping frame only
         private static byte[]?          _frameBytes;
         private static readonly object  _frameLock = new object();
 
@@ -514,17 +515,22 @@ namespace NOXMFD
                 // frame at the main menu is otherwise identical forever and the change never ships.
                 // MissionRunning is the same idea: a mission loading/ending with no aircraft chosen
                 // yet changes nothing else about a ping frame, so it needs the same invalidation.
+                // Extension slices change without a new snapshot too, but only the ping needs that
+                // key: a real frame is rebuilt on the next snapshot and keying it here as well would
+                // re-serialize the whole frame each time an extension publishes.
                 long sv = SoiFocus.Version;
                 bool mr = _missionRunning;
-                if (_frameVersion == v && _frameSoiVersion == sv && _frameMissionRunning == mr && _frameBytes != null) return _frameBytes;
+                long xv = snap.Valid ? -1 : ExtensionRegistry.SlicesVersion;
+                if (_frameVersion == v && _frameSoiVersion == sv && _frameMissionRunning == mr && _frameSlicesVersion == xv && _frameBytes != null) return _frameBytes;
                 _frameSoiVersion = sv;
                 _frameMissionRunning = mr;
+                _frameSlicesVersion = xv;
 
                 string payload = snap.Valid
                     ? TelemetryJson.Serialize(snap, SoiFocus.SoiJson(), ImmersionState.MasterArmsOn,
                         ImmersionState.CombatMode switch { CombatMode.AirToAir => "aa", CombatMode.AirToGround => "ag", _ => "all" },
                         ExtensionRegistry.SlicesJson())
-                    : "{\"ping\":true,\"missionRunning\":" + (mr ? "true" : "false") + "," + SoiFocus.SoiJson() + "}";
+                    : TelemetryJson.Ping(mr, SoiFocus.SoiJson(), ExtensionRegistry.SlicesJson());
                 _frameBytes   = Encoding.UTF8.GetBytes("data: " + payload + "\n\n");
                 _frameVersion = v;
 

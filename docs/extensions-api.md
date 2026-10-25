@@ -81,6 +81,11 @@ current values into the normal telemetry frame:
 {"ext":{"example":{"value":42}}}
 ```
 
+The no-aircraft ping (`TelemetryJson.Ping`) carries the same `ext` object, so an extension whose
+state is independent of the game (SRS) stays live at the main menu and on the spawn screen. Pages
+read it from `TelemetrySource`'s `onNoMission(didEnd, ping)`; the shells' `ext` forward stays
+frame-only, so pages that use it see no change outside a mission.
+
 The browser telemetry service emits this as `ext_<id>`. Both shells forward the active extension's
 slice into its iframe using the stable page-facing message:
 

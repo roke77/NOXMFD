@@ -190,6 +190,12 @@ Call this whenever your state changes (or on a timer — NOXMFD's own pages publ
 the outgoing frame under `"ext":{"<id>":<json>}`. Last write wins if you call it faster than the
 frame goes out.
 
+Slices also ride the ping NOXMFD sends while there is no local aircraft (the main menu, or a
+mission still on the spawn screen), from NOXMFD 0.80.0. The shells forward the `ext` message below
+only from real frames; a page whose state doesn't depend on being spawned opens its own
+`TelemetrySource` (`/assets/services/telemetry-source.js`) and reads `ping.ext.<id>` from its
+`onNoMission(didEnd, ping)` callback.
+
 You don't need to write any client-side plumbing to get this to your page — NOXMFD's own
 `telemetry-source.js` forwards every `ext.<id>` key generically, and both shells rename it to the
 `{mfd:true, type:'ext', data:<payload>}` message your page receives (shown above). This is fully
