@@ -43,15 +43,17 @@ corner grips. Each portal keeps a narrow column of glass beside its page for the
 never cover what the page shows; the grips sit at the bottom of those columns. MAP and TGP are the
 exception: the map and the camera feed fill the whole portal and their labels sit on top. A fixed
 strip across the top carries the **NO XMFD** wordmark with the connection address and status under
-it (left), two widget slots (middle), and **✎** (edit the strip), **WAKE** (keep the screen awake,
+it (left), up to four widgets (middle), and **✎** (edit the strip), **WAKE** (keep the screen awake,
 same as CLASSIC's WAKE key above) and **FULLSCREEN** (right). A dismissable red banner drops down from the strip on a
 connection loss, above every portal regardless of page — see
 [MAIN's Connection status](main.md#connection-status).
 
 ### Editing the top strip
 
-The two slots in the middle of the strip each hold one widget you choose; the left and right blocks
-are fixed. Tap **✎** to edit: each slot gets a dashed box.
+The middle of the strip has four slots, each holding one widget you choose; the left and right
+blocks are fixed. Each widget takes the width it needs, from the left; if they don't all fit, the
+right-most is cut off and the row scrolls sideways (hover the strip for its scrollbar). Tap **✎** to
+edit: all four slots show, each with a dashed box.
 
 - An empty slot shows **+** in the middle — tap it to pick a widget for that slot:
   - **THRL / FUEL** — the throttle and fuel gauges;
@@ -69,12 +71,16 @@ are fixed. Tap **✎** to edit: each slot gets a dashed box.
   - **CLOCKS** — local time, mission time and mission elapsed (the mission clocks read `--` in
     multiplayer).
 
-  A widget already in the other slot isn't offered.
-- A filled slot shows **✕** in its top-right corner — tap it to empty the slot.
+  A widget already in another slot isn't offered.
+- A filled slot shows **✕** in its top-right corner — tap it to empty the slot. The other widgets
+  stay where they are.
 
-Tap **✎** again to finish. While editing, the flags don't toggle; WAKE and FULLSCREEN keep working.
-The strip is remembered in this browser, and **SAVE** stores it with the layout, so each saved F-35
-layout can carry its own strip. A layout saved before the strip was editable leaves it as it is.
+Tap **✎** again to finish; empty slots then take no space. While editing, the flags don't toggle;
+WAKE and FULLSCREEN keep working. **SAVE** stores the strip with the layout, so each saved F-35
+layout can carry its own strip; a layout saved before the strip was editable leaves it as it is.
+
+Each browser window keeps its own portals and strip: a reload brings back what that window showed,
+and a new window starts with four MAIN portals and an empty strip.
 
 ![F-35 layout — MAIN](images/F-35%20MAIN.png)
 

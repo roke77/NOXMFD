@@ -8,27 +8,27 @@ const assert = require('assert');
 const S = require('./f35-strip.js');
 const AdiMath = require('../../pages/adi/adi-math.js');
 
-assert.strictEqual(S.SLOTS, 2);
+assert.strictEqual(S.SLOTS, 4);
 
 // normalize: non-arrays are "no strip in this preset"; always SLOTS long; junk and repeats → null.
 assert.strictEqual(S.normalize(undefined), null);
 assert.strictEqual(S.normalize({}), null);
-assert.deepStrictEqual(S.normalize([]), [null, null]);
-assert.deepStrictEqual(S.normalize(['flight']), ['flight', null]);
-assert.deepStrictEqual(S.normalize(['flight', 'flight']), ['flight', null]);
-assert.deepStrictEqual(S.normalize(['nope', 'gauges', 'flags']), [null, 'gauges']);
-assert.deepStrictEqual(S.normalize([null, 'clocks']), [null, 'clocks']);
-assert.deepStrictEqual(S.normalize(['engine', 'gauges']), ['engine', 'gauges']);
+assert.deepStrictEqual(S.normalize([]), [null, null, null, null]);
+assert.deepStrictEqual(S.normalize(['flight']), ['flight', null, null, null]);
+assert.deepStrictEqual(S.normalize(['flight', 'flight']), ['flight', null, null, null]);
+assert.deepStrictEqual(S.normalize(['nope', 'gauges', 'flags']), [null, 'gauges', 'flags', null]);
+assert.deepStrictEqual(S.normalize([null, 'clocks']), [null, 'clocks', null, null]);
+assert.deepStrictEqual(S.normalize(['engine', 'gauges']), ['engine', 'gauges', null, null]);
 // The readouts are inside FLIGHT DATA / CLOCKS, never slot contents on their own.
-assert.deepStrictEqual(S.normalize(['alt', 'clock']), [null, null]);
+assert.deepStrictEqual(S.normalize(['alt', 'clock']), [null, null, null, null]);
 // The brand block and WAKE/FULLSCREEN are fixed chrome, never slot contents.
-assert.deepStrictEqual(S.normalize(['logo', 'wake']), [null, null]);
+assert.deepStrictEqual(S.normalize(['logo', 'wake']), [null, null, null, null]);
 assert.deepStrictEqual(S.normalize(S.DEFAULT), S.DEFAULT);
 
 // Every default and catalog id is unique and known.
 const ids = S.CATALOG.map(w => w.id);
 assert.strictEqual(new Set(ids).size, ids.length);
-S.DEFAULT.forEach(id => assert.ok(ids.includes(id), id));
+S.DEFAULT.filter(Boolean).forEach(id => assert.ok(ids.includes(id), id));
 
 // place: fills a slot; a widget already elsewhere moves; unknown ids and bad slots are no-ops.
 assert.deepStrictEqual(S.place([null, null], 1, 'flight'), [null, 'flight']);
