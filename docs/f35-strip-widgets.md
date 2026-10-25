@@ -4,6 +4,9 @@
 
 **Status: merged to `main` and released in 0.78.0.** Harness-verified and checked in game.
 
+**Follow-up (four slots, per-window state):** on `feature/strip-variable-slots`, harness-verified,
+not yet checked in game. The decisions below describe it.
+
 ## Goal
 
 The F-35 shell's master strip (the fixed bar across the top of the glass) holds widgets the pilot
@@ -16,12 +19,17 @@ with the portals and their pages.
 - **Fixed ends, slots in the middle.** The brand block (wordmark stacked over the name URL and
   connection status) is fixed at the left end; WAKE, FULLSCREEN and the edit pencil are fixed at the
   right end (`.ms-fixed`). Neither is a widget, so edit mode can't remove the way into it, and
-  WAKE/FULLSCREEN keep working while editing. Between them sit two slots (`F35Strip.SLOTS`), each
-  holding at most one widget and sharing the width evenly.
-- **Editing in place, per slot.** The pencil toggles edit mode. Each slot then shows a dashed box at
-  the strip's full height less a small top/bottom margin; an empty slot is one big **+** (the whole
-  slot is the touch target) that opens the widget list for that slot, and a filled slot has an
-  **X** in its top-right corner that empties it. No selection, no reordering.
+  WAKE/FULLSCREEN keep working while editing. Between them sit four slots (`F35Strip.SLOTS`), each
+  holding at most one widget. A slot is as wide as its widget (THRL/FUEL and RPM/HEAT at least
+  300 px), packed from the left; when they don't fit, `#ms-widgets` scrolls sideways, so the
+  right-most widget is cut first. Its slim grey scrollbar's thumb shows while the strip is hovered
+  and fades out over 1 s; the end arrows always show. An empty slot takes no space outside edit
+  mode.
+- **Editing in place, per slot.** The pencil toggles edit mode. All four slots then show a dashed
+  box inside the strip's 10 px top/bottom padding; an empty slot is a 200 px **+** (the whole slot is
+  the touch target) that opens the widget list for that slot, and a filled slot has an **X** in its
+  top-right corner that empties it, leaving the other slots where they are. No selection, no
+  reordering.
 - **"Configured" means which widget sits in which slot.** No per-widget settings in v1. The
   readouts follow the game's unit setting (`adi.metric`), the same as ADI.
 - **Catalog v1:** six widgets — THRL/FUEL (stacked), RPM/HEAT (stacked, HEAT filled with the
@@ -40,16 +48,19 @@ with the portals and their pages.
   lit state is read off the `loadout` slice, as WPN's own ARM/SAFE and A/A/A/G marks are, so it
   shows what the game applied rather than the press. MODE includes ALL as its own state, unlike
   WPN's A/A/A/G pair (where holding resets to ALL).
-- **Persistence: presets plus last-used.** The slots are stored per browser in `localStorage`
-  (`f35-strip`) on every edit, and `captureLayoutState` adds them to the F-35 layout blob as
-  `strip: [id|null, id|null]`. `applyLayoutState` applies it when present; a layout saved before this feature has
-  no `strip` and leaves the current strip alone. `LayoutStore.cs` treats the blob as opaque, so the
-  plugin needs no change.
+- **Persistence: presets plus per-window state.** `captureLayoutState` adds the slots to the F-35
+  layout blob as `strip`, four entries of an id or null. `applyLayoutState` applies it when
+  present; a layout saved before this feature has no `strip` and leaves the current strip alone,
+  and a two-slot strip pads to four. `LayoutStore.cs` treats the blob as opaque, so the plugin
+  needs no change. Each window also keeps its whole arrangement (glass and strip) in
+  `sessionStorage` (`f35-session`), written on `pagehide` and restored at boot, so a reload brings
+  that window back and a new window starts from the defaults: four MAIN portals and an empty strip.
+  The restore waits for `ExtNav.load` so a portal on an extension page comes back on it.
 
 ## Design
 
 - `shell/f35/f35-strip.js` (pure, `f35-strip.test.js`): the slot count, the catalog, the default
-  (`['gauges', 'flags']`), `normalize` (a stored or preset arrangement → exactly SLOTS entries of a
+  (empty), `normalize` (a stored or preset arrangement → exactly SLOTS entries of a
   known id or null, no id twice; `null` for a non-array), the slot edits (`place`/`clear`/
   `available`), and the readout formatters.
 - Every widget element exists once — declared in `f35.html` under `data-widget`, or built by
@@ -66,8 +77,10 @@ with the portals and their pages.
 
 ## Known limits
 
-- A slot clips a widget wider than it (`overflow: hidden`); the flags are the widest widget, so a
-  narrow glass may cut them.
+- A widget cut by the strip's right edge is cut mid-element; the row scrolls to reach the rest.
+- Firefox has no `::-webkit-scrollbar`, so there the end arrows fade with the thumb.
+- Browser "Duplicate tab" copies `sessionStorage`, so a duplicated tab opens as a copy of its source.
+- Page-internal state (map zoom, scroll) isn't part of the arrangement and resets on reload.
 - The F-35 LOAD picker shows names only, so it doesn't preview a layout's strip.
 
 ## Verification
@@ -75,8 +88,14 @@ with the portals and their pages.
 - `f35-strip.test.js`: normalize, slot edits, unit conversion, clocks.
 - `serve_web.py` harness at 1800 px: brand block left and button group right, in and out of edit
   mode; dashed slots 6-8 px inside the strip; + fills a slot from the list (the other slot's widget
-  not offered), X empties it; a flag tap in edit mode sends no `avn.toggle`; the strip survives a reload; SAVE writes
+  not offered), X empties it; a flag tap in edit mode sends no `avn.toggle`; SAVE writes
   `strip` into the layout blob and LOAD restores it after the strip was changed.
+- Four slots / per-window state, harness at 1024 and 1880 px: four 200 px + slots in edit mode;
+  clearing slot 1 leaves slot 2 in place; overflow scrolls with the thumb fading after hover; a
+  fresh tab beside a configured one opens with four MAIN portals and an empty strip; a reload
+  restores a merged glass, a portal's page and the strip.
+- Still to check in game: the strip's overflow and scrollbar at the in-game browser's size, and a
+  reload restoring the window while connected to a live mission.
 - WPN MODES in the harness: presses send `master-arms.set`/`combat-mode.set` with the next state,
   and the lit segment follows the mock's `loadout` (`__setFrame` in `tools/preview-mock.js`); the
   weapon block shows pips (AIM-9X 1/2), a fill (GUN 310/400), red when empty (0/1), and `--`.

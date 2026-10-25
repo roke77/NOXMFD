@@ -1640,11 +1640,9 @@
   // arrangement is one widget id (or null) per slot. Every widget element exists once, from
   // f35.html or the readout groups below, and stays alive out of a slot — detached, still fed by
   // the updaters above — so putting one back costs nothing and it shows the latest state at once.
-  // The slots are remembered per browser (localStorage) and travel in each saved layout
-  // (captureLayoutState).
+  // The slots travel in each saved layout and in this window's session state (captureLayoutState).
   const widgetsEl  = document.getElementById('ms-widgets');
   const editBtn    = document.getElementById('ms-edit');
-  const STRIP_KEY  = 'f35-strip';
   // FLIGHT DATA and CLOCKS: one widget each, a row of label-over-value readouts.
   const readoutEls = {};
   [['flight', F35Strip.FLIGHT], ['clocks', F35Strip.CLOCKS]].forEach(function (group) {
@@ -1685,16 +1683,11 @@
     slotEls.push(slot);
   }
 
-  let stripSlots = loadStoredStrip() || F35Strip.DEFAULT;
+  let stripSlots = F35Strip.DEFAULT;
   let stripEditing = false;
 
-  // Guarded like setLayout: localStorage throws in some private-mode browsers.
-  function loadStoredStrip() {
-    try { return F35Strip.normalize(JSON.parse(localStorage.getItem(STRIP_KEY))); } catch (e) { return null; }
-  }
   function setStrip(slots) {
     stripSlots = slots;
-    try { localStorage.setItem(STRIP_KEY, JSON.stringify(slots)); } catch (e) {}
     renderStrip();
   }
   // The first call also detaches the widgets f35.html declared loose in #ms-widgets.
@@ -1884,11 +1877,24 @@
   runStripBoot();
   renderStrip();
   // Extension nav discovery (docs/extensions-api.md) — fetches /ext-manifest and merges installed
-  // extensions into NAV.ext / NAV[<id>]. Fire-and-forget at boot; also re-run every time EXT is
-  // clicked (dispatch's 'ext' case) to pick up an extension that registered after this tab loaded.
-  ExtNav.load(NAV);
+  // extensions into NAV.ext / NAV[<id>]. At boot only the session restore below waits on it; also
+  // re-run every time EXT is clicked (dispatch's 'ext' case) to pick up an extension that
+  // registered after this tab loaded.
+  const extNavLoaded = ExtNav.load(NAV);
   // TD nav discovery (issue #47, docs/target-designator.md) — rides the relayed 'sqd-state' push
   // and keeps NAV.tgt's TD entry in sync with live squad membership.
   TdNav.start(NAV);
-  buildGlass();
+  // Each window keeps its own glass and strip across a reload, and a new window starts from the
+  // defaults: sessionStorage is per tab and survives a reload but not a close. Written once on
+  // pagehide (which a reload and a hard reload both fire) rather than on every change. Guarded
+  // like setLayout: storage throws in some private-mode browsers.
+  const SESSION_KEY = 'f35-session';
+  window.addEventListener('pagehide', function () {
+    try { sessionStorage.setItem(SESSION_KEY, JSON.stringify(captureLayoutState())); } catch (e) {}
+  });
+  let sessionState = null;
+  try { sessionState = JSON.parse(sessionStorage.getItem(SESSION_KEY)); } catch (e) {}
+  // A restored portal on an extension page needs the manifest first, or has() rejects the page.
+  if (sessionState) extNavLoaded.catch(function () {}).then(function () { applyLayoutState(sessionState); });
+  else buildGlass();
 })();

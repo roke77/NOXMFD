@@ -47,8 +47,8 @@ html, body {
   border-bottom: 2px solid var(--no-teal);   /* the same 2px the portal frames below draw */
   display: flex;
   align-items: center;
-  gap: 28px;
-  padding: 0 16px;
+  gap: 20px;
+  padding: 10px 16px;
   color: var(--no-teal);
   overflow: hidden;
 }
@@ -146,7 +146,7 @@ html, body {
   margin-bottom: 6px;
 }
 .ms-bar {
-  width: 180px;
+  width: 120px;
   height: 12px;
   border: 1px solid var(--no-green);
   border-radius: 3px;
@@ -188,7 +188,8 @@ html, body {
    has nowhere to go in a bar this short. Fills its slot's width. */
 .ms-gauges {
   flex: 1 1 160px;
-  min-width: 0;
+  /* A content-sized slot would otherwise squeeze the bars down to their labels. */
+  min-width: 300px;
   display: flex;
   flex-direction: column;
   gap: 5px;
@@ -419,24 +420,58 @@ html, body {
 }
 
 /* ── Strip widgets (docs/f35-strip-widgets.md) ─────────────────────────────────────────────
-   The slots row takes everything the two fixed blocks leave, split evenly between the slots. */
+   The slots row takes everything the two fixed blocks leave. Each slot is as wide as its widget,
+   packed from the left; when they don't all fit, the row scrolls sideways, so the right-most
+   widget is cut first. The scrollbar is the slim grey one the other pages draw (tgt.css), but its
+   thumb only shows while the strip is hovered and fades out over 1 s after, while its two arrows
+   always show; its track keeps its height either way, so showing it doesn't shift the widgets.
+   --ms-thumb is registered so the colour can transition. The ::-webkit rules draw it because the
+   standard scrollbar-color paints the arrows in the thumb's colour, so it can't fade one without
+   the other; Chromium ignores ::-webkit rules once scrollbar-color is set, so that is applied only
+   where ::-webkit-scrollbar isn't supported (Firefox). */
+@property --ms-thumb {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: transparent;
+}
 .ms-widgets {
   flex: 1 1 auto;
   min-width: 0;
   align-self: stretch;
   display: flex;
   gap: 16px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  transition: --ms-thumb 1s;
+}
+.master-strip:hover .ms-widgets { --ms-thumb: var(--no-gray); transition-duration: 0.15s; }
+.ms-widgets::-webkit-scrollbar { height: 6px; }
+.ms-widgets::-webkit-scrollbar-track { background: transparent; }
+.ms-widgets::-webkit-scrollbar-thumb { background: var(--ms-thumb); border-radius: 3px; }
+/* One arrow at each end, each a triangle drawn as two half-triangle gradients so it takes the
+   theme's grey. */
+.ms-widgets::-webkit-scrollbar-button:horizontal:single-button { width: 8px; background-repeat: no-repeat; background-size: 4px 3px; }
+.ms-widgets::-webkit-scrollbar-button:horizontal:single-button:decrement {
+  background-image: linear-gradient(to bottom right, transparent 50%, var(--no-gray) 50%),
+                    linear-gradient(to top right, transparent 50%, var(--no-gray) 50%);
+  background-position: center 0, center 3px;
+}
+.ms-widgets::-webkit-scrollbar-button:horizontal:single-button:increment {
+  background-image: linear-gradient(to bottom left, transparent 50%, var(--no-gray) 50%),
+                    linear-gradient(to top left, transparent 50%, var(--no-gray) 50%);
+  background-position: center 0, center 3px;
+}
+@supports not selector(::-webkit-scrollbar) {
+  .ms-widgets { scrollbar-width: thin; scrollbar-color: var(--ms-thumb) transparent; }
 }
 
-/* A slot: the full strip height less a small top/bottom margin, so edit mode's dashed box clears
-   the strip's own bottom border. Its widget sits centred in it; the border is transparent outside
-   edit mode so nothing shifts when it turns on. */
+/* A slot: the full strip height, no margin or padding, so it is exactly its widget's size. Its
+   widget sits centred in it; the border is transparent outside edit mode so nothing shifts when it
+   turns on. */
 .ms-slot {
-  flex: 1 1 0;
+  flex: 0 0 auto;
   min-width: 0;
   position: relative;
-  margin: 6px 0;
-  padding: 0 14px;
   box-sizing: border-box;
   display: flex;
   align-items: center;
@@ -446,8 +481,9 @@ html, body {
   overflow: hidden;
 }
 .master-strip.editing .ms-slot { border-color: var(--no-teal); }
-/* Clears the corner X so it never sits on the widget's own right edge (the gauges' readout). */
-.master-strip.editing .ms-slot.filled { padding-right: 30px; }
+/* An empty slot only exists while editing, as a + target. */
+.ms-slot:not(.filled) { width: 200px; }
+.master-strip:not(.editing) .ms-slot:not(.filled) { display: none; }
 
 /* Edit mode's controls: an empty slot is one big + (the whole slot is the target, for touch), a
    filled one has an X in its top-right corner. */

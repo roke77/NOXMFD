@@ -3,7 +3,7 @@
 // (right) the strip has SLOTS widget slots; its arrangement is one widget id (or null, empty) per
 // slot. f35.js owns the elements and only re-parents them into their slots.
 (function (root) {
-  var SLOTS = 2;
+  var SLOTS = 4;
 
   // Every widget a slot can hold. The ADD list shows them by label, A-Z (available).
   var CATALOG = [
@@ -31,8 +31,8 @@
   var KNOWN = {};
   CATALOG.forEach(function (w) { KNOWN[w.id] = w; });
 
-  // A fresh browser's strip: THRL/FUEL, then the avionics flags.
-  var DEFAULT = ['gauges', 'flags'];
+  // A fresh window's strip: empty.
+  var DEFAULT = [null, null, null, null];
 
   // A stored or preset-carried arrangement → exactly SLOTS entries, each a known id or null, no id
   // twice (a widget is one element, so it can only be in one slot). null when `slots` isn't an
