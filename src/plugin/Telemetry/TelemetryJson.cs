@@ -11,6 +11,13 @@ namespace NOXMFD
     // reaching for TelemetryServer/ImmersionState/ExtensionRegistry itself.
     internal static class TelemetryJson
     {
+        // The frame sent when there is no local aircraft (main menu, or a mission still on the
+        // spawn screen). Extension slices ride it too: an extension's state (SRS, say) can be live
+        // with nothing spawned, and its page reads it from the ping.
+        internal static string Ping(bool missionRunning, string soiJson, string extSlicesJson) =>
+            "{\"ping\":true,\"missionRunning\":" + (missionRunning ? "true" : "false") + "," + soiJson +
+            ",\"ext\":" + extSlicesJson + "}";
+
         internal static string Serialize(TelemetrySnapshot s, string soiJson, bool masterArmsOn, string combatModeLabel, string extSlicesJson)
         {
             var sb = new StringBuilder(2048);

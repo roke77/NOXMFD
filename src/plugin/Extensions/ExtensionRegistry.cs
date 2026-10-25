@@ -26,6 +26,10 @@ namespace NOXMFD
         // Latest published slice JSON per extension id — volatile-latest-wins: written from an
         // extension's own Update(), read by TelemetryServer's frame serializer every tick.
         private static readonly ConcurrentDictionary<string, string> _slices = new ConcurrentDictionary<string, string>(StringComparer.Ordinal);
+        // Bumped on every slice change. A real frame is rebuilt per snapshot anyway; the ping frame
+        // has no snapshot to version it, so TelemetryServer.GetFrameBytes keys its cache on this.
+        private static long _slicesVersion;
+        internal static long SlicesVersion => Interlocked.Read(ref _slicesVersion);
 
         // Latest published high-rate event JSON per event name, same shape as _slices.
         private static readonly ConcurrentDictionary<string, string> _events = new ConcurrentDictionary<string, string>(StringComparer.Ordinal);
@@ -56,7 +60,7 @@ namespace NOXMFD
         {
             lock (_extLock) _extensions.Remove(id);
             ExtensionMessages.RemoveHandler(id);
-            _slices.TryRemove(id, out _);
+            if (_slices.TryRemove(id, out _)) Interlocked.Increment(ref _slicesVersion);
             _invalidPayloadWarnings.TryRemove("slice:" + id, out _);
         }
 
@@ -87,6 +91,7 @@ namespace NOXMFD
                 return;
             }
             _slices[id] = json;
+            Interlocked.Increment(ref _slicesVersion);
         }
 
         // Built fresh per frame — the expected extension count is small, so no caching is worth the

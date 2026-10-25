@@ -95,6 +95,16 @@ const assert = require('assert');
       'missing missionRunning should default to "no mission", not "connected"');
   }
 
+  // Extension slices ride the ping too (TelemetryJson.Ping): a page whose state doesn't depend on
+  // being spawned (SRS) reads them from onNoMission's second argument.
+  {
+    let got = null;
+    const srcX = new TelemetrySource({ onNoMission: (didEnd, ping) => { got = ping; } });
+    srcX._postUp = () => {};
+    srcX._onMessage({ data: JSON.stringify({ ping: true, missionRunning: false, soiSeq: 0, ext: { srs: { ok: true } } }) });
+    assert.deepStrictEqual(got && got.ext, { srs: { ok: true } }, 'onNoMission should hand the ping, ext and all, to the page');
+  }
+
   const src = new TelemetrySource({});
   src._postUp = () => {};                 // no parent window outside a browser
 

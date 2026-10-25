@@ -19,8 +19,10 @@
 //                 .rebroadcastStatus()   — answer the shell's status-request
 // Source → view (callbacks):
 //   onFrame(d)          a real telemetry frame arrived — render it
-//   onNoMission(didEnd) a ping (connected, no mission); didEnd=true on the frame→ping transition
-//                       so the view resets once; called every ping so the view can show NO SIGNAL
+//   onNoMission(didEnd, ping)  a ping (connected, no mission); didEnd=true on the frame→ping
+//                       transition so the view resets once; called every ping so the view can show
+//                       NO SIGNAL. `ping` is the parsed ping frame: its `ext` carries the extension
+//                       slices, for an extension whose state doesn't depend on being spawned
 //   onStatus(cls, text) connection status changed — update the status readout
 
 // Reproduces the game's grid label (e.g. "Hc87") from world coords + the map offsets in `meta`
@@ -295,7 +297,7 @@ export class TelemetrySource {
       else this._setStatus('waiting', '● CONNECTED — no mission');
       const didEnd = this._inMission;
       if (didEnd) { this._inMission = false; this._meta = null; this._emitEmpties(); }
-      if (this._onNoMission) this._onNoMission(didEnd);
+      if (this._onNoMission) this._onNoMission(didEnd, d);
       this._postUp({ type: 'map-frame', ping: true, didEnd });
       return;
     }
