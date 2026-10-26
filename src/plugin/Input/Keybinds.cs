@@ -1022,23 +1022,25 @@ namespace NOXMFD
 
             var ids = new List<(string Guid, string Name)>(joys.Count);
             foreach (Joystick j in joys) ids.Add(Identity(j));
-            var moves = new List<(ConfigEntry<int> Num, int To)>();
+            var moves = new List<Action>();
+            var learns = new List<Action>();
             foreach (BindDef b in _binds)
             {
-                Repin(b.JoyEntry, b.JoyNumEntry, b.JoyDevEntry, ids, moves);
-                Repin(b.AxisEntry, b.AxisJoyNumEntry, b.AxisJoyDevEntry, ids, moves);
+                Repin(b.JoyEntry, b.JoyNumEntry, b.JoyDevEntry, ids, moves, learns);
+                Repin(b.AxisEntry, b.AxisJoyNumEntry, b.AxisJoyDevEntry, ids, moves, learns);
             }
             var list = new List<string>(ids.Count);
             for (int i = 0; i < ids.Count; i++) list.Add($"{i + 1}='{ids[i].Name}'");
-            Plugin.Log?.LogInfo($"[NOXMFD] {ids.Count} joystick(s) [{string.Join(", ", list)}]: re-pinned {moves.Count} bind(s) to their devices.");
-            if (moves.Count == 0 || _configFile == null) return;
+            Plugin.Log?.LogInfo($"[NOXMFD] {ids.Count} joystick(s) [{string.Join(", ", list)}]: re-pinned {moves.Count} bind(s) to their devices, recorded the device for {learns.Count}.");
+            if (moves.Count + learns.Count == 0 || _configFile == null) return;
 
             BackupNow();
             bool save = _configFile.SaveOnConfigSet;
             _configFile.SaveOnConfigSet = false;   // one .cfg write for the whole re-pin, not one per bind
             try
             {
-                foreach (var (num, to) in moves) num.Value = to;
+                foreach (Action write in moves) write();
+                foreach (Action write in learns) write();
                 _configFile.Save();
             }
             // The new numbers already apply in memory; only persisting them failed, and the next
@@ -1048,12 +1050,22 @@ namespace NOXMFD
             ConfigChanged();
         }
 
+        // A bind with no saved device (captured before device pinning) records whichever device holds
+        // its number now, so it keeps working across reboots without being captured again.
+        // ponytail: if this boot's order differs from the one it was captured under, it records the
+        // wrong stick — no worse than the number alone was, and capturing it again corrects it.
         private static void Repin(ConfigEntry<int>? index, ConfigEntry<int>? num, ConfigEntry<string>? dev,
-                                  IList<(string Guid, string Name)> ids, List<(ConfigEntry<int>, int)> moves)
+                                  IList<(string Guid, string Name)> ids, List<Action> moves, List<Action> learns)
         {
-            if (index == null || index.Value < 0 || dev!.Value.Length == 0) return;
+            if (index == null || index.Value < 0) return;
+            if (dev!.Value.Length == 0)
+            {
+                string learned = JoystickIdentity.Learn(num!.Value, ids);
+                if (learned.Length > 0) learns.Add(() => dev.Value = learned);
+                return;
+            }
             int to = JoystickIdentity.Resolve(dev.Value, num!.Value, ids);
-            if (to != num.Value) moves.Add((num, to));
+            if (to != num.Value) moves.Add(() => num.Value = to);
         }
 
         // Once per frame on the main thread. CM keys are held-driven (deploy every frame held); gear keys

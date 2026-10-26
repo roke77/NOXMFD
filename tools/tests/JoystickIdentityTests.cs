@@ -32,6 +32,15 @@ namespace NOXMFD.Tests
         }
 
         [Fact]
+        public void LearnRecordsTheDeviceAtTheSavedNumber()
+        {
+            Assert.Equal(JoystickIdentity.Make("bbb", "VPC Stick"), JoystickIdentity.Learn(2, Joys));
+            Assert.Equal(JoystickIdentity.Make("", "Pedals"), JoystickIdentity.Learn(3, Joys));
+            Assert.Equal("", JoystickIdentity.Learn(0, Joys));   // "any device" stays unpinned
+            Assert.Equal("", JoystickIdentity.Learn(5, Joys));   // that stick isn't connected
+        }
+
+        [Fact]
         public void NameIsThePartAfterTheGuid()
         {
             Assert.Equal("VPC Stick", JoystickIdentity.Name(JoystickIdentity.Make("bbb", "VPC Stick")));

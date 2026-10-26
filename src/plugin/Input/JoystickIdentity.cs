@@ -15,6 +15,11 @@ namespace NOXMFD
     {
         internal static string Make(string guid, string name) => guid + "|" + name;
 
+        // The identity of the device at 1-based `saved` among `joys`, or "" when the bind isn't pinned
+        // to one (0 = any) or that device isn't connected.
+        internal static string Learn(int saved, IList<(string Guid, string Name)> joys) =>
+            saved >= 1 && saved <= joys.Count ? Make(joys[saved - 1].Guid, joys[saved - 1].Name) : string.Empty;
+
         // The device-name part, "" when the identity has none. Read from the saved identity rather
         // than Rewired, so the HTTP thread can serve it without touching Rewired off the main thread.
         internal static string Name(string identity)
