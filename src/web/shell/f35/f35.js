@@ -299,12 +299,12 @@
   // for the extra picture, and their labels and grips sit on top of it.
   const FULL_BLEED = { map: true, tgp: true };
 
-  // Pages whose edge labels stand upright (.osb-v, f35.css): text pages that want the width more
-  // than the labels need it, so their OSB columns shrink to one glyph. Extension pages join them
-  // in renderNav. The text pages of the set the bezel stands up (mfd.js isVmainPage); its
-  // instrument pages (ADI/HSI/AFM/AVN) and WPT keep horizontal labels here.
-  const UPRIGHT_LABELS = { tgt: true, sqd: true, akf: true, bdf: true, pal: true, mis: true, obj: true,
-                           keys: true, hud: true, ui: true };
+  // Pages whose edge labels stand upright (.osb-v, f35.css), so their OSB columns shrink to one
+  // glyph and the page gets the width. The same pages the bezel stands up (mfd.js isVmainPage);
+  // extension pages join them in renderNav.
+  const UPRIGHT_LABELS = { adi: true, afm: true, hsi: true, avn: true, tgt: true, td: true, sqd: true,
+                           wpt: true, rtd: true, spd: true, akf: true, bdf: true, pal: true, mis: true,
+                           obj: true, keys: true, hud: true, ui: true };
 
   const slices  = Object.create(null);   // the tap's latest message, by type — shared by all portals
   // Not the source of orientation — a portal measures its own box for that (forwardOrientation).
@@ -942,6 +942,7 @@
         }
         grid.appendChild(b);
       });
+      fitOsb();
       if (currentPage === 'wpn') { addWeaponHits(); markMasterArms(); markCombatMode(); placeWpnDecorators(); }
       if (currentPage === 'tgp') {
         markTgpManual(); markTgpView(); markTgpImg();
@@ -958,9 +959,27 @@
       markFollow();   // the labels were just rebuilt; re-apply the state to the new FLW
       markGrid();     // ...and the state to the new GRID
       markSlew();     // ...and to the new SLEW
+      // A decorator wider than its labels widens the column, which moves the labels it sits
+      // between, so everything measured off them is placed again.
+      if (fitOsb()) api.resized();
       // The grid was just rebuilt, so an SOI cursor mark on one of its items is gone — let the shell
       // re-apply it if this is the focused portal (the F-35 twin of mfd.js's post-rebuild renderSoiCursor).
       if (onNavRendered) onNavRendered(api);
+    }
+
+    // Sizes a horizontal-label page's OSB columns (f35.css --osb-w) to its widest label or
+    // decorator, so the page window gets everything else. Measured rather than counted because a
+    // decorator's word is in a smaller face than the labels. Returns whether the width changed.
+    function fitOsb() {
+      if (!grid.classList.contains('edge') || el.classList.contains('osb-v')) return false;
+      let w = 0;
+      grid.querySelectorAll('.nav-item, .wpn-decor').forEach(function (n) {
+        w = Math.max(w, n.scrollWidth, n.offsetWidth);
+      });
+      const next = w ? Math.ceil(w) + 4 + 'px' : '';
+      if (el.style.getPropertyValue('--osb-w') === next) return false;
+      el.style.setProperty('--osb-w', next);
+      return true;
     }
 
     function showPage(name) {
@@ -1015,6 +1034,7 @@
       // resize handling, and must not be re-entered here — that would reload the iframe and throw
       // away the zoom and pan the pilot set.
       resized: function () {
+        fitOsb();
         if (currentPage === 'wpn') { forwardOrientation(); forwardWpnLayout(); placeWpnDecorators(); }
         if (currentPage === 'map') { placeWpnDecorator('zin', 'zout', 'ZOOM'); placeWpnDecorator('rt-next', 'rt-prev', 'ROUTE'); placeWpnDecorator('wpt-next', 'wpt-prev', WaypointsStore.getActiveRoute() ? 'WYPT' : 'STRP'); }
         if (currentPage === 'rdr' || currentPage === 'hsd') placeWpnDecorator('rng-out', 'rng-in', 'RANGE');
@@ -1331,6 +1351,8 @@
   // recomputes from its separators for the same reason. Only WPN cares — every other page here
   // lays itself out with CSS.
   function relayoutAll() { livePortals().forEach(function (p) { p.resized(); }); }
+  // The OSB columns are measured off the labels, so they need the real face, not its fallback.
+  document.fonts.ready.then(relayoutAll);
   window.addEventListener('resize', relayoutAll);
   orientMq.addEventListener('change', relayoutAll);
 

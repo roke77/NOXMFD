@@ -391,7 +391,7 @@ the jet keeps its buttons in a ring of glass around the window, not on it.
 - Our 6-per-side NAV maps 1:1 onto the 7x5 window's L1-L6/R1-R6, so no NAV
   or page changes were needed.
 - Each column is only as wide as what is in it: a horizontal-label column
-  (`--osb-w`), an upright-label column (`--osb-vw`, the text pages in
+  (`--osb-w`), an upright-label column (`--osb-vw`, the pages in
   `f35.js UPRIGHT_LABELS`, the same set the bezel stands up), a grip-only
   column (`--osb-band`), or nothing at all on a right side with neither.
 - Grips sit in a 7th foot row under the labels. Every portal keeps that row,

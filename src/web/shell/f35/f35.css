@@ -715,7 +715,7 @@ html, body {
                     setGrips): the left always carries labels; the right only when the page puts
                     labels there (.osb-r) or a grip sits in that corner (.grip-r), otherwise none.
      Read by children, so the cq units resolve against this portal. */
-  --osb-w: clamp(56px, 18cqw, 76px);
+  --osb-w: 56px;   /* f35.js fitOsb sets it to the page's widest label */
   --osb-vw: 34px;
   --osb-band: clamp(44px, 6cqh, 56px);   /* floor keeps the grip a 36px touch target */
   --osb-label: var(--osb-w);
@@ -876,12 +876,12 @@ html, body {
   cursor: pointer;
 }
 
-/* Edge: centred in its OSB zone. Side padding is trimmed so a four-glyph label fits the
-   narrowest column. */
+/* Edge: centred in its OSB zone, on one line so f35.js fitOsb can size the column to it. */
 .nav-grid.edge .nav-item {
   justify-self: center;
   align-self: center;
   padding: 4px 3px;
+  white-space: nowrap;
 }
 /* TGP's labels sit on its live picture (f35.js FULL_BLEED), so each gets a small translucent pill —
    the same --no-scrim the page's own stat overlay uses (tgp.css .tgp-ov-stat) — to stay readable
