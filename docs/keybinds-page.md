@@ -133,6 +133,10 @@ Capture is split by source, because each side can only see its own input:
   a modifier held for flight never blocks a gameplay key. The layout shortcuts
   (`LayoutKeybinds.match`) skip that fallback while Ctrl/Alt are held, so a bare `S` bind doesn't
   fire on the browser's own Ctrl+S.
+- **Silent while typing** — keyboard/mouse binds don't fire while the in-game chat box is open
+  (`CursorFlags.Chat`) or a text field has focus (`InputFieldChecker.InsideInputField`), checked
+  in `Keybinds.Typing`. The game disables only its own keyboard/mouse Rewired maps during chat, so
+  HOTAS buttons stay live here too.
 - **Joystick is captured by the plugin** (`Keybinds.ArmJoyCapture`) — only Rewired's button
   numbering matches playback (a browser Gamepad index doesn't line up; XInput, for one, is
   offset). While armed, the plugin overrides `Application.runInBackground` and Rewired's
