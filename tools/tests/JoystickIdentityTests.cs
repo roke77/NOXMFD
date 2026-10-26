@@ -32,6 +32,14 @@ namespace NOXMFD.Tests
         }
 
         [Fact]
+        public void NameIsThePartAfterTheGuid()
+        {
+            Assert.Equal("VPC Stick", JoystickIdentity.Name(JoystickIdentity.Make("bbb", "VPC Stick")));
+            Assert.Equal("Odd|Name", JoystickIdentity.Name(JoystickIdentity.Make("", "Odd|Name")));
+            Assert.Equal("", JoystickIdentity.Name(""));
+        }
+
+        [Fact]
         public void UnknownOrMissingIdentityKeepsTheSavedNumber()
         {
             Assert.Equal(3, JoystickIdentity.Resolve("", 3, Joys));

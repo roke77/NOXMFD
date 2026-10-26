@@ -212,7 +212,8 @@ if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitTiles);
 // Key naming (KeyboardEvent.code → Unity KeyCode name, and its compact display form) lives in
 // keybinds-keymap.js, pure and unit-checked.
 var displayName = KeybindsKeymap.displayName;
-var isBound = KeybindsGroups.isBound, joyText = KeybindsGroups.joyText, axisText = KeybindsGroups.axisText;
+var isBound = KeybindsGroups.isBound, joyText = KeybindsGroups.joyText, axisText = KeybindsGroups.axisText,
+    deviceTitle = KeybindsGroups.deviceTitle;
 
 // ── Render ───────────────────────────────────────────────────────────────────────────────────
 function cell(bind, kind) {
@@ -228,7 +229,8 @@ function cell(bind, kind) {
   else if (!bound)                             { val.textContent = '—';               val.className += ' unbound'; }
   // joystick display carries the device number when pinned ("J2 B55") — with a multi-stick
   // HOTAS the button index alone is ambiguous
-  else val.textContent = kind === 'key' ? displayName(bind.key) : joyText(bind);
+  else if (kind === 'key') val.textContent = displayName(bind.key);
+  else { val.textContent = joyText(bind); val.title = deviceTitle(bind.joyDevice, bind.joyNum); }
   val.onclick = function () { (kind === 'key' ? keyCellClick : joyCellClick)(bind.id); };
 
   var clear = document.createElement('button');
@@ -264,7 +266,7 @@ function axisCell(bind) {
   else if (!bound)                                       { val.textContent = '—';              val.className += ' unbound'; }
   // carries the device number when pinned ("J2 A3") — with a multi-stick HOTAS the axis index
   // alone is ambiguous, same reasoning as the joystick button cell.
-  else val.textContent = axisText(bind);
+  else { val.textContent = axisText(bind); val.title = deviceTitle(bind.axisDevice, bind.axisNum); }
   val.onclick = function () { axisCellClick(bind.id); };
 
   var invert = document.createElement('button');

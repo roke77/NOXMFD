@@ -65,13 +65,15 @@ namespace NOXMFD
                     sb.Append(",\"key\":\"").Append(TelemetryServer.EscapeJson(Keybinds.KeyName(b.KeyEntry.Value))).Append('"');
                     if (b.JoyEntry != null)
                         sb.Append(",\"joyButton\":").Append(b.JoyEntry.Value.ToString(CultureInfo.InvariantCulture))
-                          .Append(",\"joyNum\":").Append(b.JoyNumEntry!.Value.ToString(CultureInfo.InvariantCulture));
+                          .Append(",\"joyNum\":").Append(b.JoyNumEntry!.Value.ToString(CultureInfo.InvariantCulture))
+                          .Append(",\"joyDevice\":\"").Append(TelemetryServer.EscapeJson(JoystickIdentity.Name(b.JoyDevEntry!.Value))).Append('"');
                 }
                 // Analog source — present only for the MAP cursor's axis-capable rows.
                 if (b.AxisEntry != null)
                 {
                     sb.Append(",\"axis\":").Append(b.AxisEntry.Value.ToString(CultureInfo.InvariantCulture))
                       .Append(",\"axisNum\":").Append(b.AxisJoyNumEntry!.Value.ToString(CultureInfo.InvariantCulture))
+                      .Append(",\"axisDevice\":\"").Append(TelemetryServer.EscapeJson(JoystickIdentity.Name(b.AxisJoyDevEntry!.Value))).Append('"')
                       .Append(",\"axisInvert\":").Append(b.AxisInvertEntry!.Value ? "true" : "false");
                 }
                 sb.Append('}');

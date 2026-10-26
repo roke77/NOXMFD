@@ -1308,9 +1308,11 @@ _KEYBIND_SEEDS = {
     # 01 Systems
     "power-on": {"key": "P"}, "power-off": {"key": "LeftShift+P"},
     "radar-on": {"key": "R"}, "radar-off": {"key": "LeftShift+R"},
-    "engine-on": {"key": "E", "joyButton": 11, "joyNum": 2},
-    "master-arms-on": {"key": "M", "joyButton": 12, "joyNum": 2},
-    "gear-up": {"key": "LeftShift+G", "joyButton": 14, "joyNum": 1}, "gear-down": {"key": "G", "joyButton": 15, "joyNum": 1},
+    # joyDevice set on a few rows only: the rest show the KEY page's "device not recorded" hover text.
+    "engine-on": {"key": "E", "joyButton": 11, "joyNum": 2, "joyDevice": "VPC Throttle CM3"},
+    "master-arms-on": {"key": "M", "joyButton": 12, "joyNum": 2, "joyDevice": "VPC Throttle CM3"},
+    "gear-up": {"key": "LeftShift+G", "joyButton": 14, "joyNum": 1, "joyDevice": "VPC Stick MT-50CM2"},
+    "gear-down": {"key": "G", "joyButton": 15, "joyNum": 1, "joyDevice": "VPC Stick MT-50CM2"},
     # 02 Combat
     "combat-mode-aa": {"key": "Alpha1", "joyButton": 9, "joyNum": 1}, "combat-mode-ag": {"key": "Alpha2", "joyButton": 10, "joyNum": 1},
     "cycle-guns": {"joyButton": 5, "joyNum": 1}, "cycle-missiles": {"joyButton": 6, "joyNum": 1},

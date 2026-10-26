@@ -1,6 +1,6 @@
 // Self-check for the KEY page's grouping. Run: `node keybinds-groups.test.js`.
 const assert = require('assert');
-const { GROUPS, build, isBound, joyText, axisText, searchText, usesKey, usesJoy, keyClash } = require('./keybinds-groups.js');
+const { GROUPS, build, isBound, joyText, axisText, deviceTitle, searchText, usesKey, usesJoy, keyClash } = require('./keybinds-groups.js');
 
 const bind = (id, section, extra) => Object.assign({ id, section, label: id, description: '', key: '', joyButton: -1, joyNum: 0 }, extra);
 
@@ -70,6 +70,9 @@ assert.strictEqual(joyText({ joyNum: 2, joyButton: 11 }), 'J2 B11');
 assert.strictEqual(joyText({ joyNum: 0, joyButton: 5 }), 'JOY 5');
 assert.strictEqual(axisText({ axisNum: 2, axis: 3 }), 'J2 A3');
 assert.strictEqual(axisText({ axisNum: 0, axis: 3 }), 'AXIS 3');
+assert.strictEqual(deviceTitle('VPC Stick', 2), 'VPC Stick');
+assert.ok(/not recorded/.test(deviceTitle('', 2)));
+assert.strictEqual(deviceTitle(undefined, 0), '');
 const shown = k => k.toUpperCase();
 const g = bind('gear-up', 'GEAR', { label: 'Gear Up', description: 'Raise the landing gear.', key: 'g', joyButton: 11, joyNum: 2 });
 for (const q of ['gear up', 'landing', 'j2 b11', 'g']) assert.ok(searchText(g, shown).includes(q), `search text should contain ${q}`);

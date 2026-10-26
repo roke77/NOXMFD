@@ -15,6 +15,14 @@ namespace NOXMFD
     {
         internal static string Make(string guid, string name) => guid + "|" + name;
 
+        // The device-name part, "" when the identity has none. Read from the saved identity rather
+        // than Rewired, so the HTTP thread can serve it without touching Rewired off the main thread.
+        internal static string Name(string identity)
+        {
+            int bar = identity.IndexOf('|');
+            return bar < 0 ? string.Empty : identity.Substring(bar + 1);
+        }
+
         // The 1-based number the device `identity` has now among `joys` (guid, name in Rewired order),
         // or `saved` when the identity is empty/unparseable or the device isn't connected.
         internal static int Resolve(string identity, int saved, IList<(string Guid, string Name)> joys)
