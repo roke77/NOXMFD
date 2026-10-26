@@ -7,7 +7,7 @@ html, body { overflow: hidden; }
   max-width: none;
   height: 100vh;
   margin: 0;
-  padding: 0 14px;
+  padding: 0;
   display: flex;
   flex-direction: column;
 }
@@ -304,4 +304,14 @@ button:focus-visible, a:focus-visible { outline: 1px solid var(--no-amber); outl
   .kb-head, .kb-row { grid-template-columns: minmax(0, 1fr) 140px 150px; gap: 8px; }
   .kb-desc { display: none; }
   .kb-top { gap: 10px; }
+  /* The function column is whatever the two bind columns leave, so a name that doesn't fit is cut
+     rather than drawn over the keyboard cell. */
+  .kb-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+}
+/* Too narrow for the name beside both bind cells (an F-35 portal): the name takes its own line
+   above them, and the header drops its FUNCTION label to match. */
+@media (max-width: 640px) {
+  .kb-head, .kb-row { grid-template-columns: 1fr 1fr; row-gap: 4px; }
+  .kb-row .kb-fn { grid-column: 1 / -1; }
+  .kb-head span:first-child { display: none; }
 }
