@@ -140,6 +140,9 @@ lamp means ON. They sit in two groups.
   browser there takes the keyboard with it. To use keyboard binds (SOI Next/Prev, say) while a
   browser on the game PC has focus, turn Remote Keybinds on in that browser. Unfocused Input covers
   the HOTAS only.
+
+  Keyboard and mouse binds also go quiet while the in-game chat box is open, so typing a message
+  never fires a weapon. HOTAS buttons still work, the same as the game's own binds.
 - **HUD By Mode** — off by default. Turn it on to have switching to A/A or A/G automatically force
   [HUD](hud.md)'s matching preset (the same NAV/GUN/A2A/A2G/EW/LOG tabs HUD's own mode row
   applies), restoring whatever you had set yourself on returning to ALL. Pressing an

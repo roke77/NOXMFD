@@ -1346,12 +1346,19 @@ namespace NOXMFD
             bool edge = edgeOverride ?? bind.Edge;
             KeyboardShortcut sc = bind.KeyEntry.Value;
             KeyCode k = sc.MainKey;
-            bool kbd = k != KeyCode.None && k < KeyCode.JoystickButton0 &&
+            bool kbd = k != KeyCode.None && k < KeyCode.JoystickButton0 && !Typing() &&
                        (edge ? Input.GetKeyDown(k) : Input.GetKey(k)) && ModifiersHeld(sc) && !Shadowed(bind, sc);
             // JoyEntry is null for a key-only bind (DefKeyOnly, e.g. SAVE/LOAD LAYOUT) — no
             // joystick/HOTAS source to check, so the keyboard result alone decides it.
             return kbd || (bind.JoyEntry != null && JoyBtn(bind.JoyEntry.Value, bind.JoyNumEntry!.Value, edge));
         }
+
+        // The pilot is typing — chat open, or a text field focused (mission editor). The game disables
+        // its own keyboard/mouse Rewired maps while chat is open (ChatBox.OnEnable), but these binds
+        // read Unity's Input directly and would otherwise fire on chat keystrokes. Keyboard/mouse only,
+        // like the game: joystick maps stay live during chat, so a HOTAS button still fires.
+        private static bool Typing() =>
+            CursorManager.GetFlag(CursorFlags.Chat) || NuclearOption.MissionEditorScripts.InputFieldChecker.InsideInputField;
 
         // Either side of each configured modifier counts (see ChordModifiers).
         private static bool ModifiersHeld(KeyboardShortcut sc) =>
