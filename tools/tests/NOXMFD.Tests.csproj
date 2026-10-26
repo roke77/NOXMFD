@@ -82,6 +82,7 @@
     <Compile Include="..\..\src\plugin\Input\KeybindTapHold.cs" Link="Source\KeybindTapHold.cs" />
     <Compile Include="..\..\src\plugin\Input\KeybindConflict.cs" Link="Source\KeybindConflict.cs" />
     <Compile Include="..\..\src\plugin\Input\KeyChord.cs" Link="Source\KeyChord.cs" />
+    <Compile Include="..\..\src\plugin\Input\JoystickIdentity.cs" Link="Source\JoystickIdentity.cs" />
     <!-- RemoteInputState.cs (issue #77) — pure BCL (System.Collections.Generic + DateTime.UtcNow),
          no TelemetryServer/Keybinds touchpoint. -->
     <Compile Include="..\..\src\plugin\Input\RemoteInputState.cs" Link="Source\RemoteInputState.cs" />
