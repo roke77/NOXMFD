@@ -260,6 +260,10 @@ view's own layout.
   widths and arrangement — only their height changes. At 1280×720 they drop
   from 720 to 640 tall.
 
+> The strip is now a fixed 72 px, the height its contents need (`--ms-h`), so a
+> phone in landscape doesn't clip it and a tall screen gets no dead space — see
+> [docs/f35-strip-widgets.md](f35-strip-widgets.md).
+
 ### Content
 
 > The strip's content is now pilot-chosen: a fixed brand block (wordmark, name URL, status) on the

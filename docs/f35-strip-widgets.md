@@ -20,12 +20,12 @@ with the portals and their pages.
   connection status) is fixed at the left end; WAKE, FULLSCREEN and the edit pencil are fixed at the
   right end (`.ms-fixed`). Neither is a widget, so edit mode can't remove the way into it, and
   WAKE/FULLSCREEN keep working while editing. Between them sit four slots (`F35Strip.SLOTS`), each
-  holding at most one widget. A slot is as wide as its widget, packed from the left. THRL/FUEL and
-  RPM/HEAT are 300 px and give way first, down to 150 px; when the row still doesn't fit,
-  `#ms-widgets` scrolls sideways, so the right-most widget is cut first. The strip is a ninth of
-  the glass but never under 72 px (`--ms-h`, the brand block plus padding), so a phone in landscape
-  gets a taller strip rather than a clipped one. Its slim grey scrollbar's thumb shows while the strip is hovered
-  and fades out over 1 s; the end arrows always show. An empty slot takes no space outside edit
+  holding at most one widget. A slot is as wide as its widget, spread evenly across the row.
+  THRL/FUEL and RPM/HEAT are 300 px and give way first, down to 150 px; when the row still doesn't
+  fit, `#ms-widgets` scrolls sideways, so the right-most widget is cut first. The strip is 72 px
+  tall on any glass (`--ms-h`, the brand block plus padding), so a phone in landscape doesn't clip
+  it and a tall screen gets no dead space. Its slim grey scrollbar's thumb shows while the strip is
+  hovered and fades out over 1 s; the end arrows always show. An empty slot takes no space outside edit
   mode.
 - **Editing in place, per slot.** The pencil toggles edit mode. All four slots then show a dashed
   box inside the strip's 10 px top/bottom padding; an empty slot is a 200 px **+** (the whole slot is

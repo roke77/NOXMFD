@@ -33,11 +33,11 @@ html, body {
   inset: 0;
   display: flex;
   flex-direction: column;
-  /* The master strip's height: a ninth of the glass, but never less than its contents need, so a
-     short screen (a phone in landscape) gets a taller strip instead of a clipped one. 72px is the
-     brand block (its tallest fixed content, 61px) plus the strip's padding and border; every
-     widget is shorter. Resolved at each use, so the % is of .pcd's height for both users. */
-  --ms-h: max(calc(100% / 9), 72px);
+  /* The master strip's height: exactly what its contents need, whatever the glass, so a short
+     screen (a phone in landscape) doesn't clip it and a tall one doesn't pad it with dead space.
+     72px is the brand block (its tallest fixed content, 61px) plus the strip's padding and border;
+     every widget is shorter. Shared with the connection-lost banner, which sits under it. */
+  --ms-h: 72px;
 }
 
 /* ── Master strip ──────────────────────────────────────────────────────────────────────
@@ -60,9 +60,8 @@ html, body {
 
 /* Connection-lost banner (issue #79) — see f35.html for why this is a sibling of .master-strip
    rather than a child of it or of #portals. .pcd is this element's containing block (the nearest
-   position:absolute ancestor), so `top` here resolves against .pcd's own height — the same height
-   .master-strip's `flex: 0 0 var(--ms-h)` measures its basis against — landing the banner flush
-   under the strip without reading its rendered height at runtime. */
+   position:absolute ancestor), so `top: var(--ms-h)` — the strip's own height — lands the banner
+   flush under the strip without reading its rendered height at runtime. */
 .conn-lost-banner {
   position: absolute;
   top: var(--ms-h); left: 0; right: 0;
@@ -427,11 +426,11 @@ html, body {
 
 /* ── Strip widgets (docs/f35-strip-widgets.md) ─────────────────────────────────────────────
    The slots row takes everything the two fixed blocks leave. Each slot is as wide as its widget,
-   packed from the left; when they don't all fit, the row scrolls sideways, so the right-most
-   widget is cut first. The scrollbar is the slim grey one the other pages draw (tgt.css), but its
-   thumb only shows while the strip is hovered and fades out over 1 s after, while its two arrows
-   always show; its track keeps its height either way, so showing it doesn't shift the widgets.
-   --ms-thumb is registered so the colour can transition. The ::-webkit rules draw it because the
+   spread evenly across the row; when they don't all fit, the row scrolls sideways from the left,
+   so the right-most widget is cut first. The scrollbar is the slim grey one the other pages draw
+   (tgt.css), but its thumb only shows while the strip is hovered and fades out over 1 s after,
+   while its two arrows always show; its track keeps its height either way, so showing it doesn't
+   shift the widgets. --ms-thumb is registered so the colour can transition. The ::-webkit rules draw it because the
    standard scrollbar-color paints the arrows in the thumb's colour, so it can't fade one without
    the other; Chromium ignores ::-webkit rules once scrollbar-color is set, so that is applied only
    where ::-webkit-scrollbar isn't supported (Firefox). */
@@ -445,6 +444,7 @@ html, body {
   min-width: 0;
   align-self: stretch;
   display: flex;
+  justify-content: space-evenly;
   gap: 16px;
   overflow-x: auto;
   overflow-y: hidden;
