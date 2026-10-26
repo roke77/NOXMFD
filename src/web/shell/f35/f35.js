@@ -1028,11 +1028,12 @@
       // neighbours keep theirs. All four slots are the same width, so the arithmetic is just the
       // span — no wrapper elements, no percentages.
       applySpan: function () { el.style.flexGrow = String(cell.span); },
-      // The portal's box just changed. WPN is the only page that cares, and it cares twice: its
-      // rects come from the box, and its orientation IS the box's shape — a quarter is portrait, a
-      // half may not be. Every other page reflows itself with CSS; the map notices via its own
-      // resize handling, and must not be re-entered here — that would reload the iframe and throw
-      // away the zoom and pan the pilot set.
+      // The portal's box, or its labels' width (fitOsb), just changed. The OSB columns are refitted
+      // first, since everything below is measured off where the labels now sit. WPN cares twice:
+      // its rects come from the box, and its orientation IS the box's shape — a quarter is
+      // portrait, a half may not be. The decorators re-centre between their labels. Every other
+      // page reflows itself with CSS; the map notices via its own resize handling, and must not be
+      // re-entered here — that would reload the iframe and throw away the zoom and pan the pilot set.
       resized: function () {
         fitOsb();
         if (currentPage === 'wpn') { forwardOrientation(); forwardWpnLayout(); placeWpnDecorators(); }
@@ -1347,8 +1348,8 @@
     else if (m.type === 'loadout') { paintWpnModes(); paintWeapon(); }
   });
 
-  // WPN's rects are derived from its portal's box, so they go stale when it changes. The bezel
-  // recomputes from its separators for the same reason. Only WPN cares — every other page here
+  // WPN's rects and the label decorators are derived from the portal's box, so they go stale when it
+  // changes. The bezel recomputes from its separators for the same reason; every page's content
   // lays itself out with CSS.
   function relayoutAll() { livePortals().forEach(function (p) { p.resized(); }); }
   // The OSB columns are measured off the labels, so they need the real face, not its fallback.

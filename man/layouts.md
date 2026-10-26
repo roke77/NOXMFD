@@ -51,9 +51,11 @@ connection loss, above every portal regardless of page — see
 ### Editing the top strip
 
 The middle of the strip has four slots, each holding one widget you choose; the left and right
-blocks are fixed. Each widget takes the width it needs, from the left; if they don't all fit, the
-right-most is cut off and the row scrolls sideways (hover the strip for its scrollbar). Tap **✎** to
-edit: all four slots show, each with a dashed box.
+blocks are fixed. Each widget takes the width it needs, from the left; if they don't all fit, THRL /
+FUEL and RPM / HEAT narrow first, then the right-most widget is cut off and the row scrolls sideways
+(hover the strip for its scrollbar). On a short screen, such as a phone in landscape, the strip
+grows taller rather than cutting its contents. A new window starts with THRL / FUEL and the avionics
+flags. Tap **✎** to edit: all four slots show, each with a dashed box.
 
 - An empty slot shows **+** in the middle — tap it to pick a widget for that slot:
   - **THRL / FUEL** — the throttle and fuel gauges;
