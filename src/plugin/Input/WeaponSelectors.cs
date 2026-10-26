@@ -216,6 +216,9 @@ namespace NOXMFD
         // bucket), so there's no need to replicate Fire()'s own gun/guns-linked special case.
         private static void FireSingleAtFocused(Aircraft ac, WeaponManager wm)
         {
+            // Releases through WeaponStation directly, so the Master Arm prefix on
+            // WeaponManager.Fire() never sees it — gated here instead.
+            if (!ImmersionState.MasterArmsOn) return;
             WeaponStation? ws = wm.currentWeaponStation;
             if (ws == null || ws.SafetyIsOn(ac) || ac.weaponStations.Count == 0) return;
             if (ac.remoteSim || !ws.Ready() || ws.SalvoInProgress) return;
