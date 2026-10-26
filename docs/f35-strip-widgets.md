@@ -54,13 +54,13 @@ with the portals and their pages.
   and a two-slot strip pads to four. `LayoutStore.cs` treats the blob as opaque, so the plugin
   needs no change. Each window also keeps its whole arrangement (glass and strip) in
   `sessionStorage` (`f35-session`), written on `pagehide` and restored at boot, so a reload brings
-  that window back and a new window starts from the defaults: four MAIN portals and an empty strip.
+  that window back and a new window starts from the defaults: four MAIN portals and a THRL/FUEL + flags strip.
   The restore waits for `ExtNav.load` so a portal on an extension page comes back on it.
 
 ## Design
 
 - `shell/f35/f35-strip.js` (pure, `f35-strip.test.js`): the slot count, the catalog, the default
-  (empty), `normalize` (a stored or preset arrangement → exactly SLOTS entries of a
+  (`['gauges', 'flags', null, null]`), `normalize` (a stored or preset arrangement → exactly SLOTS entries of a
   known id or null, no id twice; `null` for a non-array), the slot edits (`place`/`clear`/
   `available`), and the readout formatters.
 - Every widget element exists once — declared in `f35.html` under `data-widget`, or built by

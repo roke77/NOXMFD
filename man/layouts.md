@@ -80,7 +80,8 @@ WAKE and FULLSCREEN keep working. **SAVE** stores the strip with the layout, so 
 layout can carry its own strip; a layout saved before the strip was editable leaves it as it is.
 
 Each browser window keeps its own portals and strip: a reload brings back what that window showed,
-and a new window starts with four MAIN portals and an empty strip.
+and a new window starts with four MAIN portals and the strip's default THRL / FUEL and avionics
+flags.
 
 ![F-35 layout — MAIN](images/F-35%20MAIN.png)
 

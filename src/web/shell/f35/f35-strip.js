@@ -31,8 +31,8 @@
   var KNOWN = {};
   CATALOG.forEach(function (w) { KNOWN[w.id] = w; });
 
-  // A fresh window's strip: empty.
-  var DEFAULT = [null, null, null, null];
+  // A fresh window's strip: THRL/FUEL, then the avionics flags.
+  var DEFAULT = ['gauges', 'flags', null, null];
 
   // A stored or preset-carried arrangement → exactly SLOTS entries, each a known id or null, no id
   // twice (a widget is one element, so it can only be in one slot). null when `slots` isn't an

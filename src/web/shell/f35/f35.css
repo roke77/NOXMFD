@@ -33,22 +33,27 @@ html, body {
   inset: 0;
   display: flex;
   flex-direction: column;
+  /* The master strip's height: a ninth of the glass, but never less than its contents need, so a
+     short screen (a phone in landscape) gets a taller strip instead of a clipped one. 72px is the
+     brand block (its tallest fixed content, 61px) plus the strip's padding and border; every
+     widget is shorter. Resolved at each use, so the % is of .pcd's height for both users. */
+  --ms-h: max(calc(100% / 9), 72px);
 }
 
 /* ── Master strip ──────────────────────────────────────────────────────────────────────
    A fixed full-width bar across the top of the glass — the home for what belongs to the aircraft
    rather than to any one portal (docs/layouts.md). The first child of the .pcd column, so the
    portals below are pushed down to make room rather than sliding under it: the two never share
-   space, and no z-order or inset has to be reasoned about. One ninth of the glass tall; flex-basis
-   carries the height so flex-grow/shrink stay pinned. */
+   space, and no z-order or inset has to be reasoned about. --ms-h tall (.pcd); flex-basis carries
+   the height so flex-grow/shrink stay pinned. */
 .master-strip {
-  flex: 0 0 calc(100% / 9);
+  flex: 0 0 var(--ms-h);
   box-sizing: border-box;
   border-bottom: 2px solid var(--no-teal);   /* the same 2px the portal frames below draw */
   display: flex;
   align-items: center;
   gap: 20px;
-  padding: 10px 16px;
+  padding: 5px 10px;
   color: var(--no-teal);
   overflow: hidden;
 }
@@ -56,11 +61,11 @@ html, body {
 /* Connection-lost banner (issue #79) — see f35.html for why this is a sibling of .master-strip
    rather than a child of it or of #portals. .pcd is this element's containing block (the nearest
    position:absolute ancestor), so `top` here resolves against .pcd's own height — the same height
-   .master-strip's `flex: 0 0 calc(100% / 9)` measures its basis against — landing the banner flush
+   .master-strip's `flex: 0 0 var(--ms-h)` measures its basis against — landing the banner flush
    under the strip without reading its rendered height at runtime. */
 .conn-lost-banner {
   position: absolute;
-  top: calc(100% / 9); left: 0; right: 0;
+  top: var(--ms-h); left: 0; right: 0;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -185,11 +190,12 @@ html, body {
    positioned, vertical, sized from rects the shell forwards — so what comes across is the rule
    (avn-throttle-policy, shared) and the LOOK, rebuilt sideways: see the tube below. What stays
    behind is the ¯\___ leader that tracks each fill's tip, which needs a per-paint measurement and
-   has nowhere to go in a bar this short. Fills its slot's width. */
+   has nowhere to go in a bar this short. 300px wide while the strip has room, down to 150px when
+   it doesn't (the slot rule under Strip widgets); never less, or the bars squeeze to their labels. */
 .ms-gauges {
-  flex: 1 1 160px;
-  /* A content-sized slot would otherwise squeeze the bars down to their labels. */
-  min-width: 300px;
+  flex: 1 1 300px;
+  width: 300px;
+  min-width: 150px;
   display: flex;
   flex-direction: column;
   gap: 5px;
@@ -481,6 +487,9 @@ html, body {
   overflow: hidden;
 }
 .master-strip.editing .ms-slot { border-color: var(--no-teal); }
+/* The bar widgets give way first: their slots shrink (to the bars' 150px floor) before the row has
+   to scroll; every other widget keeps its full width. */
+.ms-slot:has(> .ms-gauges) { flex-shrink: 1; min-width: 150px; }
 /* An empty slot only exists while editing, as a + target. */
 .ms-slot:not(.filled) { width: 200px; }
 .master-strip:not(.editing) .ms-slot:not(.filled) { display: none; }
