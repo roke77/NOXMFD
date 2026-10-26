@@ -20,9 +20,11 @@ with the portals and their pages.
   connection status) is fixed at the left end; WAKE, FULLSCREEN and the edit pencil are fixed at the
   right end (`.ms-fixed`). Neither is a widget, so edit mode can't remove the way into it, and
   WAKE/FULLSCREEN keep working while editing. Between them sit four slots (`F35Strip.SLOTS`), each
-  holding at most one widget. A slot is as wide as its widget (THRL/FUEL and RPM/HEAT at least
-  300 px), packed from the left; when they don't fit, `#ms-widgets` scrolls sideways, so the
-  right-most widget is cut first. Its slim grey scrollbar's thumb shows while the strip is hovered
+  holding at most one widget. A slot is as wide as its widget, packed from the left. THRL/FUEL and
+  RPM/HEAT are 300 px and give way first, down to 150 px; when the row still doesn't fit,
+  `#ms-widgets` scrolls sideways, so the right-most widget is cut first. The strip is a ninth of
+  the glass but never under 72 px (`--ms-h`, the brand block plus padding), so a phone in landscape
+  gets a taller strip rather than a clipped one. Its slim grey scrollbar's thumb shows while the strip is hovered
   and fades out over 1 s; the end arrows always show. An empty slot takes no space outside edit
   mode.
 - **Editing in place, per slot.** The pencil toggles edit mode. All four slots then show a dashed
@@ -54,13 +56,13 @@ with the portals and their pages.
   and a two-slot strip pads to four. `LayoutStore.cs` treats the blob as opaque, so the plugin
   needs no change. Each window also keeps its whole arrangement (glass and strip) in
   `sessionStorage` (`f35-session`), written on `pagehide` and restored at boot, so a reload brings
-  that window back and a new window starts from the defaults: four MAIN portals and an empty strip.
+  that window back and a new window starts from the defaults: four MAIN portals and a THRL/FUEL + flags strip.
   The restore waits for `ExtNav.load` so a portal on an extension page comes back on it.
 
 ## Design
 
 - `shell/f35/f35-strip.js` (pure, `f35-strip.test.js`): the slot count, the catalog, the default
-  (empty), `normalize` (a stored or preset arrangement → exactly SLOTS entries of a
+  (`['gauges', 'flags', null, null]`), `normalize` (a stored or preset arrangement → exactly SLOTS entries of a
   known id or null, no id twice; `null` for a non-array), the slot edits (`place`/`clear`/
   `available`), and the readout formatters.
 - Every widget element exists once — declared in `f35.html` under `data-widget`, or built by
