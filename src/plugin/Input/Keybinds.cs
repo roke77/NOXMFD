@@ -985,10 +985,18 @@ namespace NOXMFD
             Plugin.Log?.LogInfo($"[NOXMFD] {CapturingKind} capture armed for '{CapturingId}': {joys.Count} joystick(s): {string.Join(", ", names)}");
         }
 
+        // Rewired documents the instance GUID as available only on some input sources; a source that
+        // can't supply one falls back to name matching rather than breaking capture or re-pinning.
         private static (string Guid, string Name) Identity(Joystick j)
         {
-            Guid g = j.deviceInstanceGuid;
-            return (g == Guid.Empty ? string.Empty : g.ToString(), j.name ?? string.Empty);
+            string guid = string.Empty;
+            try
+            {
+                Guid g = j.deviceInstanceGuid;
+                if (g != Guid.Empty) guid = g.ToString();
+            }
+            catch (Exception ex) { Plugin.Log?.LogWarning($"[NOXMFD] joystick '{j.name}': no instance GUID, matching by name: {ex.Message}"); }
+            return (guid, j.name ?? string.Empty);
         }
 
         private static string DeviceId(Joystick j)
@@ -1008,9 +1016,8 @@ namespace NOXMFD
         private static int _joyCount = -1;
         private static void RepinJoysticks()
         {
-            if (!ReInput.isReady) return;
+            if (!ReInput.isReady || ReInput.controllers.joystickCount == _joyCount) return;
             IList<Joystick> joys = ReInput.controllers.Joysticks;
-            if (joys.Count == _joyCount) return;
             _joyCount = joys.Count;
 
             var ids = new List<(string Guid, string Name)>(joys.Count);
@@ -1029,9 +1036,15 @@ namespace NOXMFD
             BackupNow();
             bool save = _configFile.SaveOnConfigSet;
             _configFile.SaveOnConfigSet = false;   // one .cfg write for the whole re-pin, not one per bind
-            try { foreach (var (num, to) in moves) num.Value = to; }
+            try
+            {
+                foreach (var (num, to) in moves) num.Value = to;
+                _configFile.Save();
+            }
+            // The new numbers already apply in memory; only persisting them failed, and the next
+            // startup re-pins from the device entries anyway.
+            catch (Exception ex) { Plugin.Log?.LogWarning($"[NOXMFD] joystick re-pin: .cfg save failed, binds re-pinned for this session only: {ex.Message}"); }
             finally { _configFile.SaveOnConfigSet = save; }
-            _configFile.Save();
             ConfigChanged();
         }
 
