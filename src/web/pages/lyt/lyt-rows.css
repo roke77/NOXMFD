@@ -21,6 +21,9 @@
 .lyt-pane {
   position: absolute; display: flex; align-items: center; justify-content: center;
   overflow: hidden; font-size: 9px; color: var(--no-green-dim);
+  /* A page name wider than its pane breaks onto centred lines rather than being clipped at both
+     ends; line-height 1 keeps capitals on the pane's true middle. */
+  text-align: center; line-height: 1; word-break: break-all;
   border: 1px solid var(--no-green-deep); background: var(--no-card-bg-on);
 }
 .lyt-pane.out { color: var(--no-gray); border-color: var(--no-white-dark); background: transparent; }

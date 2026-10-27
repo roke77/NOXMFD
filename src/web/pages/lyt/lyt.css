@@ -117,4 +117,4 @@ button { font-family: inherit; }
 
 /* On the F-35 (lyt.js marks the shell on <body>) a saved layout's thumbnail is the glass's shape, a
    wide panorama of side-by-side portals, rather than CLASSIC's square screen. */
-body[data-shell="f35"] .lyt-row-thumb { width: 110px; height: 44px; }
+body[data-shell="f35"] .lyt-row-thumb { width: 100px; height: 58px; }
