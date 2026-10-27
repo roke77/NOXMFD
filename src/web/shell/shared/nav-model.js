@@ -160,8 +160,7 @@
       { label: 'DOC',  action: 'doc' },
     ],
     // CFG folds HUD, KEY, LYT and UI under one MAIN entry, same pattern as BDF/PAL/MIS/OBJ above.
-    // LYT's action is the CLASSIC/F-35 chooser (mfd.js BEZEL_EXTRAS.lyt / f35.js
-    // GLASS_ACTIONS.lyt) — only its entry point lives here, its own rendering is untouched. The
+    // LYT is the layout manager page (docs/lyt-rework.md), NAV.lyt below. The
     // TLM/TGP refresh-rate sliders live on MAP's and TGP's own CFG items instead (NAV.map/NAV.tgp
     // above, NAV.mapcfg/NAV.tgpcfg below), since each one only ever matters to a single page.
     hud: [
@@ -186,10 +185,13 @@
       { label: 'LYT',  action: 'lyt'  },
       { label: 'UI',   action: 'ui', mark: true },
     ],
-    // No NAV.lyt entry: BEZEL_EXTRAS.lyt places CLASSIC/F-35 at explicit left0/left1 after the
-    // generic NAV[name] sweep (showPage), so a NAV.lyt list here would just get silently
-    // overwritten at those two slots — no MAIN back-item is needed since CLASSIC/F-35 already
-    // returns to MAIN.
+    lyt: [
+      { label: 'MAIN', action: 'main' },
+      { label: 'HUD',  action: 'hud' },
+      { label: 'KEY',  action: 'keys' },
+      { label: 'LYT',  action: 'lyt', mark: true },
+      { label: 'UI',   action: 'ui'   },
+    ],
     wpn: [],
     // WPT is reached from MAP's own nav row (above), so its way back is MAP, not MAIN — same
     // reasoning as tgp/avn/etc.'s single-entry back links. WPT, RTD (route details) and SPD

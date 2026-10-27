@@ -21,11 +21,23 @@
 .lyt-pane {
   position: absolute; display: flex; align-items: center; justify-content: center;
   overflow: hidden; font-size: 9px; color: var(--no-green-dim);
+  /* A page name wider than its pane breaks onto centred lines rather than being clipped at both
+     ends; line-height 1 keeps capitals on the pane's true middle. */
+  text-align: center; line-height: 1; word-break: break-all;
   border: 1px solid var(--no-green-deep); background: var(--no-card-bg-on);
 }
 .lyt-pane.out { color: var(--no-gray); border-color: var(--no-white-dark); background: transparent; }
 
-.lyt-row-text { flex: 1 1 150px; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+/* The text claims 160px before the controls give way: below that the controls group (lyt-row.js
+   appendControls) wraps to its own line and the text grows into the row's width. 160px still fits
+   beside the badge and thumbnail in a one-slot F-35 portal. */
+.lyt-row-text { flex: 1 1 160px; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+/* Right-aligned whether beside the text or wrapped below it; wraps inside only when even a line of
+   its own is too narrow for it. */
+.lyt-row-ctrls {
+  flex: 0 1 auto; margin-left: auto;
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px 10px;
+}
 .lyt-row-name { font-size: 18px; letter-spacing: 2px; color: var(--no-text-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .lyt-row-sub { font-size: 12px; letter-spacing: 1px; color: var(--no-text-faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 

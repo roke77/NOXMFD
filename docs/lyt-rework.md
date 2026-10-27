@@ -76,12 +76,40 @@ The bezel's only label on this page is MAIN (top of the left bank), back to MAIN
 SAVE and LOAD are gone from the bezel: the cards and rows replace the first, second and fourth, and
 saving is the keyboard shortcut only.
 
+## Step 2 — F-35 (issue #111)
+
+- **LYT in an F-35 portal.** The F-35's own chooser (two cards plus SAVE/LOAD buttons over the whole
+  glass) is gone. LYT in the CFG group opens `/lyt?f35` as an ordinary portal page
+  (`LayoutPages.F35.lyt`); `?f35` marks the F-35 card and lists the F-35 layouts. The page's
+  `lyt-act` messages route to the portal that sent them: the F-35 card sends that portal back to
+  MAIN, CLASSIC goes to `/`, LOAD rebuilds the glass (`loadById`).
+- **Labels.** The CFG switch on LYT (MAIN/HUD/KEY/LYT/UI, LYT marked) moved from the bezel's
+  `BEZEL_EXTRAS.lyt` into a shared `NAV.lyt`, so both layouts draw the same labels.
+- **F-35 rows.** `LytSlots.describeLayout` reads the F-35 arrangement (`{cells, pages}`): one
+  full-height column per portal, as wide as its span, labelled `N PORTALS`; cells the glass can't
+  take read as four single portals, as `applyLayoutState` rebuilds them. Loading an F-35 layout
+  applies its `soi` flags like CLASSIC.
+- **Row wrapping.** A row's key box, edit, delete and LOAD form one group that wraps below the text
+  when the row is narrow (a one-slot portal), so the name and pages keep the width.
+- **Narrow portals.** The LAYOUTS cards and the SAVE/LOAD key boxes stack when a column would be under
+  220px, and LYT's labels stand upright like the other CFG pages' (`UPRIGHT_LABELS`).
+- **Thumbnails.** On the F-35 (`body[data-shell="f35"]`, set by `lyt.js`) a row's thumbnail is
+  100×58 rather than CLASSIC's 58×58 square. In both shells a pane's page name is centred and breaks
+  onto centred lines when wider than its pane, instead of being clipped.
+- **MENU.** The strip's EDIT, WAKE and FULLSCREEN buttons fold into one MENU popover, which also
+  carries SAVE LAYOUT, LOAD LAYOUT (the F-35's existing dialogs, for a screen with no keyboard), PIN
+  and SWAP. PIN pins the whole glass (`LayoutPin` learns `{cells, pages}`), is lit while the glass
+  matches the pin, and rides in saved layouts and the session state; SWAP's cycle is
+  `LayoutPin.swapStep`, shared with the bezel.
+
 ## Live-game checks
 
 - In-game: LOAD from a row applies the layout; a joystick button set through a row's key box loads
   that layout from any page.
 - In-game: a layout saved with a pane left out of SOI rotation skips it in SOI Next/Prev after LOAD;
   the plugin build with `layout.update` is needed for the dialog's SAVE.
+- In-game (F-35): a layout whose portals were toggled out of SOI on the LYT page's edit dialog skips
+  them in SOI Next/Prev after LOAD.
 
 ## Not built yet
 

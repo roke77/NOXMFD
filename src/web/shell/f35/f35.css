@@ -379,23 +379,53 @@ html, body {
           mask: url("/assets/pages/avn/gear-icon.png") no-repeat center / contain;
 }
 
-/* EDIT, WAKE (docs/screen-wake-lock.md) and FULLSCREEN — the fixed group's buttons — share one
-   button box: a border to say it has an edge to hit, square and icon-only since there's nothing to
-   read out. currentColor ties that border to the item's own state, so it tracks the icon it rings —
-   teal at rest, dark against the hover fill. .nav-item.on already gives this shell's buttons the
-   amber engaged treatment WAKE and EDIT need, so none needs a rule of its own beyond this box. */
-.master-strip .ms-fll,
-.master-strip .ms-wake,
-.master-strip .ms-edit {
+/* MENU — the fixed group's one button, boxed like a control with an edge to hit. Amber while the
+   strip is in edit mode, since the way back out is inside it. */
+.master-strip .ms-menu-btn {
   border: 1px solid currentColor;
   border-radius: 3px;
-  width: 34px;
-  height: 34px;
+  height: 44px;
+  padding: 0 18px;
   flex: 0 0 auto;
+  font-size: 18px;
+  letter-spacing: 2px;
+}
+.master-strip.editing .ms-menu-btn { color: var(--no-amber); }
+
+/* The dropdown: a popover, so the UA places it fixed in the top layer; this pins it under the strip's
+   right end (--ms-h inherits from .pcd through the DOM, top layer or not). */
+.ms-menu {
+  inset: var(--ms-h) 10px auto auto;
+  margin: 4px 0 0;
+  padding: 6px;
+  border: 1px solid var(--no-teal);
+  border-radius: 3px;
+  background: var(--no-bg);
+  color: var(--no-teal);
+  font-family: var(--no-font);
+  flex-direction: column;
+  gap: 4px;
+  min-width: 220px;
+}
+.ms-menu:popover-open { display: flex; }
+/* Each row is its icon and its name; .nav-item.on gives WAKE and EDIT their engaged amber. */
+.ms-menu-item {
   display: flex;
   align-items: center;
-  justify-content: center;
+  gap: 12px;
+  padding: 10px 12px;
+  font-size: 16px;
+  text-align: left;
 }
+.ms-edit-icon,
+.ms-menu-glyph { width: 16px; text-align: center; font-size: 16px; line-height: 1; }
+.ms-menu-icon { display: inline-block; width: 16px; height: 16px; background-color: currentColor; }
+.ms-pin-icon  { -webkit-mask: var(--icon-pin) center/contain no-repeat;  mask: var(--icon-pin) center/contain no-repeat; }
+.ms-swap-icon { -webkit-mask: var(--icon-swap) center/contain no-repeat; mask: var(--icon-swap) center/contain no-repeat; }
+/* SWAP with nothing pinned: shown, so the menu doesn't shift, but inert. */
+.ms-menu-item:disabled { color: var(--no-gray); cursor: default; pointer-events: none; }
+/* Between the layout controls and the screen's. */
+.ms-menu-rule { width: 100%; margin: 2px 0; border: 0; border-top: 1px solid var(--no-line); }
 /* The bezel's own fullscreen/wake glyphs (mfd.css .ic-fullscreen/.ic-wake) — same masks, so both
    shells show identical icons. currentColor lets each recolour with its button, same as the flag
    icons above. */
@@ -602,10 +632,8 @@ html, body {
 .ms-weapon.empty .ms-weapon-bar.pips span { background: rgba(var(--no-red-rgb), 0.3); }
 .ms-weapon.empty .ms-weapon-bar.fill span { background: var(--no-red); }
 
-/* WAKE, FULLSCREEN and the pencil: always at the right end, never in a slot. The pencil takes the
-   amber .on treatment while editing. */
+/* MENU: always at the right end, never in a slot. */
 .ms-fixed { flex: 0 0 auto; display: flex; align-items: center; gap: 12px; }
-.master-strip .ms-edit { font-size: 15px; line-height: 1; }
 
 /* The ADD list, inside the shared layout modal: one button per widget not on the strip. */
 .ms-add-list {
@@ -645,52 +673,6 @@ html, body {
   display: flex;
   flex-direction: row;
 }
-
-/* ── Layout picker ─────────────────────────────────────────────────────────────────────
-   What the strip's LYT puts in the portals' place: the two layouts, centred on the glass. It takes
-   the same slot in the .pcd column, so the strip stays put and only what is under it changes.
-
-   Both this and .portals declare a display, which would beat the `hidden` attribute's own
-   display:none — so each needs saying explicitly. The attribute is the state: no class, no JS
-   styling, and the two can never both be up. */
-.layout-picker {
-  flex: 1 1 auto;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 64px;
-}
-.layout-picker-row {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 88px;
-}
-/* CLASSIC/F-35/SAVE/LOAD are wildly different word lengths ("F-35" vs "CLASSIC", "SAVE LAYOUT" vs
-   "LOAD LAYOUT"), so centering each row by its own total width still reads off-balance — the block
-   as a whole sits centered, but the shorter word's own visual weight lands well right (or left) of
-   where the eye expects it, and the two rows end up different total widths so they don't line up
-   as a stacked unit either. A shared fixed width makes both rows the same width and both buttons
-   in a row the same weight, so the whole picker reads as one centered, aligned block. */
-.layout-picker-row .nav-item {
-  min-width: 180px;
-  text-align: center;
-}
-.layout-picker[hidden] { display: none; }
-.portals[hidden]       { display: none; }
-
-/* Bigger than a label on a page: these are the only things on the glass. */
-.layout-picker .nav-item { font-size: 30px; }
-
-/* SAVE/LOAD LAYOUT — a smaller secondary row so it reads as a pair of actions, not a third layout
-   choice alongside CLASSIC/F-35. */
-.layout-picker-actions .nav-item { font-size: 20px; }
-
-/* The current layout needs no rule of its own: .nav-item.on already boxes a label in amber, and
-   that is what this is — the same "engaged" the theme gives MAP's FLW. Hover stays the shared
-   white fill. */
 
 /* A portal = one independent MFD's region of the glass. position:relative so its page frame and
    label grid anchor to IT rather than the glass; overflow:hidden so a page can't paint into its

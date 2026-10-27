@@ -46,8 +46,18 @@ corner grips. Each portal keeps a narrow column of glass beside its page for the
 never cover what the page shows; the grips sit at the bottom of those columns. MAP and TGP are the
 exception: the map and the camera feed fill the whole portal and their labels sit on top. A fixed
 strip across the top carries the **NO XMFD** wordmark with the connection address and status under
-it (left), up to four widgets (middle), and **✎** (edit the strip), **WAKE** (keep the screen awake,
-same as CLASSIC's WAKE key above) and **FULLSCREEN** (right). A dismissable red banner drops down from the strip on a
+it (left), up to four widgets (middle), and **MENU** (right). MENU drops down the layout controls —
+**SAVE LAYOUT** and **LOAD LAYOUT** (see [Save/Load Layout](#saveload-layout)), **PIN** and **SWAP** —
+then **EDIT STRIP**, **KEEP AWAKE** (same as CLASSIC's WAKE key above; lit while on) and
+**FULLSCREEN**. Tap one, or tap anywhere else to close it.
+
+- **PIN** — pin the glass as it is: how the portals are merged and the page in each. PIN is lit in
+  the menu while the glass matches it; press PIN again there to unpin. A glass
+  showing nothing but MAIN can't be pinned.
+- **SWAP** — switch to the pinned glass, and back to the one you left on the next press. Grayed out
+  with nothing pinned.
+
+The pin is saved with a layout and kept across a reload, as on CLASSIC. A dismissable red banner drops down from the strip on a
 connection loss, above every portal regardless of page — see
 [MAIN's Connection status](main.md#connection-status).
 
@@ -58,7 +68,7 @@ blocks are fixed. Each widget takes the width it needs, spread evenly across the
 don't all fit, THRL / FUEL and RPM / HEAT narrow first, then the right-most widget is cut off and
 the row scrolls sideways (hover the strip for its scrollbar). The strip is always just tall enough
 for its contents, on a phone in landscape or a big screen. A new window starts with THRL / FUEL and
-the avionics flags. Tap **✎** to edit: all four slots show, each with a dashed box.
+the avionics flags. Tap **MENU** → **EDIT STRIP** to edit (MENU turns amber while you do): all four slots show, each with a dashed box.
 
 - An empty slot shows **+** in the middle — tap it to pick a widget for that slot:
   - **THRL / FUEL** — the throttle and fuel gauges;
@@ -80,8 +90,8 @@ the avionics flags. Tap **✎** to edit: all four slots show, each with a dashed
 - A filled slot shows **✕** in its top-right corner — tap it to empty the slot. The other widgets
   stay where they are.
 
-Tap **✎** again to finish; empty slots then take no space. While editing, the flags don't toggle;
-WAKE and FULLSCREEN keep working. **SAVE** stores the strip with the layout, so each saved F-35
+Tap **MENU** → **EDIT STRIP** again to finish; empty slots then take no space. While editing, the
+flags don't toggle; KEEP AWAKE and FULLSCREEN keep working. **SAVE** stores the strip with the layout, so each saved F-35
 layout can carry its own strip; a layout saved before the strip was editable leaves it as it is.
 
 Each browser window keeps its own portals and strip: a reload brings back what that window showed,
@@ -96,14 +106,17 @@ flags.
 
 ## The LYT page
 
-On CLASSIC, **LYT** (MAIN → **CFG** → **LYT**) is the layout manager. Its bezel keys are **MAIN** (top
-left, back to MAIN) and the CFG switch to **HUD**, **KEY** and **[UI](ui.md)**. The page has three parts:
+**LYT** (MAIN → **CFG** → **LYT**) is the layout manager, the same page in either layout: full view
+on CLASSIC, in the portal you open it from on F-35. Its labels are **MAIN** (back to MAIN) and the
+CFG switch to **HUD**, **KEY** and **[UI](ui.md)**. The page has three parts:
 
-- **LAYOUTS** — the two layouts as cards. Tap one to switch to it; CLASSIC is lit while you are on it.
+- **LAYOUTS** — the two layouts as cards, the one you are on lit. Tap the other to switch to it, or
+  the lit one to go back to MAIN.
 - **KEYBINDS** — the **SAVE** and **LOAD** layout keys. Click a box, then press the key you want
   (Esc cancels, Delete clears). One line under it reminds you how saving works.
-- **SAVED** — your saved layouts, one row each, in the order they were saved. A row shows its number,
-  a small picture of the split with the page in each pane, its name, and which split it is. The first
+- **SAVED** — the saved layouts of the layout you are on, one row each, in the order they were saved. A row shows its number,
+  a small picture of the split (or F-35 portals) with the page in each pane, its name, and which split
+  it is (on F-35, how many portals). The first
   five rows carry a **Layout 1-5** key box, and empty slots show as dashed **EMPTY** rows. A pane the
   layout leaves out of the SOI rotation is drawn gray in the picture. Each row also has:
   - a **key box** — click it, then press a key *or* a joystick button; a slot holds one or the other.
@@ -113,8 +126,6 @@ left, back to MAIN) and the CFG switch to **HUD**, **KEY** and **[UI](ui.md)**. 
     [SOI](keybinds.md#sensor-of-interest-soi) rotation (one lit toggle per pane, or one for a full view);
   - **×** — delete it (the ones below move up a slot);
   - **LOAD** — apply it now.
-
-The **F-35** layout keeps its own picker: two cards and **SAVE**/**LOAD** buttons on the glass.
 
 ![The LYT page](images/LYT.png)
 
@@ -140,12 +151,13 @@ shared by every connected browser.
 
 ![Load Layout](images/LYT_LOAD.png)
 
-**F-35**
+**F-35** — the keys, or **SAVE LAYOUT** / **LOAD LAYOUT** in the strip's MENU:
 
 - **Save Layout** — prompts for a name, then saves.
 - **Load Layout** — lists every saved layout; pick one to apply it. A pencil renames and an × deletes.
   Above the list, one checkbox per portal ("Include portal N in SOI") removes that portal from
-  [SOI Next/Prev](keybinds.md#sensor-of-interest-soi)'s cycle on this display.
+  [SOI Next/Prev](keybinds.md#sensor-of-interest-soi)'s cycle on this display. A layout whose portals
+  were set on the LYT page's **✎** applies those SOI choices when loaded.
 
 Each view keeps its own list, and **Layout 1-5** load the 1st-5th in the list of the view the browser
 shows. Both keys are configured on the LYT page or on [KEY](keybinds.md#layout); they are keyboard-only

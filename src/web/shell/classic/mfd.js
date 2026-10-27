@@ -106,13 +106,7 @@ function fullViewSlot(i) { return i < 6 ? { bank: 'left', index: i } : { bank: '
 
 // Screens this layout puts on the glass beyond NAV's — the mirror of the F-35's own MAIN_EXTRAS. NAV
 // is shared and pinned at MAIN's six items (nav-model.test.js), one per left-bank key, so a layout
-// that wants more names them itself. LYT can't go in NAV even with room: the F-35 already offers
-// this choice from its own master strip, so a NAV entry would put it on that layout's MAIN a second
-// time.
-//
-// LAYOUT's left-bank labels are the CFG group's switch (MAIN/HUD/KEY/LYT, as NAV.hud/NAV.keys carry
-// it): the /lyt page in #page-frame carries the shell cards and the saved layouts, and SAVE/LOAD
-// LAYOUT are the keyboard shortcuts (dialogs: layout-keydown.js).
+// that wants more names them itself.
 const BEZEL_EXTRAS = {
   // CFG, MD, RDR and SQD — the layout-owned MAIN items the six shared NAV items don't
   // cover. CFG opens the CFG group (HUD/KEY/LYT/RTS — cfg-rates experiment issue #39, HUD joined
@@ -125,7 +119,7 @@ const BEZEL_EXTRAS = {
   // hub's pages, reached from NAV.main's AVN (docs/adi-hsi-pages.md).
   // All are frame-hosted pages that get their MAIN back from NAV like every other, so none needs an
   // entry of its own here beyond this one.
-  // No bank/index/mark here (unlike lyt below): MAIN_SPLIT_ITEMS is the only consumer, in both full
+  // No bank/index/mark here: MAIN_SPLIT_ITEMS is the only consumer, in both full
   // view and split, and it places by alphabetical order, not a fixed key.
   main: [
     { label: 'CFG', action: 'hud' },   // CFG's own MAIN-entry action — lands on HUD now
@@ -136,15 +130,6 @@ const BEZEL_EXTRAS = {
     // NAV.akf etc.), reached via MD like the other five, not its own MAIN entry.
     // EXT is NOT here — it's a real, shared NAV.main entry (docs/extensions-api.md), not a
     // layout-owned stub; a second entry here would render a duplicate "EXT" label.
-  ],
-  // The /lyt page carries everything else (shell cards, saved layouts); the bezel offers the way
-  // back to MAIN and the other CFG pages. Saving is the keyboard shortcut.
-  lyt:  [
-    { label: 'MAIN', action: 'main', bank: 'left', index: 0 },
-    { label: 'HUD',  action: 'hud',  bank: 'left', index: 1 },
-    { label: 'KEY',  action: 'keys', bank: 'left', index: 2 },
-    { label: 'LYT',  action: 'lyt',  bank: 'left', index: 3, mark: true },
-    { label: 'UI',   action: 'ui',   bank: 'left', index: 4 },
   ],
 };
 
@@ -1862,9 +1847,7 @@ function showPage(name) {
       const m = fullViewSlot(i);
       placeOverlayLabel(m.bank, m.index, item.label, item.action, item.mark);
     });
-    // ...then this layout's own, which name their own key (see BEZEL_EXTRAS). Only full view runs
-    // through here, so LYT never appears on a split pane's MAIN — which is what "full-view only"
-    // means, with nothing to enforce it.
+    // ...then this layout's own, which name their own key (see BEZEL_EXTRAS).
     (BEZEL_EXTRAS[name] || []).forEach(function(item) {
       placeOverlayLabel(item.bank, item.index, item.label, item.action, item.mark);
     });
@@ -2780,21 +2763,13 @@ function mfdButton(el) {
       applySplitMode();
       break;
     case 'swap': {
-      // Toggle between the pinned arrangement and the last one we swapped from.
-      //   - Off the pinned arrangement: remember this one as the partner, apply the pinned one.
-      //   - On it with a known partner: apply the partner.
-      //   - Otherwise (nothing pinned, or on the pin with no partner yet): no-op.
+      // Between the pinned arrangement and the last one SWAP left for it (LayoutPin.swapStep).
       // ponytail: re-applying an arrangement reloads each pane's page, so per-pane scroll and
       // list paging reset; keeping them would mean snapshotting each pane's own state too.
-      if (pinnedLayout === null) break;
-      const here = captureArrangement();
-      if (LayoutPin.sameArrangement(here, pinnedLayout)) {
-        if (swapPartner === null) break;
-        applyArrangement(swapPartner);
-      } else {
-        swapPartner = here;
-        applyArrangement(pinnedLayout);
-      }
+      const step = LayoutPin.swapStep(captureArrangement(), pinnedLayout, swapPartner);
+      if (!step) break;
+      swapPartner = step.partner;
+      applyArrangement(step.to);
       renderIndicators();   // the arrangement changed → PINNED chip visibility follows
       break;
     }

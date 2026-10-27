@@ -59,6 +59,9 @@ with the portals and their pages.
   that window back and a new window starts from the defaults: four MAIN portals and a THRL/FUEL + flags strip.
   The restore waits for `ExtNav.load` so a portal on an extension page comes back on it.
 
+- **Later (issue #111).** WAKE, FULLSCREEN and the pencil now live in one MENU popover at the
+  right end, with the layout controls; see [lyt-rework.md](lyt-rework.md), Step 2.
+
 ## Design
 
 - `shell/f35/f35-strip.js` (pure, `f35-strip.test.js`): the slot count, the catalog, the default

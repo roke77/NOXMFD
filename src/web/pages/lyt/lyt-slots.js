@@ -1,8 +1,10 @@
-// What the LYT page's SAVED rows show for a saved CLASSIC layout. Pure: no DOM, no fetch.
+// What the LYT page's SAVED rows show for a saved layout. Pure: no DOM, no fetch.
 //
-// A saved layout's `data` is the shell's own serialized arrangement (mfd.js captureLayoutState):
-// { splitMode, splitVariant: 'h'|'v'|'vw'|'vwr', pages: [...] } — one page in full view, one per
-// pane in a split (pane 0 is the top or left one).
+// A saved layout's `data` is the shell's own serialized arrangement:
+// - CLASSIC (mfd.js captureLayoutState): { splitMode, splitVariant: 'h'|'v'|'vw'|'vwr', pages: [...] }
+//   — one page in full view, one per pane in a split (pane 0 is the top or left one).
+// - F-35 (f35.js captureLayoutState): { cells: [{span, ate?}], pages: [...] } — one cell per portal,
+//   left to right, spans summing to the glass's four slots (f35-glass.js).
 //
 // Classic <script> (global LytSlots), not a module: the LYT page and the CLASSIC shell's save dialog
 // both use it, and the shell has no module graph.
@@ -20,6 +22,9 @@
     vwr:  { label: 'WIDE R', rects: [[0, 0, THIRD, 1], [THIRD, 0, 2 * THIRD, 1]], sides: ['LEFT PANE', 'RIGHT PANE'] },
   };
 
+  // The F-35 glass's slot count (F35Glass.SLOTS); repeated so the LYT page needn't load f35-glass.js.
+  const F35_SLOTS = 4;
+
   // Keybinds exist for the first five layouts only (KeybindConflict.LayoutSlotCount).
   const SLOT_COUNT = 5;
 
@@ -33,14 +38,29 @@
     try { state = JSON.parse(item.data); } catch (e) { state = null; }
     const row = { id: item.id, name: String(item.name || ''), pos: index + 1, slot: index < SLOT_COUNT ? index + 1 : null, state: null, soi: null, sides: [] };
     if (!state || typeof state !== 'object') return Object.assign(row, { label: 'UNREADABLE', rects: [], pages: [] });
-    // Same fallback applyLayoutState uses: an unknown variant is the top/bottom split.
-    const split = !state.splitMode ? 'full' : (SPLITS[state.splitVariant] && state.splitVariant !== 'full' ? state.splitVariant : 'h');
-    const { label, rects, sides } = SPLITS[split];
+    const { label, rects, sides } = Array.isArray(state.cells) ? f35Split(state.cells) : classicSplit(state);
     const saved = Array.isArray(state.pages) ? state.pages : [];
     // A pane with no saved page lands on MAIN. The `avn` page shows as SYS (docs/adi-hsi-pages.md).
     const pages = rects.map((_, i) => { const p = String(saved[i] || 'main'); return p === 'avn' ? 'SYS' : p.toUpperCase(); });
     const soi = rects.map((_, i) => !(Array.isArray(state.soi) && state.soi[i] === false));
     return Object.assign(row, { label, rects, pages, state, soi, sides });
+  }
+
+  function classicSplit(state) {
+    // Same fallback applyLayoutState uses: an unknown variant is the top/bottom split.
+    const split = !state.splitMode ? 'full' : (SPLITS[state.splitVariant] && state.splitVariant !== 'full' ? state.splitVariant : 'h');
+    return SPLITS[split];
+  }
+
+  // Each portal a full-height column, as wide as its span. Cells the glass can't take fall back to
+  // four single portals, as f35.js applyLayoutState does.
+  function f35Split(cells) {
+    const ok = cells.every((c) => c && (c.span === 1 || c.span === 2)) &&
+               cells.reduce((n, c) => n + c.span, 0) === F35_SLOTS;
+    const spans = ok ? cells.map((c) => c.span) : [1, 1, 1, 1];
+    let x = 0;
+    const rects = spans.map((n) => { const r = [x / F35_SLOTS, 0, n / F35_SLOTS, 1]; x += n; return r; });
+    return { label: spans.length + ' PORTALS', rects, sides: spans.map((_, i) => 'PORTAL ' + (i + 1)) };
   }
 
   function describeLayouts(items) { return items.map(describeLayout); }

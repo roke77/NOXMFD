@@ -12,7 +12,7 @@ const { NAV } = require('./nav-model.js');
 // SPLIT_SLOTS), not here. If this fails, the seam has leaked and a second layout can't reuse NAV.
 // `mark` is the one exception: it says "this is the current selection" (e.g. NAV.bdf/NAV.pal
 // flagging whichever of the two is the live page) — a WHAT, like label/action, not a WHERE; every
-// layout renderer honors it the same way BEZEL_EXTRAS.lyt's mark already does for CLASSIC/F-35.
+// layout renderer honors it the same way.
 const PLACEMENT_KEYS = ['key', 'side', 'slot', 'bank', 'index', 'pane', 'paneOffset'];
 const ALLOWED_KEYS = new Set(['action', 'label', 'mark']);
 for (const [page, items] of Object.entries(NAV)) {
@@ -74,9 +74,7 @@ for (const [page, label] of [['adi', 'ADI'], ['afm', 'AFM'], ['hsi', 'HSI'], ['a
 assert.deepStrictEqual(NAV.tgp, [ { label: 'MAIN', action: 'main' }, { label: 'CFG', action: 'tgpcfg' } ]);
 
 // CFG group: HUD/KEY/LYT/UI folded together, same shape as BDF/PAL/MIS/OBJ below (reached from MAIN
-// via CFG — mfd.js BEZEL_EXTRAS.main, action now 'hud'). LYT has no `mark` slot of its own — see
-// nav-model.js's comment on why NAV.lyt doesn't exist (BEZEL_EXTRAS.lyt places CLASSIC/F-35 at
-// fixed keys that would silently clobber it). The TLM/TGP refresh-rate sliders live on
+// via CFG — mfd.js BEZEL_EXTRAS.main, action now 'hud'), LYT included. The TLM/TGP refresh-rate sliders live on
 // NAV.mapcfg/NAV.tgpcfg below instead, not in this group.
 assert.deepStrictEqual(NAV.hud, [
   { label: 'MAIN', action: 'main' },
@@ -99,7 +97,13 @@ assert.deepStrictEqual(NAV.ui, [
   { label: 'LYT',  action: 'lyt'  },
   { label: 'UI',   action: 'ui', mark: true },
 ]);
-assert.ok(!('lyt' in NAV), 'NAV.lyt must not exist — BEZEL_EXTRAS.lyt owns that page\'s placement');
+assert.deepStrictEqual(NAV.lyt, [
+  { label: 'MAIN', action: 'main' },
+  { label: 'HUD',  action: 'hud' },
+  { label: 'KEY',  action: 'keys' },
+  { label: 'LYT',  action: 'lyt', mark: true },
+  { label: 'UI',   action: 'ui'   },
+]);
 assert.ok(!('rates' in NAV), 'NAV.rates must not exist — its two settings moved to NAV.mapcfg/NAV.tgpcfg');
 
 // WPT (waypoints/route creator, issue #38) is reached from MAP's own nav row, so its way back is MAP,

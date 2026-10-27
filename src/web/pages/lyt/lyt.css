@@ -21,8 +21,9 @@ button { font-family: inherit; }
 .lyt-head { display: flex; align-items: baseline; gap: 16px; border-bottom: 1px solid var(--no-green-dark); padding-bottom: var(--page-head-gap); }
 .lyt-title { margin: 0; font-size: var(--page-title-size); font-weight: normal; letter-spacing: var(--page-title-tracking); color: var(--no-green); }
 
-/* ── LAYOUTS: the two shells ── */
-.lyt-shells { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+/* ── LAYOUTS: the two shells ──
+   Side by side, or stacked when a column would be under 220px (a one-slot F-35 portal). */
+.lyt-shells { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 16px; }
 .lyt-shell {
   position: relative;
   min-height: 156px;
@@ -86,8 +87,8 @@ button { font-family: inherit; }
 .lyt-thumb-f35 .p2 { left: 40px; width: 70px; }
 .lyt-thumb-f35 .p3 { left: 112px; width: 34px; }
 
-/* ── KEYBINDS: the SAVE and LOAD keys, side by side ── */
-.lyt-binds { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+/* ── KEYBINDS: the SAVE and LOAD keys, side by side or stacked, as the cards above ── */
+.lyt-binds { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 16px; }
 .lyt-bind {
   display: flex; align-items: center; gap: 10px;
   min-height: 50px; padding: 8px 10px;
@@ -108,7 +109,12 @@ button { font-family: inherit; }
 
 .lyt-rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 
-/* Too narrow for the thumbnails beside the card text. */
+/* Too narrow for the thumbnails beside the card text; without them a card needs no extra height. */
 @media (max-width: 620px) {
   .lyt-thumb-classic, .lyt-thumb-f35 { display: none; }
+  .lyt-shell { min-height: 0; }
 }
+
+/* On the F-35 (lyt.js marks the shell on <body>) a saved layout's thumbnail is wider than CLASSIC's
+   square, so a one-slot portal's column still has room for its page name. */
+body[data-shell="f35"] .lyt-row-thumb { width: 100px; height: 58px; }

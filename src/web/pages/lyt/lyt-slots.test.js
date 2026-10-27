@@ -45,5 +45,15 @@ const assert = require('assert');
     assert.ok(Math.abs(area - 1) < 1e-9, `${k} panes cover ${area}, not the whole screen`);
   }
 
+  // F-35: one full-height column per portal, as wide as its span; bad cells → four single portals
+  const [glass, bad] = describeLayouts([
+    item(1, { cells: [{ span: 2, ate: 'right' }, { span: 1 }, { span: 1 }], pages: ['map', 'avn'], soi: [true, false, true] }),
+    item(2, { cells: [{ span: 3 }, { span: 1 }], pages: ['tgp'] }),
+  ]);
+  assert.deepStrictEqual([glass.label, glass.pages, glass.sides[2]], ['3 PORTALS', ['MAP', 'SYS', 'MAIN'], 'PORTAL 3']);
+  assert.deepStrictEqual(glass.rects, [[0, 0, 0.5, 1], [0.5, 0, 0.25, 1], [0.75, 0, 0.25, 1]]);
+  assert.deepStrictEqual(glass.soi, [true, false, true]);
+  assert.deepStrictEqual([bad.label, bad.rects.length, bad.pages], ['4 PORTALS', 4, ['TGP', 'MAIN', 'MAIN', 'MAIN']]);
+
   console.log('lyt-slots.test.js: OK');
 }

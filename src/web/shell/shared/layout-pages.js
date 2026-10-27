@@ -55,8 +55,8 @@
     // DOC (kneeboard documents viewer, issue #82) — reached via the AKF/MIS/OBJ/BDF/PAL switch,
     // not from MAIN directly — see nav-model.js's own comment on NAV.doc.
     doc: '/doc',
-    // LYT (docs/lyt-rework.md) — the layout manager, reached from CFG. Full view only: a layout is
-    // the whole document's business, so it has no split-pane or F-35 counterpart.
+    // LYT (docs/lyt-rework.md) — the layout manager, reached from CFG. Full view only on the bezel
+    // (its LYT key collapses a split), so it has no split-pane entry; the F-35 mounts it in a portal.
     lyt: '/lyt',
   };
 
@@ -135,6 +135,8 @@
     td: '/td',
     ext: '/ext',
     doc: '/doc',
+    // ?f35: the page marks this shell's card and lists its layouts (lyt.js).
+    lyt: '/lyt?f35',
   };
 
   function navigateFrame(frame, url) {
