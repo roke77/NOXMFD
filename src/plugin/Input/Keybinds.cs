@@ -23,8 +23,8 @@ namespace NOXMFD
     // Countermeasure keys — each SELECTS its countermeasure and DEPLOYS it in one press, pinned to a
     // fixed CM instead of whatever is currently cycled in (HELD-driven):
     //   * Flares  — a tap pops one set; holding pops repeatedly (FlareEjector rate-limits itself).
-    //   * Radar jammer — HOLD to jam. RadarJammer.Fire() only jams ~0.1s before auto-disabling, so we
-    //     re-fire it every frame the key is held; a single tap is a brief blip.
+    //   * Radar jammer — HOLD to jam. RadarJammer.Fire() only jams ~0.1s before auto-disabling; the
+    //     game re-fires it every physics step while the trigger is held, so a single tap is a brief blip.
     //   Both drive the game's networked trigger, Aircraft.Countermeasures(active, index): it sets the
     //   countermeasureTrigger SyncVar on the server (CmdCountermeasures from a client), and every
     //   peer's FixedUpdate deploys while it's on — so the deploy replicates for a non-host too. The
@@ -1451,15 +1451,10 @@ namespace NOXMFD
 
         // Asks for this countermeasure's trigger to be held until `seconds` from now — 0 = this frame
         // only, for a local key that re-asks every frame it's held. ReconcileCountermeasure acts on it.
-        private static void HoldCountermeasure(byte category, float seconds)
-        {
-            _cmWantCategory = category;
-            _cmWantUntil = Math.Max(_cmWantUntil, Time.unscaledTime + seconds);
-        }
+        private static void HoldCountermeasure(byte category, float seconds) =>
+            _cmHold.Request(category, Time.unscaledTime, seconds);
 
-        private static byte _cmWantCategory;
-        private static float _cmWantUntil = float.NegativeInfinity;
-        private static float _cmLastReconcile;
+        private static readonly CountermeasureHold _cmHold = new CountermeasureHold();
         private static int _cmHeldIndex = -1;           // station index whose trigger we hold, -1 = none
         private static Aircraft? _cmAircraft;
 
@@ -1472,21 +1467,18 @@ namespace NOXMFD
         // is a ServerRpc.
         private static void ReconcileCountermeasure(float now)
         {
-            // Against the previous frame's time, not now: a local key's request from that frame
-            // expires at that frame's own time.
-            bool want = _cmWantUntil >= _cmLastReconcile;
-            _cmLastReconcile = now;
+            bool want = _cmHold.Poll(now);
             if (!want && _cmHeldIndex < 0) return;
             GameManager.GetLocalAircraft(out Aircraft ac);
             if (!ReferenceEquals(ac, _cmAircraft)) { _cmAircraft = ac; _cmHeldIndex = -1; }
             if (ac == null) return;
             CountermeasureManager mgr = ac.countermeasureManager;
-            int idx = want && mgr != null && !ac.disabled ? IndexOfCategory(mgr, _cmWantCategory) : -1;
+            int idx = want && mgr != null && !ac.disabled ? IndexOfCategory(mgr, _cmHold.Category) : -1;
             if (idx == _cmHeldIndex) return;
             int prev = _cmHeldIndex;
             _cmHeldIndex = idx;   // before the call, so a release isn't skipped by our own prefix
             try { ac.Countermeasures(idx >= 0, (byte)(idx >= 0 ? idx : prev)); }
-            catch (Exception ex) { Plugin.Log?.LogWarning($"[NOXMFD] CM keybind (cat={_cmWantCategory}) threw: {ex.Message}"); }
+            catch (Exception ex) { Plugin.Log?.LogWarning($"[NOXMFD] CM keybind (cat={_cmHold.Category}) threw: {ex.Message}"); }
         }
 
         // Finds the station index whose first countermeasure is the requested category. Mirrors the
