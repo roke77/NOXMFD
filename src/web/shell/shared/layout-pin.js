@@ -17,8 +17,8 @@
     return shape(a) === shape(b) && a.pages.join('|') === b.pages.join('|');
   }
 
-  // Nothing but MAIN is never pinnable: SWAP to it would only repeat the MAIN key. On CLASSIC a split
-  // of MAINs still counts, as a real arrangement of panes.
+  // An arrangement showing only MAIN can't be pinned: SWAP to it would only repeat the MAIN key. On
+  // CLASSIC a split of MAINs still counts, as a real arrangement of panes.
   function pinnable(arr) {
     if (Array.isArray(arr.cells)) return arr.pages.some(function (p) { return p !== 'main'; });
     return arr.splitMode || arr.pages[0] !== 'main';
@@ -43,7 +43,17 @@
     return pinnable(arr) ? arr : null;
   }
 
-  const api = { sameArrangement, pinnable, pinFromState };
+  // One SWAP press, given where the screen is, the pin and the last arrangement SWAP left for it:
+  // { to, partner } — the arrangement to apply and the partner to keep — or null when there is
+  // nothing to do (no pin, or on the pin with nowhere to go back to). Off the pin, SWAP remembers
+  // where it was and goes to the pin; on it, it goes back and keeps the partner, so presses alternate.
+  function swapStep(here, pinned, partner) {
+    if (!pinned) return null;
+    if (!sameArrangement(here, pinned)) return { to: pinned, partner: here };
+    return partner ? { to: partner, partner: partner } : null;
+  }
+
+  const api = { sameArrangement, pinnable, pinFromState, swapStep };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.LayoutPin = api;
 })(typeof self !== 'undefined' ? self : this);

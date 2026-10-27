@@ -1633,17 +1633,11 @@
     setPin(pinnedLayout && LayoutPin.sameArrangement(here, pinnedLayout) ? null : here);
   });
 
-  // Off the pin: remember where we were and go to it. On it: go back, if there is somewhere to go.
   swapBtn.addEventListener('click', function () {
-    if (pinnedLayout === null) return;
-    const here = captureArrangement();
-    if (LayoutPin.sameArrangement(here, pinnedLayout)) {
-      if (swapPartner === null) return;
-      applyArrangement(swapPartner);
-    } else {
-      applyArrangement(pinnedLayout);
-      swapPartner = here;
-    }
+    const step = LayoutPin.swapStep(captureArrangement(), pinnedLayout, swapPartner);
+    if (!step) return;
+    swapPartner = step.partner;
+    applyArrangement(step.to);
     renderPin();
   });
 
@@ -1878,9 +1872,9 @@
     LayoutModal.open('ADD WIDGET', list);
   }
 
-  // ── SAVE/LOAD LAYOUT — browser-side keyboard shortcuts only, no joystick/HOTAS. ──
-  // S saves the glass's current arrangement (F35Glass cells + each portal's page) under a name;
-  // L opens a picker of every saved F-35 layout and applies the one clicked. Storage is
+  // ── SAVE/LOAD LAYOUT — the browser-side keys and the strip's MENU items. ──
+  // SAVE stores the glass's current arrangement (F35Glass cells + each portal's page) under a name;
+  // LOAD opens a picker of every saved F-35 layout and applies the one clicked. Storage is
   // server-side (LayoutStore.cs), so a layout saved here shows up on every other connected browser
   // (including the bezel shell, which keeps its own list — see mfd.js's twin of this block —
   // filtered by `shell` so a browser is never offered an arrangement it can't apply).

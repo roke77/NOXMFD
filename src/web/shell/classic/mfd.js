@@ -2763,21 +2763,13 @@ function mfdButton(el) {
       applySplitMode();
       break;
     case 'swap': {
-      // Toggle between the pinned arrangement and the last one we swapped from.
-      //   - Off the pinned arrangement: remember this one as the partner, apply the pinned one.
-      //   - On it with a known partner: apply the partner.
-      //   - Otherwise (nothing pinned, or on the pin with no partner yet): no-op.
+      // Between the pinned arrangement and the last one SWAP left for it (LayoutPin.swapStep).
       // ponytail: re-applying an arrangement reloads each pane's page, so per-pane scroll and
       // list paging reset; keeping them would mean snapshotting each pane's own state too.
-      if (pinnedLayout === null) break;
-      const here = captureArrangement();
-      if (LayoutPin.sameArrangement(here, pinnedLayout)) {
-        if (swapPartner === null) break;
-        applyArrangement(swapPartner);
-      } else {
-        swapPartner = here;
-        applyArrangement(pinnedLayout);
-      }
+      const step = LayoutPin.swapStep(captureArrangement(), pinnedLayout, swapPartner);
+      if (!step) break;
+      swapPartner = step.partner;
+      applyArrangement(step.to);
       renderIndicators();   // the arrangement changed → PINNED chip visibility follows
       break;
     }

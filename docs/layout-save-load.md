@@ -110,6 +110,12 @@ since the pin no longer belongs to one pane. Saved layouts carry `pinnedLayout`;
 the single-page `pinnedPage` load it as a full view of that page (`LayoutPin.pinFromState`).
 Re-applying an arrangement reloads each pane, so per-pane scroll and list paging reset on SWAP.
 
+## Follow-up, 2026-10-27: F-35 PIN/SWAP and MENU (issue #111)
+
+The F-35's `#layout-picker` and its SAVE/LOAD row are gone. SAVE LAYOUT and LOAD LAYOUT are items in
+the strip's MENU, and the F-35 gains PIN and SWAP there, pinning its `{cells, pages}` arrangement.
+See [lyt-rework.md](lyt-rework.md), Step 2.
+
 ## Post-ship fix, 2026-08-21: keydown only reached the top document
 
 Shipped in 0.25.0 with `window.addEventListener('keydown', ...)` on the shell's own top-level

@@ -1,6 +1,6 @@
 // Self-check for the layout pin (both shells). Run: `node layout-pin.test.js`.
 const assert = require('assert');
-const { sameArrangement, pinnable, pinFromState } = require('./layout-pin.js');
+const { sameArrangement, pinnable, pinFromState, swapStep } = require('./layout-pin.js');
 
 const full = (p) => ({ splitMode: false, pages: [p] });
 const split = (v, a, b) => ({ splitMode: true, splitVariant: v, pages: [a, b] });
@@ -42,5 +42,14 @@ assert.ok(!pinnable(glass(four, ['main', 'main', 'main', 'main'])));
 assert.ok(pinnable(glass(four, ['main', 'map', 'main', 'main'])));
 assert.deepStrictEqual(pinFromState({ pinnedLayout: glass(left, ['map', 'rwr', 'tgp', 'extra']) }), glass(left, ['map', 'rwr', 'tgp']));
 assert.strictEqual(pinFromState({ pinnedLayout: glass(four, ['main']) }), null);
+
+// SWAP: to the pin and back, alternating; nothing to do without a pin or a way back.
+const rwr = full('rwr'), map = full('map');
+assert.strictEqual(swapStep(map, null, null), null);
+assert.strictEqual(swapStep(rwr, rwr, null), null);
+assert.deepStrictEqual(swapStep(map, rwr, null), { to: rwr, partner: map });
+assert.deepStrictEqual(swapStep(rwr, rwr, map), { to: map, partner: map });
+assert.deepStrictEqual(swapStep(glass(left, ['map', 'rwr', 'tgp']), glass(right, ['map', 'rwr', 'tgp']), null),
+  { to: glass(right, ['map', 'rwr', 'tgp']), partner: glass(left, ['map', 'rwr', 'tgp']) });
 
 console.log('layout-pin.test.js OK');
