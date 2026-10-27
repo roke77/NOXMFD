@@ -53,6 +53,9 @@ otherwise) exactly, but:
 - resolves the target to `TargetFocus.Id` instead of `targetList[0]`;
 - always takes the single-target path — never `Fire()`'s own `targetList.Count > 1` branch, which
   is precisely the staggered-salvo behavior this ticket exists to bypass;
+- no-ops while Master Arm is SAFE (`ImmersionState.MasterArmsOn`): it never goes through
+  `WeaponManager.Fire()`, so the Master Arm prefix on that method doesn't cover it — the check sits
+  at the top of `FireSingleAtFocused` instead;
 - no-ops if nothing is focused (`Reconcile`, `TargetFocus.cs`, only ever leaves that `0` when
   nothing is locked at all — genuinely nothing to release at, not an unpicked default) or if the
   focused unit isn't in `wm.GetTargetList()` (focus stale relative to this station's own locks).

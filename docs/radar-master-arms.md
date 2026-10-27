@@ -342,6 +342,11 @@ SETTINGS (ON AT SPAWN, and HUD By Mode under INPUT & HUD), and the binds are spr
   `EngineOnOnStart` setting silently has no effect in that topology. Accepted: this mod's primary use
   case is single-player/host play; revisit only if dedicated-server support becomes a real ask. (The
   Radar fix above is client-side, so it does NOT have this gap — only Engine does.)
+  **Follow-up (multiplayer non-host fixes):** closed client-side. `ImmersionState.EnsureSpawnDefaults`
+  sends the stock `CmdToggleIgnition()` once when the local aircraft spawns with `Ignition` on, on a
+  process that isn't the server and has authority; the `OnStartServer` patch stays for host and
+  single-player so there's no flicker there. On someone else's server the engine runs briefly before
+  it shuts off. Verified in a LAN session (PC host, Steam Deck client).
 - **Patch fragility across game updates** — accepted cost of adding Harmony (see Goal). Not covered
   by `apicheck`; a future game update that reshapes `WeaponManager.Fire()`/`OnStartServer()`/
   `OnStartClient()` could make a patch silently misbehave rather than throw. Worth a manual

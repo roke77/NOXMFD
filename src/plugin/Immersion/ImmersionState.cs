@@ -20,6 +20,11 @@ namespace NOXMFD
             _spawnDefaultsAircraft = ac;
             MasterArmsOn = ImmersionConfig.MasterArmsOnOnStart;
             PowerOn = ImmersionConfig.PowerOnOnStart;
+            // HarmonyPatches' OnStartServer patch only runs where this process is the server. A client
+            // on someone else's server spawns with the server's ignition on, so it switches the engine
+            // off through the stock networked toggle instead (it may run briefly first).
+            if (!ImmersionConfig.EngineOnOnStart && !ac.IsServer && ac.HasAuthority && ac.Ignition)
+                ac.CmdToggleIgnition();
             // Via SetCombatMode so a respawn restores the HUD baseline instead of leaving a stale forced preset applied.
             Keybinds.SetCombatMode(CombatMode.All);
         }
