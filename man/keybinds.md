@@ -161,7 +161,8 @@ into a new aircraft. All four are ON by default, which matches the game's own be
 of them off for more immersion — that system starts off, and you arm, start or power it up
 yourself.
 
-- **Radar**, **Engine** — start on or off.
+- **Radar**, **Engine** — start on or off. When you join someone else's server, the engine
+  starts on and switches off a moment later.
 - **Master Arm** — off means guns, missiles and bombs are blocked until you arm.
 - **Power** — off means no in-cockpit HUD until you power up.
 

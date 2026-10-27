@@ -23,15 +23,14 @@ namespace NOXMFD
     // Countermeasure keys — each SELECTS its countermeasure and DEPLOYS it in one press, pinned to a
     // fixed CM instead of whatever is currently cycled in (HELD-driven):
     //   * Flares  — a tap pops one set; holding pops repeatedly (FlareEjector rate-limits itself).
-    //   * Radar jammer — HOLD to jam. RadarJammer.Fire() only jams ~0.1s before auto-disabling, so we
-    //     re-fire it every frame the key is held; a single tap is a brief blip.
-    //   We deploy DIRECTLY (set activeIndex, then CountermeasureManager.DeployCountermeasure) rather than
-    //   via the game's countermeasureTrigger. That trigger is solely owned by the stock input loop
-    //   (PilotPlayerState), which force-clears it every frame its OWN "Countermeasures" button isn't held
-    //   — so setting it from here gets stomped before FixedUpdate can deploy. DeployCountermeasure is
-    //   exactly what the game's FixedUpdate calls while the trigger is on; we just call it ourselves.
-    //   This fires on the local sim (host/single-player) only — in multiplayer a non-host client's
-    //   deploy may not replicate, since the networked path is the trigger SyncVar this bypasses.
+    //   * Radar jammer — HOLD to jam. RadarJammer.Fire() only jams ~0.1s before auto-disabling; the
+    //     game re-fires it every physics step while the trigger is held, so a single tap is a brief blip.
+    //   Both drive the game's networked trigger, Aircraft.Countermeasures(active, index): it sets the
+    //   countermeasureTrigger SyncVar on the server (CmdCountermeasures from a client), and every
+    //   peer's FixedUpdate deploys while it's on — so the deploy replicates for a non-host too. The
+    //   stock input loop (PilotPlayerState) calls Countermeasures(false) every frame its own button
+    //   isn't held while the trigger is on; HarmonyPatches skips that call while one of these keys
+    //   holds the trigger (HoldsCountermeasure).
     //
     // Gear up / gear down keys — dedicated raise/lower (the stock bind is a single toggle), EDGE-driven
     // (one action per press). Each mirrors the stock gear logic (PilotPlayerState): act only on a fully
@@ -203,10 +202,10 @@ namespace NOXMFD
 
             Def(config, "flares", cm, "DispenseFlares", "Flares", edge: false,
                 "Deploy flares. Tap for one set, hold to keep going.",
-                ac => { var mgr = ac.countermeasureManager; if (mgr != null) Drive(ac, mgr, Flare); });
+                ac => HoldCountermeasure(Flare, 0f));
             Def(config, "jammer", cm, "ActivateRadarJammer", "Jammer", edge: false,
                 "Activate the radar jammer. Hold to jam.",
-                ac => { var mgr = ac.countermeasureManager; if (mgr != null) Drive(ac, mgr, Jammer); });
+                ac => HoldCountermeasure(Jammer, 0f));
             // A weapon-mounted ECM pod (e.g. the Medusa's Radar Jamming Pod) — a WeaponStation, not the
             // countermeasureManager-driven RadarJammer above, so it goes through WeaponSelectors like the
             // gun/missile/bomb binds below (two-stage switch-then-fire), but sits here with the other
@@ -1075,6 +1074,7 @@ namespace NOXMFD
             if (_binds.Count == 0) return;   // not bound yet
             ApplyBackgroundInput();
             RepinJoysticks();
+            ReconcileCountermeasure(Time.unscaledTime);
 
             // While a joy/axis entry is armed for capture, swallow the next button/deflection into it
             // (and don't let that same input also trigger an action this frame).
@@ -1542,24 +1542,43 @@ namespace NOXMFD
             joy != null && button >= 0 && button < joy.buttonCount &&
             (edge ? joy.GetButtonDown(button) : joy.GetButton(button));
 
-        // Select this countermeasure (activeIndex; the game's UpdateHUD syncs the readout) and fire the
-        // active station now. No-op if the airframe carries no countermeasure of that category.
-        internal static void DriveCountermeasure(Aircraft ac, byte category)
-        {
-            var mgr = ac.countermeasureManager;
-            if (mgr != null) Drive(ac, mgr, category);
-        }
+        // A remote /keybinds browser repeats cm.deploy every 120 ms while its key is held
+        // (remote-keybinds.js REPEAT_MS), so each command holds the trigger a little longer than that.
+        private const float RemoteCmHold = 0.25f;
 
-        private static void Drive(Aircraft ac, CountermeasureManager mgr, byte category)
+        // cm.deploy from a remote browser (CommandDispatcher).
+        internal static void DriveCountermeasure(Aircraft ac, byte category) => HoldCountermeasure(category, RemoteCmHold);
+
+        // Asks for this countermeasure's trigger to be held until `seconds` from now — 0 = this frame
+        // only, for a local key that re-asks every frame it's held. ReconcileCountermeasure acts on it.
+        private static void HoldCountermeasure(byte category, float seconds) =>
+            _cmHold.Request(category, Time.unscaledTime, seconds);
+
+        private static readonly CountermeasureHold _cmHold = new CountermeasureHold();
+        private static int _cmHeldIndex = -1;           // station index whose trigger we hold, -1 = none
+        private static Aircraft? _cmAircraft;
+
+        // True while a countermeasure key holds this aircraft's trigger — the Countermeasures prefix in
+        // HarmonyPatches then skips the stock loop's per-frame release.
+        internal static bool HoldsCountermeasure(Aircraft ac) => _cmHeldIndex >= 0 && ReferenceEquals(ac, _cmAircraft);
+
+        // Once per frame, before this frame's binds run: acts on last frame's requests, so a released
+        // key lets go one frame late. Calls Countermeasures only on a change — on a client each call
+        // is a ServerRpc.
+        private static void ReconcileCountermeasure(float now)
         {
-            int idx = IndexOfCategory(mgr, category);
-            if (idx < 0) return;
-            try
-            {
-                mgr.activeIndex = (byte)idx;
-                mgr.DeployCountermeasure(ac);
-            }
-            catch (Exception ex) { Plugin.Log?.LogWarning($"[NOXMFD] CM keybind (cat={category}) threw: {ex.Message}"); }
+            bool want = _cmHold.Poll(now);
+            if (!want && _cmHeldIndex < 0) return;
+            GameManager.GetLocalAircraft(out Aircraft ac);
+            if (!ReferenceEquals(ac, _cmAircraft)) { _cmAircraft = ac; _cmHeldIndex = -1; }
+            if (ac == null) return;
+            CountermeasureManager mgr = ac.countermeasureManager;
+            int idx = want && mgr != null && !ac.disabled ? IndexOfCategory(mgr, _cmHold.Category) : -1;
+            if (idx == _cmHeldIndex) return;
+            int prev = _cmHeldIndex;
+            _cmHeldIndex = idx;   // before the call, so a release isn't skipped by our own prefix
+            try { ac.Countermeasures(idx >= 0, (byte)(idx >= 0 ? idx : prev)); }
+            catch (Exception ex) { Plugin.Log?.LogWarning($"[NOXMFD] CM keybind (cat={_cmHold.Category}) threw: {ex.Message}"); }
         }
 
         // Finds the station index whose first countermeasure is the requested category. Mirrors the

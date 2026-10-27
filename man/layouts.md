@@ -30,6 +30,9 @@ bottom.
 - **V_WIDE_SPLIT_L** — left/right split, 2:1, wide pane on the left.
 - **V_WIDE_SPLIT_R** — left/right split, 2:1, wide pane on the right.
 
+Each browser window keeps its own split, pages and PIN: a reload brings back what that window
+showed, and a new window starts on a full-view MAIN.
+
 ![V_SPLIT (left) and H_SPLIT (right)](images/H_V_SPLIT.png)
 
 ![V_WIDE_SPLIT_L](images/V_WIDE_SPLIT.png)

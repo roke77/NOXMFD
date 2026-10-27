@@ -63,9 +63,9 @@ namespace NOXMFD
         //
         // OnStartServer only executes on the network SERVER. In single-player or a player-hosted
         // lobby the host process is both client and server, so this works correctly. Connecting as a
-        // plain client to someone else's dedicated NuclearOptionServer.exe means this patch never
-        // fires for your own aircraft: that method runs on the server, where NOXMFD is normally not
-        // installed, so the setting silently has no effect in that topology.
+        // plain client to someone else's server means this patch never fires for your own aircraft:
+        // that method runs on the server, where NOXMFD is normally not installed. That case is
+        // handled client-side by ImmersionState.EnsureSpawnDefaults instead.
         [HarmonyPatch(typeof(Aircraft), "OnStartServer")]
         private static class Aircraft_OnStartServer_Patch
         {
@@ -92,6 +92,18 @@ namespace NOXMFD
                 if (!GameManager.GetLocalAircraft(out Aircraft local) || !ReferenceEquals(___aircraft, local)) return true;
                 return ImmersionState.MasterArmsOn;
             }
+        }
+
+        // Countermeasure keybinds hold the networked trigger through Aircraft.Countermeasures(true, …)
+        // (Keybinds.ReconcileCountermeasure). The stock input loop calls Countermeasures(false, …)
+        // every frame its own button isn't held while that trigger is on, which would release it the
+        // next frame; skip those calls while a NOXMFD key holds it. Keybinds' own release passes
+        // because it clears its held state before calling.
+        [HarmonyPatch(typeof(Aircraft), nameof(Aircraft.Countermeasures))]
+        private static class Aircraft_Countermeasures_Patch
+        {
+            private static bool Prefix(Aircraft __instance, bool active) =>
+                active || !Keybinds.HoldsCountermeasure(__instance);
         }
 
         // MessageManager.RpcKillMessage is the ClientRpc that drives the game's own kill-feed ticker,

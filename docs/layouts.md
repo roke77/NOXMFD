@@ -59,6 +59,11 @@ either layout), and the choice sticks across loads via
 `localStorage` + a before-paint redirect guard in each shell's `<head>`. A
 BepInEx-config default was consciously not built — see Stage 3 for that call.
 
+Within a layout, each browser window also keeps what it was showing across a reload: both shells
+write their `captureLayoutState()` to `sessionStorage` on `pagehide` (`f35-session`,
+`classic-session`) and apply it at boot after the extension manifest loads, so a restored
+extension page resolves. sessionStorage is per tab, so a new window starts from the defaults.
+
 See [issue #8](https://github.com/roke77/NOXMFD/issues/8) for the F-35
 reference screenshots that motivated this.
 
