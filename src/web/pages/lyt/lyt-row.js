@@ -31,6 +31,15 @@
     return t;
   }
 
+  // The controls as one group, so a narrow row wraps them below the text together rather than one
+  // at a time, leaving the name and pages the full width beside the badge and thumbnail.
+  function appendControls(li, controls) {
+    if (!controls || !controls.length) return;
+    const group = el('span', 'lyt-row-ctrls');
+    controls.forEach(function (c) { group.appendChild(c); });
+    li.appendChild(group);
+  }
+
   // controls: elements appended after the text, in order.
   function build(row, controls) {
     const li = el('li', 'lyt-row');
@@ -40,7 +49,7 @@
     text.appendChild(el('span', 'lyt-row-name', row.name));
     text.appendChild(el('span', 'lyt-row-sub', row.label + (row.pages.length ? ' · ' + row.pages.join(' | ') : '')));
     li.appendChild(text);
-    (controls || []).forEach(function (c) { li.appendChild(c); });
+    appendControls(li, controls);
     return li;
   }
 
@@ -52,7 +61,7 @@
     const text = el('span', 'lyt-row-text');
     text.appendChild(el('span', 'lyt-row-name', 'EMPTY'));
     li.appendChild(text);
-    (controls || []).forEach(function (c) { li.appendChild(c); });
+    appendControls(li, controls);
     return li;
   }
 
