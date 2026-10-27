@@ -2,10 +2,14 @@
 // /layout-options and asks the shell for the two things only it can do: switch shell, apply a layout.
 
 const rowsEl = document.getElementById('lyt-rows');
+// The shell hosting this page: CLASSIC serves it as /lyt, F-35 as /lyt?f35. Its card is the current
+// one, and SAVED lists its layouts.
+const shell = new URLSearchParams(location.search).has('f35') ? 'f35' : 'classic';
 
 function toShell(msg) { window.parent.postMessage(Object.assign({ mfd: true, type: 'lyt-act' }, msg), '*'); }
 
 document.querySelectorAll('.lyt-shell').forEach((card) => {
+  card.setAttribute('aria-pressed', String(card.dataset.shell === shell));
   card.addEventListener('click', () => toShell({ act: card.dataset.shell }));
 });
 
@@ -19,7 +23,7 @@ function refresh() {
     if (data.failed) return;   // can't reach the game: keep what is shown rather than an empty library
     LytRow.renderList(
       rowsEl,
-      (data.layouts || []).filter((l) => l.shell === 'classic'),
+      (data.layouts || []).filter((l) => l.shell === shell),
       { onLoad: (row) => toShell({ act: 'load', id: row.id }), changed: refreshSoon },
     );
   });

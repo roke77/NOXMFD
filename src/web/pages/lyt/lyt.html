@@ -4,16 +4,17 @@
 <meta charset="utf-8">
 <title>NO XMFD — LYT</title>
 <!--
-  LYT page served at /lyt — the layout manager, hosted full-view in the CLASSIC shell's #page-frame
-  (never a split pane: a layout is the whole document's business). See docs/lyt-rework.md.
+  LYT page served at /lyt — the layout manager, hosted full-view in the CLASSIC shell's #page-frame and,
+  as /lyt?f35, over the whole F-35 glass (never a split pane or one portal: a layout is the whole
+  document's business). See docs/lyt-rework.md.
 
-  LAYOUTS: the two shells as cards. CLASSIC is the shell hosting this page; F-35 is a different
-  document, so the page asks the shell to switch ({mfd:true, type:'lyt-act', act:'classic'|'f35'}).
+  LAYOUTS: the two shells as cards, the hosting one marked. The page asks the shell to switch
+  ({mfd:true, type:'lyt-act', act:'classic'|'f35'}); picking the current shell leaves LYT.
 
   KEYBINDS: the SAVE LAYOUT and LOAD LAYOUT keys (the layout-save / layout-load binds, keyboard only),
   set through LayoutKeybinds.slotBox like the slot keys below.
 
-  SAVED: the CLASSIC layouts from /layout-options, one row each. Position is the Layout 1-5 keybind
+  SAVED: the hosting shell's layouts from /layout-options, one row each. Position is the Layout 1-5 keybind
   slot (the same boxes LOAD LAYOUT shows). LOAD asks the shell to apply the layout
   ({act:'load', id}); delete writes through LayoutStore. The pencil opens the layout dialog (layout-edit-dialog.js, shared with the shell's SAVE LAYOUT) to edit
   the layout's name and which panes stay in the SOI rotation (kept in the layout's data as soi:[bool,bool],

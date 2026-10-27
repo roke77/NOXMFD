@@ -129,9 +129,8 @@
   // CFG, MD, RDR and SQD are frame pages with an F35_PAGES entry — CFG opens the CFG group
   // (HUD/KEY/LYT/RTS — cfg-rates experiment issue #39), landing on HUD by default (mirrors MD
   // staying 'akf' — the action names whichever sibling is the landing page; HUD joined this group
-  // and no longer has a MAIN entry of its own, same as RTS). Selecting LYT from that group still
-  // opens the layout chooser over the whole glass (GLASS_ACTIONS) exactly as before — only its
-  // entry point moved from top-level MAIN into the CFG group. All match where the bezel keeps them
+  // and no longer has a MAIN entry of its own, same as RTS). Selecting LYT from that group opens
+  // the LYT page over the whole glass (GLASS_ACTIONS). All match where the bezel keeps them
   // — MAIN — so a pilot finds the same names in the same place in either layout.
   //
   // MD is one combined entry covering PAL/BDF — mirrors the bezel's own SCR→MD rename and
@@ -154,7 +153,7 @@
   const PAGER = { 'wpn-prev': -1, 'wpn-next': 1 };
 
   // Actions that act on the whole glass rather than the portal they were pressed from. LYT is the
-  // only one: the chooser takes the portals' place entirely (showPicker), so which portal offered
+  // only one: the LYT page takes the portals' place entirely (showPicker), so which portal offered
   // it doesn't matter — the same reason the bezel's LYT collapses a split instead of filling a pane.
   // Declared here, run later: showPicker is a hoisted declaration further down the file.
   const GLASS_ACTIONS = { lyt: function () { showPicker(true); } };
@@ -1294,6 +1293,11 @@
       return;
     }
 
+    if (m.type === 'lyt-act') {
+      if (e.source === lytFrame.contentWindow) onLytAct(m);
+      return;
+    }
+
     // Telemetry comes only from the tap. A portal's own map streams too, and its duplicate posts
     // are ignored here — otherwise two out-of-phase feeds would drive the same page. This is the
     // bezel's canonical-source guard, for the same reason.
@@ -1568,8 +1572,7 @@
   // src/web/shell/layout-keydown.js — only captureLayoutState/applyLayoutState (this shell's
   // own state shape, below) stay here. Declared here (ahead of its own captureLayoutState/
   // applyLayoutState definitions further down, which are hoisted function declarations so the
-  // reference is fine) because the picker wiring just below needs openSaveLayoutModal/
-  // openLoadLayoutModal as values, not just calls deferred to click time.
+  // reference is fine) because the LYT wiring just below needs loadById and wireLayoutKeydown.
   // SOI include/exclude checkboxes (issue #58) — one per live portal, left to right (portals[0]
   // is the leftmost, same order soi.panes already reports). Declared here for the same hoisting
   // reason as captureLayoutState/applyLayoutState above.
@@ -1577,23 +1580,25 @@
     return { cid: myCid, labels: portals.map(function (_, i) { return 'Include portal ' + (i + 1) + ' in SOI'; }) };
   }
 
-  const { openSaveLayoutModal, openLoadLayoutModal, loadSlotAct, handleLayoutKeydown, wireLayoutKeydown } =
+  const { loadSlotAct, loadById, handleLayoutKeydown, wireLayoutKeydown } =
     LayoutKeydown.makeLayoutKeydownHandlers('f35', captureLayoutState, applyLayoutState, soiSurfaces);
 
-  // ── Layout picker ──────────────────────────────────────────────────────────────────────
-  // LYT (a portal's MAIN, GLASS_ACTIONS) swaps the portals for a two-item chooser — the same place
-  // the bezel keeps it, so the choice is named the same way in either layout. A layout is still the
-  // whole glass's business, not the offering portal's: the chooser takes over the entire column.
+  // ── LYT ──────────────────────────────────────────────────────────────────────────────
+  // LYT (a portal's CFG group, GLASS_ACTIONS) swaps the portals for the LYT page — the same /lyt
+  // the bezel hosts, served ?f35 so it marks this shell and lists its layouts. A layout is the
+  // whole glass's business, not the offering portal's: the page takes over the entire column.
   //
   // It replaces the portals CONTAINER, not their contents: hidden, the portals keep their pages,
-  // their arrangement and their map streams, so coming back costs nothing and loses nothing.
-  // #map-tap is absolute and outside the column, so telemetry keeps flowing the whole time.
-  //
-  // Which layout is current needs no state: this file IS the F-35 shell, so its item is marked in
-  // the HTML and CLASSIC is simply somewhere else.
+  // their arrangement and their map streams, so coming back costs nothing and loses nothing, and
+  // SAVE from here captures the real arrangement. #map-tap is absolute and outside the column, so
+  // telemetry keeps flowing the whole time.
   const pickerEl = document.getElementById('layout-picker');
+  const lytFrame = document.getElementById('lyt-frame');
+  wireLayoutKeydown(lytFrame);
 
   function showPicker(on) {
+    // Reloaded on every open, so the SAVED list includes layouts saved from another browser.
+    if (on) lytFrame.src = '/lyt?f35';
     pickerEl.hidden  = !on;
     portalsEl.hidden = on;
     // Hidden, a portal's box is 0x0 — and the resize listener below still fires into it, handing
@@ -1607,18 +1612,16 @@
   // shell's HTML reads it and redirects before paint. Guarded — localStorage throws in some
   // private-mode browsers, and a failed write just means the choice isn't sticky.
   function setLayout(name) { try { localStorage.setItem('layout', name); } catch (e) {} }
-  // F-35 is this document, so the way back is just showing the glass again — picking the layout you
-  // are already on is how you leave the chooser, exactly as CLASSIC is on the bezel's LYT page.
-  // CLASSIC is a different document: the bezel shell at /, which lands on its own MAIN.
-  pickerEl.querySelector('[data-layout="f35"]').addEventListener('click', function () { setLayout('f35'); showPicker(false); });
-  pickerEl.querySelector('[data-layout="classic"]').addEventListener('click', function () { setLayout('classic'); location.href = '/'; });
 
-  // Touch-friendly path for SAVE/LOAD LAYOUT — same modals the keyboard shortcut opens, for a
-  // tablet with no keyboard attached. Unlike CLASSIC's LYT, the picker never
-  // touches portals/cells — they keep running underneath, hidden — so SAVE from here always
-  // captures the real current arrangement, not a placeholder "picker" page.
-  document.getElementById('layout-picker-save').addEventListener('click', openSaveLayoutModal);
-  document.getElementById('layout-picker-load').addEventListener('click', openLoadLayoutModal);
+  // The LYT page's requests (lyt.html): the F-35 card is this document, so picking it just shows the
+  // glass again, as CLASSIC's card does on the bezel; CLASSIC is the bezel shell at /. LOAD applies
+  // the layout, and applyLayoutState closes the page.
+  function onLytAct(m) {
+    if (pickerEl.hidden) return;
+    if (m.act === 'f35') { setLayout('f35'); showPicker(false); }
+    else if (m.act === 'classic') { setLayout('classic'); location.href = '/'; }
+    else if (m.act === 'load' && typeof m.id === 'string') loadById(m.id);
+  }
 
   // ── Fullscreen ─────────────────────────────────────────────────────────────────────────
   // Same toggle as the bezel's top-key icon (mfd.js toggleFullscreen) — this shell has no bezel key
@@ -1887,6 +1890,14 @@
         p.showPage(pg && has(pg) ? pg : 'main');
       });
       refreshGlass();
+    }
+    // Portals the layout keeps out of the SOI rotation (the LYT page's edit dialog writes `soi`, one
+    // entry per portal); a layout without one leaves the current membership alone. Sent after the
+    // rebuild so it follows the new portal count's soi.panes report.
+    if (state && Array.isArray(state.soi)) {
+      state.soi.forEach(function (on, pane) {
+        sendCommand('soi.include', { cid: myCid, n: pane, on: on !== false }).catch(function () {});
+      });
     }
     // Reveal the result immediately even when LOAD was triggered from the picker — a no-op
     // (already showing the glass) when it wasn't open.

@@ -646,9 +646,9 @@ html, body {
   flex-direction: row;
 }
 
-/* ── Layout picker ─────────────────────────────────────────────────────────────────────
-   What the strip's LYT puts in the portals' place: the two layouts, centred on the glass. It takes
-   the same slot in the .pcd column, so the strip stays put and only what is under it changes.
+/* ── LYT ───────────────────────────────────────────────────────────────────────────────
+   What a portal's LYT puts in the portals' place: the LYT page, filling the glass under the strip.
+   It takes the same slot in the .pcd column, so the strip stays put and only what is under it changes.
 
    Both this and .portals declare a display, which would beat the `hidden` attribute's own
    display:none — so each needs saying explicitly. The attribute is the state: no class, no JS
@@ -657,40 +657,10 @@ html, body {
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 64px;
 }
-.layout-picker-row {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 88px;
-}
-/* CLASSIC/F-35/SAVE/LOAD are wildly different word lengths ("F-35" vs "CLASSIC", "SAVE LAYOUT" vs
-   "LOAD LAYOUT"), so centering each row by its own total width still reads off-balance — the block
-   as a whole sits centered, but the shorter word's own visual weight lands well right (or left) of
-   where the eye expects it, and the two rows end up different total widths so they don't line up
-   as a stacked unit either. A shared fixed width makes both rows the same width and both buttons
-   in a row the same weight, so the whole picker reads as one centered, aligned block. */
-.layout-picker-row .nav-item {
-  min-width: 180px;
-  text-align: center;
-}
+.layout-picker iframe { flex: 1 1 auto; border: 0; width: 100%; height: 100%; }
 .layout-picker[hidden] { display: none; }
 .portals[hidden]       { display: none; }
-
-/* Bigger than a label on a page: these are the only things on the glass. */
-.layout-picker .nav-item { font-size: 30px; }
-
-/* SAVE/LOAD LAYOUT — a smaller secondary row so it reads as a pair of actions, not a third layout
-   choice alongside CLASSIC/F-35. */
-.layout-picker-actions .nav-item { font-size: 20px; }
-
-/* The current layout needs no rule of its own: .nav-item.on already boxes a label in amber, and
-   that is what this is — the same "engaged" the theme gives MAP's FLW. Hover stays the shared
-   white fill. */
 
 /* A portal = one independent MFD's region of the glass. position:relative so its page frame and
    label grid anchor to IT rather than the glass; overflow:hidden so a page can't paint into its

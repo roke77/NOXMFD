@@ -33,7 +33,7 @@ for (const [page, items] of Object.entries(NAV))
 // is treated as a destination by default: an unrecognised action fails this test until someone
 // consciously classifies it, which is the safe direction to be wrong in.
 // 'lyt' (cfg-rates experiment, issue #39): NAV.keys/NAV.rates now offer it as a sibling switch
-// alongside KEY/RTS, but it opens the CLASSIC/F-35 chooser overlay (BEZEL_EXTRAS.lyt /
+// alongside KEY/RTS, but it opens the layout manager over the whole screen (BEZEL_EXTRAS.lyt /
 // GLASS_ACTIONS.lyt) rather than naming a page, same as flw/grid/zin/zout below.
 // 'rt-next'/'rt-prev' (issue #38): MAP's route switch — a MAP_ACTIONS/mapSend behaviour on the
 // active waypoint route, same shape as flw/grid/zin/zout, not a destination.

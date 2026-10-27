@@ -56,7 +56,8 @@
     // not from MAIN directly — see nav-model.js's own comment on NAV.doc.
     doc: '/doc',
     // LYT (docs/lyt-rework.md) — the layout manager, reached from CFG. Full view only: a layout is
-    // the whole document's business, so it has no split-pane or F-35 counterpart.
+    // the whole document's business, so it has no split-pane or F-35 portal entry (the F-35 shows it
+    // over the whole glass, GLASS_ACTIONS.lyt).
     lyt: '/lyt',
   };
 
