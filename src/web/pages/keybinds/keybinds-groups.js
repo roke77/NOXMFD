@@ -48,7 +48,8 @@
   }
 
   // Hover text for a bound joystick/axis cell: the device it's pinned to. A pinned bind with no
-  // saved device predates device pinning and still follows the raw stick number.
+  // saved device (its stick wasn't connected when the plugin last recorded devices) follows the raw
+  // stick number until one is recorded.
   function deviceTitle(device, num) {
     if (device) return device;
     return num > 0 ? 'Device not recorded. Bind again to keep it on this stick.' : '';

@@ -82,13 +82,13 @@ namespace NOXMFD
             public ConfigEntry<KeyboardShortcut>? KeyEntry;
             public ConfigEntry<int>? JoyEntry;                 // Rewired joystick button index source (-1 = off)
             public ConfigEntry<int>? JoyNumEntry;              // which joystick the index refers to (0 = any; pinned on capture)
-            public ConfigEntry<string>? JoyDevEntry;           // that joystick's JoystickIdentity ("" = trust the number)
+            public ConfigEntry<string>? JoyDevEntry;           // that joystick's JoystickIdentity ("" = not recorded yet)
             // Analog source (docs/map-cursor.md) — null unless this bind is axis-capable. Only the two
             // MAP cursor-axis rows have one today; a digital bind could carry both in principle, but
             // nothing needs that yet.
             public ConfigEntry<int>? AxisEntry;                // Rewired axis index source (-1 = off)
             public ConfigEntry<int>? AxisJoyNumEntry;          // which joystick the axis index refers to (0 = any; pinned on capture)
-            public ConfigEntry<string>? AxisJoyDevEntry;       // that joystick's JoystickIdentity ("" = trust the number)
+            public ConfigEntry<string>? AxisJoyDevEntry;       // that joystick's JoystickIdentity ("" = not recorded yet)
             public ConfigEntry<bool>? AxisInvertEntry;         // flip polarity — arbitrary per device
             public bool  ActiveNow;                            // per-frame scratch (digital), valid only inside Poll()
             // Tap/hold binds only (see PollTapHold): when ActiveNow went true, -1 while not pressed.
@@ -646,7 +646,7 @@ namespace NOXMFD
 
         private const string DeviceDescription =
             "The device the joystick number belongs to, as \"<instance guid>|<device name>\" (either part may be empty). " +
-            "On startup the number is moved to wherever this device is now; empty = use the number as saved.";
+            "On startup the number is moved to wherever this device is now; when empty, it is filled in from the device holding the number.";
 
         // Keybind entries persist in the .cfg but never show in the F1 menu — the page owns the UI.
         private static ConfigurationManagerAttributes Hidden() =>
@@ -1010,8 +1010,8 @@ namespace NOXMFD
         // because Rewired only reorders on a connect/disconnect, and one int compare is all it costs
         // per frame.
         // ponytail: a device that isn't connected keeps its saved number, which can now belong to
-        // another stick (as before device identities existed); parking it on an out-of-range number
-        // would stop that, at the cost of a junk number in the .cfg.
+        // another stick; parking it on an out-of-range number would stop that, at the cost of a junk
+        // number in the .cfg.
         private static int _joyCount = -1;
         private static void RepinJoysticks()
         {
@@ -1049,10 +1049,10 @@ namespace NOXMFD
             ConfigChanged();
         }
 
-        // A bind with no saved device (captured before device pinning) records whichever device holds
-        // its number now, so it keeps working across reboots without being captured again.
+        // A bind with a number but no saved device records whichever device holds that number now, so
+        // a .cfg written without device entries keeps working across reboots without recapturing.
         // ponytail: if this boot's order differs from the one it was captured under, it records the
-        // wrong stick — no worse than the number alone was, and capturing it again corrects it.
+        // wrong stick — no worse than the bare number, and capturing it again corrects it.
         private static void Repin(ConfigEntry<int>? index, ConfigEntry<int>? num, ConfigEntry<string>? dev,
                                   IList<(string Guid, string Name)> ids, List<Action> moves, List<Action> learns)
         {
