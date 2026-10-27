@@ -26,7 +26,7 @@
   <!-- Master strip: a fixed full-width bar across the top of the glass, the home for what belongs
        to the aircraft rather than to any one portal (docs/layouts.md). Left to right: the fixed brand
        block (wordmark, URL, connection status), the widget slots the pilot fills in edit mode, and
-       the fixed WAKE/FULLSCREEN/EDIT group. The slots are remembered per browser and saved with each
+       the fixed MENU (EDIT/WAKE/FULLSCREEN). The slots are remembered per browser and saved with each
        F-35 layout preset. f35.js fills the live values from the /config fetch and the
        status/avn/adi/mis telemetry slices. -->
   <!-- Starts .booting so the connection block is hidden until the loading bar finishes — the URLs
@@ -189,18 +189,43 @@
          wake controller onError. Sits ahead of the buttons so it never gets clipped by them at a
          narrow width. -->
     <span class="ms-wake-error" id="ms-wake-error" role="status" hidden></span>
-    <!-- The way into edit mode. -->
-    <button type="button" class="nav-item ms-edit" id="ms-edit" title="Edit strip" aria-label="Edit strip" aria-pressed="false">&#9998;</button>
-    <!-- Screen wake-lock toggle (docs/screen-wake-lock.md). Same shared controller as the bezel
-         shell's WAKE key (shell/shared/wake-lock.js). -->
-    <button type="button" class="nav-item ms-wake" id="ms-wake" title="Keep screen awake" aria-pressed="false">
-      <span class="ms-wake-icon" aria-hidden="true"></span>
-    </button>
-    <!-- Same fullscreen toggle as the bezel's top-key icon (mfd.css .ic-fullscreen), reused here
-         since the F-35 shell has no bezel key bank to carry it. -->
-    <button type="button" class="nav-item ms-fll" id="ms-fll" title="Fullscreen">
-      <span class="ms-fll-icon" aria-hidden="true"></span>
-    </button>
+    <!-- PINNED: shown while the glass matches the pin (f35.js renderPin), as CLASSIC's corner chip. -->
+    <span class="ms-pinned" id="ms-pinned" hidden>PINNED</span>
+    <!-- MENU: one button dropping down the layout controls (SAVE, LOAD, PIN, SWAP) and the screen's
+         (EDIT, WAKE, FULLSCREEN). A native popover, so it sits in the
+         top layer — clear of the strip's overflow clip — and closes on an outside tap or Esc. -->
+    <button type="button" class="nav-item ms-menu-btn" id="ms-menu-btn" popovertarget="ms-menu" aria-haspopup="menu">MENU</button>
+    <div class="ms-menu" id="ms-menu" popover role="menu">
+      <!-- The SAVE / LOAD layout keys' dialogs, for a screen with no keyboard. -->
+      <button type="button" class="nav-item ms-menu-item" id="ms-save" role="menuitem">
+        <span class="ms-menu-glyph" aria-hidden="true">&#8681;</span><span>SAVE LAYOUT</span>
+      </button>
+      <button type="button" class="nav-item ms-menu-item" id="ms-load" role="menuitem">
+        <span class="ms-menu-glyph" aria-hidden="true">&#8679;</span><span>LOAD LAYOUT</span>
+      </button>
+      <!-- CLASSIC's PIN/SWAP keys, with the bezel's own glyphs (mfd.css .ic-pin/.ic-swap). -->
+      <button type="button" class="nav-item ms-menu-item" id="ms-pin" role="menuitem" aria-pressed="false">
+        <span class="ms-menu-icon ms-pin-icon" aria-hidden="true"></span><span>PIN</span>
+      </button>
+      <button type="button" class="nav-item ms-menu-item" id="ms-swap" role="menuitem" disabled>
+        <span class="ms-menu-icon ms-swap-icon" aria-hidden="true"></span><span>SWAP</span>
+      </button>
+      <hr class="ms-menu-rule">
+      <!-- The way into edit mode. -->
+      <button type="button" class="nav-item ms-menu-item" id="ms-edit" role="menuitem" aria-pressed="false">
+        <span class="ms-edit-icon" aria-hidden="true">&#9998;</span><span>EDIT STRIP</span>
+      </button>
+      <!-- Screen wake-lock toggle (docs/screen-wake-lock.md). Same shared controller as the bezel
+           shell's WAKE key (shell/shared/wake-lock.js). -->
+      <button type="button" class="nav-item ms-menu-item" id="ms-wake" role="menuitem" title="Keep screen awake" aria-pressed="false">
+        <span class="ms-wake-icon" aria-hidden="true"></span><span>KEEP AWAKE</span>
+      </button>
+      <!-- Same fullscreen toggle as the bezel's top-key icon (mfd.css .ic-fullscreen), reused here
+           since the F-35 shell has no bezel key bank to carry it. -->
+      <button type="button" class="nav-item ms-menu-item" id="ms-fll" role="menuitem">
+        <span class="ms-fll-icon" aria-hidden="true"></span><span>FULLSCREEN</span>
+      </button>
+    </div>
     </div>
   </div>
 
@@ -260,6 +285,7 @@
 <script src="/assets/shell/shared/layout-keybinds.js"></script>
 <script src="/assets/services/remote-keybinds.js"></script>
 <script src="/assets/shell/shared/layout-keydown.js"></script>
+<script src="/assets/shell/shared/layout-pin.js"></script>
 <script src="/assets/shell/shared/boot-reveal.js"></script>
 <script src="/assets/shell/shared/wake-lock.js"></script>
 <script src="/assets/shell/shared/conn-lost-banner.js"></script>

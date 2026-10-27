@@ -1,4 +1,4 @@
-// Self-check for CLASSIC's layout pin. Run: `node layout-pin.test.js`.
+// Self-check for the layout pin (both shells). Run: `node layout-pin.test.js`.
 const assert = require('assert');
 const { sameArrangement, pinnable, pinFromState } = require('./layout-pin.js');
 
@@ -28,5 +28,19 @@ assert.strictEqual(pinFromState({ pinnedPage: 'main' }), null);
 assert.strictEqual(pinFromState({ pinnedLayout: null, pinnedPage: null }), null);
 assert.strictEqual(pinFromState({ pinnedLayout: { splitMode: true, pages: [] } }), null);
 assert.strictEqual(pinFromState(null), null);
+
+// F-35: the cells (span and eaten side) and every portal's page, in order.
+const glass = (cells, pages) => ({ cells, pages });
+const four = [{ span: 1 }, { span: 1 }, { span: 1 }, { span: 1 }];
+const left = [{ span: 2, ate: 'right' }, { span: 1 }, { span: 1 }];
+const right = [{ span: 2, ate: 'left' }, { span: 1 }, { span: 1 }];
+assert.ok(sameArrangement(glass(left, ['map', 'rwr', 'tgp']), glass(left, ['map', 'rwr', 'tgp'])));
+assert.ok(!sameArrangement(glass(left, ['map', 'rwr', 'tgp']), glass(right, ['map', 'rwr', 'tgp'])));
+assert.ok(!sameArrangement(glass(left, ['map', 'rwr', 'tgp']), glass(left, ['map', 'tgp', 'rwr'])));
+assert.ok(!sameArrangement(glass(four, ['rwr', 'main', 'main', 'main']), full('rwr')));
+assert.ok(!pinnable(glass(four, ['main', 'main', 'main', 'main'])));
+assert.ok(pinnable(glass(four, ['main', 'map', 'main', 'main'])));
+assert.deepStrictEqual(pinFromState({ pinnedLayout: glass(left, ['map', 'rwr', 'tgp', 'extra']) }), glass(left, ['map', 'rwr', 'tgp']));
+assert.strictEqual(pinFromState({ pinnedLayout: glass(four, ['main']) }), null);
 
 console.log('layout-pin.test.js OK');

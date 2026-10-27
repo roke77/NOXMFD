@@ -1091,6 +1091,7 @@
     reportPanes();
     renderSoiRing();
     renderSoiCursor();
+    renderPin();
   }
 
   function addPortal(at) {
@@ -1230,6 +1231,7 @@
   // and tell the server if this changed what page the SOI-focused portal shows (docs/tgp-manual-
   // control.md's PAD Cursor consolidation plan).
   function onNavRendered(p) {
+    renderPin();   // the portal may have changed page, onto or off the pinned arrangement
     if (p !== focusedPortal()) return;
     renderSoiCursor();
     syncCursorFocus();   // the focused portal may have paged onto/off MAP under it
@@ -1572,7 +1574,7 @@
   // src/web/shell/layout-keydown.js — only captureLayoutState/applyLayoutState (this shell's
   // own state shape, below) stay here. Declared here (ahead of its own captureLayoutState/
   // applyLayoutState definitions further down, which are hoisted function declarations so the
-  // reference is fine) because the LYT wiring just below needs loadById and wireLayoutKeydown.
+  // reference is fine) because the LYT and MENU wiring just below need these as values.
   // SOI include/exclude checkboxes (issue #58) — one per live portal, left to right (portals[0]
   // is the leftmost, same order soi.panes already reports). Declared here for the same hoisting
   // reason as captureLayoutState/applyLayoutState above.
@@ -1580,7 +1582,7 @@
     return { cid: myCid, labels: portals.map(function (_, i) { return 'Include portal ' + (i + 1) + ' in SOI'; }) };
   }
 
-  const { loadSlotAct, loadById, handleLayoutKeydown, wireLayoutKeydown } =
+  const { openSaveLayoutModal, openLoadLayoutModal, loadSlotAct, loadById, handleLayoutKeydown, wireLayoutKeydown } =
     LayoutKeydown.makeLayoutKeydownHandlers('f35', captureLayoutState, applyLayoutState, soiSurfaces);
 
   // ── LYT ──────────────────────────────────────────────────────────────────────────────
@@ -1623,9 +1625,64 @@
     else if (m.act === 'load' && typeof m.id === 'string') loadById(m.id);
   }
 
+  // ── MENU ───────────────────────────────────────────────────────────────────────────────
+  // The strip's dropdown (f35.html #ms-menu) opens and light-dismisses natively; an item closes it
+  // once pressed.
+  const stripMenu = document.getElementById('ms-menu');
+  stripMenu.addEventListener('click', function (e) { if (e.target.closest('.ms-menu-item')) stripMenu.hidePopover(); });
+  document.getElementById('ms-save').addEventListener('click', openSaveLayoutModal);
+  document.getElementById('ms-load').addEventListener('click', openLoadLayoutModal);
+
+  // ── PIN / SWAP ─────────────────────────────────────────────────────────────────────────
+  // CLASSIC's PIN/SWAP keys (mfd.js), for the glass: PIN pins the whole arrangement (LayoutPin),
+  // SWAP jumps to it and back. swapPartner is the arrangement SWAP left for the pin; it is tied to
+  // the current pin, so re-pinning or unpinning drops it.
+  // ponytail: re-applying an arrangement reloads each portal's page, so per-page scroll and list
+  // paging reset; keeping them would mean snapshotting each portal's own state too.
+  let pinnedLayout = null, swapPartner = null;
+  const pinBtn    = document.getElementById('ms-pin');
+  const swapBtn   = document.getElementById('ms-swap');
+  const pinnedTag = document.getElementById('ms-pinned');
+
+  function setPin(arr) {
+    pinnedLayout = arr;
+    swapPartner = null;
+    renderPin();
+  }
+
+  // PIN is lit, and the strip's PINNED tag shows, while the glass matches the pin (CLASSIC's chip).
+  // SWAP has nothing to do with no pin.
+  function renderPin() {
+    const on = pinnedLayout !== null && LayoutPin.sameArrangement(captureArrangement(), pinnedLayout);
+    pinBtn.classList.toggle('on', on);
+    pinBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    pinnedTag.hidden = !on;
+    swapBtn.disabled = pinnedLayout === null;
+  }
+
+  pinBtn.addEventListener('click', function () {
+    const here = captureArrangement();
+    if (!LayoutPin.pinnable(here)) return;
+    setPin(pinnedLayout && LayoutPin.sameArrangement(here, pinnedLayout) ? null : here);
+  });
+
+  // Off the pin: remember where we were and go to it. On it: go back, if there is somewhere to go.
+  swapBtn.addEventListener('click', function () {
+    if (pinnedLayout === null) return;
+    const here = captureArrangement();
+    if (LayoutPin.sameArrangement(here, pinnedLayout)) {
+      if (swapPartner === null) return;
+      applyArrangement(swapPartner);
+    } else {
+      applyArrangement(pinnedLayout);
+      swapPartner = here;
+    }
+    renderPin();
+  });
+
   // ── Fullscreen ─────────────────────────────────────────────────────────────────────────
   // Same toggle as the bezel's top-key icon (mfd.js toggleFullscreen) — this shell has no bezel key
-  // bank to carry it, so it gets its own button beside LAYOUT instead.
+  // bank to carry it, so it gets its own item in the strip's MENU.
   document.getElementById('ms-fll').addEventListener('click', function () {
     const d = document, el = d.documentElement;
     if (!d.fullscreenElement && !d.webkitFullscreenElement) {
@@ -1860,17 +1917,38 @@
   // server-side (LayoutStore.cs), so a layout saved here shows up on every other connected browser
   // (including the bezel shell, which keeps its own list — see mfd.js's twin of this block —
   // filtered by `shell` so a browser is never offered an arrangement it can't apply).
+  // The cells and every portal's page — what PIN pins and SWAP restores. Cells are copied: a
+  // portal's own cell object changes under a later merge or split.
+  function captureArrangement() {
+    return { cells: cells().map(function (c) { return Object.assign({}, c); }),
+             pages: portals.map(function (p) { return p.page(); }) };
+  }
+
+  // The pin rides along, so a single SWAP after LOAD (or a reload) jumps straight back to it.
   function captureLayoutState() {
-    return { cells: cells(), pages: portals.map(function (p) { return p.page(); }), strip: stripSlots.slice() };
+    return Object.assign(captureArrangement(), { strip: stripSlots.slice(), pinnedLayout: pinnedLayout });
+  }
+
+  function applyLayoutState(state) {
+    // A layout saved before the strip was editable carries no strip and leaves it as it is.
+    const strip = F35Strip.normalize(state && state.strip);
+    if (strip) setStrip(strip);
+    applyArrangement(state);
+    // Portals the layout keeps out of the SOI rotation (the LYT page's edit dialog writes `soi`, one
+    // entry per portal); a layout without one leaves the current membership alone. Sent after the
+    // rebuild so it follows the new portal count's soi.panes report.
+    if (state && Array.isArray(state.soi)) {
+      state.soi.forEach(function (on, pane) {
+        sendCommand('soi.include', { cid: myCid, n: pane, on: on !== false }).catch(function () {});
+      });
+    }
+    setPin(LayoutPin.pinFromState(state));
   }
 
   // Rebuilds the glass directly from a saved arrangement, rather than replaying merge/split
   // actions to reach it — buildGlass()'s own addPortal always starts a portal at span 1, so this
   // is a small variant of it that seeds each portal's cell from the saved spec up front.
-  function applyLayoutState(state) {
-    // A layout saved before the strip was editable carries no strip and leaves it as it is.
-    const strip = F35Strip.normalize(state && state.strip);
-    if (strip) setStrip(strip);
+  function applyArrangement(state) {
     const cs = state && state.cells;
     if (!cs || !F35Glass.valid(cs)) {
       buildGlass();
@@ -1891,16 +1969,8 @@
       });
       refreshGlass();
     }
-    // Portals the layout keeps out of the SOI rotation (the LYT page's edit dialog writes `soi`, one
-    // entry per portal); a layout without one leaves the current membership alone. Sent after the
-    // rebuild so it follows the new portal count's soi.panes report.
-    if (state && Array.isArray(state.soi)) {
-      state.soi.forEach(function (on, pane) {
-        sendCommand('soi.include', { cid: myCid, n: pane, on: on !== false }).catch(function () {});
-      });
-    }
-    // Reveal the result immediately even when LOAD was triggered from the picker — a no-op
-    // (already showing the glass) when it wasn't open.
+    // Reveal the result immediately even when LOAD or SWAP was pressed over LYT — a no-op (already
+    // showing the glass) when it wasn't open.
     showPicker(false);
   }
 
