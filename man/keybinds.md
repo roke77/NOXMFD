@@ -5,7 +5,7 @@ of settings. Reach it from **MAIN → CFG → KEY**. Each function takes a keybo
 joystick/HOTAS button, or both — click a cell on the page and press the key or button to bind it.
 Multi-stick HOTAS setups are supported; each bind remembers which device it came from, so binds
 stay on the right stick when Windows numbers your controllers differently after a restart. A
-joystick bind made with NOXMFD 0.81 or older takes the device that holds its stick number the first
+joystick bind made with NOXMFD 0.81.4 or older takes the device that holds its stick number the first
 time the game starts with this version; if that's the wrong stick, bind it again. Hover a joystick
 cell to see which device it's on.
 
