@@ -91,6 +91,11 @@ saving is the keyboard shortcut only.
   applies its `soi` flags like CLASSIC.
 - **Row wrapping.** A row's key box, edit, delete and LOAD form one group that wraps below the text
   when the row is narrow (a one-slot portal), so the name and pages keep the width.
+- **Narrow portals.** The LAYOUTS cards and the SAVE/LOAD key boxes stack when a column would be under
+  220px, and LYT's labels stand upright like the other CFG pages' (`UPRIGHT_LABELS`).
+- **Thumbnails.** On the F-35 (`body[data-shell="f35"]`, set by `lyt.js`) a row's thumbnail is
+  100×58 rather than CLASSIC's 58×58 square. In both shells a pane's page name is centred and breaks
+  onto centred lines when wider than its pane, instead of being clipped.
 - **MENU.** The strip's EDIT, WAKE and FULLSCREEN buttons fold into one MENU popover, which also
   carries SAVE LAYOUT, LOAD LAYOUT (the F-35's existing dialogs, for a screen with no keyboard), PIN
   and SWAP. PIN pins the whole glass (`LayoutPin` learns `{cells, pages}`), is lit while the glass
