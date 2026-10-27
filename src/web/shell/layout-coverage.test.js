@@ -33,8 +33,8 @@ for (const [page, items] of Object.entries(NAV))
 // is treated as a destination by default: an unrecognised action fails this test until someone
 // consciously classifies it, which is the safe direction to be wrong in.
 // 'lyt' (cfg-rates experiment, issue #39): NAV.keys/NAV.rates now offer it as a sibling switch
-// alongside KEY/RTS, but it opens the layout manager over the whole screen (BEZEL_EXTRAS.lyt /
-// GLASS_ACTIONS.lyt) rather than naming a page, same as flw/grid/zin/zout below.
+// alongside KEY/RTS, but on the bezel it collapses a split before showing the page (mfd.js's
+// 'lyt' case), so it has no split-pane entry to check; the F-35 mounts it as a portal page.
 // 'rt-next'/'rt-prev' (issue #38): MAP's route switch — a MAP_ACTIONS/mapSend behaviour on the
 // active waypoint route, same shape as flw/grid/zin/zout, not a destination.
 // 'wpt-next'/'wpt-prev' (issue #38): MAP's manual waypoint step — same shape as rt-next/rt-prev,
@@ -64,7 +64,8 @@ for (const action of destinations) {
 // The layouts must agree on the SET of destinations they can reach. A page present in one table and
 // absent from another is the drift this file exists to catch, in every direction.
 const onlyBezel = Object.keys(CLASSIC_SPLIT).filter(k => !(k in F35)).sort();
-const onlyF35   = Object.keys(F35).filter(k => !(k in CLASSIC_SPLIT)).sort();
+// LYT: a portal page on the F-35, full view only on the bezel (FULL_ONLY below).
+const onlyF35   = Object.keys(F35).filter(k => !(k in CLASSIC_SPLIT) && k !== 'lyt').sort();
 assert.deepStrictEqual(onlyBezel, [], `pages the bezel can reach but the F-35 cannot: ${onlyBezel}`);
 assert.deepStrictEqual(onlyF35, [], `pages the F-35 can reach but the bezel cannot: ${onlyF35}`);
 

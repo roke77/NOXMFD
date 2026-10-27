@@ -51,8 +51,8 @@ it (left), up to four widgets (middle), and **MENU** (right). MENU drops down th
 then **EDIT STRIP**, **KEEP AWAKE** (same as CLASSIC's WAKE key above; lit while on) and
 **FULLSCREEN**. Tap one, or tap anywhere else to close it.
 
-- **PIN** — pin the glass as it is: how the portals are merged and the page in each. **PINNED** shows
-  beside MENU, and PIN is lit, while the glass matches it; press PIN again there to unpin. A glass
+- **PIN** — pin the glass as it is: how the portals are merged and the page in each. PIN is lit in
+  the menu while the glass matches it; press PIN again there to unpin. A glass
   showing nothing but MAIN can't be pinned.
 - **SWAP** — switch to the pinned glass, and back to the one you left on the next press. Grayed out
   with nothing pinned.
@@ -106,13 +106,12 @@ flags.
 
 ## The LYT page
 
-**LYT** (MAIN → **CFG** → **LYT**) is the layout manager, the same page in either layout. On CLASSIC
-its bezel keys are **MAIN** (top left, back to MAIN) and the CFG switch to **HUD**, **KEY** and
-**[UI](ui.md)**. On F-35 it fills the glass under the strip; the portals keep running underneath. The
-page has three parts:
+**LYT** (MAIN → **CFG** → **LYT**) is the layout manager, the same page in either layout: full view
+on CLASSIC, in the portal you open it from on F-35. Its labels are **MAIN** (back to MAIN) and the
+CFG switch to **HUD**, **KEY** and **[UI](ui.md)**. The page has three parts:
 
 - **LAYOUTS** — the two layouts as cards, the one you are on lit. Tap the other to switch to it, or
-  the lit one to leave LYT (CLASSIC back to MAIN, F-35 back to its portals).
+  the lit one to go back to MAIN.
 - **KEYBINDS** — the **SAVE** and **LOAD** layout keys. Click a box, then press the key you want
   (Esc cancels, Delete clears). One line under it reminds you how saving works.
 - **SAVED** — the saved layouts of the layout you are on, one row each, in the order they were saved. A row shows its number,
@@ -126,7 +125,7 @@ page has three parts:
   - **✎** — edit the layout's name and choose which of its panes stay in the
     [SOI](keybinds.md#sensor-of-interest-soi) rotation (one lit toggle per pane, or one for a full view);
   - **×** — delete it (the ones below move up a slot);
-  - **LOAD** — apply it now (on F-35 this also closes LYT).
+  - **LOAD** — apply it now.
 
 ![The LYT page](images/LYT.png)
 

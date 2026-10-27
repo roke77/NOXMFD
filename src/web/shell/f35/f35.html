@@ -189,8 +189,6 @@
          wake controller onError. Sits ahead of the buttons so it never gets clipped by them at a
          narrow width. -->
     <span class="ms-wake-error" id="ms-wake-error" role="status" hidden></span>
-    <!-- PINNED: shown while the glass matches the pin (f35.js renderPin), as CLASSIC's corner chip. -->
-    <span class="ms-pinned" id="ms-pinned" hidden>PINNED</span>
     <!-- MENU: one button dropping down the layout controls (SAVE, LOAD, PIN, SWAP) and the screen's
          (EDIT, WAKE, FULLSCREEN). A native popover, so it sits in the
          top layer — clear of the strip's overflow clip — and closes on an outside tap or Esc. -->
@@ -247,11 +245,6 @@
        several, so the count is state. Each holds a page iframe with a label grid over it. -->
   <div class="portals" id="portals"></div>
 
-  <!-- The LYT page (/lyt?f35), in the portals' place (f35.js showPicker toggles which of the two the
-       column holds and loads the page on each open), opened by LYT in a portal's CFG group. -->
-  <div class="layout-picker" id="layout-picker" hidden>
-    <iframe id="lyt-frame" title="Layouts"></iframe>
-  </div>
 </div>
 
 <script src="/assets/services/send-command.js"></script>

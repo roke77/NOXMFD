@@ -29,7 +29,8 @@ const { mainPageSizes, mainPaneSlice, listPaneLayout } = require('./classic-pagi
 // still is, correct — the mismatch only exists once ExtNav.load runs. mfd.js now paginates NAV.ext
 // the same way MAIN/MAP do (extPaneSlice) rather than relying on a fixed slot count at all, so it
 // belongs in this set, not DYNAMIC_GROWTH (which still assumes a fixed, if larger, capacity).
-const NO_SPLIT_TABLE = new Set(['main', 'map', 'akf', 'mis', 'obj', 'bdf', 'pal', 'ext']);
+// 'lyt' is never a pane: the bezel's LYT key collapses a split before showing it.
+const NO_SPLIT_TABLE = new Set(['main', 'map', 'akf', 'mis', 'obj', 'bdf', 'pal', 'ext', 'lyt']);
 
 // 'tgt' is a documented exception too: td-nav.js appends a live TD entry to NAV.tgt at runtime
 // once a squad exists, so the static NAV.tgt here (nav-model.js) undercounts its real length —

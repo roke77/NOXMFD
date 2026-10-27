@@ -4,9 +4,8 @@
 <meta charset="utf-8">
 <title>NO XMFD — LYT</title>
 <!--
-  LYT page served at /lyt — the layout manager, hosted full-view in the CLASSIC shell's #page-frame and,
-  as /lyt?f35, over the whole F-35 glass (never a split pane or one portal: a layout is the whole
-  document's business). See docs/lyt-rework.md.
+  LYT page served at /lyt — the layout manager, hosted full-view in the CLASSIC shell's #page-frame
+  (never a split pane) and, as /lyt?f35, in an F-35 portal. See docs/lyt-rework.md.
 
   LAYOUTS: the two shells as cards, the hosting one marked. The page asks the shell to switch
   ({mfd:true, type:'lyt-act', act:'classic'|'f35'}); picking the current shell leaves LYT.
@@ -21,8 +20,8 @@
   applied by the shell on load) through LayoutStore.update. The list refetches when the shell
   reports the library changed ('layouts-changed').
 
-  The bezel's only label is MAIN. Shell -> page: 'keybinds-config-push' (layout-keybinds.js listens; remote-keybinds.js requests it),
-  'layouts-changed'. Saving is the keyboard shortcut.
+  Its labels are the CFG switch (NAV.lyt). Shell -> page: 'keybinds-config-push' (layout-keybinds.js listens; remote-keybinds.js requests it),
+  'layouts-changed'. Saving is the SAVE key, or on the F-35 its MENU.
 -->
 <link rel="stylesheet" href="/assets/shared/font.css">
 <link rel="stylesheet" href="/assets/shared/theme.css">

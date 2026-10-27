@@ -129,8 +129,8 @@
   // CFG, MD, RDR and SQD are frame pages with an F35_PAGES entry — CFG opens the CFG group
   // (HUD/KEY/LYT/RTS — cfg-rates experiment issue #39), landing on HUD by default (mirrors MD
   // staying 'akf' — the action names whichever sibling is the landing page; HUD joined this group
-  // and no longer has a MAIN entry of its own, same as RTS). Selecting LYT from that group opens
-  // the LYT page over the whole glass (GLASS_ACTIONS). All match where the bezel keeps them
+  // and no longer has a MAIN entry of its own, same as RTS). LYT in that group opens the LYT page
+  // in the portal it was pressed in, like any other page. All match where the bezel keeps them
   // — MAIN — so a pilot finds the same names in the same place in either layout.
   //
   // MD is one combined entry covering PAL/BDF — mirrors the bezel's own SCR→MD rename and
@@ -151,12 +151,6 @@
 
   // Paging actions, and the direction each moves. Not pages, so they dispatch separately.
   const PAGER = { 'wpn-prev': -1, 'wpn-next': 1 };
-
-  // Actions that act on the whole glass rather than the portal they were pressed from. LYT is the
-  // only one: the LYT page takes the portals' place entirely (showPicker), so which portal offered
-  // it doesn't matter — the same reason the bezel's LYT collapses a split instead of filling a pane.
-  // Declared here, run later: showPicker is a hoisted declaration further down the file.
-  const GLASS_ACTIONS = { lyt: function () { showPicker(true); } };
 
   // MAP's own actions → the message the map view listens for. Also not pages: they drive the map
   // in place rather than navigating. Same protocol the bezel uses (mfd.js mapSend), but routed to
@@ -317,7 +311,7 @@
   function has(page) { return Object.prototype.hasOwnProperty.call(F35_PAGES, page) || ExtNav.isExtensionPage(page); }
   function feedsFor(page) { return PAGE_FEEDS[page] || (ExtNav.isExtensionPage(page) ? ['ext_' + page] : []); }
   function canDo(action) {
-    return has(action) || (action in PAGER) || (action in MAP_ACTIONS) || (action in GLASS_ACTIONS) ||
+    return has(action) || (action in PAGER) || (action in MAP_ACTIONS) ||
            (action in MASTER_ARMS_ACTIONS) || (action in COMBAT_MODE_ACTIONS) ||
            (action in TGP_VIEW_ACTIONS) || (action in TGP_IR_ACTIONS) || (action in TGP_ZOOM_ACTIONS) ||
            TGP_ONESHOT_ACTIONS.indexOf(action) !== -1;
@@ -782,7 +776,6 @@
       }
       if (action in PAGER)       { wpnPage = wpnState().page + PAGER[action]; forwardWpn(); return; }
       if (action in MAP_ACTIONS) { mapSend(MAP_ACTIONS[action]); return; }
-      if (action in GLASS_ACTIONS) { GLASS_ACTIONS[action](); return; }
       if (action in MASTER_ARMS_ACTIONS) {
         sendCommand('master-arms.set', { on: MASTER_ARMS_ACTIONS[action] }).catch(function () {});
         return;
@@ -1295,8 +1288,9 @@
       return;
     }
 
+    // 'lyt-act' — the LYT page's requests — routes by source too: LYT is whichever portal opened it.
     if (m.type === 'lyt-act') {
-      if (e.source === lytFrame.contentWindow) onLytAct(m);
+      livePortals().forEach(function (p) { if (p.page() === 'lyt' && p.frameWin() === e.source) onLytAct(p, m); });
       return;
     }
 
@@ -1574,7 +1568,7 @@
   // src/web/shell/layout-keydown.js — only captureLayoutState/applyLayoutState (this shell's
   // own state shape, below) stay here. Declared here (ahead of its own captureLayoutState/
   // applyLayoutState definitions further down, which are hoisted function declarations so the
-  // reference is fine) because the LYT and MENU wiring just below need these as values.
+  // reference is fine) because the MENU wiring just below needs these as values.
   // SOI include/exclude checkboxes (issue #58) — one per live portal, left to right (portals[0]
   // is the leftmost, same order soi.panes already reports). Declared here for the same hoisting
   // reason as captureLayoutState/applyLayoutState above.
@@ -1586,41 +1580,16 @@
     LayoutKeydown.makeLayoutKeydownHandlers('f35', captureLayoutState, applyLayoutState, soiSurfaces);
 
   // ── LYT ──────────────────────────────────────────────────────────────────────────────
-  // LYT (a portal's CFG group, GLASS_ACTIONS) swaps the portals for the LYT page — the same /lyt
-  // the bezel hosts, served ?f35 so it marks this shell and lists its layouts. A layout is the
-  // whole glass's business, not the offering portal's: the page takes over the entire column.
+  // The LYT page (F35_PAGES.lyt, /lyt?f35) in a portal asks this shell for what only it can do. The
+  // F-35 card is this document, so picking it sends that portal back to MAIN, as CLASSIC's card does
+  // on the bezel; CLASSIC is the bezel shell at /. LOAD rebuilds the whole glass, LYT portal included.
   //
-  // It replaces the portals CONTAINER, not their contents: hidden, the portals keep their pages,
-  // their arrangement and their map streams, so coming back costs nothing and loses nothing, and
-  // SAVE from here captures the real arrangement. #map-tap is absolute and outside the column, so
-  // telemetry keeps flowing the whole time.
-  const pickerEl = document.getElementById('layout-picker');
-  const lytFrame = document.getElementById('lyt-frame');
-  wireLayoutKeydown(lytFrame);
-
-  function showPicker(on) {
-    // Reloaded on every open, so the SAVED list includes layouts saved from another browser.
-    if (on) lytFrame.src = '/lyt?f35';
-    pickerEl.hidden  = !on;
-    portalsEl.hidden = on;
-    // Hidden, a portal's box is 0x0 — and the resize listener below still fires into it, handing
-    // WPN a zero-height rect for every row. So rebuild on the way back: the glass may have changed
-    // size while it was away, and whatever WPN is holding was measured against nothing. Only WPN
-    // derives geometry from its box; every other page reflows itself with CSS.
-    if (!on) relayoutAll();
-  }
-
-  // Remember the choice so a fresh load honors it (docs/layouts.md, Stage 3); the head guard in each
-  // shell's HTML reads it and redirects before paint. Guarded — localStorage throws in some
+  // Remembering the choice lets a fresh load honor it (docs/layouts.md, Stage 3); the head guard in
+  // each shell's HTML reads it and redirects before paint. Guarded — localStorage throws in some
   // private-mode browsers, and a failed write just means the choice isn't sticky.
   function setLayout(name) { try { localStorage.setItem('layout', name); } catch (e) {} }
-
-  // The LYT page's requests (lyt.html): the F-35 card is this document, so picking it just shows the
-  // glass again, as CLASSIC's card does on the bezel; CLASSIC is the bezel shell at /. LOAD applies
-  // the layout, and applyLayoutState closes the page.
-  function onLytAct(m) {
-    if (pickerEl.hidden) return;
-    if (m.act === 'f35') { setLayout('f35'); showPicker(false); }
+  function onLytAct(portal, m) {
+    if (m.act === 'f35') { setLayout('f35'); portal.showPage('main'); }
     else if (m.act === 'classic') { setLayout('classic'); location.href = '/'; }
     else if (m.act === 'load' && typeof m.id === 'string') loadById(m.id);
   }
@@ -1642,7 +1611,6 @@
   let pinnedLayout = null, swapPartner = null;
   const pinBtn    = document.getElementById('ms-pin');
   const swapBtn   = document.getElementById('ms-swap');
-  const pinnedTag = document.getElementById('ms-pinned');
 
   function setPin(arr) {
     pinnedLayout = arr;
@@ -1650,13 +1618,12 @@
     renderPin();
   }
 
-  // PIN is lit, and the strip's PINNED tag shows, while the glass matches the pin (CLASSIC's chip).
-  // SWAP has nothing to do with no pin.
+  // PIN is lit while the glass matches the pin (CLASSIC's PINNED chip). SWAP has nothing to do with
+  // no pin.
   function renderPin() {
     const on = pinnedLayout !== null && LayoutPin.sameArrangement(captureArrangement(), pinnedLayout);
     pinBtn.classList.toggle('on', on);
     pinBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
-    pinnedTag.hidden = !on;
     swapBtn.disabled = pinnedLayout === null;
   }
 
@@ -1969,9 +1936,6 @@
       });
       refreshGlass();
     }
-    // Reveal the result immediately even when LOAD or SWAP was pressed over LYT — a no-op (already
-    // showing the glass) when it wasn't open.
-    showPicker(false);
   }
 
   window.addEventListener('keydown', handleLayoutKeydown);
