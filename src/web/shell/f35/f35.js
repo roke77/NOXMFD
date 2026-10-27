@@ -297,7 +297,7 @@
   // extension pages join them in renderNav.
   const UPRIGHT_LABELS = { adi: true, afm: true, hsi: true, avn: true, tgt: true, td: true, sqd: true,
                            wpt: true, rtd: true, spd: true, akf: true, bdf: true, pal: true, mis: true,
-                           obj: true, keys: true, hud: true, ui: true };
+                           obj: true, keys: true, hud: true, ui: true, lyt: true };
 
   const slices  = Object.create(null);   // the tap's latest message, by type — shared by all portals
   // Not the source of orientation — a portal measures its own box for that (forwardOrientation).

@@ -5,6 +5,7 @@ const rowsEl = document.getElementById('lyt-rows');
 // The shell hosting this page: CLASSIC serves it as /lyt, F-35 as /lyt?f35. Its card is the current
 // one, and SAVED lists its layouts.
 const shell = new URLSearchParams(location.search).has('f35') ? 'f35' : 'classic';
+document.body.dataset.shell = shell;   // lyt.css shapes the row thumbnails by it
 
 function toShell(msg) { window.parent.postMessage(Object.assign({ mfd: true, type: 'lyt-act' }, msg), '*'); }
 
