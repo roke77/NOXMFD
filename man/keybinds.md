@@ -169,6 +169,16 @@ yourself.
 The in-flight ON/OFF binds for all four are in [Systems](#systems), so you can flip any of them
 mid-flight too.
 
+The **DAMAGE** group:
+
+- **Battle Damage** — off by default. Turn it on and an MFD page goes offline when the aircraft
+  system it shows is destroyed: [RDR](rdr.md) shows RADAR FAIL when you lose the radar, and
+  [TGP](tgp.md) shows TGP FAIL when you lose the targeting camera. The page flickers for a few
+  seconds and then goes blank; its bezel labels keep working, so you can still page away. If only
+  the laser designator is lost, TGP keeps its picture and shows LASER FAIL. An aircraft that never
+  had the system shows the page's usual "not available" instead. Respawning or repairing brings
+  the pages back. Every other page (ADI, HSI, HUD, SYS, MAIN, settings) never fails.
+
 ## Systems
 
 ### Power, engine & radar

@@ -43,6 +43,12 @@ the top of the screen.
   degrees left/right off the nose (e.g. `-30` / `+30`). Everything plotted on the scope falls
   within this cone; a contact outside it isn't shown at all.
 
+### Radar damage
+
+Once your radar is destroyed, FCR has nothing left to show, and HSD loses your own-radar contacts
+and the FCR cone while keeping its datalink contacts, route and map. With
+[Battle Damage](keybinds.md#immersion-options) on, FCR also flickers and settles on **RADAR FAIL**.
+
 ## HSD
 
 A 360-degree picture of the air situation around your aircraft, built from your faction's shared

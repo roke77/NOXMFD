@@ -31,6 +31,9 @@
                .tgp-point-track from inside applyOverlay, since that's only known once 'data'
                arrives, not from the top-level flag alone).
     'orient' : app-wide orientation (kept for parity).
+    'sysdmg-push' : { data: {on, radar, tgp, laser} } — battle damage (docs/battle-damage.md): a
+               lost camera puts up the TGP FAIL screen; a lost laser designator alone shows
+               #tgp-laser-fail and turns the [LASE] tag into [LASER FAIL].
   The MJPEG <img> connects to /tgp.mjpg directly; the server only emits frames while a target
   is locked, so it stays hidden (NO LOCK shown) until 'tgp' active flips true.
 
@@ -52,6 +55,7 @@
 html:not(.tgp-config-open), html:not(.tgp-config-open) body { overflow: hidden; }
 .tgp-config-open .tgp-panel, .tgp-config-open .tgp-joystick { display: none; }
 #tgp-config-host[hidden] { display: none; }
+.tgp-config-open .bd-fail { display: none; }
 </style>
 </head>
 <body>
@@ -91,6 +95,7 @@ html:not(.tgp-config-open), html:not(.tgp-config-open) body { overflow: hidden; 
       </div>
       <div id="tgp-ov-boxes"></div>
     </div>
+    <div class="tgp-laser-fail" id="tgp-laser-fail" hidden>LASER FAIL</div>
   </div>
   <!-- A body-level sibling of .tgp-panel, not a child of it (docs/tgp-manual-control.md's
        "On-screen joystick") — .tgp-panel is the letterboxed 3:2 picture box, which can end up

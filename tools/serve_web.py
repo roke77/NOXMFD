@@ -328,6 +328,7 @@ def _preview_push(query):
         "hud-options": _captured_or("hud-options", _hud_options),
         "server-players": _server_players(),
         "themes": _themes_state(),
+        "sysdmg": _sysdmg(),
     }
     hashes = {}
     events = {}
@@ -1348,7 +1349,19 @@ for _b in KEYBINDS:
 KB_STATE = {"conflict": None, "ask": False, "lastPress": {"seq": 0, "joy": 0, "button": 0}, "capturing": None, "capturingKind": None, "armed_at": 0.0, "bgInput": False,
             "rejected": {"seq": 0, "bind": "", "by": ""},
             "radarOnOnStart": True, "engineOnOnStart": True, "masterArmsOnOnStart": True,
-            "powerOnOnStart": True, "hudFiltersOnCombatMode": False}
+            "powerOnOnStart": True, "hudFiltersOnCombatMode": False, "battleDamage": False}
+
+# Battle damage (docs/battle-damage.md): the per-system status BattleDamage.cs pushes as the
+# "sysdmg" SSE event. No game to shoot at, so GET /__sysdmg?radar=fail&tgp=ok&laser=fail sets it;
+# "on" follows the KEY page's BATTLE DAMAGE toggle like the plugin's.
+SYSDMG = {"radar": "ok", "tgp": "ok", "laser": "ok"}
+
+
+def _sysdmg(query=""):
+    for k, v in urllib.parse.parse_qs(query).items():
+        if k in SYSDMG and v[0] in ("ok", "fail", "none"):
+            SYSDMG[k] = v[0]
+    return json.dumps(dict(on=KB_STATE["battleDamage"], **SYSDMG)).encode("utf-8")
 
 
 def _keybinds_config():
@@ -1381,7 +1394,8 @@ def _keybinds_config():
                        "engineOnOnStart": KB_STATE["engineOnOnStart"],
                        "masterArmsOnOnStart": KB_STATE["masterArmsOnOnStart"],
                        "powerOnOnStart": KB_STATE["powerOnOnStart"],
-                       "hudFiltersOnCombatMode": KB_STATE["hudFiltersOnCombatMode"]}).encode("utf-8")
+                       "hudFiltersOnCombatMode": KB_STATE["hudFiltersOnCombatMode"],
+                       "battleDamage": KB_STATE["battleDamage"]}).encode("utf-8")
 
 
 # Mirrors KeybindConflict.cs: a key/button already used by another bind is refused when a Layout
@@ -1458,6 +1472,8 @@ def _keybinds_command(env):
         KB_STATE["powerOnOnStart"] = bool(env.get("on", False))
     elif cmd == "keybind.set-hud-filters-on-combat-mode":
         KB_STATE["hudFiltersOnCombatMode"] = bool(env.get("on", False))
+    elif cmd == "keybind.set-battle-damage":
+        KB_STATE["battleDamage"] = bool(env.get("on", False))
     else:
         return False
     return True
@@ -1532,6 +1548,8 @@ class H(http.server.SimpleHTTPRequestHandler):
             return self._send(_soi_excluded_json(cid), 'application/json; charset=utf-8')
         if path == '/keybinds-config':
             return self._send(_keybinds_config(), 'application/json; charset=utf-8')
+        if path == '/__sysdmg':
+            return self._send(_sysdmg(parsed.query), 'application/json; charset=utf-8')
         if path == '/rates-config':
             return self._send(_rates_config_merged(), 'application/json; charset=utf-8')
         if path == '/themes':

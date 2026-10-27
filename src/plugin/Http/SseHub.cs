@@ -121,6 +121,7 @@ namespace NOXMFD
                 // /server-players poll.
                 string lastServerPlayers = string.Empty;
                 string lastThemes = string.Empty;
+                string lastSysDmg = string.Empty;
                 int sinceFrame = FrameEveryMs;   // send a frame immediately on connect
                 while (!ct.IsCancellationRequested)
                 {
@@ -243,6 +244,17 @@ namespace NOXMFD
                         lastThemes = themes;
                         byte[] thbytes = Encoding.UTF8.GetBytes("event: themes\ndata: " + themes + "\n\n");
                         await ctx.Response.OutputStream.WriteAsync(thbytes, 0, thbytes.Length, ct).ConfigureAwait(false);
+                        wrote = true;
+                    }
+
+                    // Battle damage (issue #110): per-system status, rebuilt by BattleDamage only on
+                    // a change, so this compare is the whole idle cost.
+                    string sysDmg = BattleDamage.StateJson;
+                    if (!string.Equals(sysDmg, lastSysDmg, StringComparison.Ordinal))
+                    {
+                        lastSysDmg = sysDmg;
+                        byte[] dbytes = Encoding.UTF8.GetBytes("event: sysdmg\ndata: " + sysDmg + "\n\n");
+                        await ctx.Response.OutputStream.WriteAsync(dbytes, 0, dbytes.Length, ct).ConfigureAwait(false);
                         wrote = true;
                     }
 

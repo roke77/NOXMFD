@@ -26,6 +26,9 @@
             scope). Drawn as a slender blue dart (RWR's threat-marker shape) with a solid line to
             that target, flickering yellow/red on RWR's own timer, when the target is on-scope.
 
+    'sysdmg-push' : { data: {on, radar, tgp, laser} } — battle damage (docs/battle-damage.md):
+            a lost radar puts up the RADAR FAIL screen (services/battle-damage.js).
+
     action  : 'zoom-in'/'zoom-out' step the displayed range in/out (RNG+/RNG-, R+/R- bezel keys,
               cursor overflow at the scope's top/bottom edge) through RANGE_STEPS (25%/50%/100% of
               the radar's true max), persisted in sessionStorage. Reuses the SAME action names MAP's

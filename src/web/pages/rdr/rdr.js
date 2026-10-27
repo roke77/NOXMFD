@@ -409,6 +409,13 @@ if (typeof window !== 'undefined' && window.addEventListener) {
     var r = scopeRectPx();
     cursor.setFocus(on, r.dx + r.dw / 2, r.dy + r.dh / 2);
   }
+  // Battle damage (docs/battle-damage.md): the RADAR FAIL screen. A status that lands before the
+  // module resolves is parked, same as the cursor's messages.
+  var failScreen = null, pendingDmg = null;
+  import('/assets/services/battle-damage.js').then(function (bd) {
+    failScreen = bd.createFailScreen(document, 'rdr');
+    if (pendingDmg) failScreen(pendingDmg);
+  });
   // Cursor overflow at the scope's top/bottom edge also steps range (RNG+/-) — shared with HSD's
   // identical behavior (docs/rdr-fcr-hsd.md), see edge-range-step.js.
   Promise.all([import('/assets/services/pad-cursor.js'), import('/assets/services/edge-range-step.js'),
@@ -455,6 +462,8 @@ if (typeof window !== 'undefined' && window.addEventListener) {
       };
       if (typeof m.hdg === 'number') _hdg = m.hdg;
       render();
+    } else if (m.type === 'sysdmg-push') {
+      if (failScreen) failScreen(m.data); else pendingDmg = m.data;
     } else if (m.action === 'cursor-focus') {
       if (cursor) centerFocus(!!m.on); else pendingFocus = { on: !!m.on };
     } else if (m.action === 'cursor') {

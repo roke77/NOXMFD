@@ -111,6 +111,7 @@ namespace NOXMFD
               .Append(",\"masterArmsOnOnStart\":").Append(ImmersionConfig.MasterArmsOnOnStart ? "true" : "false")
               .Append(",\"powerOnOnStart\":").Append(ImmersionConfig.PowerOnOnStart ? "true" : "false")
               .Append(",\"hudFiltersOnCombatMode\":").Append(ImmersionConfig.HudFiltersOnCombatMode ? "true" : "false")
+              .Append(",\"battleDamage\":").Append(ImmersionConfig.BattleDamage ? "true" : "false")
               .Append(",\"remoteKeybindsSamePc\":").Append(IsSameMachineRequest(ctx) ? "true" : "false")
               .Append('}');
             return sb.ToString();

@@ -34,6 +34,8 @@ var masterArmsOnOnStart = true;
 var powerOnOnStart      = true;
 // HudCombatModeFilters' own on/off switch — default OFF, unlike the four above.
 var hudFiltersOnCombatMode = false;
+// Battle damage (docs/battle-damage.md) — also default OFF.
+var battleDamage = false;
 var query     = '';      // lower-cased search text; '' shows everything
 // "Find by key press": the search text came from a pressed key or button, so it filters to the binds
 // using exactly that (a typed "g" would match every name containing a g). Dropped as soon as the
@@ -77,7 +79,8 @@ function writeRemoteKeybinds(on) {
 
 var SETTING_GROUPS = [
   { t: 'INPUT & HUD', note: '' },
-  { t: 'ON AT SPAWN', note: 'Which systems start on in a new aircraft. The ON/OFF binds are in 01 Systems.' }
+  { t: 'ON AT SPAWN', note: 'Which systems start on in a new aircraft. The ON/OFF binds are in 01 Systems.' },
+  { t: 'DAMAGE', note: '' }
 ];
 var SETTINGS = [
   { grp: 1, label: 'RADAR', icon: 'radar', cmd: 'keybind.set-radar-on-start',
@@ -102,7 +105,10 @@ var SETTINGS = [
     set: function (v) { remoteKeybinds = v; writeRemoteKeybinds(v); } },
   { grp: 0, label: 'HUD BY MODE', icon: 'filter', cmd: 'keybind.set-hud-filters-on-combat-mode', title: 'Combat mode drives HUD filters',
     desc: 'A/A or A/G forces the HUD page preset; idle restores your own.',
-    get: function () { return hudFiltersOnCombatMode; }, set: function (v) { hudFiltersOnCombatMode = v; } }
+    get: function () { return hudFiltersOnCombatMode; }, set: function (v) { hudFiltersOnCombatMode = v; } },
+  { grp: 2, label: 'BATTLE DAMAGE', icon: 'damage', cmd: 'keybind.set-battle-damage',
+    desc: 'A page goes offline when its system is destroyed: RDR with the radar, TGP with the targeting camera.',
+    get: function () { return battleDamage; }, set: function (v) { battleDamage = v; } }
 ];
 
 var SVG_NS = 'http://www.w3.org/2000/svg';
@@ -113,7 +119,8 @@ var ICON_PATHS = {
   power:  ['M12 3v8', 'M6.6 6.6a7.5 7.5 0 1 0 10.8 0'],
   stick:  ['M5 21h14', 'M8 21v-3h8v3', 'M12 18V8'],
   remote: ['M8.5 9.5a5 5 0 0 0 0 7M15.5 9.5a5 5 0 0 1 0 7M5.6 6.6a9 9 0 0 0 0 12.8M18.4 6.6a9 9 0 0 1 0 12.8'],
-  filter: ['M4 7h10M18 7h2M4 17h4M12 17h8']
+  filter: ['M4 7h10M18 7h2M4 17h4M12 17h8'],
+  damage: ['M3 5h18v14H3z', 'M13 5l-3 6h4l-3 8']
 };
 // Circles that finish an icon's path set: [cx, cy, r]
 var ICON_CIRCLES = {
@@ -636,6 +643,7 @@ function applyConfig(cfg) {
     masterArmsOnOnStart = cfg.masterArmsOnOnStart !== false;
     powerOnOnStart      = cfg.powerOnOnStart      !== false;
     hudFiltersOnCombatMode = !!cfg.hudFiltersOnCombatMode;   // defaults OFF, not ON like the four above
+    battleDamage = !!cfg.battleDamage;                        // defaults OFF too
     render();
     updateCaptureFallback();
     var r = cfg.rejected;

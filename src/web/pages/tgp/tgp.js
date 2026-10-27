@@ -119,6 +119,26 @@ const ovBoxes   = document.getElementById('tgp-ov-boxes');
 
 const TGP_STATUS_TAG = { jammed: 'JAM', lased: 'LASE', outdated: 'OLD' };
 
+// Battle damage (docs/battle-damage.md): the TGP FAIL screen with the camera; with only the laser
+// designator lost, the feed runs on and its laser readouts read LASER FAIL — the standalone tag
+// (the only one Native's baked-in overlay can get) and the [LASE] tag below. A status that lands
+// before the module resolves is applied once it does. Node's self-check hands the module in itself.
+const laserTag = document.getElementById('tgp-laser-fail');
+let failScreen = null, laserFailedOf = null, dmgStatus = null, laserDown = false;
+function applyDamage() {
+  if (!failScreen || !dmgStatus) return;
+  failScreen(dmgStatus);
+  laserDown = laserFailedOf(dmgStatus);
+  laserTag.hidden = !laserDown;
+}
+function initBattleDamage(bd) {
+  failScreen = bd.createFailScreen(document, 'tgp');
+  laserFailedOf = bd.laserFailed;
+  applyDamage();
+}
+if (typeof module !== 'undefined' && module.exports) module.exports = { initBattleDamage: initBattleDamage };
+else import('/assets/services/battle-damage.js').then(initBattleDamage);
+
 // Null-safe rounding for fields with no unit conversion of their own (bearing/heading/elevation
 // degrees) — range/altitude/speed arrive already formatted in the player's Metric/Imperial
 // preference (UnitConverter.*Reading, server-side), so this isn't used for those.
@@ -142,7 +162,7 @@ function applyOverlay(resolution, data) {
 
   ovType.textContent = data.type;
   ovType.className   = 'tgp-ov-title' + (data.status === 'friendly' ? ' friendly' : ' hostile');
-  const tag = TGP_STATUS_TAG[data.status];
+  const tag = data.status === 'lased' && laserDown ? 'LASER FAIL' : TGP_STATUS_TAG[data.status];
   if (tag) {
     const span = document.createElement('span');
     span.className = 'tgp-ov-tag';
@@ -235,6 +255,9 @@ window.addEventListener('message', function(e) {
     tgpPanel.classList.toggle('tgp-manual', !!m.manual);
     const resolution = m.resolution || (m.quality === 'hq' ? 'mid' : 'native');
     applyOverlay(resolution, m.data || null);
+  } else if (m.type === 'sysdmg-push') {
+    dmgStatus = m.data || null;
+    applyDamage();
   } else if (m.type === 'orient') {
     // App-wide orientation forwarded by the shell — drives body.portrait/.landscape so any
     // orientation rules track the device, not the (wide+short) pane box.
