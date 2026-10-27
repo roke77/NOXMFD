@@ -1376,9 +1376,10 @@ orientMq.addEventListener('change', function() { applyShellOrientation(); broadc
 applyShellOrientation();
 
 // Extension nav discovery (docs/extensions-api.md) — fetches /ext-manifest and merges installed
-// extensions into NAV.ext / NAV[<id>]. Fire-and-forget at boot; also re-run every time EXT is
-// clicked (the 'ext' case below) to pick up an extension that registered after this tab loaded.
-ExtNav.load(NAV);
+// extensions into NAV.ext / NAV[<id>]. At boot only the session restore at the bottom waits on it;
+// also re-run every time EXT is clicked (the 'ext' case below) to pick up an extension that
+// registered after this tab loaded.
+const extNavLoaded = ExtNav.load(NAV);
 
 // TD nav discovery (issue #47, docs/target-designator.md) — rides the relayed 'sqd-state' push and
 // keeps NAV.tgt's TD entry in sync with live squad membership.
@@ -3101,6 +3102,18 @@ wireLayoutKeydown(paneIframes[1]);
 
 wakeController.start();
 loadConfigUrls();
-showPage('main');   // start on the MAIN page
+// Each window keeps its own pages, split and PIN across a reload, and a new window starts on MAIN:
+// sessionStorage is per tab and survives a reload but not a close. Written once on pagehide (which
+// a reload and a hard reload both fire) rather than on every change. Guarded like setLayout:
+// storage throws in some private-mode browsers.
+const SESSION_KEY = 'classic-session';
+window.addEventListener('pagehide', function() {
+  try { sessionStorage.setItem(SESSION_KEY, JSON.stringify(captureLayoutState())); } catch (e) {}
+});
+let sessionState = null;
+try { sessionState = JSON.parse(sessionStorage.getItem(SESSION_KEY)); } catch (e) {}
+// A restored extension page needs the manifest first, or NAV doesn't know it yet.
+if (sessionState) extNavLoaded.catch(function() {}).then(function() { applyLayoutState(sessionState); });
+else showPage('main');   // start on the MAIN page
 flickerScreen();    // CRT boot flicker on first load
 runBootLoading();   // boot loader in the centre info box on first load
