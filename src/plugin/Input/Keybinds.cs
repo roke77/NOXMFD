@@ -49,7 +49,9 @@ namespace NOXMFD
     // straight from Rewired, captured live plugin-side (ArmJoyCapture → next button pressed wins), while
     // the keyboard/mouse key stays on the KeyboardShortcut. Each bind carries its own joystick number
     // (pinned to the device the button was captured from; 0 = any), so a multi-device HOTAS can spread
-    // binds across physical sticks.
+    // binds across physical sticks. The number is Rewired's enumeration order, which Windows can
+    // reshuffle between boots, so capture also saves the device's identity and RepinJoysticks moves the
+    // number to follow the device (JoystickIdentity).
     internal static class Keybinds
     {
         private static long _configVersion;
@@ -80,11 +82,13 @@ namespace NOXMFD
             public ConfigEntry<KeyboardShortcut>? KeyEntry;
             public ConfigEntry<int>? JoyEntry;                 // Rewired joystick button index source (-1 = off)
             public ConfigEntry<int>? JoyNumEntry;              // which joystick the index refers to (0 = any; pinned on capture)
+            public ConfigEntry<string>? JoyDevEntry;           // that joystick's JoystickIdentity ("" = not recorded yet)
             // Analog source (docs/map-cursor.md) — null unless this bind is axis-capable. Only the two
             // MAP cursor-axis rows have one today; a digital bind could carry both in principle, but
             // nothing needs that yet.
             public ConfigEntry<int>? AxisEntry;                // Rewired axis index source (-1 = off)
             public ConfigEntry<int>? AxisJoyNumEntry;          // which joystick the axis index refers to (0 = any; pinned on capture)
+            public ConfigEntry<string>? AxisJoyDevEntry;       // that joystick's JoystickIdentity ("" = not recorded yet)
             public ConfigEntry<bool>? AxisInvertEntry;         // flip polarity — arbitrary per device
             public bool  ActiveNow;                            // per-frame scratch (digital), valid only inside Poll()
             // Tap/hold binds only (see PollTapHold): when ActiveNow went true, -1 while not pressed.
@@ -121,6 +125,7 @@ namespace NOXMFD
             public string BindId = "", BindLabel = "", Kind = "", KeyName = "";
             public KeyboardShortcut Shortcut = KeyboardShortcut.Empty;
             public int Button, Joy;
+            public string JoyDev = "";
             public List<BindDef> With = new List<BindDef>();
             public long CreatedMs = NowMs();
         }
@@ -533,11 +538,11 @@ namespace NOXMFD
             foreach (var b in _binds)
             {
                 if (b.KeyEntry != null && b.JoyEntry != null)
-                    Plugin.Log?.LogInfo($"[NOXMFD] Keybind '{b.Id}': key={b.KeyEntry.Value}, joy={b.JoyEntry.Value} (stick {b.JoyNumEntry!.Value}).");
+                    Plugin.Log?.LogInfo($"[NOXMFD] Keybind '{b.Id}': key={b.KeyEntry.Value}, joy={b.JoyEntry.Value} (stick {b.JoyNumEntry!.Value} '{b.JoyDevEntry!.Value}').");
                 else if (b.KeyEntry != null)
                     Plugin.Log?.LogInfo($"[NOXMFD] Keybind '{b.Id}': key={b.KeyEntry.Value} (browser-only, no joystick).");
                 else
-                    Plugin.Log?.LogInfo($"[NOXMFD] Keybind '{b.Id}': axis={b.AxisEntry!.Value} (stick {b.AxisJoyNumEntry!.Value}, invert={b.AxisInvertEntry!.Value}).");
+                    Plugin.Log?.LogInfo($"[NOXMFD] Keybind '{b.Id}': axis={b.AxisEntry!.Value} (stick {b.AxisJoyNumEntry!.Value} '{b.AxisJoyDevEntry!.Value}', invert={b.AxisInvertEntry!.Value}).");
             }
 
             // A blank/corrupted com.roque.NOXMFD.cfg has already cost a player their whole HOTAS
@@ -598,6 +603,8 @@ namespace NOXMFD
                     new ConfigDescription("Joystick/HOTAS button (Rewired index, -1 = off): " + description, null, Hidden()));
                 b.JoyNumEntry = config.Bind(section, key + "JoystickNumber", 0,
                     new ConfigDescription("Which joystick the button index refers to (0 = any; pinned to the captured device).", null, Hidden()));
+                b.JoyDevEntry = config.Bind(section, key + "JoystickDevice", string.Empty,
+                    new ConfigDescription(DeviceDescription, null, Hidden()));
             }
             _binds.Add(b);
             return b;
@@ -628,12 +635,18 @@ namespace NOXMFD
                     new ConfigDescription("Joystick/HOTAS axis (Rewired index, -1 = off): " + description, null, Hidden())),
                 AxisJoyNumEntry = config.Bind(section, key + "JoystickAxisNumber", 0,
                     new ConfigDescription("Which joystick the axis index refers to (0 = any; pinned to the captured device).", null, Hidden())),
+                AxisJoyDevEntry = config.Bind(section, key + "JoystickAxisDevice", string.Empty,
+                    new ConfigDescription(DeviceDescription, null, Hidden())),
                 AxisInvertEntry = config.Bind(section, key + "JoystickAxisInvert", false,
                     new ConfigDescription("Invert the axis polarity — arbitrary per device.", null, Hidden())),
             };
             _binds.Add(b);
             return b;
         }
+
+        private const string DeviceDescription =
+            "The device the joystick number belongs to, as \"<instance guid>|<device name>\" (either part may be empty). " +
+            "On startup the number is moved to wherever this device is now; when empty, it is filled in from the device holding the number.";
 
         // Keybind entries persist in the .cfg but never show in the F1 menu — the page owns the UI.
         private static ConfigurationManagerAttributes Hidden() =>
@@ -757,10 +770,10 @@ namespace NOXMFD
                 foreach (BindDef o in c.With)
                 {
                     if (c.Kind == "key") o.KeyEntry!.Value = KeyboardShortcut.Empty;
-                    else { o.JoyEntry!.Value = -1; o.JoyNumEntry!.Value = 0; }
+                    else { o.JoyEntry!.Value = -1; o.JoyNumEntry!.Value = 0; o.JoyDevEntry!.Value = string.Empty; }
                 }
             if (c.Kind == "key") b.KeyEntry!.Value = c.Shortcut;
-            else { b.JoyEntry!.Value = c.Button; b.JoyNumEntry!.Value = c.Joy; }
+            else { b.JoyEntry!.Value = c.Button; b.JoyNumEntry!.Value = c.Joy; b.JoyDevEntry!.Value = c.JoyDev; }
             ConfigChanged();
             return true;
         }
@@ -855,7 +868,7 @@ namespace NOXMFD
             BindDef? b = FindBind(id);
             if (b == null || b.JoyEntry == null) return false;
             BackupNow();
-            b.JoyEntry.Value = -1; b.JoyNumEntry!.Value = 0;
+            b.JoyEntry.Value = -1; b.JoyNumEntry!.Value = 0; b.JoyDevEntry!.Value = string.Empty;
             if (_capturing == b) Disarm();
             else ConfigChanged();
             return true;
@@ -893,7 +906,7 @@ namespace NOXMFD
             BindDef? b = FindBind(id);
             if (b == null || b.AxisEntry == null) return false;
             BackupNow();
-            b.AxisEntry.Value = -1; b.AxisJoyNumEntry!.Value = 0; b.AxisInvertEntry!.Value = false;
+            b.AxisEntry.Value = -1; b.AxisJoyNumEntry!.Value = 0; b.AxisJoyDevEntry!.Value = string.Empty; b.AxisInvertEntry!.Value = false;
             if (_capturingAxis == b) Disarm();
             else ConfigChanged();
             return true;
@@ -971,12 +984,96 @@ namespace NOXMFD
             Plugin.Log?.LogInfo($"[NOXMFD] {CapturingKind} capture armed for '{CapturingId}': {joys.Count} joystick(s): {string.Join(", ", names)}");
         }
 
+        // Rewired documents the instance GUID as available only on some input sources; a source that
+        // can't supply one falls back to name matching rather than breaking capture or re-pinning.
+        private static (string Guid, string Name) Identity(Joystick j)
+        {
+            string guid = string.Empty;
+            try
+            {
+                Guid g = j.deviceInstanceGuid;
+                if (g != Guid.Empty) guid = g.ToString();
+            }
+            catch (Exception ex) { Plugin.Log?.LogWarning($"[NOXMFD] joystick '{j.name}': no instance GUID, matching by name: {ex.Message}"); }
+            return (guid, j.name ?? string.Empty);
+        }
+
+        private static string DeviceId(Joystick j)
+        {
+            var (guid, name) = Identity(j);
+            return JoystickIdentity.Make(guid, name);
+        }
+
+        // Moves every bind's joystick number to where its saved device is now (JoystickIdentity), each
+        // time the number of connected joysticks changes: once Rewired has enumerated them at startup,
+        // and on every hot-plug, since an unplug renumbers the devices after it. Count is the trigger
+        // because Rewired only reorders on a connect/disconnect, and one int compare is all it costs
+        // per frame.
+        // ponytail: a device that isn't connected keeps its saved number, which can now belong to
+        // another stick; parking it on an out-of-range number would stop that, at the cost of a junk
+        // number in the .cfg.
+        private static int _joyCount = -1;
+        private static void RepinJoysticks()
+        {
+            if (!ReInput.isReady || ReInput.controllers.joystickCount == _joyCount) return;
+            IList<Joystick> joys = ReInput.controllers.Joysticks;
+            _joyCount = joys.Count;
+
+            var ids = new List<(string Guid, string Name)>(joys.Count);
+            foreach (Joystick j in joys) ids.Add(Identity(j));
+            var moves = new List<Action>();
+            var learns = new List<Action>();
+            foreach (BindDef b in _binds)
+            {
+                Repin(b.JoyEntry, b.JoyNumEntry, b.JoyDevEntry, ids, moves, learns);
+                Repin(b.AxisEntry, b.AxisJoyNumEntry, b.AxisJoyDevEntry, ids, moves, learns);
+            }
+            var list = new List<string>(ids.Count);
+            for (int i = 0; i < ids.Count; i++) list.Add($"{i + 1}='{ids[i].Name}'");
+            Plugin.Log?.LogInfo($"[NOXMFD] {ids.Count} joystick(s) [{string.Join(", ", list)}]: re-pinned {moves.Count} bind(s) to their devices, recorded the device for {learns.Count}.");
+            if (moves.Count + learns.Count == 0 || _configFile == null) return;
+
+            BackupNow();
+            bool save = _configFile.SaveOnConfigSet;
+            _configFile.SaveOnConfigSet = false;   // one .cfg write for the whole re-pin, not one per bind
+            try
+            {
+                foreach (Action write in moves) write();
+                foreach (Action write in learns) write();
+                _configFile.Save();
+            }
+            // The new numbers already apply in memory; only persisting them failed, and the next
+            // startup re-pins from the device entries anyway.
+            catch (Exception ex) { Plugin.Log?.LogWarning($"[NOXMFD] joystick re-pin: .cfg save failed, binds re-pinned for this session only: {ex.Message}"); }
+            finally { _configFile.SaveOnConfigSet = save; }
+            ConfigChanged();
+        }
+
+        // A bind with a number but no saved device records whichever device holds that number now, so
+        // a .cfg written without device entries keeps working across reboots without recapturing.
+        // ponytail: if this boot's order differs from the one it was captured under, it records the
+        // wrong stick — no worse than the bare number, and capturing it again corrects it.
+        private static void Repin(ConfigEntry<int>? index, ConfigEntry<int>? num, ConfigEntry<string>? dev,
+                                  IList<(string Guid, string Name)> ids, List<Action> moves, List<Action> learns)
+        {
+            if (index == null || index.Value < 0) return;
+            if (dev!.Value.Length == 0)
+            {
+                string learned = JoystickIdentity.Learn(num!.Value, ids);
+                if (learned.Length > 0) learns.Add(() => dev.Value = learned);
+                return;
+            }
+            int to = JoystickIdentity.Resolve(dev.Value, num!.Value, ids);
+            if (to != num.Value) moves.Add(() => num.Value = to);
+        }
+
         // Once per frame on the main thread. CM keys are held-driven (deploy every frame held); gear keys
         // are edge-driven (act once per press). The local aircraft is fetched only if something fired.
         public static void Poll()
         {
             if (_binds.Count == 0) return;   // not bound yet
             ApplyBackgroundInput();
+            RepinJoysticks();
             ReconcileCountermeasure(Time.unscaledTime);
 
             // While a joy/axis entry is armed for capture, swallow the next button/deflection into it
@@ -1261,9 +1358,10 @@ namespace NOXMFD
                 Disarm();
                 return;
             }
+            string dev = DeviceId(ReInput.controllers.Joysticks[num - 1]);
             if (_captureAsk && HoldConflict(_capturing!, "joy",
                     o => o.JoyEntry != null && KeybindConflict.JoyMatches(btn, num, o.JoyEntry.Value, o.JoyNumEntry!.Value),
-                    new PendingConflict { Button = btn, Joy = num }))
+                    new PendingConflict { Button = btn, Joy = num, JoyDev = dev }))
             {
                 Disarm();
                 return;
@@ -1271,6 +1369,7 @@ namespace NOXMFD
             BackupNow();
             _capturing!.JoyEntry!.Value = btn;
             _capturing.JoyNumEntry!.Value = num;   // pin to the device it came from
+            _capturing.JoyDevEntry!.Value = dev;
             Plugin.Log?.LogInfo($"[NOXMFD] captured joy[{num - 1}] '{name}' button {btn} for keybind '{_capturing.Id}'.");
             Disarm();   // also restores the background-input overrides
         }
@@ -1315,6 +1414,7 @@ namespace NOXMFD
                     BackupNow();
                     _capturingAxis!.AxisEntry!.Value = a;
                     _capturingAxis.AxisJoyNumEntry!.Value = i + 1;   // pin to the device it came from
+                    _capturingAxis.AxisJoyDevEntry!.Value = DeviceId(joy);
                     Plugin.Log?.LogInfo($"[NOXMFD] captured joy[{i}] '{joy.name}' axis {a} for keybind '{_capturingAxis.Id}'.");
                     Disarm();
                     return;

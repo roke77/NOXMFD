@@ -3,7 +3,11 @@
 Optional dedicated keybinds for cockpit functions the game has no native bind for, plus a handful
 of settings. Reach it from **MAIN → CFG → KEY**. Each function takes a keyboard/mouse key, a
 joystick/HOTAS button, or both — click a cell on the page and press the key or button to bind it.
-Multi-stick HOTAS setups are supported; each bind remembers which stick it came from.
+Multi-stick HOTAS setups are supported; each bind remembers which device it came from, so binds
+stay on the right stick when Windows numbers your controllers differently after a restart. A
+joystick bind made with NOXMFD 0.81 or older takes the device that holds its stick number the first
+time the game starts with this version; if that's the wrong stick, bind it again. Hover a joystick
+cell to see which device it's on.
 
 The page keeps itself short: a name and a one-line description per function. This manual is where
 the detail lives — what each bind does exactly, and when it does nothing.

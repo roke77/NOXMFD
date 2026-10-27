@@ -65,7 +65,8 @@
   `ToGlobalPosition()` instead.
 - **Rewired input**: joystick/HOTAS buttons are invisible to Unity's legacy `Input` and
   BepInEx's `KeyboardShortcut`; read them from Rewired directly. Rewired button indices
-  don't match Unity's `JoystickButton*` values.
+  don't match Unity's `JoystickButton*` values. The order of `ReInput.controllers.Joysticks`
+  changes between boots: persist a device by its `JoystickIdentity`, never by its index alone.
 - **BepInEx config defaults**: changing a `ConfigEntry` default only affects freshly
   generated configs; existing `.cfg` files keep their value.
 - **`Plugin` doesn't survive boot → MainMenu**: anything that must outlive it lives on

@@ -47,6 +47,14 @@
     return b.axisNum > 0 ? 'J' + b.axisNum + ' A' + b.axis : 'AXIS ' + b.axis;
   }
 
+  // Hover text for a bound joystick/axis cell: the device it's pinned to. A pinned bind with no
+  // saved device (its stick wasn't connected when the plugin last recorded devices) follows the raw
+  // stick number until one is recorded.
+  function deviceTitle(device, num) {
+    if (device) return device;
+    return num > 0 ? 'Device not recorded. Bind again to keep it on this stick.' : '';
+  }
+
   // What the search box matches against: label, description and whichever bindings are set.
   function searchText(b, displayName) {
     var parts = [b.label, b.description || ''];
@@ -100,7 +108,7 @@
   // Whether giving `key` to bind `id` would share it with another bind.
   function keyClash(binds, id, key) { return binds.some(function (b) { return b.id !== id && usesKey(key)(b); }); }
 
-  const api = { GROUPS, build, isBound, joyText, axisText, searchText, usesKey, usesJoy, keyClash };
+  const api = { GROUPS, build, isBound, joyText, axisText, deviceTitle, searchText, usesKey, usesJoy, keyClash };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.KeybindsGroups = api;
 })(typeof self !== 'undefined' ? self : this);
