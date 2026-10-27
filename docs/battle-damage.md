@@ -4,7 +4,7 @@
 
 ## Goal
 
-A new Immersion option, **Battle damage** (KEY page, DAMAGE group, default OFF): an MFD page goes
+A new Immersion option, **Battle damage** (KEY page, INPUT & DISPLAY group, default OFF): an MFD page goes
 offline when the in-game aircraft system it shows is destroyed. RDR fails with the radar, TGP with
 the targeting camera; with only the laser designator lost, TGP keeps its feed and its laser
 readouts read LASER FAIL. Flight-critical and utility pages never fail. With the option OFF

@@ -78,9 +78,8 @@ function writeRemoteKeybinds(on) {
 }
 
 var SETTING_GROUPS = [
-  { t: 'INPUT & HUD', note: '' },
-  { t: 'ON AT SPAWN', note: 'Which systems start on in a new aircraft. The ON/OFF binds are in 01 Systems.' },
-  { t: 'DAMAGE', note: '' }
+  { t: 'INPUT & DISPLAY', note: '' },
+  { t: 'ON AT SPAWN', note: 'Which systems start on in a new aircraft. The ON/OFF binds are in 01 Systems.' }
 ];
 var SETTINGS = [
   { grp: 1, label: 'RADAR', icon: 'radar', cmd: 'keybind.set-radar-on-start',
@@ -106,7 +105,7 @@ var SETTINGS = [
   { grp: 0, label: 'HUD BY MODE', icon: 'filter', cmd: 'keybind.set-hud-filters-on-combat-mode', title: 'Combat mode drives HUD filters',
     desc: 'A/A or A/G forces the HUD page preset; idle restores your own.',
     get: function () { return hudFiltersOnCombatMode; }, set: function (v) { hudFiltersOnCombatMode = v; } },
-  { grp: 2, label: 'BATTLE DAMAGE', icon: 'damage', cmd: 'keybind.set-battle-damage',
+  { grp: 0, label: 'BATTLE DAMAGE', icon: 'damage', cmd: 'keybind.set-battle-damage',
     desc: 'A page goes offline when its system is destroyed: RDR with the radar, TGP with the targeting camera.',
     get: function () { return battleDamage; }, set: function (v) { battleDamage = v; } }
 ];

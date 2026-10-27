@@ -24,7 +24,7 @@ Reads:
 - Target type/name, top-left, with a pilot callsign line underneath when known.
 - **[JAM]** / **[LASE]** / **[OLD]** tag next to the name when the target is jammed, actively
   laser-designated, or its tracked position has gone stale. With
-  [Battle Damage](keybinds.md#immersion-options) on and your laser designator lost, **[LASE]** reads
+  [Battle Damage](keybinds.md#input--display) on and your laser designator lost, **[LASE]** reads
   **[LASER FAIL]**.
 - Range, altitude, speed (top-left) and heading, relative altitude, relative speed (top-right) —
   the last three blank out for a target too far/stale to read in detail.
@@ -198,7 +198,7 @@ corner layout and MID/HIGH-only rule, with fields specific to pointing instead o
 
 ## Battle damage
 
-With [Battle Damage](keybinds.md#immersion-options) on, losing the targeting camera puts TGP
+With [Battle Damage](keybinds.md#input--display) on, losing the targeting camera puts TGP
 offline: it flickers for a few seconds and settles on **TGP FAIL**, on this page and the in-cockpit
 MFD pane alike. Losing only the laser designator keeps the picture running with a **LASER FAIL**
 tag across the top.

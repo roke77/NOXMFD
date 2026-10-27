@@ -127,7 +127,7 @@ lamp means ON. They sit in two groups.
 
 ![Settings](images/KEY_SETTINGS.png)
 
-### Input & HUD
+### Input & Display
 
 - **Unfocused Input** — keeps your HOTAS live while the browser window has focus. Turn it on if
   you run the display in a browser on the same PC as the game; otherwise the game has to keep
@@ -153,6 +153,13 @@ lamp means ON. They sit in two groups.
   already-active A/A or A/G again re-forces that preset, discarding any HUD tweaks made since it
   last applied — a quick way to reset back to it without leaving WPN. See
   [Combat mode](#combat-mode).
+- **Battle Damage** — off by default. Turn it on and an MFD page goes offline when the aircraft
+  system it shows is destroyed: [RDR](rdr.md) shows RADAR FAIL when you lose the radar, and
+  [TGP](tgp.md) shows TGP FAIL when you lose the targeting camera. The page flickers for a few
+  seconds and then goes blank; its bezel labels keep working, so you can still page away. If only
+  the laser designator is lost, TGP keeps its picture and shows LASER FAIL. An aircraft that never
+  had the system shows the page's usual "not available" instead. Respawning or repairing brings
+  the pages back. Every other page (ADI, HSI, HUD, SYS, MAIN, settings) never fails.
 
 ### Immersion Options
 
@@ -168,16 +175,6 @@ yourself.
 
 The in-flight ON/OFF binds for all four are in [Systems](#systems), so you can flip any of them
 mid-flight too.
-
-The **DAMAGE** group:
-
-- **Battle Damage** — off by default. Turn it on and an MFD page goes offline when the aircraft
-  system it shows is destroyed: [RDR](rdr.md) shows RADAR FAIL when you lose the radar, and
-  [TGP](tgp.md) shows TGP FAIL when you lose the targeting camera. The page flickers for a few
-  seconds and then goes blank; its bezel labels keep working, so you can still page away. If only
-  the laser designator is lost, TGP keeps its picture and shows LASER FAIL. An aircraft that never
-  had the system shows the page's usual "not available" instead. Respawning or repairing brings
-  the pages back. Every other page (ADI, HSI, HUD, SYS, MAIN, settings) never fails.
 
 ## Systems
 
@@ -221,7 +218,7 @@ either mode, and bombs only cycle in A/G.
   neither showing lit already means ALL.
 
 [WPN](wpn.md)'s A/A · A/G controls mirror and drive the same state. With
-[HUD By Mode](#input--hud) on, the mode also drives the HUD page's preset.
+[HUD By Mode](#input--display) on, the mode also drives the HUD page's preset.
 
 ### Weapons
 

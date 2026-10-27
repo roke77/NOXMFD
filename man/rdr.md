@@ -47,7 +47,7 @@ the top of the screen.
 
 Once your radar is destroyed, FCR has nothing left to show, and HSD loses your own-radar contacts
 and the FCR cone while keeping its datalink contacts, route and map. With
-[Battle Damage](keybinds.md#immersion-options) on, FCR also flickers and settles on **RADAR FAIL**.
+[Battle Damage](keybinds.md#input--display) on, FCR also flickers and settles on **RADAR FAIL**.
 
 ## HSD
 
