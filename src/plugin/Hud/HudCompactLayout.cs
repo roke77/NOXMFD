@@ -65,16 +65,18 @@ namespace NOXMFD
                 // Per frame so zooming (an FOV change) doesn't leave the blocks lagging the ladder.
                 if (_blocks.Count > 0) Apply();
             }
-            catch (Exception ex)
+            catch (Exception ex) { Fail(ex); }
+        }
+
+        private void Fail(Exception ex)
+        {
+            if (!_loggedFailure)
             {
-                if (!_loggedFailure)
-                {
-                    _loggedFailure = true;
-                    Plugin.Log?.LogWarning($"[NOXMFD] Compact HUD layout failed; restoring the native layout: {ex}");
-                }
-                Restore();
-                enabled = false;
+                _loggedFailure = true;
+                Plugin.Log?.LogWarning($"[NOXMFD] Compact HUD layout failed; restoring the native layout: {ex}");
             }
+            Restore();
+            enabled = false;
         }
 
         private void OnDestroy() => Restore();
@@ -167,10 +169,14 @@ namespace NOXMFD
         private void LateUpdate()
         {
             if (_ladder == null || _blocks.Count == 0) return;
-            CameraStateManager cam = SceneSingleton<CameraStateManager>.i;
-            if (cam == null || cam.mainCamera == null) return;
-            _ladder.transform.localScale = Vector3.one * HudCompactLayoutMath.TrueLadderScale(
-                _ladder.uvRect.height, _ladder.rectTransform.sizeDelta.y, _canvasHeight, cam.mainCamera.fieldOfView);
+            try
+            {
+                CameraStateManager cam = SceneSingleton<CameraStateManager>.i;
+                if (cam == null || cam.mainCamera == null) return;
+                _ladder.transform.localScale = Vector3.one * HudCompactLayoutMath.TrueLadderScale(
+                    _ladder.uvRect.height, _ladder.rectTransform.sizeDelta.y, _canvasHeight, cam.mainCamera.fieldOfView);
+            }
+            catch (Exception ex) { Fail(ex); }
         }
 
         private void Restore()
