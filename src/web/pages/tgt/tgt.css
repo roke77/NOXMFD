@@ -263,48 +263,13 @@ html, body {
 }
 .tgt-list-rows:not(:empty) + .tgt-list-empty { display: none; }   /* hide the empty note once rows exist */
 
-/* DETAILED/COMPACT flight-data toggle (issue #88) — right-aligned under the list. Same
-   real-sliding-switch component as AKF's own density toggle (akf.css), just renamed to this page's
-   prefix; ported wholesale rather than shared since the two pages have no common toggle component
-   to factor it into today. */
+/* DETAILED/COMPACT flight-data toggle (issue #88) — right-aligned under the list. The switch itself
+   is shared/slide-switch.css, the same one AKF uses; this only places and sizes it. */
 .tgt-toolbar {
   flex: 0 0 auto;
   display: flex; justify-content: flex-end; align-items: center;
 }
-.tgt-density-toggle {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  cursor: pointer;
-  font-size: clamp(8px, 1.3vmin, 10px);
-  letter-spacing: 0.08em;
-  white-space: nowrap;
-}
-.tgt-density-label { color: var(--no-green-dim); }
-.tgt-density-toggle:not(.compact) .tgt-density-label-left,
-.tgt-density-toggle.compact .tgt-density-label-right { color: var(--no-green); }
-.tgt-density-switch {
-  position: relative;
-  width: 28px; height: 14px;
-  border: 1px solid var(--no-green-dark);
-  border-radius: 7px;
-  background: var(--no-hover-wash-faint);
-  flex: 0 0 auto;
-}
-.tgt-density-knob {
-  position: absolute;
-  top: 1px; left: 1px;
-  width: 10px; height: 10px;
-  border-radius: 50%;
-  background: var(--no-green-dim);
-  transition: transform 0.12s ease, background 0.12s ease;
-}
-.tgt-density-toggle.compact .tgt-density-knob {
-  transform: translateX(14px);
-  background: var(--no-green);
-}
-.tgt-density-toggle:hover .tgt-density-knob,
-.tgt-density-toggle.pad-hover .tgt-density-knob { background: var(--no-green); }
+.tgt-density-toggle { font-size: clamp(8px, 1.3vmin, 10px); }
 
 /* ── Action dock ────────────────────────────────────────────────────────────────────────
    One row of four momentary buttons docked under the list, outside its scroller so they stay

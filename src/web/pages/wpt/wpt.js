@@ -256,16 +256,16 @@ function renderSteerPane(c) {
   // long-press, grid entry, TGP mark); RouteStore owns the rule, this only flips the saved setting.
   const replace = c.replaceSteerPoint !== false;
   const mode = el('div', 'wpt-mode');
-  const sw = el('button', 'wpt-mode-toggle pad-hoverable' + (replace ? '' : ' stack'));
+  const sw = el('button', 'slide-toggle pad-hoverable' + (replace ? '' : ' slide-right'));
   sw.type = 'button';
   sw.setAttribute('role', 'switch');
   sw.setAttribute('aria-checked', replace ? 'false' : 'true');
   sw.setAttribute('aria-label', 'Stack new steer points instead of replacing the selected one');
-  sw.appendChild(el('span', 'wpt-mode-label wpt-mode-left', 'REPLACE'));
-  const track = el('span', 'wpt-mode-switch');
-  track.appendChild(el('span', 'wpt-mode-knob'));
+  sw.appendChild(el('span', 'slide-label slide-label-left', 'REPLACE'));
+  const track = el('span', 'slide-switch');
+  track.appendChild(el('span', 'slide-knob'));
   sw.appendChild(track);
-  sw.appendChild(el('span', 'wpt-mode-label wpt-mode-right', 'STACK'));
+  sw.appendChild(el('span', 'slide-label slide-label-right', 'STACK'));
   sw.onclick = function () { WaypointsStore.setReplaceSteerPoint(!replace).then(render); };
   mode.appendChild(sw);
   mode.appendChild(el('span', 'wpt-mode-hint', replace ? 'new point replaces the guided one' : 'new points add to the list'));

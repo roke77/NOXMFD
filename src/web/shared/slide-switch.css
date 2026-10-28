@@ -1,0 +1,41 @@
+/* Two-label sliding switch (AKF's DETAILED/COMPACT, WPT's REPLACE/STACK): a real switch, not a
+   checkbox — the knob moves to the active side and that side's label brightens, mirroring the app's
+   "current choice" convention. Green on both sides, since neither choice is an on/off or urgency
+   state. The page adds .slide-right while the right-hand choice is active and sets the font size. */
+.slide-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font-family: inherit;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+}
+.slide-label { color: var(--no-green-dim); }
+.slide-toggle:not(.slide-right) .slide-label-left,
+.slide-toggle.slide-right .slide-label-right { color: var(--no-green); }
+.slide-switch {
+  position: relative;
+  width: 28px; height: 14px;
+  border: 1px solid var(--no-green-dark);
+  border-radius: 7px;
+  background: var(--no-hover-wash-faint);
+  flex: 0 0 auto;
+}
+.slide-knob {
+  position: absolute;
+  top: 1px; left: 1px;
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  background: var(--no-green-dim);
+  transition: transform 0.12s ease, background 0.12s ease;
+}
+.slide-toggle.slide-right .slide-knob {
+  transform: translateX(14px);
+  background: var(--no-green);
+}
+.slide-toggle:hover .slide-knob,
+.slide-toggle.pad-hover .slide-knob { background: var(--no-green); }

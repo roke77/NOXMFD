@@ -36,44 +36,11 @@ html, body {
   letter-spacing: 0.1em;
 }
 
-/* A real sliding switch, not a checkbox: the knob moves to the active side and that side's label
-   brightens, mirroring the app's amber/green "current choice" convention (green-on-both here since
-   density has no urgency axis). */
+/* DETAILED/COMPACT switch: shared/slide-switch.css draws it; this only places and sizes it. */
 .akf-density-toggle {
   justify-self: end;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  cursor: pointer;
   font-size: clamp(8px, 1.3vmin, 10px);
-  letter-spacing: 0.08em;
-  white-space: nowrap;
 }
-.akf-density-label { color: var(--no-green-dim); }
-.akf-density-toggle:not(.compact) .akf-density-label-left,
-.akf-density-toggle.compact .akf-density-label-right { color: var(--no-green); }
-.akf-density-switch {
-  position: relative;
-  width: 28px; height: 14px;
-  border: 1px solid var(--no-green-dark);
-  border-radius: 7px;
-  background: var(--no-hover-wash-faint);
-  flex: 0 0 auto;
-}
-.akf-density-knob {
-  position: absolute;
-  top: 1px; left: 1px;
-  width: 10px; height: 10px;
-  border-radius: 50%;
-  background: var(--no-green-dim);
-  transition: transform 0.12s ease, background 0.12s ease;
-}
-.akf-density-toggle.compact .akf-density-knob {
-  transform: translateX(14px);
-  background: var(--no-green);
-}
-.akf-density-toggle:hover .akf-density-knob,
-.akf-density-toggle.pad-hover .akf-density-knob { background: var(--no-green); }
 
 .akf-section-label {
   font-size: clamp(9px, 1.4vmin, 12px);

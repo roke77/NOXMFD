@@ -143,7 +143,7 @@ paint({});
 const densityToggleEl = document.getElementById('akf-density-toggle');
 densityToggleEl.addEventListener('click', function () {
   compact = !compact;
-  densityToggleEl.classList.toggle('compact', compact);
+  densityToggleEl.classList.toggle('slide-right', compact);
   renderFeeds(lastState);
 });
 

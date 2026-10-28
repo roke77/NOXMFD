@@ -34,11 +34,11 @@ const SORT_NAMES = { n: 'name', src: 'source', r: 'range' };
 // Purely a client-local display preference, same as AKF's identical toggle — nothing here reaches
 // the shell, and it isn't persisted. Opposite default from AKF though: TGT starts COMPACT.
 let compact = true;
-densityToggleEl.classList.toggle('compact', compact);
+densityToggleEl.classList.toggle('slide-right', compact);
 panel.classList.toggle('has-flight-col', !compact);
 densityToggleEl.addEventListener('click', function () {
   compact = !compact;
-  densityToggleEl.classList.toggle('compact', compact);
+  densityToggleEl.classList.toggle('slide-right', compact);
   panel.classList.toggle('has-flight-col', !compact);
 });
 
