@@ -108,6 +108,8 @@ button { font-size: inherit; }
 .wpt-btn-amber { border-color: color-mix(in oklab, var(--no-bg), var(--no-amber) 35%); color: var(--no-amber); }
 .wpt-btn-squad { border-color: var(--no-squad-line); color: var(--no-squad); }
 .wpt-btn-wide  { flex: 1 1 0; min-height: 3.1em; }
+/* Lit toggle (shared/lit-panel.css) sized to sit in the same action row as .wpt-btn. */
+.wpt-lit { --lamp-w: 2.6em; gap: 0.35em; min-height: 2.75em; padding: 0 0.875em; font-size: 0.8125em; letter-spacing: 0.1em; white-space: nowrap; }
 
 /* Inline entry rows (new route name, steer point grid). */
 .wpt-new-row, .wpt-entry {

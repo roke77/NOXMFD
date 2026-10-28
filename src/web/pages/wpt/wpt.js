@@ -255,13 +255,12 @@ function renderSteerPane(c) {
   // Applies to every new steer point (MAP long-press, grid entry, TGP mark); RouteStore owns the
   // rule, this only flips the saved setting (on by default).
   const replace = c.replaceSteerPoint !== false;
-  const box = button((replace ? '[X]' : '[ ]') + ' REPLACE SELECTED', '', function () {
-    WaypointsStore.setReplaceSteerPoint(!replace).then(render);
-  });
-  box.setAttribute('role', 'checkbox');
-  box.setAttribute('aria-checked', replace ? 'true' : 'false');
-  box.title = 'On: a new steer point replaces the one you are guiding to. Off: it is added to the list.';
-  acts.appendChild(box);
+  const toggle = el('button', 'lit wpt-lit pad-hoverable', 'REPLACE SELECTED');
+  toggle.type = 'button';
+  toggle.setAttribute('aria-pressed', replace ? 'true' : 'false');
+  toggle.title = 'On: a new steer point replaces the one you are guiding to. Off: it is added to the list.';
+  toggle.onclick = function () { WaypointsStore.setReplaceSteerPoint(!replace).then(render); };
+  acts.appendChild(toggle);
   $('wpt-grid-row').hidden = !ui.adding;
   updateGridHint();
 
