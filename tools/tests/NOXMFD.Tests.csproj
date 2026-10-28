@@ -58,6 +58,8 @@
     <Compile Include="..\..\src\plugin\Squad\SquadDesignations.cs" Link="Source\SquadDesignations.cs" />
     <!-- PilotCallsign.cs — a pilot's own callsign rules (issue #107, docs/self-callsign.md). Pure BCL. -->
     <Compile Include="..\..\src\plugin\Squad\PilotCallsign.cs" Link="Source\PilotCallsign.cs" />
+    <!-- CustomCallsigns.cs — callsigns.txt parsing (issue #102). Pure BCL through its LogWarning seam. -->
+    <Compile Include="..\..\src\plugin\Squad\CustomCallsigns.cs" Link="Source\CustomCallsigns.cs" />
     <!-- FactionIdentity.cs — the faction-wide identity record, its table, merge and duplicate
          detection (issues #106 and #107, docs/faction-broadcast.md). Pure BCL; uses JsonLite, PilotCallsign and SquadDesignations. -->
     <Compile Include="..\..\src\plugin\Squad\FactionIdentity.cs" Link="Source\FactionIdentity.cs" />

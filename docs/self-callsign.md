@@ -130,6 +130,8 @@ Identity schema 2 splits the pilot's own callsign from the squad:
 - The unassigned list shows INVITED (with the longer wording as its tooltip) so the trailing column
   keeps the same width as in the squads above it.
 - #102 (custom callsigns from a file) stays a separate feature.
+  It shipped as `BepInEx/plugins/NOXMFD/callsigns.txt` (`CustomCallsigns.cs`): when present it
+  replaces the fixed list, and favorites are filtered to the list in use (`PilotCallsign.Visible`).
 
 ## Release notes
 

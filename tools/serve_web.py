@@ -684,6 +684,14 @@ _SQD_SELF_AIRCRAFT = "EW-25 Medusa"
 _SELF_CALLSIGN = {"callsign": "TALON", "flight": 1, "number": 1}
 # Callsign names pinned at the top of the SQD pickers (sqd.favorite-callsign), at most 3.
 _FAVORITES = ["TALON", "VIPER"]
+# The callsigns.txt list (CustomCallsigns.cs), empty = the page's built-in list. Set from the browser
+# console with sendCommand('sqd.mock-callsigns', {names: ['GHOST', 'STORM']}); names: [] clears it.
+_CUSTOM_CALLSIGNS = []
+
+
+def _visible_favorites():
+    # PilotCallsign.Visible: favorites outside the custom list stay stored but aren't shown or counted.
+    return [f for f in _FAVORITES if not _CUSTOM_CALLSIGNS or f in _CUSTOM_CALLSIGNS][:3]
 
 # Faction-mates in the match who aren't in this pilot's squad, as /server-players lists them.
 # `update` marks a NOXMFD too old to squad with this one.
@@ -843,7 +851,8 @@ def _squad_state():
         "callsign": _SQD["callsign"],
         "flight": _SQD["flight"],
         "me": {"callsign": own["callsign"], "flight": own["flight"], "number": own["number"],
-               "favorites": _FAVORITES},
+               "favorites": _visible_favorites()},
+        "callsigns": _CUSTOM_CALLSIGNS,
         "pilots": _pilots_state(),
         "members": _SQD["members"],
         "pendingInvites": _SQD["pendingInvites"],
@@ -873,7 +882,7 @@ def _clean_int(value):
 
 
 def _squad_command(env):
-    global _SELF_CALLSIGN
+    global _SELF_CALLSIGN, _CUSTOM_CALLSIGNS
     cmd = env.get("cmd") or ""
     if not cmd.startswith("sqd."):
         return
@@ -886,6 +895,9 @@ def _squad_command(env):
             _SELF_CALLSIGN = scenario.pop("self")
             _SQD.update(scenario)
             _SQD["pendingSent"] = {}
+        return
+    if cmd == "sqd.mock-callsigns":
+        _CUSTOM_CALLSIGNS = sorted({str(n).upper() for n in env.get("names") or []})
         return
     if cmd == "sqd.set-self-callsign":
         name = str(env.get("name") or "").strip()[:20]
@@ -901,7 +913,8 @@ def _squad_command(env):
         if not name:
             return
         if env.get("on"):
-            if name not in _FAVORITES and len(_FAVORITES) < 3:
+            listed = not _CUSTOM_CALLSIGNS or name in _CUSTOM_CALLSIGNS
+            if name not in _FAVORITES and listed and len(_visible_favorites()) < 3:
                 _FAVORITES.append(name)
         elif name in _FAVORITES:
             _FAVORITES.remove(name)

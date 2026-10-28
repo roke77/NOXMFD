@@ -58,7 +58,8 @@ such as a lost squadmate (see [Notices](#notices)).
 
 A callsign reads `CALLSIGN FLIGHT-NUMBER`, for example `TALON 1-2`:
 
-- **CALLSIGN** is picked from a fixed list of real military callsigns.
+- **CALLSIGN** is picked from a fixed list of real military callsigns, or from your own list (see
+  **Your own callsign list** below).
 - **FLIGHT** and **NUMBER** are each 1 to 9.
 
 Until you set one, the YOUR CALLSIGN row is amber and open: pick the three values and press **SET**.
@@ -73,6 +74,22 @@ running NOXMFD sees it within a few seconds.
 list on the page, YOUR CALLSIGN, CREATE SQUAD and a squad's EDIT, under **★ FAVORITES**. Press the
 lit ★ again to unpin it. You can pin up to three; with three pinned the ☆ is greyed out until you
 unpin one. Favorites are saved with your callsign and are never sent to other pilots.
+
+**Your own callsign list.** To pick from your own names instead of the built-in list, create
+`BepInEx/plugins/NOXMFD/callsigns.txt` with the names separated by commas, for example
+`Reaper, Ghost, Night Owl`. Each name is one or more words of letters only (no digits or
+punctuation), up to 20 characters. Names are shown in capitals and in alphabetical order, whatever
+order the file uses. Line breaks between names are fine, as long as each name still ends with a
+comma. Names that break these rules are skipped and listed in the BepInEx log. The file is read
+when the game starts, so restart the game after editing it.
+
+- While the file holds at least one valid name, the built-in list is not shown at all. Delete the
+  file (or leave no valid names in it) to get the built-in list back.
+- Favorites work the same on your list. A favorite that isn't in the list in use is hidden and
+  doesn't count toward the three, but it is kept, so it comes back with its list.
+- A callsign already in use that isn't in your list (yours, your squad's, or another pilot's) still
+  shows and keeps working. Your own can't be pinned while it isn't in the list.
+- Other pilots see your callsign whatever list they use.
 
 - Without a callsign you show under your Steam name, and **CREATE** and **ACCEPT** stay disabled
   until you set one.

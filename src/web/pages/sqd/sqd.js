@@ -8,7 +8,7 @@
 // state.pilots maps a SteamID to anyone's, so a squad's name and its members' callsigns are
 // independent.
 import { createPadCursor } from '/assets/services/pad-cursor.js';
-import { SQUAD_CALLSIGNS } from './callsigns.js';
+import { activeCallsigns } from './callsigns.js';
 import { sharerIds, sharedWithText } from './sqd-pilots.js';
 
 if (window.parent !== window) {
@@ -62,8 +62,9 @@ const disbandBtn       = document.getElementById('sqd-disband');
 
 let state = null;   // last-known Squad.StateJson payload (null until the first successful poll)
 
-// Callsign picker (issue #42). Rebuilt only when the pilot's favorites change (renderFavorites),
-// not per render, so an open dropdown isn't disturbed by a state push.
+// Callsign picker (issue #42). Filled on the first state and rebuilt only when the pilot's favorites
+// or the list change (renderFavorites), not per render, so an open dropdown isn't disturbed by a
+// state push. Not pre-filled: pick() would keep the built-in list's default as a stray option.
 function fillOptions(select, values) {
   values.forEach(function (v) {
     const opt = document.createElement('option');
@@ -85,14 +86,22 @@ function fillCallsigns(select, favorites) {
     fillOptions(fav, favorites);
     const all = document.createElement('optgroup');
     all.label = 'ALL CALLSIGNS';
-    fillOptions(all, SQUAD_CALLSIGNS);
+    fillOptions(all, activeCallsigns(state));
     select.append(fav, all);
   } else {
-    fillOptions(select, SQUAD_CALLSIGNS);
+    fillOptions(select, activeCallsigns(state));
   }
-  if (picked) select.value = picked;
+  if (picked) pick(select, picked);
 }
-callsignSelects.forEach(function (s) { fillCallsigns(s, []); });
+// Selects `name`, adding it as an option when the list lacks it: a callsign in use that isn't in
+// the active list (another list, or callsigns.txt changed) stays shown instead of the picker
+// falling back to its first entry.
+function pick(select, name) {
+  if (name && !Array.prototype.some.call(select.options, function (o) { return o.value === name; })) {
+    fillOptions(select, [name]);
+  }
+  select.value = name;
+}
 fillOptions(selfFlight, ONE_TO_NINE);
 fillOptions(selfNumber, ONE_TO_NINE);
 
@@ -193,7 +202,7 @@ function invite(id, name) {
 
 callsignEditBtn.onclick = function () {
   editingCallsign = true;
-  callsignSelect.value = (state && state.callsign) || '';
+  pick(callsignSelect, (state && state.callsign) || '');
   flights.edit = (state && state.flight) || 1;
   markFlights();
   render();
@@ -222,7 +231,7 @@ function renderSelf() {
   selfClear.style.display = has ? '' : 'none';
   if (editing && !selfSeeded) {
     selfSeeded = true;
-    if (has) selfCallsign.value = m.callsign;
+    if (has) pick(selfCallsign, m.callsign);
     selfFlight.value = String(has ? m.flight : 1);
     selfNumber.value = String(has ? m.number : 1);
   }
@@ -260,15 +269,18 @@ function renderStar() {
   const name = selfCallsign.value;
   const on = isFavorite(name);
   const full = !on && favorites().length >= MAX_FAVORITES;
+  // A name kept by pick() but not in the list can't be pinned (PilotCallsign.SetFavorite refuses it).
+  const unlisted = !on && !activeCallsigns(state).some(function (c) { return sameName(c, name); });
   selfStar.classList.toggle('on', on);
   selfStar.textContent = on ? '★' : '☆';
   selfStar.setAttribute('aria-pressed', String(on));
-  selfStar.disabled = full;
-  selfStar.title = full ? MAX_FAVORITES + ' favorites already: unpin one first'
+  selfStar.disabled = full || unlisted;
+  selfStar.title = unlisted ? name + ' is not in the callsign list'
+    : full ? MAX_FAVORITES + ' favorites already: unpin one first'
     : (on ? 'Unpin ' : 'Pin ') + name + (on ? ' from' : ' to') + ' the top of the callsign lists';
 }
 function renderFavorites() {
-  const sig = favorites().join(',');
+  const sig = favorites().join(',') + '|' + activeCallsigns(state).join(',');
   if (sig !== favoritesSig) {
     favoritesSig = sig;
     callsignSelects.forEach(function (s) { fillCallsigns(s, favorites()); });
@@ -294,7 +306,7 @@ function renderCreate() {
   const seed = m.callsign ? m.callsign + '|' + m.flight : '';
   if (seed !== createSeed) {
     createSeed = seed;
-    if (m.callsign) { createCallsign.value = m.callsign; flights.create = m.flight; }
+    if (m.callsign) { pick(createCallsign, m.callsign); flights.create = m.flight; }
   }
   const off = !m.callsign;
   createSection.classList.toggle('off', off);

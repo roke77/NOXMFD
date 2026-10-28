@@ -73,8 +73,30 @@ namespace NOXMFD.Tests
             Assert.Empty(PilotCallsign.ParseFavorites(null));
             Assert.Equal(new[] { "VIPER", "ARMY AIR" },
                 PilotCallsign.ParseFavorites(PilotCallsign.FormatFavorites(new[] { "VIPER", "ARMY AIR" })));
-            Assert.Equal(new[] { "VIPER", "TALON", "COLT" },
+            Assert.Equal(new[] { "VIPER", "TALON", "COLT", "WOLF" },   // uncapped: hidden favorites don't count
                 PilotCallsign.ParseFavorites(" VIPER ,,viper,TALON,COLT,WOLF"));
+        }
+
+        [Fact]
+        public void Visible_keeps_favorites_in_the_active_list_up_to_the_cap()
+        {
+            var favs = new List<string> { "VIPER", "ghost", "TALON", "COLT", "WOLF" };
+            Assert.Equal(new[] { "VIPER", "ghost", "TALON" }, PilotCallsign.Visible(favs, null));
+            Assert.Equal(new[] { "ghost", "WOLF" }, PilotCallsign.Visible(favs, new[] { "GHOST", "WOLF" }));
+        }
+
+        [Fact]
+        public void SetFavorite_with_an_active_list_counts_and_accepts_only_its_names()
+        {
+            var active = new[] { "GHOST", "REAPER", "SHADOW", "STORM" };
+            var favs = new List<string> { "VIPER", "TALON", "COLT" };   // built-in favorites, hidden now
+            Assert.False(PilotCallsign.SetFavorite(favs, "WOLF", true, active));     // not in the list
+            Assert.True(PilotCallsign.SetFavorite(favs, "ghost", true, active));
+            Assert.True(PilotCallsign.SetFavorite(favs, "REAPER", true, active));
+            Assert.True(PilotCallsign.SetFavorite(favs, "SHADOW", true, active));
+            Assert.False(PilotCallsign.SetFavorite(favs, "STORM", true, active));    // 3 visible
+            Assert.Equal(new[] { "VIPER", "TALON", "COLT", "ghost", "REAPER", "SHADOW" }, favs);
+            Assert.True(PilotCallsign.SetFavorite(favs, "VIPER", false, active));    // unpin still works on hidden
         }
     }
 }

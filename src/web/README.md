@@ -63,6 +63,9 @@ src/web/
                                            # SSE pushes (docs/sse-push-refactor.md), no polling of its own
             sqd-pilots.js      .test.js   # pure duplicate-callsign helpers behind the SAME CALLSIGN /
                                            # ALSO FLOWN BY notes (issue #107)
+            callsigns.js       .test.js   # the pickers' built-in callsign list (issue #42) and
+                                           # activeCallsigns: the player's callsigns.txt list instead,
+                                           # when the SQD state carries one (issue #102)
     td/     td.html  td.css  td.js        # Target Designator (issue #47, docs/target-designator.md) — the
                                            # squad leader's assignment matrix (members answer a designation
                                            # on TGT's dock instead), no polling of its own by design: one

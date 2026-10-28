@@ -27,8 +27,9 @@ namespace NOXMFD
         private static ConfigEntry<string>? _favorites;
         private static readonly List<string> _favoriteList = new List<string>();
 
-        // Callsign names starred on SQD, pinned at the top of its pickers (PilotCallsign's rules).
-        internal static IReadOnlyList<string> Favorites => _favoriteList;
+        // Callsign names starred on SQD, pinned at the top of its pickers (PilotCallsign's rules):
+        // only those in the active list (CustomCallsigns), the rest stay stored.
+        internal static List<string> Favorites => PilotCallsign.Visible(_favoriteList, CustomCallsigns.Names);
 
         internal static bool IsSet => Name.Length > 0;
         internal static string Designation => IsSet ? SquadDesignations.Format(Name, Flight, Number) : string.Empty;
@@ -55,7 +56,7 @@ namespace NOXMFD
         // false (nothing changed) when the name is invalid, already in/out, or the list is full.
         internal static bool SetFavorite(string? name, bool on)
         {
-            if (!PilotCallsign.SetFavorite(_favoriteList, name, on)) return false;
+            if (!PilotCallsign.SetFavorite(_favoriteList, name, on, CustomCallsigns.Names)) return false;
             if (_favorites != null) _favorites.Value = PilotCallsign.FormatFavorites(_favoriteList);
             return true;
         }

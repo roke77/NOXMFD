@@ -995,6 +995,8 @@ namespace NOXMFD
               .Append("\",\"flight\":").Append(SelfCallsign.Flight.ToString(CultureInfo.InvariantCulture))
               .Append(",\"number\":").Append(SelfCallsign.Number.ToString(CultureInfo.InvariantCulture))
               .Append(",\"favorites\":").Append(PresetSlots.StringArrayJson(SelfCallsign.Favorites)).Append('}');
+            // The pickers' list from callsigns.txt (CustomCallsigns); empty = the page's built-in list.
+            sb.Append(",\"callsigns\":").Append(PresetSlots.StringArrayJson(CustomCallsigns.Names ?? Array.Empty<string>()));
             sb.Append(",\"pilots\":").Append(FactionIdentity.PilotsJson(Designations()));
             sb.Append(",\"members\":").Append(MembersJsonServed(_members));
             sb.Append(",\"pendingInvites\":[");
