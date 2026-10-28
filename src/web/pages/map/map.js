@@ -698,6 +698,22 @@ function drawWaypoints() {
 function drawSteerPoints() {
   if (!steerPoints.length) return;
   oc.save();
+  // Drawn before the markers and regardless of either end being on screen, so the line still points
+  // the way when the steer point is off the visible map.
+  const guiding = !waypointRoute && lastData.world && steerPoints.find(function (point) { return point.id === activeSteerPointId; });
+  if (guiding) {
+    const from = worldToOverlay(lastData.world.x, lastData.world.z), to = worldToOverlay(guiding.x, guiding.z);
+    if (from && to) {
+      oc.setLineDash([6, 5]);
+      oc.lineWidth = 1.5;
+      oc.strokeStyle = theme('--no-amber');
+      oc.beginPath();
+      oc.moveTo(from.cx, from.cy);
+      oc.lineTo(to.cx, to.cy);
+      oc.stroke();
+      oc.setLineDash([]);
+    }
+  }
   steerPoints.forEach(function (point, i) {
     const p = worldToOverlay(point.x, point.z);
     if (!p || !onScreen(p, 48)) return;

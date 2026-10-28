@@ -35,6 +35,9 @@ creates a standalone steer point. Long-pressing directly on an existing waypoint
 removes it instead — useful for undoing a placement without opening [WPT](wpt.md). Both kinds of
 navigation point are otherwise managed there.
 
+While you're guiding to a steer point, a dashed amber line runs from your aircraft to it, so you can
+see which way it lies even when it's off the visible map.
+
 Units your [TGT](tgt.md) filters leave out — a faction, category or vehicle type switched off, or
 anything not being lased while LASER is on — are drawn darker and slightly transparent, the same
 way the in-game map dims them. With TGT's **HUD** button on, those filters follow your in-game HUD
