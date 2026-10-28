@@ -73,7 +73,7 @@
     tgt: ['tgt', 'targets', 'sqd-state', 'td-state-push'],   // sqd/td-state: leader-only TD column
     td: ['targets', 'sqd-state', 'td-state-push'],   // Target Designator (issue #47) — mirrors TGT's
                                                       // own live target list, plus its own squad/td tables
-    tgp: ['tgp'],
+    tgp: ['tgp', 'sysdmg-push'],   // + battle damage (docs/battle-damage.md)
     hud: ['hud-options-push'],
     wpn: ['loadout', 'cm'],   // 'loadout' is derived, not forwarded as-is — see DERIVED
     bdf: ['bdf'],             // read-only faction-forces block (docs/bdf-page.md)
@@ -81,7 +81,7 @@
     mis: ['mis'],             // mission-info block (docs/md-pages.md)
     obj: ['obj'],             // active-objectives list (docs/md-pages.md)
     akf: ['akf'],             // kill-feed/session-stats block (docs/akf-page.md)
-    rdr: ['rdr'],             // radar contacts (docs/rdr-page.md)
+    rdr: ['rdr', 'sysdmg-push'],   // radar contacts (docs/rdr-page.md) + battle damage
     hsd: ['hsd', 'mapinfo', 'rdr', 'wpt-routes'],  // 360-degree datalink picture + FCR cone
                                                     // (docs/rdr-fcr-hsd.md) + active route overlay
     wpt: ['mapinfo', 'wpt-routes', 'sqd-state'],   // navigation readout + shared navigation library + share-button gate

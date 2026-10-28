@@ -3,9 +3,10 @@ using System.Threading;
 
 namespace NOXMFD
 {
-    // Spawn-time defaults for radar/engine/master-arms; persisted, hidden from the F1 menu, controlled
-    // from the KEY page's Immersion Options section instead. Read once per spawn (by HarmonyPatches),
-    // not polled; in-flight Radar/Engine toggles are unaffected.
+    // The KEY page's Immersion Options: persisted, hidden from the F1 menu, controlled from the KEY
+    // page instead. The four *OnOnStart defaults are read once per spawn (HarmonyPatches,
+    // ImmersionState), so in-flight Radar/Engine toggles are unaffected; HudFiltersOnCombatMode is
+    // read on each combat-mode change and BattleDamage on every fast telemetry tick.
     internal static class ImmersionConfig
     {
         // Duck-typed attributes object ConfigurationManager reads via reflection (avoids a hard dependency).
@@ -18,6 +19,7 @@ namespace NOXMFD
         private static ConfigEntry<bool>? _masterArmsOnOnStart;
         private static ConfigEntry<bool>? _powerOnOnStart;
         private static ConfigEntry<bool>? _hudFiltersOnCombatMode;
+        private static ConfigEntry<bool>? _battleDamage;
         private static long _configVersion;
 
         internal static long ConfigVersion => Interlocked.Read(ref _configVersion);
@@ -28,6 +30,8 @@ namespace NOXMFD
         public static bool PowerOnOnStart       => _powerOnOnStart?.Value ?? true;
         // Defaults OFF, unlike the others: an opt-in behavior, not a preserved default.
         public static bool HudFiltersOnCombatMode => _hudFiltersOnCombatMode?.Value ?? false;
+        // Also opt-in (issue #110): MFD pages go offline with their aircraft systems.
+        public static bool BattleDamage => _battleDamage?.Value ?? false;
 
         // Writing .Value persists immediately to the .cfg; the version wakes connected KEY clients.
         private static void Set(ConfigEntry<bool>? entry, bool value)
@@ -42,6 +46,7 @@ namespace NOXMFD
         public static void SetMasterArmsOnOnStart(bool v)    => Set(_masterArmsOnOnStart, v);
         public static void SetPowerOnOnStart(bool v)         => Set(_powerOnOnStart, v);
         public static void SetHudFiltersOnCombatMode(bool v) => Set(_hudFiltersOnCombatMode, v);
+        public static void SetBattleDamage(bool v)           => Set(_battleDamage, v);
 
         public static void Bind(ConfigFile config)
         {
@@ -56,6 +61,8 @@ namespace NOXMFD
                 new ConfigDescription("Power starts ON (full HUD, today's behaviour) when spawning in a new aircraft. Turn OFF for more immersion: no in-cockpit HUD until you power up.", null, Hidden));
             _hudFiltersOnCombatMode = config.Bind(section, "HudFiltersOnCombatMode", false,
                 new ConfigDescription("Switching combat mode to A/A or A/G forces the HUD's matching preset onto the HUD page, restoring your own values on returning to idle. Off by default — turn ON to have combat mode drive the HUD automatically.", null, Hidden));
+            _battleDamage = config.Bind(section, "BattleDamage", false,
+                new ConfigDescription("An MFD page goes offline when the aircraft system it shows is destroyed (RDR with the radar, TGP with the targeting camera). Off by default.", null, Hidden));
         }
     }
 }

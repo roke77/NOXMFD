@@ -258,6 +258,8 @@ namespace NOXMFD
                 // HudCombatModeFilters' own on/off switch — default OFF, unlike the four start-state
                 // settings above.
                 { "keybind.set-hud-filters-on-combat-mode", e => ImmersionConfig.SetHudFiltersOnCombatMode(e.on) },
+                // Battle damage (docs/battle-damage.md) — default OFF too.
+                { "keybind.set-battle-damage", e => ImmersionConfig.SetBattleDamage(e.on) },
                 // SOI focus — driven from a browser with no controller and no aircraft.
                 { "soi.next",           e => TelemetryServer.SoiCycle(1) },
                 { "soi.prev",           e => TelemetryServer.SoiCycle(-1) },

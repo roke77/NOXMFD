@@ -99,7 +99,7 @@ table (own header row, own rows) for the eight binds — below a separator, afte
 page already has. Existing sections/table are untouched.
 
 Current layout (the KEY page rework, docs/keybinds-page.md): the settings are lit tiles under
-SETTINGS (ON AT SPAWN, and HUD By Mode under INPUT & HUD), and the binds are spread by id across
+SETTINGS (ON AT SPAWN, and HUD By Mode under INPUT & DISPLAY), and the binds are spread by id across
 01 Systems and 02 Combat rather than sitting in a section of their own.
 
 ## What already exists to reuse (read before building)

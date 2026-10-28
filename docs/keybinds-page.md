@@ -96,8 +96,9 @@ limitations (e.g. the dedicated-server gap for Engine).
 
 - **Four settings** (not binds — same shape as **Unfocused Input**): Radar, Engine, Master Arm and
   Power on start. All default ON (today's behaviour); switch one OFF for the corresponding system to
-  start off on every new aircraft. **HUD By Mode** (INPUT & HUD) makes combat mode drive the HUD page's own
-  filter presets; default OFF.
+  start off on every new aircraft. **HUD By Mode** (INPUT & DISPLAY) makes combat mode drive the HUD page's own
+  filter presets; default OFF. **Battle Damage** (INPUT & DISPLAY) takes RDR/TGP offline with their
+  systems ([docs/battle-damage.md](battle-damage.md)); default OFF.
 - **Master Arm ON / OFF, Radar ON / OFF, Engine ON / OFF** — plain dedicated pairs, no tap/hold
   (the game already has its own single-toggle bind for Radar/Engine). Master Arm OFF blocks all
   gun/missile/bomb fire, including the stock trigger.

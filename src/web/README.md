@@ -17,6 +17,7 @@ src/web/
             pad-cursor.js                                 # the shared PAD crosshair (docs/page-cursor.md)
             cursor-zoom.js                                # FCR/HSD's cursor-anchored zoom + icon-shrink (docs/page-cursor.md)
             pending-selection.js                          # FCR/HSD's optimistic Select tracking, MAP's own shape (docs/page-cursor.md)
+            battle-damage.js                              # RDR/TGP's FAIL screen + page → system rules (docs/battle-damage.md)
             remote-keybinds.js                            # opt-in browser keybind listener
             rail-collapse.js                              # KEY's and UI's collapsible sidebar toggle
             range-format.js                               # TGT/TD's shared range formatter (docs/units-toggle.md)
@@ -147,9 +148,10 @@ reactive sink.
    │              │  soi-cid·soi·soi-act·cursor·cursor-held·cursor-select·map-act, plus the
    │              │  change-gated SSE relays sqd-state·td-state-push·wpt-options-push·
    │              │  keybinds-config-push·hud-options-push·server-players-push (docs/sse-push-
-   │              │  refactor.md), plus map-frame — the raw frame, so a MAP pane/portal that
-   │              │  ISN'T this one can render from it instead of opening its own connection
-   │              │  (docs/mfd-shared-telemetry-connection.md).
+   │              │  refactor.md)·sysdmg-push (docs/battle-damage.md), plus map-frame — the raw
+   │              │  frame, so a MAP pane/portal that ISN'T this one can render from it
+   │              │  instead of opening its own connection (docs/mfd-shared-telemetry-
+   │              │  connection.md).
    └──────┬───────┘
           │  postMessage  ▲ UP   ({ mfd:true, type, … })
           ▼

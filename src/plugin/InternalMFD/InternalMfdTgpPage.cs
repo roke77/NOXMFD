@@ -23,9 +23,15 @@ namespace NOXMFD
     internal sealed class InternalMfdTgpPage : IInternalMfdPage
     {
         private static readonly Color NoFeedColor = new Color(1f, 1f, 1f, 0.5f);
+        private static readonly Color FailColor = new Color(1f, 0.25f, 0.25f, 0.9f);
+        // Battle damage (docs/battle-damage.md): the web pages' ~3 s one-shot flicker, sampled at
+        // the controller's 10 Hz refresh.
+        private const float FlickerSeconds = 3f;
 
         private readonly RawImage _feedImage;
         private readonly Text _statusText;
+        private readonly Text _laserText;
+        private float _failSince = -1f;   // Time.time the TGP FAIL screen went up; -1 = not failed
 
         internal InternalMfdTgpPage(RectTransform parent, Font? font)
         {
@@ -51,10 +57,33 @@ namespace NOXMFD
             _statusText.color = NoFeedColor;
             _statusText.text = "TGP";
             _statusText.raycastTarget = false;
+
+            var laserGo = InternalMfdUi.NewUi("TgpLaserFail", parent, parent.gameObject.layer, typeof(Text));
+            var laserRt = laserGo.GetComponent<RectTransform>();
+            laserRt.anchorMin = new Vector2(0f, 0.85f);
+            laserRt.anchorMax = Vector2.one;
+            laserRt.offsetMin = laserRt.offsetMax = Vector2.zero;
+            _laserText = laserGo.GetComponent<Text>();
+            _laserText.font = font;
+            _laserText.fontSize = 16;
+            _laserText.alignment = TextAnchor.MiddleCenter;
+            _laserText.color = FailColor;
+            _laserText.text = "LASER FAIL";
+            _laserText.raycastTarget = false;
+            _laserText.enabled = false;
         }
 
         public void Refresh(TelemetrySnapshot snap)
         {
+            _laserText.enabled = BattleDamage.LaserFailed;
+            if (BattleDamage.TgpFailed) { ShowFail(); return; }
+            if (_failSince >= 0f)
+            {
+                _failSince = -1f;
+                _statusText.text = "TGP";
+                _statusText.color = NoFeedColor;
+            }
+
             if (!GameManager.GetLocalAircraft(out Aircraft ac) || ac == null || ac.targetCam == null)
             {
                 ShowNoFeed();
@@ -78,6 +107,20 @@ namespace NOXMFD
             _feedImage.texture = cam.targetTexture;
             _feedImage.enabled = true;
             _statusText.enabled = false;
+        }
+
+        private void ShowFail()
+        {
+            _feedImage.enabled = false;
+            if (_failSince < 0f)
+            {
+                _failSince = Time.time;
+                _statusText.text = "TGP FAIL";
+                _statusText.color = FailColor;
+            }
+            float t = Time.time - _failSince;
+            // An irregular on/off pattern while the flicker runs, then steady.
+            _statusText.enabled = t >= FlickerSeconds || Mathf.Sin(t * 37f) + Mathf.Sin(t * 11f) > 0f;
         }
 
         private void ShowNoFeed()

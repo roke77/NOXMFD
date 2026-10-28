@@ -139,6 +139,19 @@
 .tgp-ov-title.friendly { color: var(--no-blue); }
 .tgp-ov-title.hostile  { color: var(--no-red); }
 .tgp-ov-tag   { color: var(--no-amber); margin-left: 5px; }
+/* Battle damage (docs/battle-damage.md): laser designator lost, feed still running. */
+.tgp-laser-fail {
+  position: absolute;
+  top: 6px; left: 50%;
+  transform: translateX(-50%);
+  padding: 2px 8px;
+  background: var(--no-scrim);
+  color: var(--no-red);
+  font-size: 14px;
+  letter-spacing: 2px;
+  pointer-events: none;
+}
+.tgp-laser-fail[hidden] { display: none; }
 .tgp-ov-pilot {
   display: block;
   color: var(--no-white-dim);

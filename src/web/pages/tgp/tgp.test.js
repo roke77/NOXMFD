@@ -39,7 +39,7 @@ const ids = [
   'tgp-panel', 'tgp-img', 'tgp-overlay', 'tgp-ov-type', 'tgp-ov-pilot', 'tgp-ov-rng',
   'tgp-ov-alt', 'tgp-ov-spd', 'tgp-ov-hdg', 'tgp-ov-relalt', 'tgp-ov-relspd',
   'tgp-ov-needle', 'tgp-ov-bearing', 'tgp-ov-grid', 'tgp-ov-mode', 'tgp-ov-mag',
-  'tgp-ov-boxes', 'tgp-joystick', 'tgp-joystick-knob',
+  'tgp-ov-boxes', 'tgp-joystick', 'tgp-joystick-knob', 'tgp-laser-fail',
 ];
 const elements = Object.fromEntries(ids.map((id) => [id, new Element(id)]));
 const listeners = {};
@@ -68,7 +68,7 @@ let activeIntervalFn = null;
 global.setInterval = function (fn) { activeIntervalFn = fn; return 1; };
 global.clearInterval = function () { activeIntervalFn = null; };
 
-require('./tgp.js');
+const tgp = require('./tgp.js');
 
 assert.ok(listeners.message, 'tgp.js should register a message listener');
 
@@ -240,4 +240,29 @@ assert.strictEqual(activeIntervalFn, null, 'restoration never resumes held input
 pad.listeners.pointerdown({ pointerId: 6, clientX: 160, clientY: 140 });
 listeners.blur();
 assert.strictEqual(activeIntervalFn, null, 'focus loss releases input');
-console.log('tgp.test.js: OK');
+
+// Battle damage (docs/battle-damage.md): laser designator lost alone → the feed keeps running, the
+// standalone tag shows and [LASE] reads [LASER FAIL]; camera lost → the TGP FAIL screen instead.
+(async () => {
+  tgp.initBattleDamage(await import('../../services/battle-damage.js'));
+  const failScreen = document.body.children.at(-1);
+  const dmg = (o) => ({ data: { mfd: true, type: 'sysdmg-push', data: Object.assign({ on: true, radar: 'ok', tgp: 'ok', laser: 'ok' }, o) } });
+  const lockedLased = { mfd: true, type: 'tgp', active: true, resolution: 'high', data: {
+    cnt: 1, status: 'lased', type: 'T-90', range: '3km', hasDetail: false, brg: 0, grid: 'Kf53', ir: false, mag: 1, boxes: [] } };
+
+  listeners.message(dmg({ laser: 'fail' }));
+  listeners.message({ data: lockedLased });
+  assert.strictEqual(elements['tgp-laser-fail'].hidden, false, 'laser lost shows LASER FAIL');
+  assert.strictEqual(elements['tgp-ov-type'].children.at(-1).textContent, '[LASER FAIL]', '[LASE] reads [LASER FAIL]');
+  assert.ok(elements['tgp-panel'].classList.contains('has-feed'), 'the feed keeps running');
+  assert.strictEqual(failScreen.hidden, true, 'no TGP FAIL screen for a laser-only loss');
+
+  listeners.message(dmg({ laser: 'fail', tgp: 'fail' }));
+  assert.strictEqual(failScreen.hidden, false, 'camera lost puts up the TGP FAIL screen');
+  assert.strictEqual(failScreen.textContent, 'TGP FAIL');
+  assert.strictEqual(elements['tgp-laser-fail'].hidden, true, 'TGP FAIL subsumes LASER FAIL');
+
+  listeners.message(dmg({ on: false, laser: 'fail', tgp: 'fail' }));
+  assert.strictEqual(failScreen.hidden, true, 'option off: nothing fails');
+  console.log('tgp.test.js: OK');
+})().catch((e) => { console.error(e); process.exit(1); });

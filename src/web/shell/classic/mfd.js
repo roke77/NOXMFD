@@ -927,6 +927,10 @@ function forwardHudOptionsToPanes() { if (hudOptionsData) forwardToPanes('hud', 
 function forwardServerPlayersToFrame() { if (serverPlayersData) forwardToFrame(serverPlayersData); }
 function forwardServerPlayersToPanes() { if (serverPlayersData) forwardToPanes('sqd', serverPlayersData); }
 function forwardThemesToFrame() { if (themesData) forwardToFrame(themesData); }
+// Battle damage (docs/battle-damage.md): the pages that can go offline with a system.
+const SYSDMG_PAGES = ['rdr', 'tgp'];
+function forwardSysdmgToFrame() { if (sysdmgData) forwardToFrame(sysdmgData); }
+function forwardSysdmgToPanes() { if (sysdmgData) SYSDMG_PAGES.forEach(function (p) { forwardToPanes(p, sysdmgData); }); }
 function forwardThemesToPanes() { if (themesData) forwardToPanes('ui', themesData); }
 // The TGT page shows the selected-target list under its filters (mirrored in targetsData).
 // No pagination — the page scrolls — so forward the whole list, to the frame and any TGT pane.
@@ -1401,6 +1405,7 @@ paneIframes.forEach(function(iframe, idx) {
     // Not mutually exclusive with the chain above — 'tgt' needs both its own catch-up AND these.
     if (SQD_STATE_PAGES.indexOf(page) !== -1) forwardSqdStateToPanes();
     if (TD_STATE_PAGES.indexOf(page) !== -1) forwardTdStateToPanes();
+    if (SYSDMG_PAGES.indexOf(page) !== -1) forwardSysdmgToPanes();
     // docs/page-cursor.md, docs/map-cursor.md: a fresh document means a fresh message listener, so
     // any earlier cursor-focus post (sent the moment this pane's src changed, before its script had
     // attached one) was silently dropped — a straight re-run of syncCursorFocus() wouldn't resend it
@@ -1439,6 +1444,7 @@ pageFrame.addEventListener('load', function() {
   // Not mutually exclusive with the chain above — see the pane-load handler's own comment.
   if (SQD_STATE_PAGES.indexOf(currentPage) !== -1) forwardSqdStateToFrame();
   if (TD_STATE_PAGES.indexOf(currentPage) !== -1) forwardTdStateToFrame();
+  if (SYSDMG_PAGES.indexOf(currentPage) !== -1) forwardSysdmgToFrame();
   // docs/page-cursor.md: full-view TGT/HUD render in the shared #page-frame, which reloads (fresh
   // document, fresh listener) on every navigation onto the page — same dropped-cursor-focus gap
   // the split-pane fix above closes, just for the full-view frame instead of a pane.
@@ -1695,6 +1701,7 @@ let tgtData = { present: false };
 let sqdStateData = null;
 let tdStateData = null;
 let hudOptionsData = null;
+let sysdmgData = null;
 let serverPlayersData = null;
 let themesData = null;
 
@@ -1869,7 +1876,7 @@ function showPage(name) {
   // lock flag. The page connects to /tgp.mjpg itself once loaded.
   if (name === 'tgp') {
     showFramePage('tgp');
-    forwardTgpToFrame();
+    forwardTgpToFrame(); forwardSysdmgToFrame();
   }
   // The Avionics hub's pages (docs/adi-hsi-pages.md) render in #page-frame; their MAIN + four-way
   // switch comes from the generic NAV sweep above. SYS (id avn) also gets the bezel geometry (full
@@ -1898,7 +1905,7 @@ function showPage(name) {
   // inside the FCR page.
   if (name === 'rdr') {
     showFramePage('rdr');
-    forwardRdrToFrame();
+    forwardRdrToFrame(); forwardSysdmgToFrame();
   }
   if (name === 'hsd') {
     showFramePage('hsd');
@@ -2019,6 +2026,7 @@ const RELAY_MESSAGES = Object.assign(Object.create(null), {
   // new effective colours when it re-renders from the relayed state.
   'themes-push': { page: 'ui', set: function (m) { ThemeLive.apply(window, m.data && m.data.css); themesData = m; }, toFrame: forwardThemesToFrame, toPanes: forwardThemesToPanes },
   mapinfo: { page: MAPINFO_PAGES, set: function (m) { mapInfoData = m; }, toFrame: forwardWptToFrame, toPanes: forwardWptToPanes },
+  'sysdmg-push': { page: SYSDMG_PAGES, set: function (m) { sysdmgData = m; }, toFrame: forwardSysdmgToFrame, toPanes: forwardSysdmgToPanes },
   adi:     { page: ADI_PAGES, set: function (m) { adiData = m; }, toFrame: forwardAdiToFrame, toPanes: forwardAdiToPanes },
 });
 

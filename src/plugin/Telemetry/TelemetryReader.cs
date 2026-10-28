@@ -250,6 +250,7 @@ namespace NOXMFD
             {
                 _fastTimer = 0f;
                 try { PushSnapshot(); } catch (Exception ex) { StepGuard.Failed("PushSnapshot", ex); }
+                try { RefreshBattleDamage(); } catch (Exception ex) { StepGuard.Failed("RefreshBattleDamage", ex); }
             }
 
             try { _tgp.Tick(dt); } catch (Exception ex) { StepGuard.Failed("TgpFeed.Tick", ex); }   // TGP feed cadence is owned by TgpFeed (captures at its own interval)
@@ -1635,6 +1636,21 @@ namespace NOXMFD
         // "FUEL LOW"). The cached list of GameObjects comes from StatusDisplay's
         // failureIndicators field captured at airframe-capture time; the game flips activeSelf
         // on the matching GO when an IReportDamage event fires.
+        // Battle damage (issue #110, docs/battle-damage.md). Each system's component destroys itself
+        // when its part is shot off or hits 0 HP (Radar via TargetDetector_OnApplyDamage, TargetCam
+        // on its part or the cockpit detaching, LaserDesignator on its part detaching), so Unity's
+        // destroyed-object == null is the whole liveness test. `is Radar` keeps a radar-less
+        // airframe's plain TargetDetector from counting as a radar.
+        private static void RefreshBattleDamage()
+        {
+            Aircraft? ac = GameManager.GetLocalAircraft(out Aircraft a) ? a : null;
+            if (ac == null) { BattleDamage.Update(null, ImmersionConfig.BattleDamage, false, false, false); return; }
+            BattleDamage.Update(ac, ImmersionConfig.BattleDamage,
+                radarAlive: ac.radar != null && ac.radar is Radar,
+                tgpAlive:   ac.targetCam != null,
+                laserAlive: ac.GetLaserDesignator() != null);
+        }
+
         private string[] BuildFailures()
         {
             GameObject[] indicators = _assets.FailureIndicators;

@@ -159,6 +159,10 @@ export class TelemetrySource {
     es.addEventListener('themes', (e) => {
       try { this._postUp({ type: 'themes-push', data: JSON.parse(e.data) }); } catch (err) { /* malformed — skip this one */ }
     });
+    // Battle damage (docs/battle-damage.md): per-system status, relayed to the pages that can fail.
+    es.addEventListener('sysdmg', (e) => {
+      try { this._postUp({ type: 'sysdmg-push', data: JSON.parse(e.data) }); } catch (err) { /* malformed — skip this one */ }
+    });
     es.addEventListener('server-players', (e) => {
       try { this._postUp({ type: 'server-players-push', data: JSON.parse(e.data) }); } catch (err) { /* malformed — skip this one */ }
     });
