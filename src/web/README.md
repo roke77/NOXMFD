@@ -17,7 +17,7 @@ src/web/
             pad-cursor.js                                 # the shared PAD crosshair (docs/page-cursor.md)
             cursor-zoom.js                                # FCR/HSD's cursor-anchored zoom + icon-shrink (docs/page-cursor.md)
             pending-selection.js                          # FCR/HSD's optimistic Select tracking, MAP's own shape (docs/page-cursor.md)
-            battle-damage.js                              # RDR/TGP's FAIL screen + page → system rules (docs/battle-damage.md)
+            battle-damage.js                              # RDR/HSD/TGP's FAIL screen + page → system rules (docs/battle-damage.md)
             remote-keybinds.js                            # opt-in browser keybind listener
             rail-collapse.js                              # KEY's and UI's collapsible sidebar toggle
             range-format.js                               # TGT/TD's shared range formatter (docs/units-toggle.md)
@@ -281,7 +281,8 @@ See `docs/tgp-lifecycle-investigation.md` for live-stream memory validation.
 ## MAP lifecycle
 
 F-35 uses `services/telemetry-tap.html` through `/map-view?telemetry=1` for its permanent
-transport. This document has no renderer. Classic retains its MAP transport and sends
+transport. This document has no renderer; besides relaying telemetry it answers only the shells'
+`sysdmg-request` (docs/battle-damage.md). Classic retains its MAP transport and sends
 `map-active` to suspend rendering outside full-view MAP. MAP disposes render resources on page
 exit. Neither one is the connection each *visible MAP pane/portal* used to open for itself —
 those now render from the owning document's relayed frames instead
