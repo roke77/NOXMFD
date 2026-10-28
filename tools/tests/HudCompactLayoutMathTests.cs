@@ -32,12 +32,5 @@ namespace NOXMFD.Tests
             Assert.InRange(HudCompactLayoutMath.TrueLadderScale(0.126f, 450f, 1080f, 60f) / (50f / 60f), 0.97f, 1.0f);
             Assert.InRange(HudCompactLayoutMath.TrueLadderScale(0.126f, 450f, 1080f, 90f) / (50f / 90f), 0.84f, 0.88f);
         }
-
-        [Fact]
-        public void Every_preset_group_has_sliders()
-        {
-            foreach (HudCompactLayoutMath.Block b in HudCompactLayoutMath.F16Preset)
-                Assert.True(b.Group == "" || System.Array.Exists(HudCompactLayoutMath.Groups, g => g.Name == b.Group), b.Group);
-        }
     }
 }

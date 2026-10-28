@@ -1,20 +1,30 @@
 using System;
 using System.Collections.Generic;
+using BepInEx.Configuration;
 using UnityEngine;
 using UnityEngine.UI;
 
 namespace NOXMFD
 {
-    // Pulls the native nose-following HUD readouts into an F-16-style cluster (HudCompactLayoutMath
-    // holds the preset, HudCompactConfig the sliders). The readouts are prefab children of FlightHud's
-    // HUDCenter and of the aircraft's HUDAppManager, and no game code writes their positions or
-    // scales, so values set here stick. Mission-scoped like HudDeclutter; nothing outlives the HUD.
+    // Compact HUD: pulls the native nose-following HUD readouts into an F-16-style cluster
+    // (HudCompactLayoutMath holds the tuned preset) and draws the pitch ladder at true scale. The
+    // readouts are prefab children of FlightHud's HUDCenter and of the aircraft's HUDAppManager, and
+    // no game code writes their positions or scales, so values set here stick. Mission-scoped like
+    // HudDeclutter; nothing outlives the HUD.
     //
-    // Original transforms are captured once per HUDAppManager instance. The compass, ladder and
-    // waterline belong to FlightHud and survive an aircraft respawn, so everything is restored before
-    // a re-capture — otherwise the moved values would be captured as the originals.
+    // Original transforms are captured once per HUDAppManager instance. The compass belongs to
+    // FlightHud and survives an aircraft respawn, so everything is restored before a re-capture —
+    // otherwise the moved values would be captured as the originals.
     internal class HudCompactLayout : MonoBehaviour
     {
+        private static ConfigEntry<bool>? _enabled;
+        private static bool Enabled => _enabled?.Value ?? false;
+
+        // The one F1-menu checkbox; read every Sync, so a toggle applies or restores within 0.5 s.
+        public static void Bind(ConfigFile config) =>
+            _enabled = config.Bind("HUD", "Compact HUD", false,
+                "Pull the nose-following HUD readouts into a compact F-16-style cluster around the pitch ladder, and draw the ladder at true scale.");
+
         private const float Interval = 0.5f;
         private float _timer = Interval;
 
@@ -34,18 +44,12 @@ namespace NOXMFD
         }
 
         private readonly List<BlockState> _blocks = new List<BlockState>();
-        // FlightHud's pitchCompass (the ladder) and waterline. The ladder is a RawImage window onto a
-        // tall ladder texture; FlightHud rewrites its uvRect and localScale every frame, but never its
-        // sizeDelta, and never touches the waterline's scale.
+        // FlightHud's pitchCompass: a RawImage window onto the ladder texture, whose uvRect and
+        // localScale FlightHud rewrites every frame.
         private RawImage? _ladder;
-        private Vector2 _ladderOrigSize;
-        private Rect _ladderLastUv;
-        private float _ladderUvHeight;   // the game's uncropped uv height, from its latest write
-        private Moved? _waterline;
         private HUDAppManager? _apps;
         private float _canvasHeight;
         private float _appliedFov = -1f;
-        private int _appliedVersion = -1;
         private bool _loggedFailure;
 
         private void Update()
@@ -58,8 +62,7 @@ namespace NOXMFD
                     _timer = 0f;
                     Sync();
                 }
-                // Per frame so zooming (an FOV change) or dragging a slider doesn't leave the blocks
-                // lagging.
+                // Per frame so zooming (an FOV change) doesn't leave the blocks lagging the ladder.
                 if (_blocks.Count > 0) Apply();
             }
             catch (Exception ex)
@@ -79,7 +82,7 @@ namespace NOXMFD
         private void Sync()
         {
             HUDAppManager apps = SceneSingleton<HUDAppManager>.i;
-            if (!HudCompactConfig.Enabled || apps == null)
+            if (!Enabled || apps == null)
             {
                 Restore();
                 return;
@@ -113,8 +116,6 @@ namespace NOXMFD
             }
 
             _ladder = center.Find("pitchCompassCenter/pitchCompass")?.GetComponent<RawImage>();
-            if (_ladder != null) _ladderOrigSize = _ladder.rectTransform.sizeDelta;
-            if (hud.waterline != null) _waterline = Snapshot(hud.waterline.transform, center);
         }
 
         private static Moved Snapshot(Transform t, Transform center) => new Moved
@@ -133,17 +134,15 @@ namespace NOXMFD
             CameraStateManager cam = SceneSingleton<CameraStateManager>.i;
             if (cam == null || cam.mainCamera == null) return;
             float fov = cam.mainCamera.fieldOfView;
-            if (Mathf.Abs(fov - _appliedFov) < 0.01f && HudCompactConfig.Version == _appliedVersion) return;
+            if (Mathf.Abs(fov - _appliedFov) < 0.01f) return;
             _appliedFov = fov;
-            _appliedVersion = HudCompactConfig.Version;
 
             foreach (BlockState b in _blocks)
             {
-                HudCompactConfig.Adjust own = HudCompactConfig.ForGroup(b.Def.Group);
-                float size = own.Size;
+                float size = b.Def.Size;
                 var target = new Vector3(
-                    HudCompactLayoutMath.DegToUnits(b.Def.XDeg + own.OffsetX, _canvasHeight, fov),
-                    HudCompactLayoutMath.DegToUnits(b.Def.YDeg + own.OffsetY, _canvasHeight, fov), 0f);
+                    HudCompactLayoutMath.DegToUnits(b.Def.XDeg, _canvasHeight, fov),
+                    HudCompactLayoutMath.DegToUnits(b.Def.YDeg, _canvasHeight, fov), 0f);
                 var refOrig = new Vector3(b.RefOrig.x, b.RefOrig.y, 0f);
                 // Each member keeps its prefab offset from the block's anchor, scaled with the block,
                 // so the anchor lands on target at any size. Offsets are taken in HUDCenter space and
@@ -160,62 +159,33 @@ namespace NOXMFD
                     m.T.localScale = m.OrigScale * size;
                 }
             }
-
-            float ladder = LadderFactor;
-            if (_ladder != null) _ladder.rectTransform.sizeDelta = _ladderOrigSize * ladder;
-            if (_waterline != null && _waterline.T != null)
-                _waterline.T.localScale = _waterline.OrigScale * ladder;
         }
 
-        private static float LadderFactor => HudCompactConfig.LadderSize;
-
-        // The ladder window shrinks evenly (sizeDelta in Apply), and its uvRect is cropped by the same
-        // factor about its center so the rungs keep their spacing — 10° of pitch still spans 10° on
-        // screen, the window just shows fewer rungs. Runs after FlightHud.Update has written this
-        // frame's uvRect; if FlightHud skipped a frame (no cockpit rigidbody) the uvRect is still the
-        // one cropped here, so it's left alone rather than cropped twice.
-        // The ladder's localScale is replaced the same way with the true conformal scale (FlightHud
-        // writes its 50/fov approximation each frame), computed from the uncropped window so the crop
-        // doesn't change rung spacing.
+        // Replaces FlightHud's 50/fov ladder scale, written each frame in its Update, with the true
+        // conformal one, so the 10° rung sits 10° above the horizon at any FOV. No restore needed:
+        // FlightHud rewrites the scale on its next frame.
         private void LateUpdate()
         {
             if (_ladder == null || _blocks.Count == 0) return;
             CameraStateManager cam = SceneSingleton<CameraStateManager>.i;
-            if (cam != null && cam.mainCamera != null && _ladderUvHeight > 0f)
-                _ladder.transform.localScale = Vector3.one *
-                    HudCompactLayoutMath.TrueLadderScale(_ladderUvHeight, _ladderOrigSize.y, _canvasHeight, cam.mainCamera.fieldOfView);
-
-            Rect uv = _ladder.uvRect;
-            if (uv == _ladderLastUv) return;
-            _ladderUvHeight = uv.height;
-            float h = uv.height * LadderFactor;
-            uv.y += (uv.height - h) * 0.5f;
-            uv.height = h;
-            _ladder.uvRect = uv;
-            _ladderLastUv = uv;
+            if (cam == null || cam.mainCamera == null) return;
+            _ladder.transform.localScale = Vector3.one * HudCompactLayoutMath.TrueLadderScale(
+                _ladder.uvRect.height, _ladder.rectTransform.sizeDelta.y, _canvasHeight, cam.mainCamera.fieldOfView);
         }
 
         private void Restore()
         {
             foreach (BlockState b in _blocks)
                 foreach (Moved m in b.Members)
-                    Reset(m);
-            // The uvRect needs no restore: FlightHud rewrites it next frame.
-            if (_ladder != null) _ladder.rectTransform.sizeDelta = _ladderOrigSize;
-            if (_waterline != null) Reset(_waterline);
+                    if (m.T != null)
+                    {
+                        m.T.localPosition = m.Orig;
+                        m.T.localScale = m.OrigScale;
+                    }
             _blocks.Clear();
             _ladder = null;
-            _ladderUvHeight = 0f;
-            _waterline = null;
             _apps = null;
             _appliedFov = -1f;
-        }
-
-        private static void Reset(Moved m)
-        {
-            if (m.T == null) return;
-            m.T.localPosition = m.Orig;
-            m.T.localScale = m.OrigScale;
         }
     }
 }
