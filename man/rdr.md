@@ -64,8 +64,9 @@ long as someone else's does.
 - **Radar coverage cone** — the teal wedge overlaid forward of ownship, when your own radar is on.
   It's the same cone FCR itself shows, just drawn on HSD's wider picture instead — a reminder of
   how much of what you're seeing here your own radar could also reach.
-- **Contacts** — same meaning and colors as FCR's: red (your own radar), purple (datalink-only),
-  amber with a ring (the focused lock), or their ordinary color with just a ring (any other lock).
+- **Contacts** — red (your own radar) or purple (datalink-only). Unlike FCR, a locked contact keeps
+  that color, so you can always tell where it's sourced from: the focused lock gets an amber ring,
+  and any other lock a ring in its own color.
   A datalink contact whose position has gone stale (your faction hasn't refreshed it recently)
   shows white instead — still a real, known contact, just not necessarily where it's drawn anymore.
 - **AA threat rings** — a yellow ring around any known enemy ground or naval unit carrying a

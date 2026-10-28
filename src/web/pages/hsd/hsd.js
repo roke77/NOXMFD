@@ -130,16 +130,11 @@ function radarConePath(rangeM, radarRange, radarCone) {
          ' Z';
 }
 
-// `focused` distinguishes the one locked target the bottom readout currently describes from any
-// other simultaneous lock (a planned cycling-locked-targets follow-up, docs/rdr-fcr-hsd.md) — only
-// the focused one's icon goes amber. Any other contact's color is purely its source regardless of
-// lock state: an unfocused lock keeps its ordinary red/purple, since its ring (drawn by the
-// caller) is what shows it's still locked, not its icon. A stale datalink track (its position has
-// drifted past the game's own trust radius, docs/tgt-stale-lock.md) goes white instead of its
-// source color — still below focused-amber, since a lock stays the more important cue even if the
-// position backing it is untrustworthy.
-function contactColor(c, focused) {
-  if (focused) return AMBER;
+// A contact's icon is always its source color, locked or not, so a lock never hides whether it's
+// radar- or datalink-sourced; the lock ring (drawn by the caller) carries the focus instead. A stale
+// datalink track (its position has drifted past the game's own trust radius,
+// docs/tgt-stale-lock.md) goes white instead of its source color.
+function contactColor(c) {
   if (c && c.st) return STALE_WHITE;
   if (c && c.rd) return RED;
   return HSD_PINK;
@@ -242,7 +237,7 @@ function renderContacts() {
       locks++;
       if (c.id === state.focusedTargetId) { focusedLocked = { c: c, dist: p.dist }; focused = true; }
     }
-    var col = contactColor(c, focused);
+    var col = contactColor(c);
     var hdg = typeof c.hdg === 'number' ? c.hdg : 0;
     var rot = ((hdg - state.hdg) % 360 + 360) % 360;
     out += '<g' + iconTransform(p.x, p.y) + '>';
@@ -258,11 +253,11 @@ function renderContacts() {
            (p.x + Math.sin((hdg - state.hdg) * Math.PI / 180) * 18).toFixed(1) + '" y2="' +
            (p.y - Math.cos((hdg - state.hdg) * Math.PI / 180) * 18).toFixed(1) +
            '" stroke="' + col + '" stroke-width="2"/>';
-    // Lock circle — always amber regardless of focus, sized close around the small contact
-    // triangle rather than floating loose around it.
+    // Lock circle, sized close around the small contact triangle rather than floating loose around
+    // it: amber on the focused lock (the readout's target), the contact's own color on any other.
     if (c.tg)
       out += '<circle cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) +
-             '" r="10" fill="none" stroke="' + AMBER + '" stroke-width="2"/>';
+             '" r="10" fill="none" stroke="' + (focused ? AMBER : col) + '" stroke-width="2"/>';
     out += '</g>';
   });
   g.innerHTML = out;

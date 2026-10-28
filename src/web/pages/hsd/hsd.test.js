@@ -29,19 +29,16 @@ assert.ok(radarConePath(80 * 1852, 40 * 1852, 60).includes('A110.0 110.0'), '40n
 assert.strictEqual(radarConePath(80 * 1852, 0, 60), '', 'missing radar range hides cone');
 assert.strictEqual(contactColor({ dl: 1 }), 'var(--no-purple)');
 assert.strictEqual(contactColor({ rd: 1 }), 'var(--no-red)');
-// A contact is amber only when it's the focused lock (the bottom readout's own target,
-// docs/rdr-fcr-hsd.md's cycling-locked-targets follow-up) — any other lock (focused=false) keeps
-// its ordinary source color instead, whether that's radar-red or datalink-purple; the ring (drawn
-// by the caller, not this function) is what shows it's still locked.
-assert.strictEqual(contactColor({ tg: 1, rd: 1 }, true), 'var(--no-amber)');
-assert.strictEqual(contactColor({ tg: 1, rd: 1 }, false), 'var(--no-red)');
-assert.strictEqual(contactColor({ tg: 1, dl: 1 }, false), 'var(--no-purple)');
+// A lock keeps its source color, so a locked contact still shows whether it's radar or datalink;
+// the focused lock is marked by its amber ring (drawn by the caller), not its icon.
+assert.strictEqual(contactColor({ tg: 1, rd: 1 }), 'var(--no-red)');
+assert.strictEqual(contactColor({ tg: 1, dl: 1 }), 'var(--no-purple)');
 
 // A stale datalink track (position drifted past the trust radius, docs/tgt-stale-lock.md) goes
-// white instead of its source color, but a focused lock still wins over staleness.
+// white instead of its source color, locked or not.
 assert.strictEqual(contactColor({ rd: 1, st: 1 }), 'var(--no-white)');
 assert.strictEqual(contactColor({ dl: 1, st: 1 }), 'var(--no-white)');
-assert.strictEqual(contactColor({ tg: 1, dl: 1, st: 1 }, true), 'var(--no-amber)');
+assert.strictEqual(contactColor({ tg: 1, dl: 1, st: 1 }), 'var(--no-white)');
 
 // CEN/DEP display modes (docs/rdr-fcr-hsd.md). The whole "one shared range index instead of a
 // per-mode one" design (hsd.js's applyMode) depends on DEP's ladder being exactly 1.5x CEN's at
