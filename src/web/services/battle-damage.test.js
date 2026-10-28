@@ -5,11 +5,7 @@ function fakeDoc() {
   const body = { children: [], appendChild(c) { this.children.push(c); } };
   return {
     body,
-    createElement() {
-      const cls = new Set();
-      return { hidden: false, textContent: '', classList: {
-        toggle(c, on) { if (on) cls.add(c); else cls.delete(c); }, contains: (c) => cls.has(c) } };
-    },
+    createElement() { return { hidden: false, textContent: '' }; },
   };
 }
 
@@ -37,21 +33,15 @@ function fakeDoc() {
   assert.strictEqual(laserFailed(st({ laser: 'none' })), false);
   assert.strictEqual(laserFailed(st({ on: false, laser: 'fail' })), false);
 
-  // Fail screen: a page opened already failed settles without flicker; a later loss flickers once.
-  let doc = fakeDoc(), update = createFailScreen(doc, 'rdr'), el = doc.body.children[0];
-  update(st({ radar: 'fail' }));
-  assert.strictEqual(el.hidden, false);
-  assert.strictEqual(el.textContent, 'RADAR FAIL');
-  assert.strictEqual(el.classList.contains('bd-flicker'), false);
-
-  doc = fakeDoc(); update = createFailScreen(doc, 'rdr'); el = doc.body.children[0];
+  // Fail screen: up with its banner the moment the system is lost, down again once it recovers.
+  const doc = fakeDoc(), update = createFailScreen(doc, 'rdr'), el = doc.body.children[0];
   update(st());
   assert.strictEqual(el.hidden, true);
   update(st({ radar: 'fail' }));
-  assert.strictEqual(el.classList.contains('bd-flicker'), true);
+  assert.strictEqual(el.hidden, false);
+  assert.strictEqual(el.textContent, 'RADAR FAIL');
   update(st());   // repaired / respawned
   assert.strictEqual(el.hidden, true);
-  assert.strictEqual(el.classList.contains('bd-flicker'), false);
 
   console.log('battle-damage.test.js: OK');
 })().catch((e) => { console.error(e); process.exit(1); });

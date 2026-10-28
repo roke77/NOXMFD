@@ -199,6 +199,5 @@ corner layout and MID/HIGH-only rule, with fields specific to pointing instead o
 ## Battle damage
 
 With [Battle Damage](keybinds.md#input--display) on, losing the targeting camera puts TGP
-offline: it flickers for a few seconds and settles on **TGP FAIL**, on this page and the in-cockpit
-MFD pane alike. Losing only the laser designator keeps the picture running with a **LASER FAIL**
-tag across the top.
+offline: it goes straight to **TGP FAIL**, on this page and the in-cockpit MFD pane alike. Losing
+only the laser designator keeps the picture running with a **LASER FAIL** tag across the top.

@@ -52,8 +52,8 @@ one radar system.
   and on change only, never per frame.
 - `ImmersionConfig.BattleDamage` (persisted, hidden from F1), `keybind.set-battle-damage`, and
   `battleDamage` on `/keybinds-config`.
-- `InternalMfdFailScreen`: the internal panes' FAIL cover (red banner, flickering ~3 s at the
-  10 Hz refresh, then steady). `InternalMfdHsdPage` shows `RADAR FAIL` and stops drawing;
+- `InternalMfdFailScreen`: the internal panes' FAIL cover (black, red banner).
+  `InternalMfdHsdPage` shows `RADAR FAIL` and stops drawing;
   `InternalMfdTgpPage` shows `TGP FAIL`, plus a `LASER FAIL` strip for a laser-only loss. RWR never
   fails.
 
@@ -71,9 +71,9 @@ one radar system.
   `createFailScreen(doc, page)` — an opaque `.bd-fail` layer (theme.css) with the `<SYSTEM> FAIL`
   banner. It sits inside the page document, so it blanks content and swallows its clicks while
   the shell's bezel/OSB labels, outside the page, keep navigating.
-- The flicker is a one-shot 3 s CSS animation (`both` fill, holds full opacity), so a settled
-  failed page runs nothing. It plays only for a loss seen while the page is up; a page opened on
-  an already-failed system settles at once.
+- The FAIL screen goes up the moment the status reports the loss, with no transition. The first
+  build ran a one-shot ~3 s flicker into it (a CSS animation on the web, a 10 Hz on/off pattern on
+  the internal panes); in use it looked poor and was removed.
 - TGP: `#tgp-laser-fail` (visible in every resolution — Native's overlay is baked into the video)
   and the HQ overlay's `[LASE]` tag reads `[LASER FAIL]`. The TGP CFG view (`#cfg`) hides the fail
   screen, since it configures rather than shows the pod.
@@ -86,7 +86,7 @@ entry in `PAGE_SYSTEM`. Extension pages are out of scope.
 - `tools/tests/BattleDamageTests.cs`: not fitted vs failed, recovery, respawn, laser subsumed by a
   dead camera, option off, no aircraft.
 - `services/battle-damage.test.js`: page → system mapping, never-fail pages, not fitted, the TGP
-  laser partial, and the fail screen's flicker-once / settle-on-open behaviour.
+  laser partial, and the fail screen going up and down with the status.
 - `pages/tgp/tgp.test.js`: LASER FAIL tag and `[LASER FAIL]` with the feed still running; TGP FAIL
   subsuming it; option off.
 - Preview harness: `GET /__sysdmg?radar=fail&tgp=ok&laser=fail` sets the mocked status (`on`
@@ -94,10 +94,10 @@ entry in `PAGE_SYSTEM`. Extension pages are out of scope.
 
 ### Live-game checks still needed
 
-- Shoot off / zero the radar part: RDR and HSD flicker then show RADAR FAIL, on the web pages
-  and the internal HSD pane.
-- Lose the TGP camera (its part or the cockpit detaching): TGP flickers then shows TGP FAIL, on
-  the web page and the internal MFD pane.
+- Shoot off / zero the radar part: RDR and HSD show RADAR FAIL, on the web pages and the
+  internal HSD pane.
+- Lose the TGP camera (its part or the cockpit detaching): TGP shows TGP FAIL, on the web page and
+  the internal MFD pane.
 - Lose only the laser designator: TGP feed keeps running with LASER FAIL (web and internal pane).
 - Repair / respawn: every page recovers.
 - An airframe without radar never shows RADAR FAIL; option OFF changes nothing.

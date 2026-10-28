@@ -16,22 +16,19 @@ export function laserFailed(st) {
 }
 
 // The FAIL screen over a page document: opaque, so it blanks the content and takes its clicks,
-// with the `<SYSTEM> FAIL` banner. A loss seen while the page is up runs the one-shot flicker
-// (theme.css .bd-fail); a page that opens already failed settles at once. Returns update(status).
+// with the `<SYSTEM> FAIL` banner (theme.css .bd-fail). It goes up the moment the system is lost.
+// Returns update(status).
 export function createFailScreen(doc, page) {
   const el = doc.createElement('div');
   el.className = 'bd-fail';
   el.hidden = true;
   doc.body.appendChild(el);
-  let seen = false, shown = null;
+  let shown = null;
   return function update(st) {
     const sys = failedSystem(page, st);
-    if (sys !== shown) {
-      shown = sys;
-      el.hidden = !sys;
-      el.textContent = sys ? BANNER[sys] : '';
-      el.classList.toggle('bd-flicker', !!sys && seen);
-    }
-    seen = true;
+    if (sys === shown) return;
+    shown = sys;
+    el.hidden = !sys;
+    el.textContent = sys ? BANNER[sys] : '';
   };
 }
