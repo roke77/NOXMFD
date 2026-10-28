@@ -67,6 +67,22 @@ is unchanged. The native HUD uses `STPn · NAME` for steer-point guidance and ke
 for route guidance — `n` is the point's 1-based position in the steer-point table, same numbering
 MAP's `S1`/`S2` labels use.
 
+While a steer point guides, MAP also draws a dashed amber line from the player's aircraft to it,
+drawn whether or not either end is on screen, so its direction shows even when it's off the visible
+map (post-0.82.0, always on).
+
+### Replace selected (post-0.82.0)
+
+Steer points made one after another piled up in the list. `RouteStore` now has a persisted
+`replaceSteerPoint` flag (top level of `routes.json` and `RoutesJson`, default `true`), set by
+`wpt.replace-steerpoint {on}` from a `REPLACE SELECTED` checkbox in WPT's steer-point pane. With it
+on, `AddSteerPoint` — and so every way of making one: MAP long-press, grid entry, TGP mark — puts the
+new point into the selected steer point's list slot instead of appending it, keeping the other
+points' STP numbers. A squad leader's shared point (`IsShared`) is never replaced; the new point is
+appended beside it. With a route active nothing is selected, so the point is just appended.
+Replacing a point the pilot had shared with the squad sends its `wpt.steerpoint-deleted`
+tombstone. `ImportSteerPoints` ignores the flag: a pasted collection always appends.
+
 ## Import/export
 
 The portable collection format intentionally excludes storage ids and selection:
