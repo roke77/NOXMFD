@@ -67,6 +67,7 @@ namespace NOXMFD
             _readerObject.AddComponent<HudDeclutter>();
             _readerObject.AddComponent<HudPower>();
             _readerObject.AddComponent<HudLayoutDump>();
+            _readerObject.AddComponent<HudCompactLayout>();
             _readerObject.AddComponent<HudWaypointCue>();
             _readerObject.AddComponent<HudTgpCue>();
             _readerObject.AddComponent<HudTtiCue>();

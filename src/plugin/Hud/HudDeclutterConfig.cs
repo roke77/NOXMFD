@@ -32,6 +32,7 @@ namespace NOXMFD
         private static ConfigEntry<bool>? _hideMinimap;
         private static ConfigEntry<bool>? _hideTopBoxes;
         private static ConfigEntry<bool>? _hideKillFeed;
+        private static ConfigEntry<bool>? _compactLayout;
 
         // Top-right readouts: weapon name + ammo (WeaponIndicator) and the countermeasure
         // count "48 / IR Flares" (CountermeasureIndicator). Both hidden by this one flag.
@@ -51,6 +52,10 @@ namespace NOXMFD
         // it. Only the kill feed; MessageUI's general message feed (join/disconnect/HQ messages) is
         // untouched.
         public static bool HideKillFeed => _hideKillFeed?.Value ?? false;
+
+        // Pulls the nose-following HUD readouts into an F-16-style cluster (HudCompactLayout). Unlike
+        // the hide flags it is shown in the F1 menu: the HUD page has no control for it.
+        public static bool CompactLayout => _compactLayout?.Value ?? false;
 
         // Runtime setters for the web MFD's declutter toggles (declutter.set command). Writing .Value
         // persists the choice to the cfg; HudDeclutter reads the property each tick and hides/restores
@@ -75,6 +80,8 @@ namespace NOXMFD
                 new ConfigDescription("Hide the boxed heading / airspeed / altitude readouts flanking the heading tape. The center boresight readouts are kept.", null, Hidden));
             _hideKillFeed = config.Bind(section, "HideKillFeed", false,
                 new ConfigDescription("Hide the native kill-feed ticker. The general message feed (join/disconnect/HQ messages) is unaffected.", null, Hidden));
+            _compactLayout = config.Bind(section, "CompactLayout", false,
+                "Pull the nose-following HUD readouts (speed, altitude, heading tape, fuel/throttle, clocks) into a compact F-16-style cluster around the pitch ladder.");
         }
     }
 }
