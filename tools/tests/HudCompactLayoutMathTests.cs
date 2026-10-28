@@ -37,7 +37,7 @@ namespace NOXMFD.Tests
         public void Every_preset_group_has_sliders()
         {
             foreach (HudCompactLayoutMath.Block b in HudCompactLayoutMath.F16Preset)
-                Assert.True(b.Group == "" || System.Array.IndexOf(HudCompactLayoutMath.Groups, b.Group) >= 0, b.Group);
+                Assert.True(b.Group == "" || System.Array.Exists(HudCompactLayoutMath.Groups, g => g.Name == b.Group), b.Group);
         }
     }
 }

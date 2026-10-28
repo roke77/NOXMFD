@@ -29,8 +29,14 @@ namespace NOXMFD
             internal string[] Members { get; }
         }
 
-        // Instruments with their own placement/size sliders in HudCompactConfig.
-        internal static readonly string[] Groups = { "Speed", "Altitude", "Heading" };
+        // Instruments with their own placement/size sliders in HudCompactConfig, with the slider
+        // defaults: the tuned adjustment (degrees, size) applied on top of the preset spot below.
+        internal static readonly (string Name, float OffsetX, float OffsetY, float Size)[] Groups =
+        {
+            ("Speed", 6.5f, -1.5f, 0.5f),
+            ("Altitude", -6.5f, -0.5f, 0.5f),
+            ("Heading", 0f, -5.25f, 0.55f),
+        };
 
         // ponytail: one fixed preset, tuned against the FS-12 Revoker prefab at 90° vertical FOV.
         // Other airframes share the readout names but may need their own offsets; a per-aircraft table

@@ -137,15 +137,13 @@ namespace NOXMFD
             _appliedFov = fov;
             _appliedVersion = HudCompactConfig.Version;
 
-            float spread = HudCompactConfig.Spread;
-            HudCompactConfig.Adjust all = HudCompactConfig.All;
             foreach (BlockState b in _blocks)
             {
                 HudCompactConfig.Adjust own = HudCompactConfig.ForGroup(b.Def.Group);
-                float size = all.Size * own.Size;
+                float size = own.Size;
                 var target = new Vector3(
-                    HudCompactLayoutMath.DegToUnits(b.Def.XDeg * spread + all.OffsetX + own.OffsetX, _canvasHeight, fov),
-                    HudCompactLayoutMath.DegToUnits(b.Def.YDeg * spread + all.OffsetY + own.OffsetY, _canvasHeight, fov), 0f);
+                    HudCompactLayoutMath.DegToUnits(b.Def.XDeg + own.OffsetX, _canvasHeight, fov),
+                    HudCompactLayoutMath.DegToUnits(b.Def.YDeg + own.OffsetY, _canvasHeight, fov), 0f);
                 var refOrig = new Vector3(b.RefOrig.x, b.RefOrig.y, 0f);
                 // Each member keeps its prefab offset from the block's anchor, scaled with the block,
                 // so the anchor lands on target at any size. Offsets are taken in HUDCenter space and
@@ -169,7 +167,7 @@ namespace NOXMFD
                 _waterline.T.localScale = _waterline.OrigScale * ladder;
         }
 
-        private static float LadderFactor => HudCompactConfig.All.Size * HudCompactConfig.LadderSize;
+        private static float LadderFactor => HudCompactConfig.LadderSize;
 
         // The ladder window shrinks evenly (sizeDelta in Apply), and its uvRect is cropped by the same
         // factor about its center so the rungs keep their spacing — 10° of pitch still spans 10° on
