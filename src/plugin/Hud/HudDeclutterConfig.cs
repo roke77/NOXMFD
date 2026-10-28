@@ -34,6 +34,9 @@ namespace NOXMFD
         private static ConfigEntry<bool>? _hideKillFeed;
         private static ConfigEntry<bool>? _compactLayout;
         private static ConfigEntry<float>? _compactScale;
+        private static ConfigEntry<float>? _compactOffsetX;
+        private static ConfigEntry<float>? _compactOffsetY;
+        private static ConfigEntry<float>? _compactSize;
 
         // Top-right readouts: weapon name + ammo (WeaponIndicator) and the countermeasure
         // count "48 / IR Flares" (CountermeasureIndicator). Both hidden by this one flag.
@@ -61,6 +64,12 @@ namespace NOXMFD
         // Multiplier on the compact preset's angles (an F1-menu slider): below 1 pulls every block
         // closer to the nose.
         public static float CompactScale => _compactScale?.Value ?? 1f;
+
+        // Whole-cluster placement (degrees from the nose) and size of the compact readouts. The
+        // pitch ladder, waterline and other conformal symbols stay where the game puts them.
+        public static float CompactOffsetX => _compactOffsetX?.Value ?? 0f;
+        public static float CompactOffsetY => _compactOffsetY?.Value ?? 0f;
+        public static float CompactSize => _compactSize?.Value ?? 1f;
 
         // Runtime setters for the web MFD's declutter toggles (declutter.set command). Writing .Value
         // persists the choice to the cfg; HudDeclutter reads the property each tick and hides/restores
@@ -90,6 +99,15 @@ namespace NOXMFD
             _compactScale = config.Bind(section, "CompactScale", 1f,
                 new ConfigDescription("How tight the CompactLayout cluster is: 1 is the preset, lower pulls every readout closer to the nose.",
                     new AcceptableValueRange<float>(0.4f, 1.2f)));
+            _compactOffsetX = config.Bind(section, "CompactOffsetX", 0f,
+                new ConfigDescription("Shift the whole CompactLayout cluster left (-) or right (+), in degrees.",
+                    new AcceptableValueRange<float>(-20f, 20f)));
+            _compactOffsetY = config.Bind(section, "CompactOffsetY", 0f,
+                new ConfigDescription("Shift the whole CompactLayout cluster down (-) or up (+), in degrees.",
+                    new AcceptableValueRange<float>(-20f, 20f)));
+            _compactSize = config.Bind(section, "CompactSize", 1f,
+                new ConfigDescription("Size of the CompactLayout readouts (text, arcs, icons). 1 is the game's size.",
+                    new AcceptableValueRange<float>(0.5f, 1.5f)));
         }
     }
 }

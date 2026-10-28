@@ -21,6 +21,7 @@ namespace NOXMFD
         {
             internal Transform T = null!;
             internal Vector3 Orig;
+            internal Vector3 OrigScale;
         }
 
         private sealed class BlockState
@@ -34,7 +35,7 @@ namespace NOXMFD
         private HUDAppManager? _apps;
         private float _canvasHeight;
         private float _appliedFov = -1f;
-        private float _appliedScale;
+        private Vector4 _appliedSettings;
         private bool _loggedFailure;
 
         private void Update()
@@ -96,7 +97,7 @@ namespace NOXMFD
                 foreach (string path in def.Members)
                 {
                     Transform? t = Resolve(center, apps.transform, path);
-                    if (t != null) block.Members.Add(new Moved { T = t, Orig = t.localPosition });
+                    if (t != null) block.Members.Add(new Moved { T = t, Orig = t.localPosition, OrigScale = t.localScale });
                 }
                 _blocks.Add(block);
             }
@@ -111,21 +112,31 @@ namespace NOXMFD
             if (cam == null || cam.mainCamera == null) return;
             float fov = cam.mainCamera.fieldOfView;
             float scale = HudDeclutterConfig.CompactScale;
-            if (Mathf.Abs(fov - _appliedFov) < 0.01f && scale == _appliedScale) return;
+            float offX = HudDeclutterConfig.CompactOffsetX;
+            float offY = HudDeclutterConfig.CompactOffsetY;
+            float size = HudDeclutterConfig.CompactSize;
+            var settings = new Vector4(scale, offX, offY, size);
+            if (Mathf.Abs(fov - _appliedFov) < 0.01f && settings == _appliedSettings) return;
             _appliedFov = fov;
-            _appliedScale = scale;
+            _appliedSettings = settings;
 
             foreach (BlockState b in _blocks)
             {
                 var target = new Vector3(
-                    HudCompactLayoutMath.DegToUnits(b.Def.XDeg * scale, _canvasHeight, fov),
-                    HudCompactLayoutMath.DegToUnits(b.Def.YDeg * scale, _canvasHeight, fov), 0f);
+                    HudCompactLayoutMath.DegToUnits(b.Def.XDeg * scale + offX, _canvasHeight, fov),
+                    HudCompactLayoutMath.DegToUnits(b.Def.YDeg * scale + offY, _canvasHeight, fov), 0f);
+                var refOrig = new Vector3(b.RefOrig.x, b.RefOrig.y, 0f);
+                // Each member keeps its prefab offset from the block's anchor, scaled with the block,
+                // so the anchor lands on target at any size.
                 // ponytail: assumes each member's parent is unrotated and unscaled relative to
                 // HUDCenter, true for every member in the preset; a member under a rotating pivot
-                // would need the delta transformed into its parent's space.
-                Vector3 delta = target - new Vector3(b.RefOrig.x, b.RefOrig.y, 0f);
+                // would need the offset transformed into its parent's space.
                 foreach (Moved m in b.Members)
-                    if (m.T != null) m.T.localPosition = m.Orig + delta;
+                {
+                    if (m.T == null) continue;
+                    m.T.localPosition = target + (m.Orig - refOrig) * size;
+                    m.T.localScale = m.OrigScale * size;
+                }
             }
         }
 
@@ -133,7 +144,11 @@ namespace NOXMFD
         {
             foreach (BlockState b in _blocks)
                 foreach (Moved m in b.Members)
-                    if (m.T != null) m.T.localPosition = m.Orig;
+                    if (m.T != null)
+                    {
+                        m.T.localPosition = m.Orig;
+                        m.T.localScale = m.OrigScale;
+                    }
             _blocks.Clear();
             _apps = null;
             _appliedFov = -1f;
