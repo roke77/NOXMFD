@@ -119,6 +119,7 @@
       // issue #43 POC only — see docs/internal-mfd.md.
       case 'internal-mfd-poc-toggle':     return { cmd: 'internal-mfd.poc-toggle' };
       case 'units-toggle':                return { cmd: 'units.toggle' };
+      case 'compact-hud-toggle':          return { cmd: 'compact-hud.toggle' };
       default: return null;
     }
   }

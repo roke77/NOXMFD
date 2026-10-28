@@ -25,7 +25,8 @@ Not on this page: it's a checkbox in the in-game F1 mod settings, under **NO XMF
 Compact HUD**. Ticking it pulls the in-game HUD's speed, altitude and heading readouts in close
 around the pitch ladder and shrinks them, closer to an F-16 HUD. The fuel and throttle arcs and the
 clocks move in too. The pitch ladder is drawn at true scale, so its 10° line sits 10° above the
-real horizon. Untick it to get the game's own layout back. It applies within half a second.
+real horizon. Untick it to get the game's own layout back. It applies within half a second. The
+**Toggle Compact HUD** keybind ([KEY](keybinds.md#misc)) flips the same checkbox.
 
 ## Presets
 

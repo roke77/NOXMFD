@@ -32,7 +32,9 @@
       sec('LAYOUT PRESETS', inSection('LAYOUT PRESETS')),
       sec('HUD PRESETS', inSection('HUD PRESETS')),
       sec('TGT PRESETS', inSection('TGT PRESETS')),
-      sec('MISC', function (b) { return b.id === 'units-toggle' || b.id === 'internal-mfd-poc-toggle'; }) ] }
+      sec('MISC', function (b) {
+        return b.id === 'units-toggle' || b.id === 'compact-hud-toggle' || b.id === 'internal-mfd-poc-toggle';
+      }) ] }
   ];
 
   function isBound(b) {

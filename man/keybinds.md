@@ -432,6 +432,9 @@ or button already used by another bind is refused, and the cell names the bind t
 - **Toggle Units** — switch every readout (cockpit HUD, NOXMFD pages) between Metric and Imperial —
   the same setting as the pause menu's Gameplay options, so it stays in sync with that menu and
   survives a restart.
+- **Toggle Compact HUD** — switch the cockpit HUD between the compact F-16-style layout and the
+  game's own. It flips the same **Compact HUD** checkbox as the F1 mod settings, so the choice
+  survives a restart. See [HUD](hud.md#compact-hud).
 - **Internal MFD POC Toggle** — turn the experimental in-cockpit NOXMFD overlay on or off during a
   mission. It is off and unbound by default. On aircraft with a calibrated cockpit screen, it
   replaces that screen with native RWR/HSD content and switches to TGP content while the TGP is

@@ -197,6 +197,8 @@ namespace NOXMFD
                 { "internal-mfd.poc-toggle", e => InternalMfdController.Toggle() },
                 // Remote-keybind twin of the Toggle Units keybind (issue #84).
                 { "units.toggle", e => Keybinds.ToggleUnits() },
+                // Remote-keybind twin of the Toggle Compact HUD keybind (docs/hud-compact-layout.md).
+                { "compact-hud.toggle", e => HudCompactLayout.Toggle() },
                 // HSD page's own CEN/DEP mode toggle + range step (hsd.js's saveRange(), the one
                 // choke point both mutations funnel through) — reported to the server so
                 // InternalMfdHsdPage can track the same view instead of a fixed range/mode, rather

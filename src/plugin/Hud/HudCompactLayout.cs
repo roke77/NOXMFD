@@ -25,6 +25,13 @@ namespace NOXMFD
             _enabled = config.Bind("HUD", "Compact HUD", false,
                 "Pull the nose-following HUD readouts into a compact F-16-style cluster around the pitch ladder, and draw the ladder at true scale.");
 
+        // The Toggle Compact HUD keybind and its remote twin. Writing .Value persists to the cfg, and
+        // the next Sync applies or restores.
+        internal static void Toggle()
+        {
+            if (_enabled != null) _enabled.Value = !_enabled.Value;
+        }
+
         private const float Interval = 0.5f;
         private float _timer = Interval;
 

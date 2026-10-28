@@ -3,7 +3,8 @@
 ## Status
 
 Implemented on `feature/hud-compact`, behind one F1-menu checkbox, **HUD → Compact HUD** (off by
-default). Tuned in game on the FS-12 Revoker at 90° vertical FOV. The in-game checks at
+default), which the **Toggle Compact HUD** keybind (KEY page, MFD SETUP → MISC, plus its
+`compact-hud.toggle` remote-keybind command) also flips. Tuned in game on the FS-12 Revoker at 90° vertical FOV. The in-game checks at
 the bottom are still open.
 
 ## Goal

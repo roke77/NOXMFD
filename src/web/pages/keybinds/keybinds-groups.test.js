@@ -25,6 +25,7 @@ const EXPECTED = [
   ['hud-preset-1', 'HUD PRESETS', 'setup', 'HUD PRESETS'],
   ['tgt-preset-1', 'TGT PRESETS', 'setup', 'TGT PRESETS'],
   ['units-toggle', 'Units Keybinds', 'setup', 'MISC'],
+  ['compact-hud-toggle', 'Compact HUD Keybinds', 'setup', 'MISC'],
   ['internal-mfd-poc-toggle', 'Internal MFD Keybinds', 'setup', 'MISC'],
 ];
 
