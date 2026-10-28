@@ -1632,10 +1632,6 @@ namespace NOXMFD
             return 0;
         }
 
-        // Returns the names of all currently-active failure indicators (e.g. "L ENG FIRE",
-        // "FUEL LOW"). The cached list of GameObjects comes from StatusDisplay's
-        // failureIndicators field captured at airframe-capture time; the game flips activeSelf
-        // on the matching GO when an IReportDamage event fires.
         // Battle damage (issue #110, docs/battle-damage.md). Each system's component destroys itself
         // when its part is shot off or hits 0 HP (Radar via TargetDetector_OnApplyDamage, TargetCam
         // on its part or the cockpit detaching, LaserDesignator on its part detaching), so Unity's
@@ -1651,6 +1647,10 @@ namespace NOXMFD
                 laserAlive: ac.GetLaserDesignator() != null);
         }
 
+        // Returns the names of all currently-active failure indicators (e.g. "L ENG FIRE",
+        // "FUEL LOW"). The cached list of GameObjects comes from StatusDisplay's
+        // failureIndicators field captured at airframe-capture time; the game flips activeSelf
+        // on the matching GO when an IReportDamage event fires.
         private string[] BuildFailures()
         {
             GameObject[] indicators = _assets.FailureIndicators;
