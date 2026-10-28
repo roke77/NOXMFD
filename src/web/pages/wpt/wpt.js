@@ -252,15 +252,24 @@ function renderSteerPane(c) {
   if (!ui.adding) acts.appendChild(button('+ NEW STEER POINT', 'wpt-btn-go', function () {
     ui.adding = true; $('wpt-grid-input').value = ''; render(); $('wpt-grid-input').focus();
   }));
-  // Applies to every new steer point (MAP long-press, grid entry, TGP mark); RouteStore owns the
-  // rule, this only flips the saved setting (on by default).
+  // REPLACE / STACK switch, AKF's DETAILED/COMPACT idiom. Applies to every new steer point (MAP
+  // long-press, grid entry, TGP mark); RouteStore owns the rule, this only flips the saved setting.
   const replace = c.replaceSteerPoint !== false;
-  const toggle = el('button', 'lit wpt-lit pad-hoverable', 'REPLACE SELECTED');
-  toggle.type = 'button';
-  toggle.setAttribute('aria-pressed', replace ? 'true' : 'false');
-  toggle.title = 'On: a new steer point replaces the one you are guiding to. Off: it is added to the list.';
-  toggle.onclick = function () { WaypointsStore.setReplaceSteerPoint(!replace).then(render); };
-  acts.appendChild(toggle);
+  const mode = el('div', 'wpt-mode');
+  const sw = el('button', 'wpt-mode-toggle pad-hoverable' + (replace ? '' : ' stack'));
+  sw.type = 'button';
+  sw.setAttribute('role', 'switch');
+  sw.setAttribute('aria-checked', replace ? 'false' : 'true');
+  sw.setAttribute('aria-label', 'Stack new steer points instead of replacing the selected one');
+  sw.appendChild(el('span', 'wpt-mode-label wpt-mode-left', 'REPLACE'));
+  const track = el('span', 'wpt-mode-switch');
+  track.appendChild(el('span', 'wpt-mode-knob'));
+  sw.appendChild(track);
+  sw.appendChild(el('span', 'wpt-mode-label wpt-mode-right', 'STACK'));
+  sw.onclick = function () { WaypointsStore.setReplaceSteerPoint(!replace).then(render); };
+  mode.appendChild(sw);
+  mode.appendChild(el('span', 'wpt-mode-hint', replace ? 'new point replaces the guided one' : 'new points add to the list'));
+  $('wpt-pane-head').appendChild(mode);
   $('wpt-grid-row').hidden = !ui.adding;
   updateGridHint();
 

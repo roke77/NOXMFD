@@ -180,7 +180,7 @@ zoom back to the game's own automatic choice until you press Z+/Z− again.
 **STP**, another nav-row button, marks whatever the camera is currently showing — a real lock's
 position, or the manual camera's current aim point — as a new [steer point](wpt.md#steer-points).
 Does nothing with no lock and manual control off, or manual control on but not looking at
-anything. With WPT's [REPLACE SELECTED](wpt.md#steer-points) on, the default, the new point
+anything. With WPT's [REPLACE / STACK](wpt.md#steer-points) switch on REPLACE, the default, the new point
 replaces the steer point you were guiding to. While a route is active, the point is saved without
 being selected, so the route keeps guiding ([why](wpt.md#route-or-steer-point-never-both)). A **Mark Steer Point** keybind (see [KEY](keybinds.md#tgp)) does the same thing.
 

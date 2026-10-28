@@ -108,8 +108,31 @@ button { font-size: inherit; }
 .wpt-btn-amber { border-color: color-mix(in oklab, var(--no-bg), var(--no-amber) 35%); color: var(--no-amber); }
 .wpt-btn-squad { border-color: var(--no-squad-line); color: var(--no-squad); }
 .wpt-btn-wide  { flex: 1 1 0; min-height: 3.1em; }
-/* Lit toggle (shared/lit-panel.css) sized to sit in the same action row as .wpt-btn. */
-.wpt-lit { --lamp-w: 2.6em; gap: 0.35em; min-height: 2.75em; padding: 0 0.875em; font-size: 0.8125em; letter-spacing: 0.1em; white-space: nowrap; }
+/* Steer-point REPLACE/STACK switch in the pane head's top right — the same sliding switch as AKF's
+   DETAILED/COMPACT: the knob sits on the active side and that side's label brightens. */
+.wpt-mode { margin-left: auto; align-self: flex-start; display: flex; flex-direction: column; align-items: flex-end; gap: 0.3em; }
+.wpt-mode-toggle {
+  display: flex; align-items: center; gap: 0.5em;
+  padding: 0.25em 0; border: 0; background: transparent; cursor: pointer;
+  font-family: inherit; font-size: 0.8125em; letter-spacing: 0.1em; white-space: nowrap;
+}
+.wpt-mode-label { color: var(--no-green-dim); }
+.wpt-mode-toggle:not(.stack) .wpt-mode-left,
+.wpt-mode-toggle.stack .wpt-mode-right { color: var(--no-green); }
+.wpt-mode-switch {
+  position: relative; flex: 0 0 auto;
+  width: 2.3em; height: 1.15em;
+  border: 1px solid var(--no-green-dark); border-radius: 0.6em;
+  background: var(--no-hover-wash-faint);
+}
+.wpt-mode-knob {
+  position: absolute; top: 0.08em; left: 0.08em;
+  width: 0.85em; height: 0.85em; border-radius: 50%;
+  background: var(--no-green);
+  transition: transform 0.12s ease;
+}
+.wpt-mode-toggle.stack .wpt-mode-knob { transform: translateX(1.15em); }
+.wpt-mode-hint { font-size: 0.6875em; letter-spacing: 0.06em; color: var(--no-white-dim); }
 
 /* Inline entry rows (new route name, steer point grid). */
 .wpt-new-row, .wpt-entry {

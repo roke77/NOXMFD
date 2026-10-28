@@ -32,7 +32,7 @@ click from a targetable unit sitting under or next to them; they still show thei
 
 Long-press the map to append a waypoint to the active route. With no route active, the same gesture
 creates a standalone steer point, replacing the one you were guiding to unless WPT's
-[REPLACE SELECTED](wpt.md#steer-points) is off. Long-pressing directly on an existing waypoint or steer point
+[REPLACE / STACK](wpt.md#steer-points) switch is on STACK. Long-pressing directly on an existing waypoint or steer point
 removes it instead — useful for undoing a placement without opening [WPT](wpt.md). Both kinds of
 navigation point are otherwise managed there.
 

@@ -75,7 +75,8 @@ map (post-0.82.0, always on).
 
 Steer points made one after another piled up in the list. `RouteStore` now has a persisted
 `replaceSteerPoint` flag (top level of `routes.json` and `RoutesJson`, default `true`), set by
-`wpt.replace-steerpoint {on}` from a `REPLACE SELECTED` checkbox in WPT's steer-point pane. With it
+`wpt.replace-steerpoint {on}` from a REPLACE / STACK switch at the top right of WPT's steer-point
+pane (AKF's DETAILED/COMPACT switch idiom, with a one-line caption under it). With it
 on, `AddSteerPoint` — and so every way of making one: MAP long-press, grid entry, TGP mark — puts the
 new point into the selected steer point's list slot instead of appending it, keeping the other
 points' STP numbers. A squad leader's shared point (`IsShared`) is never replaced; the new point is
