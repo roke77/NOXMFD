@@ -2,7 +2,7 @@ using System;
 
 namespace NOXMFD
 {
-    // Pure layout data for HudCompactLayout: the F-16-style target spot and size of each native HUD
+    // Pure layout data for HudCompactLayout: the compact target spot and size of each native HUD
     // readout block, in degrees from the nose marker, plus the degree-to-canvas conversions. Targets
     // are angular so the block keeps its place against the pitch ladder, which scales with FOV.
     internal static class HudCompactLayoutMath
@@ -32,7 +32,7 @@ namespace NOXMFD
         // ponytail: one fixed preset, tuned in game on the FS-12 Revoker prefab at 90° vertical FOV.
         // Other airframes share the readout names but may need their own offsets; a per-aircraft table
         // is the upgrade path.
-        internal static readonly Block[] F16Preset =
+        internal static readonly Block[] Preset =
         {
             new Block("speedGauge/Airspeed", -9.5f, 0.5f, 0.5f,
                 "speedGauge/Airspeed", "AoAGauge/AOA", "machIndicator/MachDisplay", "Gindicator"),

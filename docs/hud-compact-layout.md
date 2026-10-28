@@ -9,9 +9,8 @@ the bottom are still open.
 
 ## Goal
 
-Pull Nuclear Option's spread-out flight symbology into a tight cluster around the nose, close to
-where an F-16 HUD puts it: speed left of the ladder, altitude right, heading tape above, all
-within the area of a real HUD glass.
+Pull Nuclear Option's spread-out flight symbology into a tight cluster around the nose: speed
+left of the ladder, altitude right, heading tape above, all within the area of a real HUD glass.
 
 ## How the game draws its HUD
 
@@ -52,7 +51,7 @@ unit markers and status display do), so values the plugin sets stick.
 
 ### Blocks in degrees
 
-`HudCompactLayoutMath.F16Preset` lists blocks. Each one has an anchor object, a target in degrees
+`HudCompactLayoutMath.Preset` lists blocks. Each one has an anchor object, a target in degrees
 from the nose, a size, and the members that move with it. Degrees convert to canvas units through the
 camera's current vertical FOV (gnomonic: half the canvas height maps to `tan(fov/2)`), so the
 cluster keeps its place against the ladder when zooming. Each member keeps its prefab offset from

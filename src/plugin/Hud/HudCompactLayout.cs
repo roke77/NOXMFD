@@ -6,7 +6,7 @@ using UnityEngine.UI;
 
 namespace NOXMFD
 {
-    // Compact HUD: pulls the native nose-following HUD readouts into an F-16-style cluster
+    // Compact HUD: pulls the native nose-following HUD readouts into a compact cluster
     // (HudCompactLayoutMath holds the tuned preset) and draws the pitch ladder at true scale. The
     // readouts are prefab children of FlightHud's HUDCenter and of the aircraft's HUDAppManager, and
     // no game code writes their positions or scales, so values set here stick. Mission-scoped like
@@ -23,7 +23,7 @@ namespace NOXMFD
         // The one F1-menu checkbox; read every Sync, so a toggle applies or restores within 0.5 s.
         public static void Bind(ConfigFile config) =>
             _enabled = config.Bind("HUD", "Compact HUD", false,
-                "Pull the nose-following HUD readouts into a compact F-16-style cluster around the pitch ladder, and draw the ladder at true scale.");
+                "Pull the nose-following HUD readouts into a compact cluster around the pitch ladder, and draw the ladder at true scale.");
 
         // The Toggle Compact HUD keybind and its remote twin. Writing .Value persists to the cfg, and
         // the next Sync applies or restores.
@@ -111,7 +111,7 @@ namespace NOXMFD
             _apps = apps;
             _appliedFov = -1f;
 
-            foreach (HudCompactLayoutMath.Block def in HudCompactLayoutMath.F16Preset)
+            foreach (HudCompactLayoutMath.Block def in HudCompactLayoutMath.Preset)
             {
                 Transform? reference = Resolve(center, apps.transform, def.Reference);
                 if (reference == null) continue;

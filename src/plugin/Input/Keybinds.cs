@@ -523,7 +523,7 @@ namespace NOXMFD
             // docs/hud-compact-layout.md — flips the F1 Compact HUD checkbox, so the choice persists.
             const string compactHud = "Compact HUD Keybinds";
             DefFree(config, "compact-hud-toggle", compactHud, "CompactHudToggle", "Toggle Compact HUD", edge: true,
-                "Switch the cockpit HUD between the compact F-16-style layout and the game's own.",
+                "Switch the cockpit HUD between the compact layout and the game's own.",
                 HudCompactLayout.Toggle);
 
             // issue #43 proof-of-concept only (docs/internal-mfd.md) — toggles native NOXMFD page

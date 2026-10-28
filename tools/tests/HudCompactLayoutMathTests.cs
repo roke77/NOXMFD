@@ -20,7 +20,7 @@ namespace NOXMFD.Tests
         [Fact]
         public void Every_preset_block_moves_its_own_reference()
         {
-            foreach (HudCompactLayoutMath.Block b in HudCompactLayoutMath.F16Preset)
+            foreach (HudCompactLayoutMath.Block b in HudCompactLayoutMath.Preset)
                 Assert.True(System.Array.Exists(b.Members, m => b.Reference == m || b.Reference.StartsWith(m + "/")),
                     $"{b.Reference} is not inside any member of its block");
         }
