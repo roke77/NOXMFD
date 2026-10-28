@@ -5,13 +5,13 @@ using UnityEngine;
 namespace NOXMFD
 {
     // Pulls the native nose-following HUD readouts into an F-16-style cluster (HudCompactLayoutMath
-    // holds the preset). The readouts are prefab children of FlightHud's HUDCenter and of the
-    // aircraft's HUDAppManager, and no game code writes their positions, so a localPosition set here
-    // sticks. Mission-scoped like HudDeclutter; nothing outlives the HUD.
+    // holds the preset, HudCompactConfig the sliders). The readouts are prefab children of FlightHud's
+    // HUDCenter and of the aircraft's HUDAppManager, and no game code writes their positions or
+    // scales, so values set here stick. Mission-scoped like HudDeclutter; nothing outlives the HUD.
     //
-    // Original positions are captured once per HUDAppManager instance. The compass belongs to
-    // FlightHud and survives an aircraft respawn, so everything is restored before a re-capture —
-    // otherwise the moved position would be captured as the original.
+    // Original transforms are captured once per HUDAppManager instance. The compass, ladder and
+    // waterline belong to FlightHud and survive an aircraft respawn, so everything is restored before
+    // a re-capture — otherwise the moved values would be captured as the originals.
     internal class HudCompactLayout : MonoBehaviour
     {
         private const float Interval = 0.5f;
@@ -20,7 +20,8 @@ namespace NOXMFD
         private sealed class Moved
         {
             internal Transform T = null!;
-            internal Vector3 Orig;
+            internal Vector3 Orig;          // localPosition in its parent
+            internal Vector3 OrigCenter;    // position in HUDCenter space
             internal Vector3 OrigScale;
         }
 
@@ -32,10 +33,15 @@ namespace NOXMFD
         }
 
         private readonly List<BlockState> _blocks = new List<BlockState>();
+        // FlightHud's pitchCompassCenter and waterline. Only their scale changes: FlightHud rotates
+        // pitchCompassCenter and rescales the pitchCompass child for FOV each frame, but never touches
+        // the parent's scale or the waterline's.
+        private Moved? _ladder;
+        private Moved? _waterline;
         private HUDAppManager? _apps;
         private float _canvasHeight;
         private float _appliedFov = -1f;
-        private Vector4 _appliedSettings;
+        private int _appliedVersion = -1;
         private bool _loggedFailure;
 
         private void Update()
@@ -48,8 +54,8 @@ namespace NOXMFD
                     _timer = 0f;
                     Sync();
                 }
-                // Per frame so zooming (an FOV change) or dragging the scale slider doesn't leave the
-                // blocks lagging.
+                // Per frame so zooming (an FOV change) or dragging a slider doesn't leave the blocks
+                // lagging.
                 if (_blocks.Count > 0) Apply();
             }
             catch (Exception ex)
@@ -69,7 +75,7 @@ namespace NOXMFD
         private void Sync()
         {
             HUDAppManager apps = SceneSingleton<HUDAppManager>.i;
-            if (!HudDeclutterConfig.CompactLayout || apps == null)
+            if (!HudCompactConfig.Enabled || apps == null)
             {
                 Restore();
                 return;
@@ -97,11 +103,23 @@ namespace NOXMFD
                 foreach (string path in def.Members)
                 {
                     Transform? t = Resolve(center, apps.transform, path);
-                    if (t != null) block.Members.Add(new Moved { T = t, Orig = t.localPosition, OrigScale = t.localScale });
+                    if (t != null) block.Members.Add(Snapshot(t, center));
                 }
                 _blocks.Add(block);
             }
+
+            Transform? ladder = center.Find("pitchCompassCenter");
+            if (ladder != null) _ladder = Snapshot(ladder, center);
+            if (hud.waterline != null) _waterline = Snapshot(hud.waterline.transform, center);
         }
+
+        private static Moved Snapshot(Transform t, Transform center) => new Moved
+        {
+            T = t,
+            Orig = t.localPosition,
+            OrigCenter = center.InverseTransformPoint(t.position),
+            OrigScale = t.localScale,
+        };
 
         private static Transform? Resolve(Transform center, Transform apps, string path) =>
             center.Find(path) ?? apps.Find(path);
@@ -111,47 +129,64 @@ namespace NOXMFD
             CameraStateManager cam = SceneSingleton<CameraStateManager>.i;
             if (cam == null || cam.mainCamera == null) return;
             float fov = cam.mainCamera.fieldOfView;
-            float scale = HudDeclutterConfig.CompactScale;
-            float offX = HudDeclutterConfig.CompactOffsetX;
-            float offY = HudDeclutterConfig.CompactOffsetY;
-            float size = HudDeclutterConfig.CompactSize;
-            var settings = new Vector4(scale, offX, offY, size);
-            if (Mathf.Abs(fov - _appliedFov) < 0.01f && settings == _appliedSettings) return;
+            if (Mathf.Abs(fov - _appliedFov) < 0.01f && HudCompactConfig.Version == _appliedVersion) return;
             _appliedFov = fov;
-            _appliedSettings = settings;
+            _appliedVersion = HudCompactConfig.Version;
 
+            float spread = HudCompactConfig.Spread;
+            HudCompactConfig.Adjust all = HudCompactConfig.All;
             foreach (BlockState b in _blocks)
             {
+                HudCompactConfig.Adjust own = HudCompactConfig.ForGroup(b.Def.Group);
+                float size = all.Size * own.Size;
                 var target = new Vector3(
-                    HudCompactLayoutMath.DegToUnits(b.Def.XDeg * scale + offX, _canvasHeight, fov),
-                    HudCompactLayoutMath.DegToUnits(b.Def.YDeg * scale + offY, _canvasHeight, fov), 0f);
+                    HudCompactLayoutMath.DegToUnits(b.Def.XDeg * spread + all.OffsetX + own.OffsetX, _canvasHeight, fov),
+                    HudCompactLayoutMath.DegToUnits(b.Def.YDeg * spread + all.OffsetY + own.OffsetY, _canvasHeight, fov), 0f);
                 var refOrig = new Vector3(b.RefOrig.x, b.RefOrig.y, 0f);
                 // Each member keeps its prefab offset from the block's anchor, scaled with the block,
-                // so the anchor lands on target at any size.
-                // ponytail: assumes each member's parent is unrotated and unscaled relative to
-                // HUDCenter, true for every member in the preset; a member under a rotating pivot
-                // would need the offset transformed into its parent's space.
+                // so the anchor lands on target at any size. Offsets are taken in HUDCenter space and
+                // added to the member's own localPosition, so a member under an offset parent (Mach
+                // sits under a machIndicator 25 units down) lands correctly.
+                // ponytail: assumes every parent between a member and HUDCenter is unrotated and
+                // unscaled, true for the preset; a member under a rotating pivot would need the
+                // offset transformed into its parent's space.
                 foreach (Moved m in b.Members)
                 {
                     if (m.T == null) continue;
-                    m.T.localPosition = target + (m.Orig - refOrig) * size;
+                    Vector3 desired = target + (m.OrigCenter - refOrig) * size;
+                    m.T.localPosition = m.Orig + (desired - m.OrigCenter);
                     m.T.localScale = m.OrigScale * size;
                 }
             }
+
+            // Width only: rung spacing has to stay conformal with the real horizon, so the ladder
+            // can't shrink vertically or move off the nose.
+            float ladder = all.Size * HudCompactConfig.LadderSize;
+            if (_ladder != null && _ladder.T != null)
+                _ladder.T.localScale = new Vector3(_ladder.OrigScale.x * ladder, _ladder.OrigScale.y, _ladder.OrigScale.z);
+            if (_waterline != null && _waterline.T != null)
+                _waterline.T.localScale = _waterline.OrigScale * ladder;
         }
 
         private void Restore()
         {
             foreach (BlockState b in _blocks)
                 foreach (Moved m in b.Members)
-                    if (m.T != null)
-                    {
-                        m.T.localPosition = m.Orig;
-                        m.T.localScale = m.OrigScale;
-                    }
+                    Reset(m);
+            if (_ladder != null) Reset(_ladder);
+            if (_waterline != null) Reset(_waterline);
             _blocks.Clear();
+            _ladder = null;
+            _waterline = null;
             _apps = null;
             _appliedFov = -1f;
+        }
+
+        private static void Reset(Moved m)
+        {
+            if (m.T == null) return;
+            m.T.localPosition = m.Orig;
+            m.T.localScale = m.OrigScale;
         }
     }
 }

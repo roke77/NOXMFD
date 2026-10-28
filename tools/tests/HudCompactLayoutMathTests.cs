@@ -24,5 +24,12 @@ namespace NOXMFD.Tests
                 Assert.True(System.Array.Exists(b.Members, m => b.Reference == m || b.Reference.StartsWith(m + "/")),
                     $"{b.Reference} is not inside any member of its block");
         }
+
+        [Fact]
+        public void Every_preset_group_has_sliders()
+        {
+            foreach (HudCompactLayoutMath.Block b in HudCompactLayoutMath.F16Preset)
+                Assert.True(b.Group == "" || System.Array.IndexOf(HudCompactLayoutMath.Groups, b.Group) >= 0, b.Group);
+        }
     }
 }

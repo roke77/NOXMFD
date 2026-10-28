@@ -36,6 +36,7 @@ namespace NOXMFD
             // the whole plugin down in Awake, silently disabling telemetry along with it. This way
             // one broken subsystem logs a clear cause and the rest of the mod still starts.
             TryBind("HUD declutter", () => HudDeclutterConfig.Bind(Config));   // HUD-declutter toggles (persisted + shown in the in-game config menu)
+            TryBind("HUD compact layout", () => HudCompactConfig.Bind(Config)); // F-16-style HUD cluster sliders (F1 menu)
             TryBind("Keybinds", () => Keybinds.Bind(Config));                  // gameplay keybinds (countermeasures + gear) — configured on the /keybinds page
             TryBind("Immersion options", () => ImmersionConfig.Bind(Config)); // docs/radar-master-arms.md — radar/engine/master-arms start-state settings
             TryBind("Refresh rates", () => RatesConfig.Bind(Config));         // TLM/TGP rate + quality settings — MAP CFG and TGP CFG pages

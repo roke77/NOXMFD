@@ -9,14 +9,17 @@ namespace NOXMFD
     {
         internal readonly struct Block
         {
-            internal Block(string reference, float xDeg, float yDeg, params string[] members)
+            internal Block(string group, string reference, float xDeg, float yDeg, params string[] members)
             {
+                Group = group;
                 Reference = reference;
                 XDeg = xDeg;
                 YDeg = yDeg;
                 Members = members;
             }
 
+            // Groups entry whose sliders also apply, or "" for the global ones only.
+            internal string Group { get; }
             // Path (under HUDCenter, or under the aircraft's HUDAppManager) of the object whose
             // original position is the block's visual anchor.
             internal string Reference { get; }
@@ -26,23 +29,26 @@ namespace NOXMFD
             internal string[] Members { get; }
         }
 
+        // Instruments with their own placement/size sliders in HudCompactConfig.
+        internal static readonly string[] Groups = { "Speed", "Altitude", "Heading" };
+
         // ponytail: one fixed preset, tuned against the FS-12 Revoker prefab at 90° vertical FOV.
         // Other airframes share the readout names but may need their own offsets; a per-aircraft table
         // is the upgrade path. The pitch ladder spans about ±12° at 90° FOV, so the side blocks sit
         // just outside it.
         internal static readonly Block[] F16Preset =
         {
-            new Block("speedGauge/Airspeed", -16f, 2f,
+            new Block("Speed", "speedGauge/Airspeed", -16f, 2f,
                 "speedGauge/Airspeed", "AoAGauge/AOA", "machIndicator/MachDisplay", "Gindicator"),
-            new Block("Altitude", 16f, 0f, "Altitude", "Climbrate"),
-            new Block("compass", 0f, 18f, "compass", "BearingObject"),
+            new Block("Altitude", "Altitude", 16f, 0f, "Altitude", "Climbrate"),
+            new Block("Heading", "compass", 0f, 18f, "compass", "BearingObject"),
             // The AoA indexer sits inside the fuel arc in the prefab; they move as one.
-            new Block("fuelGauge/fuelArc", -24f, 0f, "fuelGauge", "AoAIndexer"),
-            new Block("throttleGauge_AB/throttleArc", 24f, 0f, "throttleGauge_AB", "GearIndicator/gearIcon"),
-            new Block("GameTimeObject", -13f, -14f, "GameTimeObject"),
-            new Block("OtherTimeObject", 13f, -14f, "OtherTimeObject"),
+            new Block("", "fuelGauge/fuelArc", -24f, 0f, "fuelGauge", "AoAIndexer"),
+            new Block("", "throttleGauge_AB/throttleArc", 24f, 0f, "throttleGauge_AB", "GearIndicator/gearIcon"),
+            new Block("", "GameTimeObject", -13f, -14f, "GameTimeObject"),
+            new Block("", "OtherTimeObject", 13f, -14f, "OtherTimeObject"),
             // Another mod's autopilot readout; skipped when absent.
-            new Block("AP_CombinedOverlay", -16f, -19f, "AP_CombinedOverlay"),
+            new Block("", "AP_CombinedOverlay", -16f, -19f, "AP_CombinedOverlay"),
         };
 
         // Canvas units from screen center for an angle off the camera axis. Gnomonic projection:
