@@ -34,6 +34,7 @@ namespace NOXMFD
         private HUDAppManager? _apps;
         private float _canvasHeight;
         private float _appliedFov = -1f;
+        private float _appliedScale;
         private bool _loggedFailure;
 
         private void Update()
@@ -46,7 +47,8 @@ namespace NOXMFD
                     _timer = 0f;
                     Sync();
                 }
-                // Per frame so zooming (an FOV change) doesn't leave the blocks lagging the ladder.
+                // Per frame so zooming (an FOV change) or dragging the scale slider doesn't leave the
+                // blocks lagging.
                 if (_blocks.Count > 0) Apply();
             }
             catch (Exception ex)
@@ -108,14 +110,16 @@ namespace NOXMFD
             CameraStateManager cam = SceneSingleton<CameraStateManager>.i;
             if (cam == null || cam.mainCamera == null) return;
             float fov = cam.mainCamera.fieldOfView;
-            if (Mathf.Abs(fov - _appliedFov) < 0.01f) return;
+            float scale = HudDeclutterConfig.CompactScale;
+            if (Mathf.Abs(fov - _appliedFov) < 0.01f && scale == _appliedScale) return;
             _appliedFov = fov;
+            _appliedScale = scale;
 
             foreach (BlockState b in _blocks)
             {
                 var target = new Vector3(
-                    HudCompactLayoutMath.DegToUnits(b.Def.XDeg, _canvasHeight, fov),
-                    HudCompactLayoutMath.DegToUnits(b.Def.YDeg, _canvasHeight, fov), 0f);
+                    HudCompactLayoutMath.DegToUnits(b.Def.XDeg * scale, _canvasHeight, fov),
+                    HudCompactLayoutMath.DegToUnits(b.Def.YDeg * scale, _canvasHeight, fov), 0f);
                 // ponytail: assumes each member's parent is unrotated and unscaled relative to
                 // HUDCenter, true for every member in the preset; a member under a rotating pivot
                 // would need the delta transformed into its parent's space.
