@@ -1,10 +1,10 @@
-// Self-check for the fixed squad-callsign list (issue #42). Run: `node callsigns.test.js`.
+// Self-check for the built-in squad-callsign list (issue #42) and the custom-list switch (#102). Run: `node callsigns.test.js`.
 // ES module, loaded with dynamic import() (same reasoning as services/pad-cursor.test.js) — needs
 // Node >= 22.7.
 const assert = require('assert');
 
 (async () => {
-  const { SQUAD_CALLSIGNS } = await import('./callsigns.js');
+  const { SQUAD_CALLSIGNS, activeCallsigns } = await import('./callsigns.js');
 
   assert.ok(Array.isArray(SQUAD_CALLSIGNS) && SQUAD_CALLSIGNS.length > 0, 'non-empty array');
 
@@ -26,6 +26,12 @@ const assert = require('assert');
   SQUAD_CALLSIGNS.forEach((c) => {
     assert.ok(c.length <= 20, `${c} exceeds Squad.CreateSquad's 20-char limit`);
   });
+
+  // callsigns.txt's list (state.callsigns, issue #102) replaces the built-in one only when non-empty.
+  assert.strictEqual(activeCallsigns(null), SQUAD_CALLSIGNS);
+  assert.strictEqual(activeCallsigns({}), SQUAD_CALLSIGNS);
+  assert.strictEqual(activeCallsigns({ callsigns: [] }), SQUAD_CALLSIGNS);
+  assert.deepStrictEqual(activeCallsigns({ callsigns: ['GHOST', 'STORM'] }), ['GHOST', 'STORM']);
 
   console.log(`callsigns.test.js: OK (${SQUAD_CALLSIGNS.length} callsigns)`);
 })();

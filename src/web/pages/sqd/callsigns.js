@@ -18,3 +18,9 @@ export const SQUAD_CALLSIGNS = [
   'TUSK', 'UZI', 'VADER', 'VENOM', 'VIPER', 'VULCAN', 'WARRIOR', 'WEASEL', 'WHIPLASH', 'WILD', 'WIZARD',
   'WOLF',
 ];
+
+// The pickers' list: the names from the player's callsigns.txt when the plugin sends any
+// (state.callsigns, issue #102), else the built-in list above.
+export function activeCallsigns(state) {
+  return state && state.callsigns && state.callsigns.length ? state.callsigns : SQUAD_CALLSIGNS;
+}

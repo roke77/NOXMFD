@@ -35,35 +35,65 @@ namespace NOXMFD
 
         // Favorite callsign names, pinned at the top of the SQD pickers in the order they were
         // starred. Stored as one comma-separated config string, so a name with a comma is refused
-        // (the picker list has none).
+        // (the picker list has none). Favorites outside the active list (CustomCallsigns) stay
+        // stored, hidden, for when that list is back; the cap counts the visible ones only.
         internal const int MaxFavorites = 3;
 
-        // A hand-edited config is tolerated: invalid names and repeats (any case) are dropped, the rest capped.
+        // A hand-edited config is tolerated: invalid names and repeats (any case) are dropped. Not
+        // capped here, since hidden favorites don't count; Visible caps what's shown.
         internal static List<string> ParseFavorites(string? stored)
         {
             var list = new List<string>();
             foreach (string part in (stored ?? string.Empty).Split(','))
-                SetFavorite(list, part, true);
+            {
+                string? clean = FavoriteName(part);
+                if (clean != null && IndexOf(list, clean) < 0) list.Add(clean);
+            }
             return list;
         }
 
         internal static string FormatFavorites(IEnumerable<string> favorites) => string.Join(",", favorites);
 
-        // Adds (on) or removes a name; false when nothing changed — already in/out, invalid, or the list is full.
-        internal static bool SetFavorite(List<string> favorites, string? name, bool on)
+        // The favorites the pickers show: those in `active` (null = the built-in list, which the
+        // plugin doesn't hold, so every name), at most MaxFavorites.
+        internal static List<string> Visible(IEnumerable<string> favorites, IReadOnlyList<string>? active)
         {
-            string? clean = CleanName(name);
-            if (clean == null || clean.IndexOf(',') >= 0) return false;
-            int at = favorites.FindIndex(f => string.Equals(f, clean, StringComparison.OrdinalIgnoreCase));
+            var shown = new List<string>();
+            foreach (string f in favorites)
+                if (shown.Count < MaxFavorites && (active == null || IndexOf(active, f) >= 0)) shown.Add(f);
+            return shown;
+        }
+
+        // Adds (on) or removes a name; false when nothing changed — already in/out, invalid, not in
+        // `active`, or the visible list is full.
+        internal static bool SetFavorite(List<string> favorites, string? name, bool on, IReadOnlyList<string>? active = null)
+        {
+            string? clean = FavoriteName(name);
+            if (clean == null) return false;
+            int at = IndexOf(favorites, clean);
             if (!on)
             {
                 if (at < 0) return false;
                 favorites.RemoveAt(at);
                 return true;
             }
-            if (at >= 0 || favorites.Count >= MaxFavorites) return false;
+            if (at >= 0 || (active != null && IndexOf(active, clean) < 0)
+                || Visible(favorites, active).Count >= MaxFavorites) return false;
             favorites.Add(clean);
             return true;
+        }
+
+        private static string? FavoriteName(string? name)
+        {
+            string? clean = CleanName(name);
+            return clean == null || clean.IndexOf(',') >= 0 ? null : clean;
+        }
+
+        private static int IndexOf(IReadOnlyList<string> list, string name)
+        {
+            for (int i = 0; i < list.Count; i++)
+                if (string.Equals(list[i], name, StringComparison.OrdinalIgnoreCase)) return i;
+            return -1;
         }
     }
 }
