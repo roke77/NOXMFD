@@ -2297,6 +2297,10 @@ window.addEventListener('message', function(e) {
     if (e.source) e.source.postMessage({ mfd: true, type: 'wpt-routes', data: WaypointsStore.load() }, '*');
   }
 });
+// The map tap may have received the battle-damage status before the listener above existed
+// (docs/battle-damage.md) — ask for it now. If the tap isn't listening yet, its own first copy
+// arrives after this point instead.
+mapSend('sysdmg-request');
 
 // Drive the map iframe without reaching into it (keeps the map a standalone component;
 // also works cross-origin under file://).

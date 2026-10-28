@@ -419,5 +419,33 @@ const assert = require('assert');
     }
   }
 
+  // Battle damage (docs/battle-damage.md): the server sends sysdmg only on connect and on change, and
+  // the on-connect copy can reach this tap before the shell listens. The tap keeps the last one and
+  // replays it on the shell's sysdmg-request; with nothing received yet it stays quiet.
+  {
+    const messages = [];
+    const listeners = {};
+    const realWindow = global.window, realES = global.EventSource;
+    global.window = { parent: {} };
+    global.EventSource = class { constructor() {} addEventListener(t, fn) { listeners[t] = fn; } close() {} };
+    const srcD = new TelemetrySource({});
+    srcD._postUp = (m) => messages.push(m);
+    try {
+      srcD.connect();
+      srcD.rebroadcastSysdmg();
+      assert.strictEqual(messages.length, 0, 'no status received yet: nothing to replay');
+
+      const status = { on: true, radar: 'none', tgp: 'fail', laser: 'fail' };
+      listeners.sysdmg({ data: JSON.stringify(status) });
+      messages.length = 0;
+      srcD.rebroadcastSysdmg();
+      assert.deepStrictEqual(messages, [{ type: 'sysdmg-push', data: status }], 'replays the last status');
+    } finally {
+      srcD.disconnect();
+      global.window = realWindow;
+      global.EventSource = realES;
+    }
+  }
+
   console.log('telemetry-source.test.js: OK');
 })();

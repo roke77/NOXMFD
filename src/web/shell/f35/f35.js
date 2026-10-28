@@ -1347,6 +1347,10 @@
     else if (m.type === 'mis') paintMisClocks();
     else if (m.type === 'loadout') { paintWpnModes(); paintWeapon(); }
   });
+  // The map tap may have received the battle-damage status before the listener above existed
+  // (docs/battle-damage.md) — ask for it now. If the tap isn't listening yet, its own first copy
+  // arrives after this point instead.
+  mapTap.contentWindow.postMessage({ mfd: true, action: 'sysdmg-request' }, '*');
 
   // WPN's rects and the label decorators are derived from the portal's box, so they go stale when it
   // changes. The bezel recomputes from its separators for the same reason; every page's content

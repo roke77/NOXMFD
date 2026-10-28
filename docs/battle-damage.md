@@ -56,6 +56,11 @@ stay) and turns RDR's data into `present:false`. That is game state and holds wi
 - `telemetry-source.js` relays `sysdmg` up as `sysdmg-push`. The classic shell caches it
   (`RELAY_MESSAGES`, `SYSDMG_PAGES = ['rdr','tgp']`) and replays it on frame/pane load and on
   `showPage`; the F-35 lists it in `PAGE_FEEDS` for `rdr`/`tgp`, so portals replay it on mount.
+- The server sends `sysdmg` only on connect and on change, and the map tap (an iframe declared
+  before the shell's scripts) can receive the on-connect copy before the shell listens — found in
+  game: a display opened after a crash never showed TGP FAIL. The tap keeps the last status
+  (`rebroadcastSysdmg`), and each shell sends `sysdmg-request` once its listener is attached
+  (answered by map.js and the F-35's telemetry-tap.js).
 - `services/battle-damage.js`: the page → system rules (`failedSystem`, `laserFailed`) and
   `createFailScreen(doc, page)` — an opaque `.bd-fail` layer (theme.css) with the `<SYSTEM> FAIL`
   banner. It sits inside the page document, so it blanks content and swallows its clicks while

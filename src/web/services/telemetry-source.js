@@ -17,6 +17,7 @@
 //                 .emitGrid(on)          — the view's GRID toggle, mirrored up
 //                 .emitSlew(on)          — MAP's TGP SLEW armed state, mirrored up
 //                 .rebroadcastStatus()   — answer the shell's status-request
+//                 .rebroadcastSysdmg()   — answer the shell's sysdmg-request
 // Source → view (callbacks):
 //   onFrame(d)          a real telemetry frame arrived — render it
 //   onNoMission(didEnd, ping)  a ping (connected, no mission); didEnd=true on the frame→ping
@@ -98,6 +99,7 @@ export class TelemetrySource {
     this._inMission = false;            // true between the first frame and the next no-mission ping
     this._meta = null;                  // { w, h, ox, oy } — for target grid labels; persists until reset
     this._lastStatus = { cls: 'disconnected', text: '● DISCONNECTED' };
+    this._sysdmg = null;                // last battle-damage status (docs/battle-damage.md)
     this._cid = '';                     // this instance's SOI id — settled by the server's hello
     this._soiFocused = null;            // null = never reported; forces the first post either way
     this._soiPane = -1;                 // which of this instance's surfaces is focused (-1 = none)
@@ -160,8 +162,9 @@ export class TelemetrySource {
       try { this._postUp({ type: 'themes-push', data: JSON.parse(e.data) }); } catch (err) { /* malformed — skip this one */ }
     });
     // Battle damage (docs/battle-damage.md): per-system status, relayed to the pages that can fail.
+    // Kept for rebroadcastSysdmg: the server sends it only on connect and on change.
     es.addEventListener('sysdmg', (e) => {
-      try { this._postUp({ type: 'sysdmg-push', data: JSON.parse(e.data) }); } catch (err) { /* malformed — skip this one */ }
+      try { this._sysdmg = JSON.parse(e.data); this.rebroadcastSysdmg(); } catch (err) { /* malformed — skip this one */ }
     });
     es.addEventListener('server-players', (e) => {
       try { this._postUp({ type: 'server-players-push', data: JSON.parse(e.data) }); } catch (err) { /* malformed — skip this one */ }
@@ -193,6 +196,9 @@ export class TelemetrySource {
     this._postUp({ type: 'status', cls, text });
   }
   rebroadcastStatus() { this._postUp({ type: 'status', cls: this._lastStatus.cls, text: this._lastStatus.text }); }
+  // This iframe can connect and receive the on-connect copy before the shell's own scripts have
+  // attached their message listener, so the shell asks once it is listening (sysdmg-request).
+  rebroadcastSysdmg() { if (this._sysdmg) this._postUp({ type: 'sysdmg-push', data: this._sysdmg }); }
   emitFollow(on) { this._postUp({ type: 'follow', on: !!on }); }
   // A view-local display preference, not derived from the telemetry frame, so unlike 'follow' it
   // has no _emitEmpties reset: there's nothing wrong with the grid staying on/off across a

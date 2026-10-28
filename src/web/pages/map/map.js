@@ -1587,6 +1587,7 @@ window.addEventListener('message', function(e) {
     case 'zoom-in':       zoomStep(1.5);   break;
     case 'zoom-out':      zoomStep(1 / 1.5); break;
     case 'status-request': source.rebroadcastStatus(); break;   // shell asked for the current status
+    case 'sysdmg-request': source.rebroadcastSysdmg(); break;   // shell's boot catch-up (docs/battle-damage.md)
     // R+/R- (issue #38) — switch the active waypoint route; re-pull it and repaint so the map's
     // rendered line/markers switch immediately, same as a local long-press placement does.
     case 'route-next': WaypointsStore.cycleActiveRoute(1).then(function () { refreshWaypointRoute(); drawOverlay(); });  break;
