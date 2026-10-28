@@ -51,6 +51,20 @@ namespace NOXMFD
             new Block("", "AP_CombinedOverlay", -16f, -19f, "AP_CombinedOverlay"),
         };
 
+        // FlightHud maps pitch onto the ladder texture as uv.y = -pitch/180 + c, so the full texture
+        // height spans 180 degrees.
+        internal const float LadderTextureDeg = 180f;
+
+        // localScale that makes the ladder conformal at the screen center: a window windowUnits tall
+        // showing uvHeight of the texture gets the camera's units-per-degree. FlightHud's own
+        // 50/fov is a linear stand-in that is only exact near 60° FOV (about 15% too large at 90°).
+        internal static float TrueLadderScale(float uvHeight, float windowUnits, float canvasHeight, float verticalFovDeg)
+        {
+            const double rad = Math.PI / 180.0;
+            double unitsPerDeg = canvasHeight * 0.5 * rad / Math.Tan(verticalFovDeg * 0.5 * rad);
+            return (float)(uvHeight * LadderTextureDeg * unitsPerDeg / windowUnits);
+        }
+
         // Canvas units from screen center for an angle off the camera axis. Gnomonic projection:
         // half the canvas height maps to tan(fov/2).
         internal static float DegToUnits(float deg, float canvasHeight, float verticalFovDeg)

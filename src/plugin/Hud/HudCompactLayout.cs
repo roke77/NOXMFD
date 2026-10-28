@@ -40,6 +40,7 @@ namespace NOXMFD
         private RawImage? _ladder;
         private Vector2 _ladderOrigSize;
         private Rect _ladderLastUv;
+        private float _ladderUvHeight;   // the game's uncropped uv height, from its latest write
         private Moved? _waterline;
         private HUDAppManager? _apps;
         private float _canvasHeight;
@@ -175,11 +176,20 @@ namespace NOXMFD
         // screen, the window just shows fewer rungs. Runs after FlightHud.Update has written this
         // frame's uvRect; if FlightHud skipped a frame (no cockpit rigidbody) the uvRect is still the
         // one cropped here, so it's left alone rather than cropped twice.
+        // The ladder's localScale is replaced the same way with the true conformal scale (FlightHud
+        // writes its 50/fov approximation each frame), computed from the uncropped window so the crop
+        // doesn't change rung spacing.
         private void LateUpdate()
         {
             if (_ladder == null || _blocks.Count == 0) return;
+            CameraStateManager cam = SceneSingleton<CameraStateManager>.i;
+            if (cam != null && cam.mainCamera != null && _ladderUvHeight > 0f)
+                _ladder.transform.localScale = Vector3.one *
+                    HudCompactLayoutMath.TrueLadderScale(_ladderUvHeight, _ladderOrigSize.y, _canvasHeight, cam.mainCamera.fieldOfView);
+
             Rect uv = _ladder.uvRect;
             if (uv == _ladderLastUv) return;
+            _ladderUvHeight = uv.height;
             float h = uv.height * LadderFactor;
             uv.y += (uv.height - h) * 0.5f;
             uv.height = h;
@@ -197,6 +207,7 @@ namespace NOXMFD
             if (_waterline != null) Reset(_waterline);
             _blocks.Clear();
             _ladder = null;
+            _ladderUvHeight = 0f;
             _waterline = null;
             _apps = null;
             _appliedFov = -1f;

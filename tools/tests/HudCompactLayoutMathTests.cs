@@ -26,6 +26,14 @@ namespace NOXMFD.Tests
         }
 
         [Fact]
+        public void True_ladder_scale_matches_the_games_at_60_and_shrinks_it_at_90()
+        {
+            // The game's ladder: a 450-unit window onto 0.126 of the texture, scaled 50/fov.
+            Assert.InRange(HudCompactLayoutMath.TrueLadderScale(0.126f, 450f, 1080f, 60f) / (50f / 60f), 0.97f, 1.0f);
+            Assert.InRange(HudCompactLayoutMath.TrueLadderScale(0.126f, 450f, 1080f, 90f) / (50f / 90f), 0.84f, 0.88f);
+        }
+
+        [Fact]
         public void Every_preset_group_has_sliders()
         {
             foreach (HudCompactLayoutMath.Block b in HudCompactLayoutMath.F16Preset)
