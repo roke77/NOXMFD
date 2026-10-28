@@ -22,6 +22,7 @@ namespace NOXMFD.Tests
             BattleDamage.Update(AircraftA, on: true, radarAlive: true, tgpAlive: true, laserAlive: true);
             BattleDamage.Update(AircraftA, on: true, radarAlive: false, tgpAlive: true, laserAlive: false);
             Assert.Equal("{\"on\":true,\"radar\":\"fail\",\"tgp\":\"ok\",\"laser\":\"fail\"}", BattleDamage.StateJson);
+            Assert.True(BattleDamage.RadarFailed);
             Assert.True(BattleDamage.LaserFailed);
             Assert.False(BattleDamage.TgpFailed);
 

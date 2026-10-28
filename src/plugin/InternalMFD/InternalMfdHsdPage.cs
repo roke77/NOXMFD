@@ -91,6 +91,7 @@ namespace NOXMFD
         private readonly Text _lockText;
         private readonly Text _focusedNameText;
         private readonly Text _focusedDetailText;
+        private readonly InternalMfdFailScreen _failScreen;
 
         // Grow-on-demand pools — same reasoning as InternalMfdRwrPage's contact/missile pools: HSD
         // has no fixed contact/threat cap either (hsd.js's own renderContacts/renderThreats iterate
@@ -135,6 +136,8 @@ namespace NOXMFD
             _focusedNameText.rectTransform.anchoredPosition += new Vector2(0f, 18f);
             _focusedDetailText = BuildCornerText("FocusedDetail", new Vector2(0f, 0f), TextAnchor.LowerLeft, 13);
             _focusedNameText.color = _focusedDetailText.color = ContactAmber;
+
+            _failScreen = new InternalMfdFailScreen(parent, font, "RADAR FAIL");
         }
 
         private void EnsureGridPool(int count)
@@ -208,6 +211,7 @@ namespace NOXMFD
 
         public void Refresh(TelemetrySnapshot snap)
         {
+            if (_failScreen.Update(BattleDamage.RadarFailed)) return;   // docs/battle-damage.md
             bool dep = snap.HsdDep;
             int rangeIdx = Mathf.Clamp(snap.HsdRangeIdx, 0, CenRangeNm.Length - 1);
             float rangeM = (dep ? DepRangeNm : CenRangeNm)[rangeIdx] * 1852f;

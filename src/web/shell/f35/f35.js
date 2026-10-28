@@ -82,7 +82,7 @@
     obj: ['obj'],             // active-objectives list (docs/md-pages.md)
     akf: ['akf'],             // kill-feed/session-stats block (docs/akf-page.md)
     rdr: ['rdr', 'sysdmg-push'],   // radar contacts (docs/rdr-page.md) + battle damage
-    hsd: ['hsd', 'mapinfo', 'rdr', 'wpt-routes'],  // 360-degree datalink picture + FCR cone
+    hsd: ['hsd', 'mapinfo', 'rdr', 'wpt-routes', 'sysdmg-push'],  // 360-degree datalink picture + FCR cone
                                                     // (docs/rdr-fcr-hsd.md) + active route overlay
     wpt: ['mapinfo', 'wpt-routes', 'sqd-state'],   // navigation readout + shared navigation library + share-button gate
     rtd: ['mapinfo', 'wpt-routes'],                // route / steer-point details (docs/wpt-rework.md)

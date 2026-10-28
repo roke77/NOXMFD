@@ -5,8 +5,8 @@
 ## Goal
 
 A new Immersion option, **Battle damage** (KEY page, INPUT & DISPLAY group, default OFF): an MFD page goes
-offline when the in-game aircraft system it shows is destroyed. RDR fails with the radar, TGP with
-the targeting camera; with only the laser designator lost, TGP keeps its feed and its laser
+offline when the in-game aircraft system it shows is destroyed. RDR and HSD fail with the radar,
+TGP with the targeting camera; with only the laser designator lost, TGP keeps its feed and its laser
 readouts read LASER FAIL. Flight-critical and utility pages never fail. With the option OFF
 nothing changes.
 
@@ -30,32 +30,38 @@ time a system is seen alive on the current aircraft (reset on a new aircraft ref
 `ok`, fitted but dead → `fail`, never seen → `none`. A component that comes back (repair, respawn)
 reads `ok` again.
 
-The HSD partial case needs no code: `BuildHsd` reads own-radar detections through
-`player.radar != null`, and `BuildRdr` through `player.radar as Radar` + `== null`, so a destroyed
-radar already drops HSD's own-radar contacts and FCR cone (datalink contacts, waypoints and map
-stay) and turns RDR's data into `present:false`. That is game state and holds with the option off.
+With the option off, a destroyed radar still changes what the game reports: `BuildHsd` reads
+own-radar detections through `player.radar != null` and `BuildRdr` through `player.radar as Radar`
++ `== null`, so HSD loses its own-radar contacts and FCR cone (datalink contacts, waypoints and map
+stay) and RDR's data turns `present:false`.
+
+The ticket asked for exactly that partial loss on HSD with the option on. After the first build,
+HSD was changed to go fully offline with the radar instead, the same as FCR, so the two read as
+one radar system.
 
 ## Design
 
 **Plugin**
 
 - `Immersion/BattleDamage.cs` (Unity-free, unit-tested): the latch logic, `{on, radar, tgp, laser}`
-  JSON in a volatile `StateJson` rebuilt only on a change, and `TgpFailed`/`LaserFailed` for the
-  internal MFD.
+  JSON in a volatile `StateJson` rebuilt only on a change, and `RadarFailed`/`TgpFailed`/
+  `LaserFailed` for the internal MFD.
 - `TelemetryReader.RefreshBattleDamage`, on the fast tick after `PushSnapshot`: three Unity null
   checks. `is Radar` keeps a radar-less airframe's plain `TargetDetector` from counting as a radar.
 - `SseHub`: a change-gated `sysdmg` event, same shape as `themes`/`wpt-options` — sent on connect
   and on change only, never per frame.
 - `ImmersionConfig.BattleDamage` (persisted, hidden from F1), `keybind.set-battle-damage`, and
   `battleDamage` on `/keybinds-config`.
-- `InternalMfdTgpPage`: `TGP FAIL` (red, flickering ~3 s at the 10 Hz refresh, then steady) and a
-  `LASER FAIL` strip. The internal HSD follows the game like the web HSD; RWR never fails.
+- `InternalMfdFailScreen`: the internal panes' FAIL cover (red banner, flickering ~3 s at the
+  10 Hz refresh, then steady). `InternalMfdHsdPage` shows `RADAR FAIL` and stops drawing;
+  `InternalMfdTgpPage` shows `TGP FAIL`, plus a `LASER FAIL` strip for a laser-only loss. RWR never
+  fails.
 
 **Web**
 
 - `telemetry-source.js` relays `sysdmg` up as `sysdmg-push`. The classic shell caches it
-  (`RELAY_MESSAGES`, `SYSDMG_PAGES = ['rdr','tgp']`) and replays it on frame/pane load and on
-  `showPage`; the F-35 lists it in `PAGE_FEEDS` for `rdr`/`tgp`, so portals replay it on mount.
+  (`RELAY_MESSAGES`, `SYSDMG_PAGES = ['rdr','hsd','tgp']`) and replays it on frame/pane load and on
+  `showPage`; the F-35 lists it in `PAGE_FEEDS` for `rdr`/`hsd`/`tgp`, so portals replay it on mount.
 - The server sends `sysdmg` only on connect and on change, and the map tap (an iframe declared
   before the shell's scripts) can receive the on-connect copy before the shell listens — found in
   game: a display opened after a crash never showed TGP FAIL. The tap keeps the last status
@@ -88,8 +94,8 @@ entry in `PAGE_SYSTEM`. Extension pages are out of scope.
 
 ### Live-game checks still needed
 
-- Shoot off / zero the radar part: RDR flickers then shows RADAR FAIL; HSD drops own-radar
-  contacts and the FCR cone, datalink contacts stay.
+- Shoot off / zero the radar part: RDR and HSD flicker then show RADAR FAIL, on the web pages
+  and the internal HSD pane.
 - Lose the TGP camera (its part or the cockpit detaching): TGP flickers then shows TGP FAIL, on
   the web page and the internal MFD pane.
 - Lose only the laser designator: TGP feed keeps running with LASER FAIL (web and internal pane).

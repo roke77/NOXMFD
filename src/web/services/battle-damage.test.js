@@ -19,9 +19,11 @@ function fakeDoc() {
 
   // Page → system.
   assert.strictEqual(failedSystem('rdr', st({ radar: 'fail' })), 'radar');
+  assert.strictEqual(failedSystem('hsd', st({ radar: 'fail' })), 'radar', 'HSD goes down with FCR');
+  assert.strictEqual(failedSystem('hsd', st({ tgp: 'fail', laser: 'fail' })), null, 'HSD does not fail with the TGP');
   assert.strictEqual(failedSystem('tgp', st({ tgp: 'fail' })), 'tgp');
   assert.strictEqual(failedSystem('tgp', st({ radar: 'fail' })), null, 'TGP does not fail with the radar');
-  for (const page of ['hsd', 'adi', 'hsi', 'hud', 'avn', 'main', 'rwr', 'lyt', 'ui'])
+  for (const page of ['adi', 'hsi', 'hud', 'avn', 'main', 'rwr', 'lyt', 'ui'])
     assert.strictEqual(failedSystem(page, st({ radar: 'fail', tgp: 'fail', laser: 'fail' })), null, page + ' never fails');
 
   // Not fitted is not failed; option off changes nothing; no status yet is not failed.

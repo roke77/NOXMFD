@@ -1,8 +1,7 @@
 // Battle damage (issue #110, docs/battle-damage.md): which page goes offline for the plugin's
 // per-system status push ({on, radar, tgp, laser}, each 'ok' | 'fail' | 'none'; 'none' = not
-// fitted, which never fails). Every page not listed here never fails. HSD needs no entry: the
-// game itself stops reporting own-radar contacts once the radar is destroyed.
-const PAGE_SYSTEM = { rdr: 'radar', tgp: 'tgp' };
+// fitted, which never fails). Every page not listed here never fails.
+const PAGE_SYSTEM = { rdr: 'radar', hsd: 'radar', tgp: 'tgp' };
 const BANNER = { radar: 'RADAR FAIL', tgp: 'TGP FAIL' };
 
 // The lost system behind `page`, or null while it works.

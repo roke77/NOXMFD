@@ -45,6 +45,7 @@ namespace NOXMFD
         }
 
         // Main-thread reads for the internal MFD panes, same rules as services/battle-damage.js.
+        internal static bool RadarFailed => _on && _radar == SysState.Fail;
         internal static bool TgpFailed   => _on && _tgp == SysState.Fail;
         internal static bool LaserFailed => _on && _laser == SysState.Fail && _tgp != SysState.Fail;
 

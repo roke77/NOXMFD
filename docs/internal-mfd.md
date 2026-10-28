@@ -119,8 +119,9 @@ still per-tab `sessionStorage`) because that's the sync this was asked for — t
   `TgpManualAimMath.cs` use for their own geometry.
 - **`InternalMfdHsdPage.cs`**, **`InternalMfdRwrPage.cs`**, **`InternalMfdTgpPage.cs`** — one file
   per page, each implementing `IInternalMfdPage`. A new page is a new `InternalMfd<Name>Page.cs`,
-  not a growing switch statement in the controller. With battle damage on, the TGP page shows TGP
-  FAIL and a LASER FAIL strip ([battle-damage.md](battle-damage.md)); HSD and RWR never fail.
+  not a growing switch statement in the controller. With battle damage on, HSD shows RADAR FAIL and
+  TGP shows TGP FAIL or a LASER FAIL strip (`InternalMfdFailScreen.cs`,
+  [battle-damage.md](battle-damage.md)); RWR never fails.
 
 ## Goal
 

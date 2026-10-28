@@ -928,7 +928,7 @@ function forwardServerPlayersToFrame() { if (serverPlayersData) forwardToFrame(s
 function forwardServerPlayersToPanes() { if (serverPlayersData) forwardToPanes('sqd', serverPlayersData); }
 function forwardThemesToFrame() { if (themesData) forwardToFrame(themesData); }
 // Battle damage (docs/battle-damage.md): the pages that can go offline with a system.
-const SYSDMG_PAGES = ['rdr', 'tgp'];
+const SYSDMG_PAGES = ['rdr', 'hsd', 'tgp'];
 function forwardSysdmgToFrame() { if (sysdmgData) forwardToFrame(sysdmgData); }
 function forwardSysdmgToPanes() { if (sysdmgData) SYSDMG_PAGES.forEach(function (p) { forwardToPanes(p, sysdmgData); }); }
 function forwardThemesToPanes() { if (themesData) forwardToPanes('ui', themesData); }
@@ -1909,7 +1909,7 @@ function showPage(name) {
   }
   if (name === 'hsd') {
     showFramePage('hsd');
-    forwardHsdToFrame();
+    forwardHsdToFrame(); forwardSysdmgToFrame();
   }
   // TGT renders in #page-frame too. Its only bezel key is the static MAIN label (NAV.tgt,
   // placed by the generic sweep above); everything else is clickable in the page. Forward state.

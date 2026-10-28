@@ -154,12 +154,13 @@ lamp means ON. They sit in two groups.
   last applied — a quick way to reset back to it without leaving WPN. See
   [Combat mode](#combat-mode).
 - **Battle Damage** — off by default. Turn it on and an MFD page goes offline when the aircraft
-  system it shows is destroyed: [RDR](rdr.md) shows RADAR FAIL when you lose the radar, and
-  [TGP](tgp.md) shows TGP FAIL when you lose the targeting camera. The page flickers for a few
-  seconds and then goes blank; its bezel labels keep working, so you can still page away. If only
-  the laser designator is lost, TGP keeps its picture and shows LASER FAIL. An aircraft that never
-  had the system shows the page's usual "not available" instead. Respawning or repairing brings
-  the pages back. Every other page (ADI, HSI, HUD, SYS, MAIN, settings) never fails.
+  system it shows is destroyed: [RDR](rdr.md)'s FCR and HSD show RADAR FAIL when you lose the
+  radar, and [TGP](tgp.md) shows TGP FAIL when you lose the targeting camera. The page flickers
+  for a few seconds and then goes blank; its bezel labels keep working, so you can still page
+  away. If only the laser designator is lost, TGP keeps its picture and shows LASER FAIL. An
+  aircraft that never had the system shows the page's usual "not available" instead. Respawning
+  or repairing brings the pages back. Every other page (ADI, HSI, HUD, SYS, MAIN, settings) never
+  fails.
 
 ### Immersion Options
 

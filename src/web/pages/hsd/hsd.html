@@ -19,6 +19,8 @@
            threats (issue #74) are known enemy ground/naval AA units; r is that unit's effective
            max weapon engagement range in meters, drawn as a yellow ring around its own position —
            not the same thing as radarRange (own radar detection range).
+    'sysdmg-push': { data: {on, radar, tgp, laser} } — battle damage (docs/battle-damage.md): a
+           lost radar puts up the RADAR FAIL screen, same as FCR (services/battle-damage.js).
     action: 'zoom-in'/'zoom-out' step the selected HSD range.
     action: 'hsd-mode' toggles CEN <-> DEP (docs/rdr-fcr-hsd.md) — ownship recenters and the grid
             ring count/spacing changes; the selected range carries across the switch rather than

@@ -106,7 +106,7 @@ var SETTINGS = [
     desc: 'A/A or A/G forces the HUD page preset; idle restores your own.',
     get: function () { return hudFiltersOnCombatMode; }, set: function (v) { hudFiltersOnCombatMode = v; } },
   { grp: 0, label: 'BATTLE DAMAGE', icon: 'damage', cmd: 'keybind.set-battle-damage',
-    desc: 'A page goes offline when its system is destroyed: RDR with the radar, TGP with the targeting camera.',
+    desc: 'A page goes offline when its system is destroyed: RDR and HSD with the radar, TGP with the targeting camera.',
     get: function () { return battleDamage; }, set: function (v) { battleDamage = v; } }
 ];
 
