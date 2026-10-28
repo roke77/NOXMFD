@@ -59,7 +59,8 @@ HSD itself (`InternalMfdHsdPage.cs`) is a deliberately simplified read of the re
 (`src/web/pages/hsd/hsd.js`): the grid rings (colors.css `--no-hsd-pink-rgb`), the notched
 contact/ownship icon (`hsd.js`'s own `'M0 -9 L-6 7 L0 4 L6 7 Z'` polygon, filled here rather than
 RWR's stroke-only caret), contact colors (`--no-purple` datalink / `--no-red` own-radar /
-`--no-white` stale / `--no-amber` focused-lock), and the AA threat rings (`--no-hsd-yellow`) are
+`--no-white` stale; since post-0.82.0 the focused lock keeps its source color and only its lock ring
+is `--no-amber`, matching the web HSD), and the AA threat rings (`--no-hsd-yellow`) are
 matched to source. CEN/DEP mode and the selected range track the external web HSD page live (see
 [HSD view sync](#hsd-view-sync) below) — everything else needing a cursor/bezel input this pane
 doesn't have wired up yet is still simplified out: no radar-cone overlay, no active-route line, and

@@ -255,8 +255,8 @@ either mode, and bombs only cycle in A/G.
 ### Target list
 
 - **Next Target / Previous Target** — steps which one of your locked targets is the *focused* lock,
-  the one [TGT](tgt.md) outlines and [FCR/HSD](rdr.md#when-a-target-is-locked) both draw amber and
-  read out in the bottom readout. This shared focus is not SOI-gated: it moves on every open
+  the one [TGT](tgt.md) outlines, [FCR](rdr.md#when-a-target-is-locked) draws amber, HSD circles
+  with an amber ring, and both read out in the bottom readout. This shared focus is not SOI-gated: it moves on every open
   TGT/FCR/HSD page, in every browser. On the SOI-focused TGT display, the same press hides the PAD
   crosshair and makes **Cursor Select** deselect the focused row directly; moving the crosshair hands
   Select back to the cursor.

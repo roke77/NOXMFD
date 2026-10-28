@@ -9,8 +9,8 @@ namespace NOXMFD
     // swaps this pane over to InternalMfdTgpPage instead while the TGP has a lock or manual mode is
     // engaged, then back to this once neither is true). Matched against the real page's own SVG
     // (src/web/pages/hsd/hsd.html/hsd.js): grid ring color/opacity (colors.css --no-hsd-pink-rgb),
-    // contact colors (--no-purple datalink / --no-red own-radar / --no-white stale / --no-amber
-    // focused-lock), the AA threat rings (--no-hsd-yellow), and the notched contact/ownship icon
+    // contact colors (--no-purple datalink / --no-red own-radar / --no-white stale, with a --no-amber
+    // ring on the focused lock), the AA threat rings (--no-hsd-yellow), and the notched contact/ownship icon
     // polygon (hsd.js's own 'M0 -9 L-6 7 L0 4 L6 7 Z' — reused verbatim for both, filled, unlike
     // RWR's stroke-only ownship caret) are all taken directly from that source.
     //
@@ -71,8 +71,8 @@ namespace NOXMFD
         private static readonly Color OwnshipColor = new Color(1f, 1f, 1f, 0.78f);
         private static readonly Color HeadingTickColor = new Color(1f, 1f, 1f, 0.45f);
 
-        // hsd.js's contactColor(): focused-locked overrides everything else, then stale, then own-
-        // radar, then plain datalink purple.
+        // hsd.js's contactColor(): stale, then own-radar, then plain datalink purple, locked or not.
+        // Amber only marks the focused lock's ring, so the icon always shows the contact's source.
         private static readonly Color ContactPurple = new Color32(179, 136, 255, 255);
         private static readonly Color ContactRed = new Color32(255, 64, 64, 255);
         private static readonly Color ContactStaleWhite = new Color32(230, 235, 239, 255);
@@ -286,8 +286,7 @@ namespace NOXMFD
                     lockCount++;
                     if (isFocused) { focused = c; focusedDist = dist; }
                 }
-                Color color = isFocused ? ContactAmber
-                    : c.Stale ? ContactStaleWhite
+                Color color = c.Stale ? ContactStaleWhite
                     : c.Radar ? ContactRed
                     : ContactPurple;
 
@@ -303,7 +302,11 @@ namespace NOXMFD
                 _contactVectorImages[i].color = color;
 
                 _lockRings[i].gameObject.SetActive(c.Targeted);
-                if (c.Targeted) _lockRings[i].rectTransform.anchoredPosition = pos;
+                if (c.Targeted)
+                {
+                    _lockRings[i].rectTransform.anchoredPosition = pos;
+                    _lockRings[i].color = isFocused ? ContactAmber : color;
+                }
             }
 
             _linkText.text = linkCount > 0 ? "LINK " + linkCount : "LINK 0";

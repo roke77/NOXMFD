@@ -279,6 +279,12 @@ docs/tgt-cycle-focus.md) — not a per-page "whichever came first" guess:
   same as an unlocked contact of that source), ring stays amber — the ring is "this is locked,"
   independent of which lock is focused or what detected it.
 
+HSD follow-up (post-0.82.0): an amber icon hid whether the focused lock was radar- or
+datalink-sourced, which is exactly what HSD's mixed picture needs to show. On HSD only, a locked
+contact's icon now always keeps its source color (stale white included), and the ring carries the
+focus instead: amber on the focused lock, the contact's own color on any other lock. FCR keeps the
+amber focused icon.
+
 `rdr.js`'s `renderContacts` and `hsd.js`'s `renderContacts` both compare each locked contact's id
 against the shared `focusedTargetId` field (`state.focusedTargetId`) rather than picking whichever
 one their own render loop reaches first.
