@@ -37,7 +37,7 @@ namespace NOXMFD
         // Multiplier on the preset's angles: below 1 pulls every block closer to the nose.
         internal static float Spread => _spread?.Value ?? 1f;
         internal static Adjust All => new Adjust(_offsetX?.Value ?? 0f, _offsetY?.Value ?? 0f, _size?.Value ?? 1f);
-        // Ladder width and waterline size, multiplied by the global Size.
+        // Ladder window and waterline size, multiplied by the global Size.
         internal static float LadderSize => _ladderSize?.Value ?? 1f;
 
         internal static Adjust ForGroup(string group) =>
@@ -54,7 +54,7 @@ namespace NOXMFD
             _offsetY = Watch(Float(config, section, "OffsetY", 0f, -20f, 20f, "Shift the whole cluster down (-) or up (+), in degrees."));
             _size = Watch(Float(config, section, "Size", 1f, 0.5f, 1.5f, "Size of every compact readout. 1 is the game's size."));
             _ladderSize = Watch(Float(config, section, "LadderSize", 1f, 0.4f, 1.5f,
-                "Width of the pitch ladder and size of the waterline. The ladder's rung spacing stays true to the horizon, so only its width changes."));
+                "Size of the pitch ladder window and the waterline. The rungs keep their true spacing against the horizon, so a smaller window shows fewer rungs."));
             foreach (string g in HudCompactLayoutMath.Groups)
             {
                 _groups[g] = (

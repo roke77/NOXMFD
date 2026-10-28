@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace NOXMFD
 {
@@ -33,10 +34,12 @@ namespace NOXMFD
         }
 
         private readonly List<BlockState> _blocks = new List<BlockState>();
-        // FlightHud's pitchCompassCenter and waterline. Only their scale changes: FlightHud rotates
-        // pitchCompassCenter and rescales the pitchCompass child for FOV each frame, but never touches
-        // the parent's scale or the waterline's.
-        private Moved? _ladder;
+        // FlightHud's pitchCompass (the ladder) and waterline. The ladder is a RawImage window onto a
+        // tall ladder texture; FlightHud rewrites its uvRect and localScale every frame, but never its
+        // sizeDelta, and never touches the waterline's scale.
+        private RawImage? _ladder;
+        private Vector2 _ladderOrigSize;
+        private Rect _ladderLastUv;
         private Moved? _waterline;
         private HUDAppManager? _apps;
         private float _canvasHeight;
@@ -108,8 +111,8 @@ namespace NOXMFD
                 _blocks.Add(block);
             }
 
-            Transform? ladder = center.Find("pitchCompassCenter");
-            if (ladder != null) _ladder = Snapshot(ladder, center);
+            _ladder = center.Find("pitchCompassCenter/pitchCompass")?.GetComponent<RawImage>();
+            if (_ladder != null) _ladderOrigSize = _ladder.rectTransform.sizeDelta;
             if (hud.waterline != null) _waterline = Snapshot(hud.waterline.transform, center);
         }
 
@@ -159,13 +162,29 @@ namespace NOXMFD
                 }
             }
 
-            // Width only: rung spacing has to stay conformal with the real horizon, so the ladder
-            // can't shrink vertically or move off the nose.
-            float ladder = all.Size * HudCompactConfig.LadderSize;
-            if (_ladder != null && _ladder.T != null)
-                _ladder.T.localScale = new Vector3(_ladder.OrigScale.x * ladder, _ladder.OrigScale.y, _ladder.OrigScale.z);
+            float ladder = LadderFactor;
+            if (_ladder != null) _ladder.rectTransform.sizeDelta = _ladderOrigSize * ladder;
             if (_waterline != null && _waterline.T != null)
                 _waterline.T.localScale = _waterline.OrigScale * ladder;
+        }
+
+        private static float LadderFactor => HudCompactConfig.All.Size * HudCompactConfig.LadderSize;
+
+        // The ladder window shrinks evenly (sizeDelta in Apply), and its uvRect is cropped by the same
+        // factor about its center so the rungs keep their spacing — 10° of pitch still spans 10° on
+        // screen, the window just shows fewer rungs. Runs after FlightHud.Update has written this
+        // frame's uvRect; if FlightHud skipped a frame (no cockpit rigidbody) the uvRect is still the
+        // one cropped here, so it's left alone rather than cropped twice.
+        private void LateUpdate()
+        {
+            if (_ladder == null || _blocks.Count == 0) return;
+            Rect uv = _ladder.uvRect;
+            if (uv == _ladderLastUv) return;
+            float h = uv.height * LadderFactor;
+            uv.y += (uv.height - h) * 0.5f;
+            uv.height = h;
+            _ladder.uvRect = uv;
+            _ladderLastUv = uv;
         }
 
         private void Restore()
@@ -173,7 +192,8 @@ namespace NOXMFD
             foreach (BlockState b in _blocks)
                 foreach (Moved m in b.Members)
                     Reset(m);
-            if (_ladder != null) Reset(_ladder);
+            // The uvRect needs no restore: FlightHud rewrites it next frame.
+            if (_ladder != null) _ladder.rectTransform.sizeDelta = _ladderOrigSize;
             if (_waterline != null) Reset(_waterline);
             _blocks.Clear();
             _ladder = null;
