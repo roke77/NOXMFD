@@ -110,6 +110,9 @@ namespace NOXMFD
         private static List<SteerPoint> _steerPoints = new List<SteerPoint>();
         private static string? _activeRouteId;
         private static string? _activeSteerPointId;
+        // On: a new steer point takes the selected one's place instead of joining the list. Persisted
+        // with the library, so every display and a game restart see the same choice.
+        private static bool _replaceSteerPoint = true;
         private static readonly List<PendingSharedRoute> _pendingShared = new List<PendingSharedRoute>();
         private static readonly List<PendingSharedSteerPoint> _pendingSharedSteerPoints = new List<PendingSharedSteerPoint>();
 
@@ -118,7 +121,7 @@ namespace NOXMFD
         // MissionLifecycle.Update — unconditional, so this works at the main menu too), and rebuilds
         // this string synchronously as its last step. The HTTP server thread only ever reads the
         // reference, never the underlying route/steer-point lists, so no lock is needed.
-        internal static volatile string RoutesJson = "{\"activeRouteId\":null,\"activeSteerPointId\":null,\"routes\":[],\"steerPoints\":[]}";
+        internal static volatile string RoutesJson = "{\"activeRouteId\":null,\"activeSteerPointId\":null,\"replaceSteerPoint\":true,\"routes\":[],\"steerPoints\":[]}";
 
         // Storage/log seam: keeps this file free of any BepInEx/Plugin reference so a standalone
         // test project can compile and exercise the mutators directly. Plugin.Awake sets both
@@ -153,6 +156,7 @@ namespace NOXMFD
                 {
                     _activeRouteId = root.TryGetValue("activeRouteId", out object? a) ? a as string : null;
                     _activeSteerPointId = root.TryGetValue("activeSteerPointId", out object? s) ? s as string : null;
+                    _replaceSteerPoint = !(root.TryGetValue("replaceSteerPoint", out object? rs) && rs is bool on) || on;
                     _routes = ParseRoutes(root.TryGetValue("routes", out object? r) ? r : null);
                     _steerPoints = ParseSteerPoints(root.TryGetValue("steerPoints", out object? sp) ? sp : null);
                     // A file saved before route and steer point became exclusive may hold both; the
@@ -302,6 +306,7 @@ namespace NOXMFD
               .Append(_activeRouteId != null ? "\"" + JsonLite.EscapeJson(_activeRouteId) + "\"" : "null")
               .Append(",\"activeSteerPointId\":")
               .Append(_activeSteerPointId != null ? "\"" + JsonLite.EscapeJson(_activeSteerPointId) + "\"" : "null")
+              .Append(",\"replaceSteerPoint\":").Append(_replaceSteerPoint ? "true" : "false")
               .Append(",\"routes\":[");
             for (int i = 0; i < _routes.Count; i++)
             {
@@ -507,14 +512,27 @@ namespace NOXMFD
 
         // ── steer points ─────────────────────────────────────────────────────────────────────
 
+        // Replace mode swaps the new point into the selected one's slot, keeping the STP numbering of
+        // the rest. It never removes a squad leader's shared point, and with a route guiding there is
+        // no selected steer point to replace.
         public static SteerPoint AddSteerPoint(float x, float z, string? name)
         {
             var point = new SteerPoint { Id = FreshId("s_"), Name = name ?? string.Empty, X = x, Z = z };
-            _steerPoints.Add(point);
+            SteerPoint? replaced = _replaceSteerPoint && ActiveRoute == null ? ActiveSteerPoint : null;
+            if (replaced != null && replaced.IsShared) replaced = null;
+            if (replaced != null) _steerPoints[_steerPoints.IndexOf(replaced)] = point;
+            else _steerPoints.Add(point);
             // Selected only while no route guides: adding a steer point never ends route guidance.
             if (ActiveRoute == null) ActivateSteerPoint(point.Id);
             Save();
+            if (replaced != null) BroadcastDeleteIfShared(replaced);
             return point;
+        }
+
+        public static void SetReplaceSteerPoint(bool on)
+        {
+            _replaceSteerPoint = on;
+            Save();
         }
 
         public static bool RenameSteerPoint(string id, string name)
@@ -1150,11 +1168,12 @@ namespace NOXMFD
             _steerPoints = new List<SteerPoint>();
             _activeRouteId = null;
             _activeSteerPointId = null;
+            _replaceSteerPoint = true;
             _pendingShared.Clear();
             _pendingSharedSteerPoints.Clear();
             _directToKey = null;
             SendSquadData = null;
-            RoutesJson = "{\"activeRouteId\":null,\"activeSteerPointId\":null,\"routes\":[],\"steerPoints\":[]}";
+            RoutesJson = "{\"activeRouteId\":null,\"activeSteerPointId\":null,\"replaceSteerPoint\":true,\"routes\":[],\"steerPoints\":[]}";
         }
     }
 }

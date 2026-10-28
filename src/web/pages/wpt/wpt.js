@@ -252,6 +252,16 @@ function renderSteerPane(c) {
   if (!ui.adding) acts.appendChild(button('+ NEW STEER POINT', 'wpt-btn-go', function () {
     ui.adding = true; $('wpt-grid-input').value = ''; render(); $('wpt-grid-input').focus();
   }));
+  // Applies to every new steer point (MAP long-press, grid entry, TGP mark); RouteStore owns the
+  // rule, this only flips the saved setting (on by default).
+  const replace = c.replaceSteerPoint !== false;
+  const box = button((replace ? '[X]' : '[ ]') + ' REPLACE SELECTED', '', function () {
+    WaypointsStore.setReplaceSteerPoint(!replace).then(render);
+  });
+  box.setAttribute('role', 'checkbox');
+  box.setAttribute('aria-checked', replace ? 'true' : 'false');
+  box.title = 'On: a new steer point replaces the one you are guiding to. Off: it is added to the list.';
+  acts.appendChild(box);
   $('wpt-grid-row').hidden = !ui.adding;
   updateGridHint();
 

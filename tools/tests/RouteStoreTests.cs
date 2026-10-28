@@ -13,6 +13,8 @@ namespace NOXMFD.Tests
         {
             RouteStore.PersistToDisk = false;
             RouteStore.ResetForTests();
+            // Most tests here build multi-point steer lists; the replace tests switch it back on.
+            RouteStore.SetReplaceSteerPoint(false);
         }
 
         // Guards the fix to the ordering bug from the 0.36.1 keybinds incident: a backup taken
@@ -643,6 +645,75 @@ namespace NOXMFD.Tests
             SteerPoint p = RouteStore.AddSteerPoint(1f, 2f, "Mine");   // SharedBy empty
             Assert.False(RouteStore.RemoveSharedSteerPoint(p.Id));
             Assert.Contains("\"id\":\"" + p.Id + "\"", RouteStore.RoutesJson);
+        }
+
+        [Fact]
+        public void Replace_mode_is_on_by_default_and_served()
+        {
+            RouteStore.ResetForTests();
+            RouteStore.AddSteerPoint(1f, 2f, "A");
+            Assert.Contains("\"replaceSteerPoint\":true", RouteStore.RoutesJson);
+        }
+
+        [Fact]
+        public void Replace_mode_swaps_the_selected_point_in_place()
+        {
+            SteerPoint a = RouteStore.AddSteerPoint(1f, 1f, "A");
+            SteerPoint b = RouteStore.AddSteerPoint(2f, 2f, "B");
+            RouteStore.AddSteerPoint(3f, 3f, "C");
+            RouteStore.SetActiveSteerPoint(b.Id);
+            RouteStore.SetReplaceSteerPoint(true);
+
+            SteerPoint d = RouteStore.AddSteerPoint(4f, 4f, "D");
+
+            Assert.DoesNotContain("\"id\":\"" + b.Id + "\"", RouteStore.RoutesJson);
+            Assert.Equal(d.Id, RouteStore.GetActiveSteerPointSnapshot()!.Id);
+            string json = RouteStore.RoutesJson;
+            Assert.True(json.IndexOf("\"name\":\"A\"") < json.IndexOf("\"name\":\"D\"")
+                     && json.IndexOf("\"name\":\"D\"") < json.IndexOf("\"name\":\"C\""), "D takes B's slot");
+            Assert.Contains("\"id\":\"" + a.Id + "\"", json);
+        }
+
+        [Fact]
+        public void Replace_mode_keeps_a_shared_point_and_adds_instead()
+        {
+            RouteStore.ReceiveSharedSteerPoint("{\"id\":\"s_shared\",\"name\":\"IP\",\"x\":1,\"z\":2}", "Leader");
+            RouteStore.AcceptSharedSteerPoint("s_shared");
+            RouteStore.SetActiveSteerPoint("s_shared");
+            RouteStore.SetReplaceSteerPoint(true);
+
+            SteerPoint mine = RouteStore.AddSteerPoint(3f, 4f, "Mine");
+
+            Assert.Contains("\"id\":\"s_shared\"", RouteStore.RoutesJson);
+            Assert.Equal(mine.Id, RouteStore.GetActiveSteerPointSnapshot()!.Id);
+        }
+
+        [Fact]
+        public void Replace_mode_just_adds_while_a_route_guides()
+        {
+            SteerPoint a = RouteStore.AddSteerPoint(1f, 1f, "A");
+            RouteStore.CreateRoute("R");
+            RouteStore.SetReplaceSteerPoint(true);
+
+            RouteStore.AddSteerPoint(2f, 2f, "B");
+
+            Assert.Contains("\"id\":\"" + a.Id + "\"", RouteStore.RoutesJson);
+            Assert.Contains("\"name\":\"B\"", RouteStore.RoutesJson);
+            Assert.NotNull(RouteStore.GetActiveRouteSnapshot());
+        }
+
+        [Fact]
+        public void Replace_mode_rebroadcasts_the_delete_of_a_point_the_leader_shared()
+        {
+            SteerPoint a = RouteStore.AddSteerPoint(1f, 1f, "A");
+            var types = new List<string>();
+            RouteStore.SendSquadData = (type, payload) => { types.Add(type); return true; };
+            RouteStore.ShareSteerPoint(a.Id);
+            RouteStore.SetReplaceSteerPoint(true);
+
+            RouteStore.AddSteerPoint(2f, 2f, "B");
+
+            Assert.Equal(new[] { "wpt.steerpoint", "wpt.steerpoint-deleted" }, types);
         }
 
         [Fact]

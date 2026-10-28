@@ -15,8 +15,9 @@ The keys read **MAP / WPT / RTD / SPD**, with the page you're on lit. WPT is rea
 ## Adding navigation points
 
 Long-press a spot on [MAP](map.md). If a route is active, the point is appended to that route as a
-waypoint. If no route is active, it is added to the steer points instead. A steer point can also be
-typed in by its grid square (see [Steer points](#steer-points)).
+waypoint. If no route is active, it becomes a steer point instead, and by default it replaces the
+steer point you were guiding to (see **REPLACE SELECTED** under [Steer points](#steer-points)). A
+steer point can also be typed in by its grid square.
 
 ## The WPT page
 
@@ -68,6 +69,11 @@ has a lit amber lamp, and each row shows its grid and its current distance from 
 - **+ NEW STEER POINT** takes a grid square such as `Ja95` and adds a point at its centre. The hint
   beside it says whether the text is a grid, whether it's on this map, and which STP it will be.
   **Enter** adds it, **Escape** cancels.
+- **REPLACE SELECTED** (on by default) — a new steer point, however you make it (MAP long-press,
+  grid entry, or a TGP mark), takes the place of the one you're guiding to, so steer points don't
+  pile up. Turn it off to add each new point to the list instead. A steer point your squad leader
+  shared is never replaced; the new one is added beside it. The setting is saved, so it stays the
+  same on every display and after a game restart.
 - Tap a point for **GUIDE TO**, **RENAME**, **SHARE** (squad leader only) and **DELETE**.
 - A point a squad leader shared with you lists first with **ACCEPT** and **DISMISS**.
 

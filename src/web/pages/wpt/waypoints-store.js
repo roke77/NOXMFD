@@ -106,6 +106,7 @@
   function setActiveSteerPoint(id)         { return sendCommand('wpt.set-active-steerpoint', { bind: id || '' }).then(poll); }
   function cycleSteerPoint(dir)            { return sendCommand('wpt.cycle-steerpoint', { index: dir }).then(poll); }
   function importSteerPoints(text)         { return sendCommand('wpt.import-steerpoints', { text: text }).then(poll); }
+  function setReplaceSteerPoint(on)        { return sendCommand('wpt.replace-steerpoint', { on: !!on }).then(poll); }
 
   // Pretty-printed JSON a pilot can paste to another WPT instance — null if the route doesn't
   // exist (deleted out from under an open export panel, say). Stays fully client-side: it's a
@@ -153,7 +154,7 @@
     addWaypointToActive, addNavigationPoint, renameWaypoint, removeWaypoint, reorderWaypoint,
     resetWaypoint, resetRoute, stepWaypoint, stepNavigation, exportRoute, importRoute,
     addSteerPoint, renameSteerPoint, deleteSteerPoint, setActiveSteerPoint, cycleSteerPoint,
-    exportSteerPoints, importSteerPoints,
+    exportSteerPoints, importSteerPoints, setReplaceSteerPoint,
     pendingShared, pendingSharedSteerPoints,
     shareRoute, acceptShared, rejectShared,
     shareSteerPoint, acceptSharedSteerPoint, rejectSharedSteerPoint,

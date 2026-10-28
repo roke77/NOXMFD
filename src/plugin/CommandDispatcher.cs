@@ -51,7 +51,7 @@ namespace NOXMFD
                                 // tgt.sort : +1 = ascending, -1 = descending
                                 // hsd.set-view : desired range-ladder index (hsd.js's own rangeIdx,
                                 // 0-4 into whichever of CEN_RANGE_NM/DEP_RANGE_NM the mode selects)
-        public bool   on;      // tgt.set / tgt.laser / tgt.hud : desired toggle state
+        public bool   on;      // tgt.set / tgt.laser / tgt.hud / wpt.replace-steerpoint : desired toggle state
                                 // keybind.set-key / keybind.arm-joy : true = ask (keybind.resolve) when
                                 // another bind already uses the value, instead of sharing it
                                 // tgp.ir.set : desired IR state (true = IR, false = COLOR)
@@ -299,6 +299,7 @@ namespace NOXMFD
                 { "wpt.add-waypoint",     e => RouteStore.AddWaypoint(e.wx, e.wz, e.wname ?? string.Empty) },
                 { "wpt.add-navigation-point", e => RouteStore.AddNavigationPoint(e.wx, e.wz, e.wname ?? string.Empty) },
                 { "wpt.add-steerpoint",       e => RouteStore.AddSteerPoint(e.wx, e.wz, e.wname ?? string.Empty) },
+                { "wpt.replace-steerpoint",   e => RouteStore.SetReplaceSteerPoint(e.on) },
                 { "wpt.rename-steerpoint",    e => LogWpt("rename-steerpoint", RouteStore.RenameSteerPoint(e.bind ?? string.Empty, e.wname ?? string.Empty)) },
                 { "wpt.delete-steerpoint",    e => LogWpt("delete-steerpoint", RouteStore.DeleteSteerPoint(e.bind ?? string.Empty)) },
                 { "wpt.set-active-steerpoint", e => RouteStore.SetActiveSteerPoint(e.bind ?? string.Empty) },
