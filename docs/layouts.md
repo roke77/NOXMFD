@@ -414,6 +414,8 @@ the jet keeps its buttons in a ring of glass around the window, not on it.
   the whole portal and the labels and grips sit over the picture, as before.
   TGP's labels keep their translucent scrim for that. The map's own GRID
   readout can sit under a grip again.
+- The RWR, FCR and HSD scopes join them: centered on the whole portal, they
+  read balanced instead of offset between uneven label columns.
 - Label spacing belongs to the layout, not the page. Pages used to pad their
   own sides to clear the bezel's labels (34-48px on TGT/TD/SQD/AKF/MD/HUD/UI/
   KEY/LYT, 50-56px on ADI/HSI/WPT/RTD), which doubled up inside the ring.

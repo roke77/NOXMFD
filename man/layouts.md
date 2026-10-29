@@ -43,8 +43,9 @@ A borderless, touch-driven layout modelled on the real F-35's panoramic cockpit 
 are no bezel keys — the navigation labels are drawn on the glass and tapped directly, and the
 screen divides into side-by-side portals, each an independent MFD, that you merge and split with
 corner grips. Each portal keeps a narrow column of glass beside its page for the labels, so they
-never cover what the page shows; the grips sit at the bottom of those columns. MAP and TGP are the
-exception: the map and the camera feed fill the whole portal and their labels sit on top. A fixed
+never cover what the page shows; the grips sit at the bottom of those columns. MAP, TGP, RWR, FCR
+and HSD are the exception: the map, the camera feed and the scopes fill the whole portal and their
+labels sit on top. A fixed
 strip across the top carries the **NO XMFD** wordmark with the connection address and status under
 it (left), up to four widgets (middle), and **MENU** (right). MENU drops down the layout controls —
 **SAVE LAYOUT** and **LOAD LAYOUT** (see [Save/Load Layout](#saveload-layout)), **PIN** and **SWAP** —
