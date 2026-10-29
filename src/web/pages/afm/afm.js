@@ -551,16 +551,11 @@ function drawAfmPylonLinks() {
   }
 }
 
-// Lays each side's links on their own horizontal track between trackTop and trackBottom: the one
-// running furthest takes the highest track, so a side's tracks never cross each other's drops.
+// Sets each link's points along its track (AfmLayoutPolicy.laneLinks).
 function laneAfmLinks(links, trackTop, trackBottom, pts) {
   for (const side in links) {
-    const list = links[side].sort(function(a, b) { return Math.abs(b.bx - b.x1) - Math.abs(a.bx - a.x1); });
-    const step = (trackBottom - trackTop) / (list.length + 1);
-    list.forEach(function(l, i) {
-      const ty = trackTop + step * (i + 1);
-      l.line.setAttribute('points', pts([[l.x1, l.y1], [l.x1, ty], [l.bx, ty], [l.bx, l.top]]));
-    });
+    const routes = AfmLayoutPolicy.laneLinks(links[side], trackTop, trackBottom);
+    links[side].forEach(function(l, i) { l.line.setAttribute('points', pts(routes[i])); });
   }
 }
 

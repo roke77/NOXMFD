@@ -76,7 +76,23 @@
     return { boxH: boxH, frontH: frontH };
   }
 
-  const api = { clamp, flagColumnsFit, bandEm, pylonSidesFit, pylonRowFits, pylonColumns, fitPylonArea };
+  // Circuit routes for one side's links, each {x1, y1, bx, top}: down from the marker (x1, y1) to
+  // its own horizontal track between trackTop and trackBottom, across to bx, down to the box top.
+  // The link running furthest takes the highest track, so no track crosses another link's drop.
+  // Returns each link's points, in the order given.
+  function laneLinks(links, trackTop, trackBottom) {
+    const order = links.map(function(l, i) { return i; })
+      .sort(function(a, b) { return Math.abs(links[b].bx - links[b].x1) - Math.abs(links[a].bx - links[a].x1); });
+    const step = (trackBottom - trackTop) / (links.length + 1);
+    const routes = new Array(links.length);
+    order.forEach(function(idx, lane) {
+      const l = links[idx], ty = trackTop + step * (lane + 1);
+      routes[idx] = [[l.x1, l.y1], [l.x1, ty], [l.bx, ty], [l.bx, l.top]];
+    });
+    return routes;
+  }
+
+  const api = { clamp, flagColumnsFit, bandEm, pylonSidesFit, pylonRowFits, pylonColumns, fitPylonArea, laneLinks };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.AfmLayoutPolicy = api;
 })(typeof self !== 'undefined' ? self : this);

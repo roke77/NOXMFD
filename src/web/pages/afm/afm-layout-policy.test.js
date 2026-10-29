@@ -49,4 +49,17 @@ assert.strictEqual(fit.frontH, 400 - 20 - rowsH(30), 'then the front view takes 
 // Within budget: untouched.
 assert.deepStrictEqual(P.fitPylonArea(1000, 200, 36, 56, 30, 40, function(b) { return b; }), { boxH: 56, frontH: 200 });
 
+// Lanes: three left-running links from markers at x 300/350/400 to boxes at 100/200/300. The one
+// running furthest gets the highest track, and no track crosses another link's drop.
+const left = [{ x1: 350, y1: 0, bx: 200, top: 100 }, { x1: 300, y1: 0, bx: 100, top: 100 }, { x1: 400, y1: 0, bx: 300, top: 100 }];
+const routes = P.laneLinks(left, 20, 80);
+assert.deepStrictEqual(routes[1], [[300, 0], [300, 35], [100, 35], [100, 100]], 'furthest run takes the top track');
+routes.forEach(function(r, i) {
+  const ty = r[1][1], xs = [r[2][0], r[1][0]].sort(function(a, b) { return a - b; });
+  left.forEach(function(o, j) {
+    // another link's drop (x = o.x1, from y 0 to its own track) must not cut this track
+    if (i !== j && o.x1 > xs[0] && o.x1 < xs[1]) assert.ok(routes[j][1][1] < ty, 'track ' + i + ' crosses link ' + j + "'s drop");
+  });
+});
+
 console.log('afm-layout-policy: all assertions passed');
