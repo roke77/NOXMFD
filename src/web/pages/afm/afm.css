@@ -27,12 +27,12 @@
   letter-spacing: 2px;
   white-space: nowrap;
 }
-/* Frontal (nose-on) silhouette + pylon markers, between header and the top-down frame below.
-   top/height are compact defaults; layoutAfmFrame (afm.js) overrides both inline. */
+/* Frontal (nose-on) silhouette + pylon markers, below the top-down frame at the bottom of the
+   stack. bottom/height are compact defaults; layoutAfmFrame (afm.js) sets top/height inline. */
 .afm-front-section {
   position: absolute;
   left: 0; right: 0;
-  top: 72px;
+  bottom: 12px;
   height: 130px;
   overflow: hidden;
 }
@@ -54,8 +54,8 @@
 .afm-frame {
   position: absolute;
   left: 0; right: 0;
-  top: 214px;   /* compact default; full overrides from bezel geometry */
-  bottom: 12px;
+  top: 72px;      /* compact defaults; layoutAfmFrame (afm.js) sets top/height inline */
+  bottom: 148px;
   overflow: hidden;
 }
 .afm-bg, .afm-parts {

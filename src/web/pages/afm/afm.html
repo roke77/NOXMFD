@@ -11,9 +11,9 @@
 
   compact : split-pane / half-height. Name + frame use fixed pixel offsets from the iframe edges
             (no bezel keys to anchor against). The default.
-  full    : single full-screen iframe. Name is vertical-centred on the bezel key[0] row; the frame
-            spans from below the name to the bottom strip — the shell forwards those pixel
-            positions. Enabled by layout:'full' in afm-layout.
+  full    : single full-screen iframe. Name sits at the top of the bezel key[0] row in a band no
+            taller than compact's; the silhouettes span from below the name to the bottom strip —
+            the shell forwards those pixel positions. Enabled by layout:'full' in afm-layout.
 
   Shell -> page messages (all {mfd:true, ...}):
     'afm'        : { name, parts, failures, pylons, gearDown, radar, guns, ignition, assist, nvg,
@@ -25,8 +25,8 @@
     'afm-layout' : geometry — layout:'full' + geom {headerTop, headerHeight, frameTop, frameHeight}
                    in full; omitted in compact (the page defaults to the CSS fixed offsets).
     'orient'     : app-wide orientation (drives body.portrait/.landscape).
-  Vertical stack, top to bottom: name, frontal silhouette (+ pylon markers), top-down damage
-  silhouette. The frontal silhouette bg + pylon-marker layout are captured from the cockpit's
+  Vertical stack, top to bottom: name, top-down damage silhouette, frontal silhouette (+ pylon
+  markers). The frontal silhouette bg + pylon-marker layout are captured from the cockpit's
   weapon-station-armed panel and fetched from /airframe[-layout]?type=<name>__front (part
   "__front" for the image; the "__front"-suffixed type key for the marker layout — same endpoints
   the damage silhouette uses, just a distinct key). The damage silhouette bg + part masks + layout

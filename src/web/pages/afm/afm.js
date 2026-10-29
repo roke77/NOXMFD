@@ -67,12 +67,13 @@ function renderAfm() {
   afmEmptyEl.style.display = 'none';
   afmNameEl.textContent = type;
 
-  // full profile: anchor the header to the top bezel row the shell forwards (headerTop). compact
-  // (split pane) uses the CSS band. The front-section and frame then follow the header's actual
-  // bottom (layoutAfmFrame) — so the vertical stack starts below however tall the name band ends up.
+  // full profile: anchor the header to the top of the bezel row the shell forwards (headerTop),
+  // but only as tall as the CSS band, not the whole row, so the silhouettes get the rest. compact
+  // (split pane) uses the CSS band as is. The silhouette stack then follows the header's actual
+  // bottom (layoutAfmFrame).
   if (layout === 'full' && afmFullGeom && typeof afmFullGeom.headerTop === 'number') {
     afmHeaderEl.style.top       = afmFullGeom.headerTop + 'px';
-    afmHeaderEl.style.minHeight = afmFullGeom.headerHeight + 'px';
+    afmHeaderEl.style.minHeight = '';
     afmHeaderEl.style.height    = 'auto';
   } else {
     afmHeaderEl.style.top       = '';
@@ -80,7 +81,7 @@ function renderAfm() {
     afmHeaderEl.style.height    = '';
   }
 
-  layoutAfmFrame();   // position the front-section + silhouette frame below the header
+  layoutAfmFrame();   // position the silhouette frame + front-section below the header
 
   afmBg.style.display = '';
   afmPartsEl.style.display = '';
@@ -102,16 +103,16 @@ function renderAfm() {
   paintAfmFlags();
 }
 
-// Position the front-section band directly below the header's actual bottom, and the silhouette
-// frame directly below the front-section. The stack's lower edge stays put: the forwarded bezel
-// limit in full, or the CSS bottom in compact. The front band gets a modest share of whatever
-// vertical room is left (capped both ways) so the top-down silhouette — the primary content —
-// keeps the majority of the space in both profiles.
+// Position the top-down silhouette frame directly below the header's actual bottom, and the
+// front-section band below it, ending at the stack's lower edge: the forwarded bezel limit in
+// full, or the CSS bottom in compact. The front band gets a modest share of the vertical room
+// (capped both ways) so the top-down silhouette — the primary content — keeps the majority of
+// the space in both profiles.
 const AFM_HDR_GAP  = 6;
 const AFM_BAND_GAP = 6;
 function layoutAfmFrame() {
   const panelTop = afmPanel.getBoundingClientRect().top;
-  const frontTop = (afmHeaderEl.getBoundingClientRect().bottom - panelTop) + AFM_HDR_GAP;
+  const stackTop = (afmHeaderEl.getBoundingClientRect().bottom - panelTop) + AFM_HDR_GAP;
 
   let bottomLimit;
   if (layout === 'full' && afmFullGeom && typeof afmFullGeom.frameTop === 'number') {
@@ -119,21 +120,22 @@ function layoutAfmFrame() {
   } else {
     bottomLimit = afmPanel.getBoundingClientRect().height - 12;     // matches the compact CSS bottom:12px
   }
-  const available   = Math.max(0, bottomLimit - frontTop);
+  const available   = Math.max(0, bottomLimit - stackTop);
   const frontHeight = Math.min(200, Math.max(90, available * 0.3));
+  const frameHeight = Math.max(0, available - frontHeight - AFM_BAND_GAP);
 
-  afmFrontSection.style.top    = frontTop + 'px';
+  afmFrame.style.top    = stackTop + 'px';
+  afmFrame.style.bottom = 'auto';
+  afmFrame.style.height = frameHeight + 'px';
+
+  afmFrontSection.style.top    = (stackTop + frameHeight + AFM_BAND_GAP) + 'px';
+  afmFrontSection.style.bottom = 'auto';
   afmFrontSection.style.height = frontHeight + 'px';
 
-  const frameTop = frontTop + frontHeight + AFM_BAND_GAP;
-  afmFrame.style.top    = frameTop + 'px';
-  afmFrame.style.bottom = 'auto';
-  afmFrame.style.height = Math.max(0, bottomLimit - frameTop) + 'px';
-
-  // The toggle columns centre on the whole silhouette band, front section through frame.
+  // The toggle columns centre on the top-down silhouette's band.
   for (const col of afmFlagCols) {
-    col.style.top    = frontTop + 'px';
-    col.style.height = available + 'px';
+    col.style.top    = stackTop + 'px';
+    col.style.height = frameHeight + 'px';
   }
 }
 
