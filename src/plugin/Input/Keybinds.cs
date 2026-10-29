@@ -520,6 +520,12 @@ namespace NOXMFD
                 "Switch every readout between Metric and Imperial.",
                 ToggleUnits);
 
+            // docs/hud-compact-layout.md — flips the F1 Compact HUD checkbox, so the choice persists.
+            const string compactHud = "Compact HUD Keybinds";
+            DefFree(config, "compact-hud-toggle", compactHud, "CompactHudToggle", "Toggle Compact HUD", edge: true,
+                "Switch the cockpit HUD between the compact layout and the game's own.",
+                HudCompactLayout.Toggle);
+
             // issue #43 proof-of-concept only (docs/internal-mfd.md) — toggles native NOXMFD page
             // content (HSD/RWR/TGP, InternalMfdController) drawn directly onto the T/A-30 Compass's
             // own cockpit TacScreen canvas.

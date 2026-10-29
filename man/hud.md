@@ -19,6 +19,15 @@ corner minimap), **FLIGHT** (the boxed flight readouts) and **FEED** (the native
 that widget is on the HUD. A dark card reads **HIDDEN**. Independent of everything below; these
 aren't part of the game's own HUD OPTIONS.
 
+### Compact HUD
+
+Not on this page: it's a checkbox in the in-game F1 mod settings, under **NO XMFD → HUD →
+Compact HUD**. Ticking it pulls the in-game HUD's speed, altitude and heading readouts in close
+around the pitch ladder and shrinks them. The fuel and throttle arcs and the
+clocks move in too. The pitch ladder is drawn at true scale, so its 10° line sits 10° above the
+real horizon. Untick it to get the game's own layout back. It applies within half a second. The
+**Toggle Compact HUD** keybind ([KEY](keybinds.md#misc)) flips the same checkbox.
+
 ## Presets
 
 Five cards of your own named presets, saved server-side so any connected browser can save or load

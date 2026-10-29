@@ -108,6 +108,7 @@
     <Compile Include="..\..\src\plugin\Hud\HudDirectionCueMath.cs" Link="Source\HudDirectionCueMath.cs" />
     <Compile Include="..\..\src\plugin\Hud\HudWaypointCueMath.cs" Link="Source\HudWaypointCueMath.cs" />
     <Compile Include="..\..\src\plugin\Hud\HudTtiMath.cs" Link="Source\HudTtiMath.cs" />
+    <Compile Include="..\..\src\plugin\Hud\HudCompactLayoutMath.cs" Link="Source\HudCompactLayoutMath.cs" />
     <Compile Include="..\..\src\plugin\Telemetry\FlightInstrumentMath.cs" Link="Source\FlightInstrumentMath.cs" />
     <Compile Include="..\..\src\plugin\Immersion\BattleDamage.cs" Link="Source\BattleDamage.cs" />
     <!-- DocNameMatch.cs (DOC kneeboard viewer, issue #82) — the path-traversal-safe matching rule
