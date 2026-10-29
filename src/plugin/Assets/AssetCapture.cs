@@ -287,10 +287,11 @@ namespace NOXMFD
         //
         // Also captures the panel's per-station hardpoint markers. Their LAYOUT is static (captured
         // once, via the same GetPartPlacement math as the damage-silhouette parts). Their COLOR is
-        // live game state (green = ammo remaining, red = exhausted) computed by the game's own
-        // script every frame; rather than re-deriving armed/exhausted — which would need a
-        // name<->WeaponStation mapping that doesn't exist anywhere reliable — this mirrors the same
-        // Image.color the player already sees (ReadFrontalMarkerStates, polled per snapshot tick).
+        // live game state (green = ammo remaining, red = exhausted) set by the game's PylonIndicator;
+        // rather than re-deriving armed/exhausted, this mirrors the same Image.color the player
+        // already sees (ReadFrontalMarkerStates, polled per snapshot tick). The weapon on each marker
+        // comes through the same PylonIndicator: its element set i holds the marker images for
+        // hardpoint index i of WeaponManager.HardpointsIndexes (ResolvePylonHardpoints).
         private readonly HashSet<string> _capturedFrontal = new HashSet<string>();
         private readonly Dictionary<string, List<(string name, Image img)>> _frontalMarkers =
             new Dictionary<string, List<(string, Image)>>();
@@ -355,18 +356,84 @@ namespace NOXMFD
         // color on a hit), so "which channel dominates" cleanly classifies both states. A station
         // with nothing mounted is flat gray (equal channels), which a plain g>=r check would
         // misread as armed — gray is checked first to catch that case.
-        public List<(string name, string state)> ReadFrontalMarkerStates(string? type)
+        public List<(string name, string state, string weapon)> ReadFrontalMarkerStates(Aircraft ac)
         {
-            var result = new List<(string, string)>();
+            var result = new List<(string, string, string)>();
+            string? type = ac.definition != null ? ac.definition.unitName : null;
             if (string.IsNullOrEmpty(type) || !_frontalMarkers.TryGetValue(type, out var markers)) return result;
+            Dictionary<Image, int>? hardpointOf = ResolvePylonHardpoints(type, markers);
             foreach (var (name, img) in markers)
             {
                 if (img == null) continue;   // stale reference from before a scene reload
                 Color c = img.color;
                 string state = (c.r == c.g && c.g == c.b) ? "empty" : (c.g >= c.r ? "armed" : "exhausted");
-                result.Add((name, state));
+                string weapon = string.Empty;
+                if (hardpointOf != null && hardpointOf.TryGetValue(img, out int idx))
+                    weapon = HardpointWeaponName(ac, idx);
+                result.Add((name, state, weapon));
             }
             return result;
+        }
+
+        // Marker image -> hardpoint index, from the live PylonIndicator's private element sets (set i
+        // colours hardpoint i's markers). Cached per aircraft type once the indicator exists; null
+        // until then, and a type whose lookup failed is cached as empty so it isn't retried every tick.
+        private readonly Dictionary<string, Dictionary<Image, int>> _pylonHardpoints =
+            new Dictionary<string, Dictionary<Image, int>>();
+        private FieldInfo? _piSetsField, _piImagesField;
+
+        private Dictionary<Image, int>? ResolvePylonHardpoints(string type, List<(string name, Image img)> markers)
+        {
+            if (_pylonHardpoints.TryGetValue(type, out var cached)) return cached;
+            PylonIndicator pi = UnityEngine.Object.FindObjectOfType<PylonIndicator>(includeInactive: true);
+            if (pi == null) return null;   // not built yet — try again next slow scan
+
+            var map = new Dictionary<Image, int>();
+            _pylonHardpoints[type] = map;
+            try
+            {
+                if (_piSetsField == null)
+                    _piSetsField = typeof(PylonIndicator).GetField("pylonElementSets", BindingFlags.NonPublic | BindingFlags.Instance);
+                if (_piImagesField == null)
+                    _piImagesField = typeof(PylonIndicator).GetNestedType("PylonElementSet", BindingFlags.NonPublic)
+                        ?.GetField("pylonImages", BindingFlags.NonPublic | BindingFlags.Instance);
+                if (_piSetsField == null || _piImagesField == null)
+                {
+                    Plugin.Log?.LogWarning("[NOXMFD] AFM: PylonIndicator reflection fields not found — pylon weapon names disabled.");
+                    return map;
+                }
+                if (!(_piSetsField.GetValue(pi) is Array sets)) return map;
+                for (int i = 0; i < sets.Length; i++)
+                {
+                    if (!(_piImagesField.GetValue(sets.GetValue(i)) is Image[] imgs)) continue;
+                    foreach (Image img in imgs)
+                        if (img != null) map[img] = i;
+                }
+                int matched = 0;
+                foreach (var (_, img) in markers) if (img != null && map.ContainsKey(img)) matched++;
+                if (matched < markers.Count)
+                    Plugin.Log?.LogInfo($"[NOXMFD] AFM: {type} — {matched}/{markers.Count} pylon markers matched a hardpoint.");
+            }
+            catch (Exception ex)
+            {
+                Plugin.Log?.LogWarning("[NOXMFD] AFM: PylonIndicator read failed — pylon weapon names disabled: " + ex.Message);
+            }
+            return map;
+        }
+
+        // The first named weapon mounted on that hardpoint, the same name BuildLoadout shows.
+        private static string HardpointWeaponName(Aircraft ac, int hardpoint)
+        {
+            if (ac.weaponManager == null || !ac.weaponManager.HardpointsIndexes.TryGetValue(hardpoint, out var weapons))
+                return string.Empty;
+            foreach (Weapon w in weapons)
+            {
+                WeaponInfo? info = w != null ? w.info : null;
+                if (info == null) continue;
+                string name = !string.IsNullOrEmpty(info.weaponName) ? info.weaponName : info.shortName;
+                if (!string.IsNullOrEmpty(name)) return name;
+            }
+            return string.Empty;
         }
 
         // Debug aid for the AVN-page silhouette design: walks Aircraft.partLookup and logs every

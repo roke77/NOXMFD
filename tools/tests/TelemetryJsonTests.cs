@@ -36,6 +36,24 @@ namespace NOXMFD.Tests
         }
 
         [Fact]
+        public void Pylons_carry_name_state_and_mounted_weapon_with_empty_for_none()
+        {
+            var pylons = Arr(Root(new TelemetrySnapshot
+            {
+                Pylons = new[]
+                {
+                    new PylonMarker { Name = "hardpoint_TipR", State = "armed", Weapon = "AGR-18 Lynchpin" },
+                    new PylonMarker { Name = "hardpoint_Gun", State = "empty" },
+                },
+            })["pylons"]);
+
+            Assert.Equal("hardpoint_TipR", Obj(pylons[0])["n"]);
+            Assert.Equal("armed", Obj(pylons[0])["s"]);
+            Assert.Equal("AGR-18 Lynchpin", Obj(pylons[0])["w"]);
+            Assert.Equal("", Obj(pylons[1])["w"]);
+        }
+
+        [Fact]
         public void Default_snapshot_reports_every_optional_block_absent_and_every_array_empty()
         {
             var root = Root(default);

@@ -544,11 +544,13 @@ namespace NOXMFD
     // State mirrors the LIVE state the game's own cockpit panel already shows for that station —
     // "armed" (has ammo), "exhausted" (mounted, no ammo left), or "empty" (nothing mounted) — see
     // AssetCapture.ReadFrontalMarkerStates. The AFM page renders this in its own theme colors, not
-    // the game's raw (semi-transparent) hue.
+    // the game's raw (semi-transparent) hue. Weapon is the mounted weapon's display name, empty when
+    // nothing is mounted or the marker's hardpoint couldn't be resolved.
     internal struct PylonMarker
     {
         public string Name;
         public string State;
+        public string Weapon;
     }
 
     // A locked target's screen-space lock box for the TGP overlay. X/Y are the feed camera's own

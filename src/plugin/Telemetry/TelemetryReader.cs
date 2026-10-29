@@ -327,10 +327,10 @@ namespace NOXMFD
                 _assets.TryLogWeaponInfo(ac);
                 _assets.TryCaptureAirframe(ac);
                 _assets.TryCaptureFrontalSilhouette(ac);
-                var pylonStates = _assets.ReadFrontalMarkerStates(ac.definition != null ? ac.definition.unitName : null);
+                var pylonStates = _assets.ReadFrontalMarkerStates(ac);
                 _pylons = new PylonMarker[pylonStates.Count];
                 for (int i = 0; i < pylonStates.Count; i++)
-                    _pylons[i] = new PylonMarker { Name = pylonStates[i].name, State = pylonStates[i].state };
+                    _pylons[i] = new PylonMarker { Name = pylonStates[i].name, State = pylonStates[i].state, Weapon = pylonStates[i].weapon };
             }
             // BDF/PAL need no local aircraft — each resolves a fixed faction identity straight from
             // FactionRegistry, so both are built unconditionally.

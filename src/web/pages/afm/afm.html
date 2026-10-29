@@ -19,14 +19,15 @@
     'afm'        : { name, parts, failures, pylons, gearDown, radar, guns, ignition, assist, nvg,
                    navLights, turret } — the live snapshot (same data AVN's
                    shell-side state already carries; the shell just points a second page at it).
-                   pylons is [{n, s}] — hardpoint marker name + live state, mirroring the cockpit's
-                   own weapon-station panel: 'armed' (has ammo), 'exhausted' (mounted, fired out),
-                   or 'empty' (nothing mounted — a distinct flat gray, not just "not armed").
+                   pylons is [{n, s, w}] — hardpoint marker name + live state, mirroring the
+                   cockpit's own weapon-station panel: 'armed' (has ammo), 'exhausted' (mounted,
+                   fired out), or 'empty' (nothing mounted — a distinct flat gray, not just "not
+                   armed") — and the mounted weapon's name ('' when none).
     'afm-layout' : geometry — layout:'full' + geom {headerTop, headerHeight, frameTop, frameHeight}
                    in full; omitted in compact (the page defaults to the CSS fixed offsets).
     'orient'     : app-wide orientation (drives body.portrait/.landscape).
   Vertical stack, top to bottom: name, top-down damage silhouette, frontal silhouette (+ pylon
-  markers), one box per pylon. The frontal silhouette bg + pylon-marker layout are captured from the cockpit's
+  markers, the outer pylons' boxes beside it), the other pylons' boxes. The frontal silhouette bg + pylon-marker layout are captured from the cockpit's
   weapon-station-armed panel and fetched from /airframe[-layout]?type=<name>__front (part
   "__front" for the image; the "__front"-suffixed type key for the marker layout — same endpoints
   the damage silhouette uses, just a distinct key). The damage silhouette bg + part masks + layout
@@ -41,12 +42,18 @@
     <div class="afm-header" id="afm-header">
       <div class="afm-name" id="afm-name"></div>
     </div>
+    <!-- One circuit-style line per pylon, marker to its box, in the pylon's colour. Before the front section so the
+         markers paint over the line ends. -->
+    <svg class="afm-pylon-links" id="afm-pylon-links" aria-hidden="true"></svg>
     <div class="afm-front-section" id="afm-front-section">
       <img class="afm-front" id="afm-front" alt="">
       <div class="afm-front-markers" id="afm-front-markers"></div>
     </div>
-    <!-- One box per hardpoint, left to right in marker order, below the frontal silhouette: where
-         each pylon's loaded weapon name will go. Placeholders until that data is wired. -->
+    <!-- One box per hardpoint, left to right in marker order, each showing the weapon loaded on its
+         pylon. The outermost two sit beside the frontal silhouette, by the outer pylons, and the
+         rest fill a row below it. -->
+    <div class="afm-pylon-box afm-pylon-side left" id="afm-pylon-left"></div>
+    <div class="afm-pylon-box afm-pylon-side right" id="afm-pylon-right"></div>
     <div class="afm-pylon-row" id="afm-pylon-row"></div>
     <div class="afm-frame" id="afm-frame">
       <img class="afm-bg" id="afm-bg" alt="">

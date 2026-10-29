@@ -37,7 +37,7 @@ class Element {
 
 const ids = [
   'afm-panel', 'afm-header', 'afm-name', 'afm-front-section', 'afm-front', 'afm-front-markers',
-  'afm-frame', 'afm-bg', 'afm-parts', 'afm-empty', 'afm-flags-left', 'afm-flags-right', 'afm-pylon-row',
+  'afm-frame', 'afm-bg', 'afm-parts', 'afm-empty', 'afm-flags-left', 'afm-flags-right', 'afm-pylon-row', 'afm-pylon-left', 'afm-pylon-right', 'afm-pylon-links',
   ...['gear', 'radar', 'guns', 'eng', 'assist', 'nvg', 'lights', 'turret'].map((k) => 'afm-flag-' + k),
 ];
 const elements = Object.fromEntries(ids.map((id) => [id, new Element(id)]));
@@ -46,6 +46,7 @@ const listeners = {};
 global.document = {
   getElementById(id) { return elements[id]; },
   createElement() { return new Element('created'); },
+  createElementNS() { return new Element('created'); },
 };
 global.window = { addEventListener(type, cb) { listeners[type] = cb; } };
 // Both layout fetches (own silhouette + front silhouette) resolve to a layoutDef with no `.parts`
