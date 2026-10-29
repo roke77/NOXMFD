@@ -36,6 +36,15 @@
   grid-template-columns: 1fr 1fr;
   grid-template-rows: 1fr 1fr;
 }
+/* A pane at least twice as tall as it is wide stacks the four dials: each then gets up to a
+   quarter of the height rather than half the width, so they draw larger. The iframe's viewport
+   is the pane, so the media query reads its shape. */
+@media (max-aspect-ratio: 1/2) {
+  .avn-gauge-grid {
+    grid-template-columns: 1fr;
+    grid-template-rows: repeat(4, 1fr);
+  }
+}
 .avn-gauge {
   display: flex;
   flex-direction: column;
