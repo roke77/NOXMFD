@@ -53,21 +53,24 @@
   pointer-events: none;
 }
 /* Pylon row: one box per hardpoint, spanning the width between the toggle columns' outer edges
-   (same 5em inset, in the same font scale). layoutAfmFrame (afm.js) sets top/height inline. */
+   (same inset, in the same scale). A grid so a narrow pane can stack the boxes into side columns;
+   layoutAfmFrame (afm.js) sets top/height, the columns and each box's cell inline. The page
+   scale and inset are --afm-em / --afm-inset, also from layoutAfmFrame; the fallbacks are its
+   wide-pane values. */
 .afm-pylon-row {
   position: absolute;
-  left: 5em; right: 5em;
+  left: var(--afm-inset, 5em); right: var(--afm-inset, 5em);
   top: auto; bottom: 12px;
   height: 40px;
-  display: flex;
+  display: grid;
+  grid-auto-rows: 1fr;
   gap: 0.6em;
-  font-size: clamp(9px, 1.8vmin, 18px);
+  font-size: var(--afm-em, clamp(9px, 1.8vmin, 18px));
   pointer-events: none;
 }
 /* The toggle buttons' frame; the weapon name inside takes its pylon's colour (paintAfmPylons),
    wrapping to a second line for a long name. */
 .afm-pylon-box {
-  flex: 1 1 0;
   min-width: 0;
   box-sizing: border-box;
   border: 1px solid var(--no-line);
@@ -104,12 +107,12 @@
    with it. layoutAfmFrame sets top/height inline, and the width to match a row box. */
 .afm-pylon-side {
   position: absolute;
-  font-size: clamp(9px, 1.8vmin, 18px);
+  font-size: var(--afm-em, clamp(9px, 1.8vmin, 18px));
   box-sizing: border-box;
   pointer-events: none;
 }
-.afm-pylon-side.left  { left: 5em; }
-.afm-pylon-side.right { right: 5em; }
+.afm-pylon-side.left  { left: var(--afm-inset, 5em); }
+.afm-pylon-side.right { right: var(--afm-inset, 5em); }
 .afm-frame {
   position: absolute;
   left: 0; right: 0;
@@ -160,11 +163,12 @@
 body.full.portrait .afm-name { font-size: clamp(32px, 3.6vh, 51px); }
 
 /* SYS toggles: two columns of lit buttons over the full-width silhouette bands, clear of the
-   drawings, which sit centred. The F-35 master strip's .ms-flag frame (lit-panel.css's .lit look)
-   with the glyph on top; currentColor (off gray / on green / GEAR-down red, from avn-status-policy)
-   lights the glyph and lamp together while the name stays white. Everything is in em of the
-   column's font-size, which follows the smaller panel side, so the buttons scale with the screen.
-   layoutAfmFrame (afm.js) sets each column's top/height to the silhouette band. */
+   drawings, which sit centred, or in a narrow pane a 4-across band under the name (.band). The
+   F-35 master strip's .ms-flag frame (lit-panel.css's .lit look) with the glyph on top;
+   currentColor (off gray / on green / GEAR-down red, from avn-status-policy) lights the glyph and
+   lamp together while the name stays white. Everything is in em of the column's font-size,
+   --afm-em from layoutAfmFrame (afm.js), so the buttons scale with the pane; it also sets each
+   column's top/height. */
 .afm-flags {
   position: absolute;
   top: 0;
@@ -172,12 +176,15 @@ body.full.portrait .afm-name { font-size: clamp(32px, 3.6vh, 51px); }
   flex-direction: column;
   justify-content: center;
   gap: 0.9em;
-  font-size: clamp(9px, 1.8vmin, 18px);
+  font-size: var(--afm-em, clamp(9px, 1.8vmin, 18px));
   z-index: 5;
 }
 .afm-flags.placed { display: flex; }
-.afm-flags.left  { left: 5em; }
-.afm-flags.right { right: 5em; }
+.afm-flags.left  { left: var(--afm-inset, 5em); }
+.afm-flags.right { right: var(--afm-inset, 5em); }
+/* Narrow pane: each column becomes one 4-across row of the band under the name, full width. */
+.afm-flags.band { flex-direction: row; left: var(--afm-inset, 1em); right: var(--afm-inset, 1em); }
+.afm-flags.band .afm-flag { flex: 1 1 0; width: auto; min-width: 0; }
 .afm-flag {
   appearance: none;
   font-family: var(--no-font);

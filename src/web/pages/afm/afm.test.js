@@ -16,7 +16,7 @@ class Element {
   constructor(id) {
     this.id = id;
     this.classList = new ClassList();
-    this.style = {};
+    this.style = { setProperty() {}, getPropertyValue() { return ''; } };
     this.dataset = {};
     this.children = [];
     this.parentNode = null;
@@ -58,6 +58,7 @@ global.fetch = function () {
 };
 global.AfmBgPolicy = require('./afm-bg-policy.js');
 global.AfmFailurePolicy = require('./afm-failure-policy.js');
+global.AfmLayoutPolicy = require('./afm-layout-policy.js');
 global.AvnStatusPolicy = require('./avn-status-policy.js');
 global.sendCommand = () => Promise.resolve();
 
