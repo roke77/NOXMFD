@@ -284,9 +284,9 @@
   const NAV_LAYOUT = { main: 'center' };
 
   // Pages whose window fills the whole portal, under the OSB columns, instead of sitting between them.
-  // MAP and TGP are pictures, not content a label can cover: they give up the columns' clear glass
-  // for the extra picture, and their labels and grips sit on top of it.
-  const FULL_BLEED = { map: true, tgp: true };
+  // MAP, TGP and the scopes (RWR, FCR, HSD) are pictures, not content a label can cover: they give up
+  // the columns' clear glass for a centered, wider picture, and their labels and grips sit on top of it.
+  const FULL_BLEED = { map: true, tgp: true, rwr: true, rdr: true, hsd: true };
 
   // Pages whose edge labels stand upright (.osb-v, f35.css), so their OSB columns shrink to one
   // glyph and the page gets the width. The same pages the bezel stands up (mfd.js isVmainPage);
