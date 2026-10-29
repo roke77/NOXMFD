@@ -146,6 +146,12 @@ Capture is split by source, because each side can only see its own input:
   toggle switch (VPC mode selectors etc.) would otherwise be "captured" instantly; flip it
   off and on again while armed to bind it deliberately. Each bind pins its own joystick
   number (`0` = any), so a multi-device HOTAS can spread binds across sticks.
+- **Unfocused Input is HOTAS-only.** `ignoreInputWhenAppNotInFocus` is global, so with it off
+  Rewired would also read the keyboard from the background and fire the game's key binds while
+  the pilot types elsewhere. `Keybinds.MuteBackgroundKeyboard` disables the Rewired keyboard
+  controller while the game is unfocused (setting on, or a capture armed) and restores its prior
+  `enabled` on refocus. It works on the controller, not the maps, so it never fights the game's
+  own chat-time map disabling.
 
 ## Remote keybind listener
 

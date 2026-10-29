@@ -968,10 +968,21 @@ namespace NOXMFD
         {
             bool mute = (_bgApplied || CaptureArmed) && !Application.isFocused;
             if (mute == _kbMuted || !ReInput.isReady) return;
-            var kb = ReInput.controllers.Keyboard;
-            if (kb == null) return;
-            if (mute) { _kbPrevEnabled = kb.enabled; kb.enabled = false; }
-            else kb.enabled = _kbPrevEnabled;
+            // Runs inside Poll every frame: a throw here would take every bind down with it, so a
+            // failure logs once and parks the mute in its target state rather than retrying.
+            try
+            {
+                var kb = ReInput.controllers.Keyboard;
+                if (kb != null)
+                {
+                    if (mute) { _kbPrevEnabled = kb.enabled; kb.enabled = false; }
+                    else kb.enabled = _kbPrevEnabled;
+                }
+            }
+            catch (Exception e)
+            {
+                Plugin.Log?.LogWarning($"[NOXMFD] Background keyboard mute failed: {e.Message}");
+            }
             _kbMuted = mute;
         }
 
