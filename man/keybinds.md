@@ -132,7 +132,8 @@ lamp means ON. They sit in two groups.
 - **Unfocused Input** — keeps your HOTAS live while the browser window has focus. Turn it on if
   you run the display in a browser on the same PC as the game; otherwise the game has to keep
   focus for the stick to work. Off by default; leave it off for a tablet or phone, where the game
-  keeps focus anyway.
+  keeps focus anyway. Only the HOTAS stays live: the game ignores the keyboard while another
+  window has focus, so typing in the browser or a chat app never fires a game key bind.
 - **Remote Keybinds** — lets this browser send the keyboard binds configured on this page back to
   the game, so a tablet, laptop, or WSO station can operate the same MAP/TGT/SOI/weapon actions
   without physical access to the game PC. It is off by default and stored per browser. Keep it

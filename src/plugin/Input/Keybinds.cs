@@ -192,6 +192,9 @@ namespace NOXMFD
         // live by ApplyBackgroundInput; the _bg* fields remember what to put back if it's turned off.
         private static ConfigEntry<bool>? _bgInput;
         private static bool _bgApplied, _bgPrevRun, _bgPrevIgnore;
+        // MuteBackgroundKeyboard's state: whether the Rewired keyboard is currently muted by us, and
+        // the enabled value to put back on refocus.
+        private static bool _kbMuted, _kbPrevEnabled;
 
         // Called once from Plugin.Awake. Section/key names are the .cfg identity — existing user configs
         // carry over. Descriptions surface as row tooltips on the /keybinds page.
@@ -538,7 +541,7 @@ namespace NOXMFD
             // toggle, not a bind row: it has no key/joy/axis source of its own).
             _bgInput = config.Bind("Input", "InputWhenGameUnfocused", false,
                 new ConfigDescription(
-                    "Keep reading your HOTAS while the game window is NOT focused. Turn this ON if you run the MFD in a browser on the SAME PC: otherwise the game must stay focused for the stick to work, which leaves the browser in the background where it throttles its own redraw — and the map cursor stutters. Not needed for a tablet or phone, where the game keeps focus anyway. NOTE: while on, your stick also still flies the aircraft while you are clicking around in another window.",
+                    "Keep reading your HOTAS while the game window is NOT focused. Turn this ON if you run the MFD in a browser on the SAME PC: otherwise the game must stay focused for the stick to work, which leaves the browser in the background where it throttles its own redraw — and the map cursor stutters. Not needed for a tablet or phone, where the game keeps focus anyway. NOTE: while on, your stick also still flies the aircraft while you are clicking around in another window. The keyboard is not read while the game is unfocused, so typing elsewhere never fires a game key bind.",
                     null, Hidden()));
 
             foreach (var b in _binds)
@@ -956,6 +959,22 @@ namespace NOXMFD
             Plugin.Log?.LogInfo($"[NOXMFD] InputWhenGameUnfocused = {_bgApplied}.");
         }
 
+        // ignoreInputWhenAppNotInFocus is global, so with it off Rewired also reads the KEYBOARD from
+        // the background — typing in a browser or chat app would fire the game's own key binds. Mute
+        // the Rewired keyboard while unfocused so only the HOTAS stays live. NOXMFD's local key binds
+        // read Unity's legacy Input (already focus-gated) and remote keybinds arrive over HTTP, so
+        // neither goes through this device.
+        private static void MuteBackgroundKeyboard()
+        {
+            bool mute = (_bgApplied || CaptureArmed) && !Application.isFocused;
+            if (mute == _kbMuted || !ReInput.isReady) return;
+            var kb = ReInput.controllers.Keyboard;
+            if (kb == null) return;
+            if (mute) { _kbPrevEnabled = kb.enabled; kb.enabled = false; }
+            else kb.enabled = _kbPrevEnabled;
+            _kbMuted = mute;
+        }
+
         private static void EnableBackgroundInput()
         {
             _prevRunInBackground = Application.runInBackground;
@@ -1079,6 +1098,7 @@ namespace NOXMFD
         {
             if (_binds.Count == 0) return;   // not bound yet
             ApplyBackgroundInput();
+            MuteBackgroundKeyboard();
             RepinJoysticks();
             ReconcileCountermeasure(Time.unscaledTime);
 
