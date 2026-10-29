@@ -811,6 +811,9 @@ function drawOverlay() {
   // Other units first, so the player's icon and label sit on top.
   if (lastData.contacts) {
     for (const u of lastData.contacts) {
+      // Neutral units (no faction, the white dots) are never drawn: the game won't lock them, and
+      // where they cluster on a site they bury the targetable units under clutter.
+      if (u.f === 0) continue;
       const p = worldToOverlay(u.x, u.z);
       if (!onScreen(p, 48)) continue;
       ensureIconImage(u.t);
@@ -848,11 +851,11 @@ function drawOverlay() {
       const detail = u.hd
         ? 'HDG ' + Math.round(((u.h % 360) + 360) % 360) + '°\nSPD ' + u.sp + '\nALT ' + u.al
         : null;
-      // selectable: false for what the game refuses to lock (CommandDispatcher.TrySelectTarget): a
-      // neutral unit with no faction (u.f 0, the white dots) or one the TGT filters exclude (u.ex).
-      // They keep their hover tooltip but must not win a tap-select (map-hit.js).
+      // selectable: false for a unit the TGT filters exclude (u.ex), which the game refuses to lock
+      // (CommandDispatcher.TrySelectTarget). It keeps its hover tooltip but must not win a
+      // tap-select (map-hit.js).
       hitTargets.push({ cx: p.cx, cy: p.cy, r: r + HIT_PAD, label: u.t, color: hex, id: u.id, tg: !!u.tg, detail,
-                        selectable: u.f !== 0 && !u.ex });
+                        selectable: !u.ex });
     }
   }
 

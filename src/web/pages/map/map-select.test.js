@@ -51,12 +51,12 @@ assert.strictEqual(nearestUnselected([], 0, 0, 100), null, 'no targets → no-op
     'nothing selected in reach → deselect is a no-op');
 }
 
-// A contact the game refuses to select (neutral, or excluded by the TGT filters) must not shadow
-// the selectable ones around it: the player's report was a neutral dot on top of a launcher site.
+// A contact the game refuses to select (excluded by the TGT filters) must not shadow
+// the selectable ones around it, e.g. one drawn on top of a launcher site.
 {
   const targets = [
     { id: 10, cx: 100, cy: 100, r: 10, selected: false },                      // the launcher
-    { id: 11, cx: 100, cy: 100, r: 10, selected: false, selectable: false },   // neutral dot, drawn on top
+    { id: 11, cx: 100, cy: 100, r: 10, selected: false, selectable: false },   // filter-excluded, drawn on top
   ];
   assert.strictEqual(nearestUnselected(targets, 100, 100, 22).id, 10,
     'an unselectable contact on top does not block the selectable one under it');

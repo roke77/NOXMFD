@@ -9,11 +9,10 @@
   // Cursor Deselect) share. `isSelected(t)` answers a contact's selection state (telemetry plus the
   // optimistic pending set).
   //
-  // Selecting skips contacts the game would refuse (`selectable === false`: neutral units with no
-  // faction, and units the TGT filters exclude). They stay on the map and in the hover tooltip, but
-  // must not win this test: a refused contact never becomes selected, so it would stay the nearest
-  // unselected one on every tap and shadow whatever sits under it (a player's report: a neutral dot
-  // on top of a launcher site made the launcher untappable). `selectable` absent counts as selectable.
+  // Selecting skips contacts the game would refuse (`selectable === false`: units the TGT filters
+  // exclude). They stay on the map and in the hover tooltip, but must not win this test: a refused
+  // contact never becomes selected, so it would stay the nearest unselected one on every tap and
+  // shadow whatever sits under it. `selectable` absent counts as selectable.
   function nearestContact(targets, px, py, pad, selected, isSelected) {
     let hit = null, bestD2 = Infinity;
     for (let i = targets.length - 1; i >= 0; i--) {   // topmost (last-drawn) first, so a tie goes to it
