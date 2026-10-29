@@ -1,4 +1,5 @@
-// Pure, DOM-free state->class mapping so this runs under node for the self-check.
+// The avn.toggle flags' state->class rule, shared by the SYS page and the F-35 strip. Pure and
+// DOM-free so this runs under node for the self-check.
 (function (root) {
   function tileClass(kind, active) {
     if (!active) return 'off';

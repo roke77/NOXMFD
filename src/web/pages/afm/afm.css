@@ -1,4 +1,5 @@
-/* AFM page — airframe status (damage silhouette + failure labels + aircraft name).
+/* SYS page (id afm) — airframe status (damage silhouette + failure labels + aircraft name),
+   pylon weapons and the system toggles.
    compact (default) uses the fixed offsets below; body.full overrides name/frame
    placement at the bottom with bezel-anchored geometry from the shell. */
 .afm-panel {
@@ -222,6 +223,6 @@ body.full.portrait .afm-name { font-size: clamp(32px, 3.6vh, 51px); }
 /* GEAR is the game-captured glyph as a recolourable mask, as on SYS and the F-35 strip. */
 .afm-flag-mask {
   background-color: currentColor;
-  -webkit-mask: url("/assets/pages/avn/gear-icon.png") no-repeat center / contain;
-          mask: url("/assets/pages/avn/gear-icon.png") no-repeat center / contain;
+  -webkit-mask: url("/assets/pages/afm/gear-icon.png") no-repeat center / contain;
+          mask: url("/assets/pages/afm/gear-icon.png") no-repeat center / contain;
 }

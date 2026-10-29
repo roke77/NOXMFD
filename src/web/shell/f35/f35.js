@@ -48,12 +48,8 @@
   // would show the readouts and then take them away on every mount. The bezel passes it to nothing
   // and is unaffected.
   //
-  // AVN does not get the flag either — its `?nochrome` handling is not present in avn.html/avn.css
-  // at all. AVN's status tiles are bezel/portal-actuated toggles (directly clickable on the page
-  // itself too), the strip's own copy stays read-only, and RPM/HEAT aren't on the strip at all, so
-  // hiding AVN's content would leave this layout with no way to flip gear/radar/etc. Plain `/avn`
-  // (like every other page here) accepts a little duplication of FUEL/THRL with the strip in
-  // exchange for keeping AVN's own content — and its only toggle controls — intact.
+  // ENG (id avn) and SYS (id afm) don't take the flag either: ENG's gauges and SYS's toggles also
+  // show on the strip, but each page stays whole so it reads the same under either layout.
   // This layout's half of layout-pages.js, which keeps it beside the bezel's table so the two can't
   // quietly diverge — every NAV destination needs an entry in both, or the button is dead here and
   // works there. MAIN maps to no page and `null` is meaningful, so membership is tested with `in`.
@@ -1389,7 +1385,7 @@
   // portal — the status/avn/mapinfo slices reach it from the message pump above, and the URLs come
   // from the server once (the same /config the bezel's MAIN reads). The flags and the THRL gauge
   // reuse avn-status-policy and avn-throttle-policy, so the GEAR-down-is-red rule and the MIL/AB
-  // split stay in one place each, shared with the AVN page.
+  // split stay in one place each, shared with the SYS and ENG pages.
   const stripEl      = document.querySelector('.master-strip');
   const stripFlags   = [].slice.call(document.querySelectorAll('.ms-flag'));
   const stripStatus  = document.getElementById('ms-status');

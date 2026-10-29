@@ -4,10 +4,9 @@
 <meta charset="utf-8">
 <title>NO XMFD — SYS</title>
 <!--
-  Bare AFM (Airframe) page served at /afm. Single source of truth for the airframe silhouette +
-  name in BOTH layouts — a pure reactive renderer fed by the shell over postMessage. Split out of
-  the old AVN page (which used to carry this alongside its status tiles/gauges); AVN is avionics
-  only now, this is airframe status only.
+  The SYS page (id afm, served at /afm; one of the Avionics hub's pages): airframe status, the
+  pylons' loaded weapons and the 8 system toggles, in BOTH layouts — a pure reactive renderer fed
+  by the shell over postMessage. The engine gauges are the ENG page (id avn).
 
   compact : split-pane / half-height. Name + frame use fixed pixel offsets from the iframe edges
             (no bezel keys to anchor against). The default.
@@ -129,7 +128,7 @@
 <script src="/assets/services/remote-keybinds.js"></script>
 <script src="/assets/pages/afm/afm-bg-policy.js"></script>
 <script src="/assets/pages/afm/afm-failure-policy.js"></script>
-<script src="/assets/pages/avn/avn-status-policy.js"></script>
+<script src="/assets/pages/afm/avn-status-policy.js"></script>
 <script src="/assets/pages/afm/afm.js"></script>
 </body>
 </html>

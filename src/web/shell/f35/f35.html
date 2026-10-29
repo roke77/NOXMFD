@@ -116,11 +116,11 @@
       </button>
     </div>
 
-    <!-- The eight avionics flags the AVN page shows, in one row and as one widget, each a lit toggle
-         button: the name, the lamp, the glyph (the inline SVGs are copied from avn.html; GEAR reuses
+    <!-- The eight avionics flags the SYS page (id afm) shows, in one row and as one widget, each a lit
+         toggle button: the name, the lamp, the glyph (the inline SVGs match afm.html's; GEAR reuses
          the game-captured gear-icon.png mask). data-field names the avn-slice boolean; data-kind
          drives the colour via avn-status-policy.js (so GEAR-down-is-red lives in one place, shared
-         with AVN). Icons use stroke/fill="currentColor", so the one colour class lights lamp and
+         with SYS). Icons use stroke/fill="currentColor", so the one colour class lights lamp and
          glyph together. -->
     <div class="ms-flags" data-widget="flags">
       <button type="button" class="ms-flag off" aria-pressed="false" data-kind="gear" data-field="gearDown">
@@ -259,9 +259,9 @@
 <script src="/assets/shell/classic/split-slots.js"></script>
 <script src="/assets/shell/f35/f35-glass.js"></script>
 <script src="/assets/shell/f35/f35-wpn-paging.js"></script>
-<!-- Shared with the AVN page: the pure state->colour rule for the avionics flags in the strip, and
-     the MIL/AB split behind its THRL gauge. -->
-<script src="/assets/pages/avn/avn-status-policy.js"></script>
+<!-- Shared with the SYS page (id afm): the pure state->colour rule for the avionics flags in the
+     strip. Shared with the ENG page (id avn): the MIL/AB split behind its THRL gauge. -->
+<script src="/assets/pages/afm/avn-status-policy.js"></script>
 <script src="/assets/pages/avn/avn-throttle-policy.js"></script>
 <!-- The strip's flight-data readouts convert units the way ADI does. -->
 <script src="/assets/pages/adi/adi-math.js"></script>

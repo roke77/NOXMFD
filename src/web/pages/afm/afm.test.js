@@ -58,7 +58,7 @@ global.fetch = function () {
 };
 global.AfmBgPolicy = require('./afm-bg-policy.js');
 global.AfmFailurePolicy = require('./afm-failure-policy.js');
-global.AvnStatusPolicy = require('../avn/avn-status-policy.js');
+global.AvnStatusPolicy = require('./avn-status-policy.js');
 global.sendCommand = () => Promise.resolve();
 
 require('./afm.js');

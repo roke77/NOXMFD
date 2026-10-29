@@ -1,4 +1,5 @@
-// AFM page — airframe status. Reactive renderer driven by the shell over postMessage.
+// SYS page (id afm) — airframe status, pylon weapons and the system toggles. Reactive renderer
+// driven by the shell over postMessage.
 // compact (default) places name + frame with fixed CSS offsets. full (body.full) overrides
 // name/frame placement from the bezel geometry the shell forwards in 'afm-layout'.
 

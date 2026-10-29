@@ -375,8 +375,8 @@ html, body {
    avn.css .avn-mask-icon), so it turns green/gray/red with the rest. */
 .ms-flag-mask {
   background-color: currentColor;
-  -webkit-mask: url("/assets/pages/avn/gear-icon.png") no-repeat center / contain;
-          mask: url("/assets/pages/avn/gear-icon.png") no-repeat center / contain;
+  -webkit-mask: url("/assets/pages/afm/gear-icon.png") no-repeat center / contain;
+          mask: url("/assets/pages/afm/gear-icon.png") no-repeat center / contain;
 }
 
 /* MENU — the fixed group's one button, boxed like a control with an edge to hit. Amber while the
