@@ -1733,7 +1733,6 @@ function clearKeyActions() {
       delete k.dataset.action;
       delete k.dataset.pane;     // split-mode tag; harmless to clear unconditionally
       delete k.dataset.wname;    // weapon.select name (WPN page); clear so it never lingers
-      delete k.dataset.group;    // avn.toggle group (AVN page); clear so it never lingers
       delete k.dataset.pending;  // stub flag (EXT); clear so a later page's key isn't stuck inert
     });
   });

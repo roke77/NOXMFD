@@ -243,7 +243,7 @@ selected FCR range follows the same pattern under `noxmfd.rdr.view`; HSD keeps i
   Cursor input and hide itself in favor of it (docs/tgp-manual-control.md).
 - **Write commands:** `src/web/services/send-command.js` POSTs the flat `{cmd, …}` envelope to `/command`
   — from pages (MAP tap → `target.select`, right-click/Cursor Deselect → `target.deselect`, SLEW/grid keypad → `tgp.slew`;
-  TGT → `tgt.*` + `target.deselect`; AVN → `avn.toggle`;
+  TGT → `tgt.*` + `target.deselect`; SYS → `avn.toggle`;
   HUD → `hud.*`/`declutter.set`/`preset.*` (issue #50 follow-up); KEYBINDS → the `keybind.*` family;
   WPT → the `wpt.*` family, including its squad-share sub-group (docs/squadron-transport.md); SQD →
   the `sqd.*` family; TD → the `td.*` family (issue #47, docs/target-designator.md))
