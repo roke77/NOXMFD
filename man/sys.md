@@ -12,6 +12,9 @@ vision, nav lights, turret — shows live state; tap one to switch that system. 
 game's own gear key: it only moves the gear in the air, and not while it is already moving. GUNS
 lights whenever the game has guns linked, on any aircraft.
 
+Aircraft whose weapon panel has no stations on the nose-on drawing show a row of pylon squares
+under it instead, and those without a nose-on view show just the squares and weapon boxes.
+
 In a narrow pane the toggles move into a band under the aircraft name, and the weapon boxes stack
 in columns either side of the nose-on view.
 

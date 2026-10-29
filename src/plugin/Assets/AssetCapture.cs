@@ -285,13 +285,16 @@ namespace NOXMFD
         // with the GUN/TIP/PYLON/BAY "WEAPON ARMED" boxes. Served at the same /airframe endpoint,
         // under part key "__front", so no new server plumbing is needed.
         //
-        // Also captures the panel's per-station hardpoint markers. Their LAYOUT is static (captured
-        // once, via the same GetPartPlacement math as the damage-silhouette parts). Their COLOR is
-        // live game state (green = ammo remaining, red = exhausted) set by the game's PylonIndicator;
-        // rather than re-deriving armed/exhausted, this mirrors the same Image.color the player
-        // already sees (ReadFrontalMarkerStates, polled per snapshot tick). The weapon on each marker
-        // comes through the same PylonIndicator: its element set i holds the marker images for
-        // hardpoint index i of WeaponManager.HardpointsIndexes (ResolvePylonHardpoints).
+        // Also captures one marker per weapon station, three ways. Usually from the game's
+        // PylonIndicator, whose element set i colours hardpoint i (WeaponManager.HardpointsIndexes):
+        // a marker on the drawing gets its static position (GetPartPlacement, as the damage-silhouette
+        // parts), while a station marked by a label beside the drawing goes out as a position-less
+        // label station. Without an indicator, the panel's hardpoint_* children, matched to hardpoints
+        // later (ResolvePylonHardpoints). Without a panel at all, stations from the hardpoints
+        // themselves (CaptureHardpointStations). A marker's COLOR is live game state the player
+        // already sees (green = ammo remaining, red = exhausted, gray = nothing mounted), mirrored
+        // rather than re-derived (ReadFrontalMarkerStates, polled per snapshot tick); hardpoint
+        // stations derive it from ammo the same way.
         private readonly HashSet<string> _capturedFrontal = new HashSet<string>();
         // One marker on the frontal silhouette: the graphic the game colours for it, and its hardpoint
         // index in WeaponManager.HardpointsIndexes (-1 until resolved, for the hardpoint_* fallback).
@@ -330,7 +333,6 @@ namespace NOXMFD
             }
             if (frontImg == null || frontImg.sprite == null)
             {
-                LogFrontalMiss(key, candidates);
                 _frontalMisses.TryGetValue(key, out int missed);
                 _frontalMisses[key] = missed + 1;
                 if (missed >= FrontalIndicatorWaitScans) CaptureHardpointStations(ac, key);
@@ -498,52 +500,6 @@ namespace NOXMFD
                 Plugin.Log?.LogWarning("[NOXMFD] AFM: PylonIndicator read failed — pylon markers fall back to hardpoint_* children: " + ex.Message);
             }
             return result;
-        }
-
-        // DIAG (frontal capture): once per type, the first time no usable frontProfile is found, logs
-        // what the scene holds instead, so an airframe whose front view never captures can be traced.
-        // Remove once every airframe's front view captures.
-        private readonly HashSet<string> _loggedFrontalMiss = new HashSet<string>();
-        private void LogFrontalMiss(string key, List<string> candidates)
-        {
-            if (!_loggedFrontalMiss.Add(key)) return;
-            var named = new List<string>();
-            foreach (Image img in Resources.FindObjectsOfTypeAll<Image>())
-            {
-                if (img == null || img.gameObject.scene.name == null) continue;
-                string n = img.gameObject.name;
-                string lower = n.ToLowerInvariant();
-                if (!lower.Contains("front") && !lower.Contains("profile")) continue;
-                Transform par = img.transform.parent;
-                named.Add(n + "[" + (img.sprite != null ? img.sprite.name : "no sprite") + (img.gameObject.activeInHierarchy ? "" : ",inactive") +
-                          "] under " + (par != null ? par.name : "-"));
-                if (named.Count >= 20) break;
-            }
-            var pylonParents = new List<string>();
-            try
-            {
-                PylonIndicator pi = UnityEngine.Object.FindObjectOfType<PylonIndicator>(includeInactive: true);
-                if (pi == null) pylonParents.Add("no PylonIndicator");
-                else
-                {
-                    if (_piSetsField == null)
-                        _piSetsField = typeof(PylonIndicator).GetField("pylonElementSets", BindingFlags.NonPublic | BindingFlags.Instance);
-                    if (_piImagesField == null)
-                        _piImagesField = typeof(PylonIndicator).GetNestedType("PylonElementSet", BindingFlags.NonPublic)
-                            ?.GetField("pylonImages", BindingFlags.NonPublic | BindingFlags.Instance);
-                    if (_piSetsField?.GetValue(pi) is Array sets && _piImagesField != null)
-                        for (int i = 0; i < sets.Length; i++)
-                            if (_piImagesField.GetValue(sets.GetValue(i)) is Image[] imgs)
-                                foreach (Image img in imgs)
-                                    if (img != null)
-                                        pylonParents.Add(i + ":" + img.gameObject.name + " under " +
-                                            (img.transform.parent != null ? img.transform.parent.name : "-") +
-                                            (img.transform.parent != null && img.transform.parent.parent != null ? "/" + img.transform.parent.parent.name : ""));
-                }
-            }
-            catch (Exception ex) { pylonParents.Add("read failed: " + ex.Message); }
-            Plugin.Log?.LogInfo($"[NOXMFD] AFM: no usable frontProfile yet for '{key}' (frontProfiles: {(candidates.Count > 0 ? string.Join(", ", candidates) : "none")}; " +
-                $"front/profile images: {(named.Count > 0 ? string.Join("; ", named) : "none")}; PylonIndicator images: {string.Join("; ", pylonParents)}).");
         }
 
         // Reports armed/exhausted, not the raw color: the AFM page renders these in the theme's own

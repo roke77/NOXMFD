@@ -27,10 +27,14 @@
                    in full; omitted in compact (the page defaults to the CSS fixed offsets).
     'orient'     : app-wide orientation (drives body.portrait/.landscape).
   Vertical stack, top to bottom: name, top-down damage silhouette, frontal silhouette (+ pylon
-  markers, the outer pylons' boxes beside it), the other pylons' boxes. The frontal silhouette bg + pylon-marker layout are captured from the cockpit's
-  weapon-station-armed panel and fetched from /airframe[-layout]?type=<name>__front (part
-  "__front" for the image; the "__front"-suffixed type key for the marker layout — same endpoints
-  the damage silhouette uses, just a distinct key). The damage silhouette bg + part masks + layout
+  markers, the outer pylons' boxes beside it), the other pylons' boxes. The frontal silhouette bg +
+  pylon-marker layout are captured from the cockpit's weapon-station-armed panel and fetched from
+  /airframe[-layout]?type=<name>__front (part "__front" for the image; the "__front"-suffixed type
+  key for the marker layout — same endpoints the damage silhouette uses, just a distinct key). The
+  layout is {parts: [{n, cx, cy, w, h}]} for markers on the drawing, or [{n, label: true}] for
+  stations with no point on it, drawn as a row of squares over their boxes; image:false means the
+  airframe has no front view (stations taken from its hardpoints), and an empty parts list shows
+  the loadout instead. The damage silhouette bg + part masks + layout
   come from the plain /airframe[-layout]?type=<name>.
 -->
 <link rel="stylesheet" href="/assets/shared/font.css">

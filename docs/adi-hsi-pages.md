@@ -253,5 +253,18 @@ SYS lays itself out by width (`afm-layout-policy.js`): two toggle columns while 
 view, else a 4-across band under the name; the outer pylon boxes beside the nose-on view while they
 fit, else stacked columns either side of it with the centre pylon below.
 
+Each frontal marker comes from the `PylonIndicator` itself (set *i*'s first image, else its label),
+so it carries its hardpoint directly; a panel without one falls back to its `hardpoint_*` children.
+Airframes split three ways in game:
+
+- markers on the drawing (most jets): markers, circuit lines and the box row as above;
+- stations marked by label boxes beside the drawing (UH-90): no point to link from, so a row of
+  pylon squares centred under the front view, the weapon boxes below, circuit lines between;
+- no front-view panel at all (CI-22, VL-49): the same squares and boxes built from the airframe's
+  hardpoints, with the front view dropped; an airframe with neither lists its loadout.
+
+However many pylons, the front view and boxes take at most half the stack, so the top view always
+keeps the rest.
+
 Still to check in game: each toggle switches its system; each pylon box names the weapon actually
 on that pylon and follows a rearm; the log shows no `PylonIndicator` warning.
