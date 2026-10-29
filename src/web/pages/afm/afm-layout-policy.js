@@ -35,8 +35,11 @@
   // The stacked arrangement for a pane too narrow for one line: pylons left of the front view's
   // centre line go to a left column and right ones to a right column, outermost at the top, so
   // each line drops straight from its marker and turns outward into its box without crossing
-  // another; centre pylons share a bottom row between the columns. Takes [{n, cx}] (cx 0..1 across
-  // the front view) and returns {name: {col: 1|2|3, row}} plus the row count.
+  // another. Centre pylons share one bottom row between the columns, left to right, under an empty
+  // row their lines' tracks run through. Takes [{n, cx}] (cx 0..1 across the front view); returns
+  // place {name: {col, row}} (grid lines from 1), cols, sideRows and centre (the centre count).
+  // Columns: 1 left, 2..cols-1 the centre boxes, cols right. Rows: 1..sideRows the side boxes,
+  // then the track row and the centre row.
   function pylonColumns(pylons) {
     const left = [], right = [], centre = [];
     for (const p of pylons) {
@@ -48,15 +51,32 @@
     right.sort(function(a, b) { return b.cx - a.cx; });
     centre.sort(function(a, b) { return a.cx - b.cx; });
     const sideRows = Math.max(left.length, right.length);
-    const rows = sideRows + centre.length;
+    const cols = 2 + Math.max(1, centre.length);
     const place = {};
     left.forEach(function(p, i) { place[p.n] = { col: 1, row: i + 1 }; });
-    right.forEach(function(p, i) { place[p.n] = { col: 3, row: i + 1 }; });
-    centre.forEach(function(p, i) { place[p.n] = { col: 2, row: sideRows + i + 1 }; });
-    return { place: place, rows: Math.max(1, rows) };
+    right.forEach(function(p, i) { place[p.n] = { col: cols, row: i + 1 }; });
+    centre.forEach(function(p, i) { place[p.n] = { col: 2 + i, row: sideRows + 2 }; });
+    return { place: place, cols: cols, sideRows: sideRows, centre: centre.length };
   }
 
-  const api = { clamp, flagColumnsFit, bandEm, pylonSidesFit, pylonRowFits, pylonColumns };
+  // The pylon area (front view + the gap under it + the boxes) gets at most half the stack, so
+  // the top view always keeps the rest. Over budget, the boxes shrink first, to minBoxH, then the
+  // front view, to minFrontH. rowsH(boxH) gives the boxes' total height for a box height. Returns
+  // {boxH, frontH}.
+  function fitPylonArea(available, frontH, gapH, boxH, minBoxH, minFrontH, rowsH) {
+    const budget = available / 2;
+    if (frontH + gapH + rowsH(boxH) > budget) {
+      // rowsH is linear in boxH: rowsH(b) = rowsH(0) + b * k.
+      const base = rowsH(0), k = rowsH(1) - base;
+      boxH = Math.max(minBoxH, Math.min(boxH, k > 0 ? (budget - frontH - gapH - base) / k : boxH));
+    }
+    if (frontH + gapH + rowsH(boxH) > budget) {
+      frontH = Math.max(minFrontH, budget - gapH - rowsH(boxH));
+    }
+    return { boxH: boxH, frontH: frontH };
+  }
+
+  const api = { clamp, flagColumnsFit, bandEm, pylonSidesFit, pylonRowFits, pylonColumns, fitPylonArea };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.AfmLayoutPolicy = api;
 })(typeof self !== 'undefined' ? self : this);

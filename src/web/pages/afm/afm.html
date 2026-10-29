@@ -21,7 +21,8 @@
                    pylons is [{n, s, w}] — hardpoint marker name + live state, mirroring the
                    cockpit's own weapon-station panel: 'armed' (has ammo), 'exhausted' (mounted,
                    fired out), or 'empty' (nothing mounted — a distinct flat gray, not just "not
-                   armed") — and the mounted weapon's name ('' when none).
+                   armed") — and the mounted weapon's name ('' when none). loadout is WPN's
+                   [{n, a, f}] list, shown instead when the front view has no pylon markers.
     'afm-layout' : geometry — layout:'full' + geom {headerTop, headerHeight, frameTop, frameHeight}
                    in full; omitted in compact (the page defaults to the CSS fixed offsets).
     'orient'     : app-wide orientation (drives body.portrait/.landscape).

@@ -30,7 +30,7 @@ AFM_FLAGS.forEach(function(f) {
 });
 
 // ── State ──────────────────────────────────────────────────────────────────────────
-let afmData        = { name: null, parts: null, failures: null, pylons: null, flags: null };
+let afmData        = { name: null, parts: null, failures: null, pylons: null, flags: null, loadout: null };
 let layout          = 'compact';   // 'compact' (split pane) | 'full' (full-screen iframe)
 let afmFullGeom     = null;        // {headerTop, headerHeight, frameTop, frameHeight} from the shell in full
 let afmLayoutType   = null;
@@ -49,6 +49,8 @@ let afmPylonSides = false;   // the outer two pylons' boxes sit beside the front
 let afmPylonOrder   = [];                    // pylon names, left to right by marker cx
 let afmPylonCx      = Object.create(null);   // pylon name -> marker cx (0..1 across the front view)
 let afmPylonStacked = false;  // narrow arrangement: side columns + centre row (AfmLayoutPolicy.pylonColumns)
+let afmPylonCentre  = Object.create(null);   // pylon name -> true when stacked on the centre row
+let afmPylonTrackH  = 0;      // stacked: the track row's height, above the centre row
 let afmPylonRowBoxEls = Object.create(null); // pylon name -> its row box (hidden while it sits beside)
 let afmPylonBoxEls  = Object.create(null);   // pylon name -> the box it shows in now
 let afmPylonLinkEls = Object.create(null);   // pylon name -> its <polyline>
@@ -108,7 +110,9 @@ function renderAfm() {
   if (layoutDef && typeof layoutDef === 'object' && afmLayoutType !== type) buildAfmParts(type, layoutDef);
   const frontLayoutDef = afmFrontLayoutCache[type];
   if (frontLayoutDef && typeof frontLayoutDef === 'object' && afmFrontLayoutType !== type) buildAfmFrontMarkers(type, frontLayoutDef);
+  else if (afmFrontLayoutType !== type && afmFrontClearedFor !== type) { clearAfmFrontMarkers(); afmFrontClearedFor = type; }
 
+  syncAfmLoadoutBoxes();
   layoutAfmFrame();   // after the builds: the layout assigns the pylon boxes they create
   fitAfmPartsToBg();
   fitAfmFrontToImg();
@@ -116,6 +120,7 @@ function renderAfm() {
   paintAfmFailures(true);   // rebuilds + sizes the failure labels; forced -- see its own comment
   paintAfmPylons(true);
   paintAfmFlags();
+  paintAfmLoadout(true);
   drawAfmPylonLinks();
 }
 
@@ -129,7 +134,9 @@ function renderAfm() {
 // (AfmLayoutPolicy.flagColumnsFit); otherwise the page is narrow: the toggles become a 4-across
 // band under the name, scaled to the width, and the outer pylon boxes join the row. A row too
 // narrow for one line of boxes stacks them instead (AfmLayoutPolicy.pylonColumns), with the front
-// view shrunk to fit between the stacks. The scale and insets reach CSS as --afm-em / --afm-inset.
+// view shrunk to fit between the stacks. However many pylons, the front view and the boxes take
+// at most half the stack (AfmLayoutPolicy.fitPylonArea), so the top view is never squeezed out.
+// The scale and insets reach CSS as --afm-em / --afm-inset.
 const AFM_HDR_GAP  = 6;
 const AFM_BAND_GAP = 6;
 const AFM_ROW_GAP  = 36;   // the link lines' horizontal tracks run here, below the frontal image
@@ -155,7 +162,8 @@ function layoutAfmFrame() {
   const colFrontH = Math.min(200, Math.max(90, colAvail * 0.3));
   const colFrameH = Math.max(0, colAvail - colRowH - AFM_ROW_GAP - colFrontH - AFM_BAND_GAP);
   const narrow = !AfmLayoutPolicy.flagColumnsFit(panelW, colEm, Math.min(panelW, colFrameH * bgAspect));
-  const em = narrow ? AfmLayoutPolicy.bandEm(panelW) : colEm;
+  // The band's height is capped too: its two rows take at most a fifth of the stack.
+  const em = narrow ? Math.min(AfmLayoutPolicy.bandEm(panelW), Math.max(9, colAvail * 0.2 / (2 * 6.55 + 0.9))) : colEm;
   const inset = narrow ? em : 5 * em;
   afmPanel.style.setProperty('--afm-em', em + 'px');
   afmPanel.style.setProperty('--afm-inset', inset + 'px');
@@ -165,7 +173,10 @@ function layoutAfmFrame() {
   const btnH = 6.55 * em, flagGap = 0.9 * em;
   const stackTop = narrow ? top0 + 2 * btnH + flagGap + AFM_BAND_GAP : top0;
   const available   = Math.max(0, bottomLimit - stackTop);
-  let frontHeight   = Math.min(200, Math.max(90, available * 0.3));
+  // An airframe whose cockpit has no front view (its layout never came) gives that band away.
+  const noFront = afmFrontLayoutCache[afmData.name] === 'fail';
+  let frontHeight   = noFront ? 0 : Math.min(200, Math.max(90, available * 0.3));
+  afmFrontSection.style.display = noFront ? 'none' : '';
 
   // Pylon boxes: the outer two beside the front view when they clear it, the rest in one row, or
   // stacked when one row can't hold them at their minimum width.
@@ -175,30 +186,57 @@ function layoutAfmFrame() {
   const rowCount = afmPylonSides ? n - 2 : n;
   const rowW     = panelW - 2 * inset;
   const rowGap   = 0.6 * em;
-  const boxH     = narrow ? 3.6 * em : Math.min(56, Math.max(28, available * 0.06));
   afmPylonStacked = n > 0 && !AfmLayoutPolicy.pylonRowFits(rowCount, rowW, 7 * em, rowGap);
-  let rows = 1;
-  if (afmPylonStacked) {
-    const stack = AfmLayoutPolicy.pylonColumns(afmPylonOrder.map(function(name) { return { n: name, cx: afmPylonCx[name] }; }));
+  afmPylonCentre = Object.create(null);
+  let rowsH, gapUnder, stack = null, gridCols = Math.max(1, rowCount);
+  if (afmLoadoutEls.length) {
+    // No markers to link: the loadout's boxes, as many to a line as fit, wrapping.
+    const k = afmLoadoutEls.length;
+    gridCols = Math.max(1, Math.min(k, Math.floor((rowW + rowGap) / (7 * em + rowGap))));
+    const lines = Math.ceil(k / gridCols);
+    rowsH = function(b) { return lines * b + (lines - 1) * rowGap; };
+    gapUnder = 2 * rowGap;
+  } else if (afmPylonStacked) {
+    stack = AfmLayoutPolicy.pylonColumns(afmPylonOrder.map(function(name) { return { n: name, cx: afmPylonCx[name] }; }));
+    // One track per centre line, half an em apart, in the empty row above the centre boxes.
+    afmPylonTrackH = stack.centre ? (stack.centre + 1) * 0.5 * em : 0;
+    const sideRows = stack.sideRows, centreRows = stack.centre ? 1 : 0;
+    rowsH = function(b) {
+      const side = sideRows * b + Math.max(0, sideRows - 1) * rowGap;
+      return side + (centreRows ? (sideRows ? rowGap : 0) + afmPylonTrackH + rowGap + b : 0);
+    };
+    gapUnder = 2 * rowGap;   // stacked lines turn into their boxes; no tracks under the front view
+  } else {
+    rowsH = function(b) { return b; };
+    gapUnder = AFM_ROW_GAP;
+  }
+  const fit = AfmLayoutPolicy.fitPylonArea(available, frontHeight, gapUnder + AFM_BAND_GAP,
+    narrow ? 3.6 * em : Math.min(56, Math.max(28, available * 0.06)), 1.7 * em, noFront ? 0 : 40, rowsH);
+  const boxH = fit.boxH;
+  frontHeight = fit.frontH;
+  if (stack) {
     const colW = Math.max(6 * em, 0.25 * rowW);
-    afmPylonRowEl.style.gridTemplateColumns = colW + 'px minmax(0, 1fr) ' + colW + 'px';
+    afmPylonRowEl.style.gridTemplateColumns = colW + 'px repeat(' + (stack.cols - 2) + ', minmax(0, 1fr)) ' + colW + 'px';
+    afmPylonRowEl.style.gridTemplateRows = 'repeat(' + stack.sideRows + ', ' + boxH + 'px)' +
+      (stack.centre ? ' ' + afmPylonTrackH + 'px ' + boxH + 'px' : '');
     afmPylonOrder.forEach(function(name) {
       const at = stack.place[name];
       afmPylonRowBoxEls[name].style.gridColumn = String(at.col);
       afmPylonRowBoxEls[name].style.gridRow    = String(at.row);
+      if (at.row > stack.sideRows) afmPylonCentre[name] = true;
     });
-    rows = stack.rows;
     // The front view's markers must drop between the stacks, so its drawing fits between them.
     frontHeight = Math.min(frontHeight, Math.max(0, rowW - 2 * (colW + rowGap)) / frontAspect);
   } else {
-    afmPylonRowEl.style.gridTemplateColumns = 'repeat(' + Math.max(1, rowCount) + ', minmax(0, 1fr))';
+    afmPylonRowEl.style.gridTemplateColumns = 'repeat(' + gridCols + ', minmax(0, 1fr))';
+    afmPylonRowEl.style.gridTemplateRows = '';
     for (const name of afmPylonOrder) {
       afmPylonRowBoxEls[name].style.gridColumn = '';
       afmPylonRowBoxEls[name].style.gridRow    = '';
     }
   }
-  const rowHeight = rows * boxH + (rows - 1) * rowGap;
-  const frameHeight = Math.max(0, available - rowHeight - AFM_ROW_GAP - frontHeight - AFM_BAND_GAP);
+  const rowHeight = rowsH(boxH);
+  const frameHeight = Math.max(0, available - rowHeight - gapUnder - frontHeight - AFM_BAND_GAP);
 
   afmFrame.style.top    = stackTop + 'px';
   afmFrame.style.bottom = 'auto';
@@ -313,6 +351,7 @@ afmFrontEl.addEventListener('load', function() {
   drawAfmPylonLinks();
 });
 afmFrontEl.onerror = function() {
+  if (afmFrontLayoutCache[afmFrontType] === 'fail') return;   // this airframe has no front view
   if (!AfmBgPolicy.shouldRetryBg(afmData.name, afmFrontType, afmFrontLoaded, afmFrontTries, AFM_BG_RETRY_CAP)) return;
   afmFrontTries++;
   const t = afmFrontType, v = afmFrontTries;
@@ -328,6 +367,7 @@ function ensureAfmFrontLayout(type) {
   const cached = afmFrontLayoutCache[type];
   if (cached && typeof cached === 'object') return;   // already loaded
   if (cached === 'pending') return;                   // fetch in flight
+  if (cached === 'fail') return;                      // gave up: no front view for this airframe
   afmFrontLayoutCache[type] = 'pending';
   fetch('/airframe-layout?type=' + encodeURIComponent(type + '__front'))
     .then(function(r) { if (!r.ok) throw new Error('layout ' + r.status); return r.json(); })
@@ -337,19 +377,31 @@ function ensureAfmFrontLayout(type) {
       afmFrontLayoutTries[type] = n;
       afmFrontLayoutCache[type] = (n <= 20) ? undefined : 'fail';
       if (n <= 20) setTimeout(function() { if (afmData.name === type) ensureAfmFrontLayout(type); }, 500);
+      else if (afmData.name === type) renderAfm();   // no front view: the page drops it (afmLoadoutMode)
     });
 }
 
-function buildAfmFrontMarkers(type, layoutDef) {
+// Drops the previous airframe's markers, pylon boxes, lines and loadout boxes. Runs before a new
+// layout's build, and as soon as the aircraft changes, so an airframe whose front layout is slow or
+// never comes doesn't keep drawing the last one's.
+function clearAfmFrontMarkers() {
   afmFrontMarkersEl.innerHTML = '';
   afmFrontMarkerEls = Object.create(null);
   afmPylonRowEl.innerHTML = '';
+  afmLoadoutEls = [];
+  afmLoadoutKey = null;
   afmPylonLinksEl.innerHTML = '';
   afmPylonBoxEls  = Object.create(null);
   afmPylonRowBoxEls = Object.create(null);
   afmPylonLinkEls = Object.create(null);
   afmPylonOrder = [];
   afmPylonCx = Object.create(null);
+}
+
+let afmFrontClearedFor = null;   // the aircraft clearAfmFrontMarkers last ran for
+function buildAfmFrontMarkers(type, layoutDef) {
+  clearAfmFrontMarkers();
+  afmFrontClearedFor = type;
   if (!layoutDef || !Array.isArray(layoutDef.parts)) { afmFrontLayoutType = type; return; }
   // Every pylon gets a row box, left to right by cx; layoutAfmFrame decides whether the outermost
   // two show beside the front view instead (assignAfmPylonBoxes).
@@ -404,7 +456,9 @@ function drawAfmPylonLinks() {
   const pts = function(list) {
     return list.map(function(p) { return (p[0] - panel.left).toFixed(1) + ',' + (p[1] - panel.top).toFixed(1); }).join(' ');
   };
-  const rowLinks = { L: [], R: [] };
+  const rowLinks = { L: [], R: [] }, centreLinks = { L: [], R: [] };
+  let centreTop = null;
+  for (const name in afmPylonCentre) centreTop = afmPylonRowBoxEls[name].getBoundingClientRect().top;
   for (const name in afmPylonLinkEls) {
     const m = afmFrontMarkerEls[name], box = afmPylonBoxEls[name], line = afmPylonLinkEls[name];
     if (!m || !box) continue;
@@ -416,8 +470,12 @@ function drawAfmPylonLinks() {
       if (y1 > br.bottom)   line.setAttribute('points', pts([[x1, y1], [bx, y1], [bx, br.bottom]]));
       else if (y1 < br.top) line.setAttribute('points', pts([[x1, y1], [bx, y1], [bx, br.top]]));
       else                  line.setAttribute('points', pts([[x1, y1], [edge, y1]]));
+    } else if (afmPylonCentre[name]) {
+      // Stacked centre row: straight down when over its box, else along a lane in the track row.
+      if (x1 > br.left && x1 < br.right) line.setAttribute('points', pts([[x1, y1], [x1, br.top]]));
+      else centreLinks[bx < x1 ? 'L' : 'R'].push({ line: line, x1: x1, y1: y1, bx: bx, top: br.top });
     } else if (afmPylonStacked && (br.right < x1 || br.left > x1)) {
-      // Stacked: drop to the box's middle, then out to its inner edge.
+      // Stacked side columns: drop to the box's middle, then out to its inner edge.
       const by = br.top + br.height / 2;
       line.setAttribute('points', pts([[x1, y1], [x1, by], [br.right < x1 ? br.right : br.left, by]]));
     } else if (x1 > br.left && x1 < br.right) {
@@ -426,10 +484,20 @@ function drawAfmPylonLinks() {
       rowLinks[bx < x1 ? 'L' : 'R'].push({ line: line, x1: x1, y1: y1, bx: bx, top: br.top });
     }
   }
-  for (const side in rowLinks) {
-    const links = rowLinks[side].sort(function(a, b) { return Math.abs(b.bx - b.x1) - Math.abs(a.bx - a.x1); });
-    const step = (trackBottom - trackTop) / (links.length + 1);
-    links.forEach(function(l, i) {
+  laneAfmLinks(rowLinks, trackTop, trackBottom, pts);
+  if (centreTop !== null) {
+    const rowGap = 0.6 * (parseFloat(afmPanel.style.getPropertyValue('--afm-em')) || 18);
+    laneAfmLinks(centreLinks, centreTop - rowGap - afmPylonTrackH, centreTop - rowGap, pts);
+  }
+}
+
+// Lays each side's links on their own horizontal track between trackTop and trackBottom: the one
+// running furthest takes the highest track, so a side's tracks never cross each other's drops.
+function laneAfmLinks(links, trackTop, trackBottom, pts) {
+  for (const side in links) {
+    const list = links[side].sort(function(a, b) { return Math.abs(b.bx - b.x1) - Math.abs(a.bx - a.x1); });
+    const step = (trackBottom - trackTop) / (list.length + 1);
+    list.forEach(function(l, i) {
       const ty = trackTop + step * (i + 1);
       l.line.setAttribute('points', pts([[l.x1, l.y1], [l.x1, ty], [l.bx, ty], [l.bx, l.top]]));
     });
@@ -438,14 +506,16 @@ function drawAfmPylonLinks() {
 
 // Size .afm-front-markers to match the frontal silhouette's actual rendered box (same
 // letterboxing math as fitAfmPartsToBg, against the frontal image instead of the damage bg).
+// Until the image loads (or when it was never captured) the markers assume the capture's 2:1
+// shape, so they sit where the drawing will be rather than spreading across the whole band.
 function fitAfmFrontToImg() {
   const fr = afmFrontSection.getBoundingClientRect();
-  if (!fr.width || !fr.height || !afmFrontEl.naturalWidth || !afmFrontEl.naturalHeight) {
+  if (!fr.width || !fr.height) {
     afmFrontMarkersEl.style.width  = fr.width + 'px';
     afmFrontMarkersEl.style.height = fr.height + 'px';
     return;
   }
-  const imgAspect = afmFrontEl.naturalWidth / afmFrontEl.naturalHeight;
+  const imgAspect = (afmFrontEl.naturalWidth && afmFrontEl.naturalHeight) ? afmFrontEl.naturalWidth / afmFrontEl.naturalHeight : 2;
   const frAspect  = fr.width / fr.height;
   let w, h;
   if (imgAspect > frAspect) { w = fr.width;  h = fr.width  / imgAspect; }
@@ -482,6 +552,46 @@ function paintAfmPylons(force) {
       box.style.color = color;
     }
   }
+}
+
+// Airframes whose front view has no pylon markers (the layout came back empty, or never came)
+// can't link a weapon to a hardpoint, so SYS lists the loadout instead: one box per weapon type,
+// green with ammo left, red when fired out, no lines.
+let afmLoadoutEls = [];
+let afmLoadoutKey = null, afmLoadoutPaintKey = null;
+function afmLoadoutMode() {
+  const c = afmFrontLayoutCache[afmData.name];
+  return c === 'fail' || (!!c && typeof c === 'object' && !(Array.isArray(c.parts) && c.parts.length));
+}
+// Rebuilds the loadout boxes when the list of weapons changes; true when it did (a layout is due).
+function syncAfmLoadoutBoxes() {
+  const items = afmLoadoutMode() && Array.isArray(afmData.loadout) ? afmData.loadout : [];
+  const key = items.map(function(i) { return i.n; }).join('|');
+  if (key === afmLoadoutKey) return false;
+  afmLoadoutKey = key;
+  for (const el of afmLoadoutEls) el.remove();
+  afmLoadoutEls = items.map(function() {
+    const box = document.createElement('div');
+    box.className = 'afm-pylon-box';
+    afmPylonRowEl.appendChild(box);
+    return box;
+  });
+  afmLoadoutPaintKey = null;
+  return true;
+}
+// Repaints only when a name or count changes; `force` after a rebuild.
+function paintAfmLoadout(force) {
+  if (!afmLoadoutEls.length) return;
+  const items = afmData.loadout || [];
+  const key = JSON.stringify(items);
+  if (!force && key === afmLoadoutPaintKey) return;
+  afmLoadoutPaintKey = key;
+  items.forEach(function(it, i) {
+    const box = afmLoadoutEls[i];
+    if (!box) return;
+    if (box.textContent !== it.n) box.textContent = it.n;
+    box.style.color = it.a > 0 ? AFM_PYLON_COLOR.armed : AFM_PYLON_COLOR.exhausted;
+  });
 }
 
 // Point a part's CSS mask at its sprite, but preload via Image() first so a not-yet-ready
@@ -641,11 +751,17 @@ window.addEventListener('message', function(e) {
       failures: Array.isArray(m.failures) ? m.failures : null,
       pylons: Array.isArray(m.pylons) ? m.pylons : null,
       flags: m,
+      loadout: Array.isArray(m.loadout) ? m.loadout : null,
     };
+    // A new aircraft gets a fresh try at a front view an earlier spawn gave up on.
+    if (afmData.name && afmLayoutType !== afmData.name && afmFrontLayoutCache[afmData.name] === 'fail') {
+      delete afmFrontLayoutCache[afmData.name];
+      afmFrontLayoutTries[afmData.name] = 0;
+    }
     // Full render on aircraft change, or whenever there's no aircraft — the empty-state hide lives
     // in renderAfm and must run even if a silhouette layout never cached (afmLayoutType stays null).
-    if (afmLayoutType !== afmData.name || !afmData.name) renderAfm();
-    else { paintAfmDamage(); paintAfmFailures(); paintAfmPylons(); paintAfmFlags(); }
+    if (afmLayoutType !== afmData.name || !afmData.name || syncAfmLoadoutBoxes()) renderAfm();
+    else { paintAfmDamage(); paintAfmFailures(); paintAfmPylons(); paintAfmFlags(); paintAfmLoadout(); }
   } else if (m.type === 'afm-layout') {
     // Geometry profile from the shell. full forwards the bezel-anchored name/frame placement;
     // compact omits geom and the page falls back to the CSS fixed offsets.

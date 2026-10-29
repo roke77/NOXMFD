@@ -22,7 +22,7 @@ assert.strictEqual(P.pylonRowFits(5, 820, 126, 10.8), true);
 assert.strictEqual(P.pylonRowFits(7, 354, 80, 6.8), false);
 
 // Stacked columns, the SAH-46's seven hardpoints: outermost at the top of each side column, the
-// gun alone on a bottom row between them.
+// gun alone on the centre row, below the track row.
 const cols = P.pylonColumns([
   { n: 'Gun', cx: 0.503 }, { n: 'TipR', cx: 0.14 }, { n: 'PylonR', cx: 0.219 }, { n: 'BayR', cx: 0.375 },
   { n: 'BayL', cx: 0.625 }, { n: 'PylonL', cx: 0.781 }, { n: 'TipL', cx: 0.859 },
@@ -31,9 +31,22 @@ assert.deepStrictEqual(cols.place.TipR, { col: 1, row: 1 });
 assert.deepStrictEqual(cols.place.BayR, { col: 1, row: 3 });
 assert.deepStrictEqual(cols.place.TipL, { col: 3, row: 1 });
 assert.deepStrictEqual(cols.place.BayL, { col: 3, row: 3 });
-assert.deepStrictEqual(cols.place.Gun,  { col: 2, row: 4 });
-assert.strictEqual(cols.rows, 4);
+assert.deepStrictEqual(cols.place.Gun,  { col: 2, row: 5 });
+assert.deepStrictEqual([cols.cols, cols.sideRows, cols.centre], [3, 3, 1]);
+// Three centre pylons (the A-19's) share one row, left to right, between the side columns.
+const a19 = P.pylonColumns([{ n: 'c2', cx: 0.51 }, { n: 'c0', cx: 0.49 }, { n: 'c1', cx: 0.5 }, { n: 'l', cx: 0.1 }, { n: 'r', cx: 0.9 }]);
+assert.deepStrictEqual([a19.place.c0, a19.place.c1, a19.place.c2], [{ col: 2, row: 3 }, { col: 3, row: 3 }, { col: 4, row: 3 }]);
+assert.deepStrictEqual(a19.place.r, { col: 5, row: 1 });
 // No centre pylon: just the side rows.
-assert.strictEqual(P.pylonColumns([{ n: 'a', cx: 0.2 }, { n: 'b', cx: 0.8 }]).rows, 1);
+assert.deepStrictEqual(P.pylonColumns([{ n: 'a', cx: 0.2 }, { n: 'b', cx: 0.8 }]).centre, 0);
+
+// The pylon area never takes more than half: 7 rows of 60px boxes plus a 200px front view in an
+// 800px stack shrink the boxes to the floor, then the front view, to fit 400.
+const rowsH = function(b) { return 7 * b + 6 * 10; };
+const fit = P.fitPylonArea(800, 200, 20, 60, 30, 40, rowsH);
+assert.strictEqual(fit.boxH, 30, 'boxes shrink to their floor');
+assert.strictEqual(fit.frontH, 400 - 20 - rowsH(30), 'then the front view takes what is left');
+// Within budget: untouched.
+assert.deepStrictEqual(P.fitPylonArea(1000, 200, 36, 56, 30, 40, function(b) { return b; }), { boxH: 56, frontH: 200 });
 
 console.log('afm-layout-policy: all assertions passed');

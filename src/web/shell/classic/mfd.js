@@ -821,7 +821,7 @@ function afmMsg() {
            failures: avnData.failures, pylons: avnData.pylons, gearDown: avnData.gearDown,
            radar: avnData.radar, guns: avnData.guns, ignition: avnData.ignition,
            assist: avnData.assist, turret: avnData.turret, nvg: avnData.nvg,
-           navLights: avnData.navLights };
+           navLights: avnData.navLights, loadout: wpnData.items };
 }
 function forwardAfmToPanes() { forwardToPanes('afm', afmMsg()); }
 // Full-view AFM: forward the snapshot to the #page-frame iframe (same payload as the panes).
