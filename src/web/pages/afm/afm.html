@@ -26,7 +26,7 @@
                    in full; omitted in compact (the page defaults to the CSS fixed offsets).
     'orient'     : app-wide orientation (drives body.portrait/.landscape).
   Vertical stack, top to bottom: name, top-down damage silhouette, frontal silhouette (+ pylon
-  markers). The frontal silhouette bg + pylon-marker layout are captured from the cockpit's
+  markers), one box per pylon. The frontal silhouette bg + pylon-marker layout are captured from the cockpit's
   weapon-station-armed panel and fetched from /airframe[-layout]?type=<name>__front (part
   "__front" for the image; the "__front"-suffixed type key for the marker layout — same endpoints
   the damage silhouette uses, just a distinct key). The damage silhouette bg + part masks + layout
@@ -45,6 +45,9 @@
       <img class="afm-front" id="afm-front" alt="">
       <div class="afm-front-markers" id="afm-front-markers"></div>
     </div>
+    <!-- One box per hardpoint, left to right in marker order, below the frontal silhouette: where
+         each pylon's loaded weapon name will go. Placeholders until that data is wired. -->
+    <div class="afm-pylon-row" id="afm-pylon-row"></div>
     <div class="afm-frame" id="afm-frame">
       <img class="afm-bg" id="afm-bg" alt="">
       <div class="afm-parts" id="afm-parts"></div>

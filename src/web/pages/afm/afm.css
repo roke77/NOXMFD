@@ -51,6 +51,24 @@
   background-color: var(--no-afm-marker);   /* until the first live pylon color arrives */
   pointer-events: none;
 }
+/* Pylon row: one box per hardpoint, spanning the width between the toggle columns' outer edges
+   (same 5em inset, in the same font scale). layoutAfmFrame (afm.js) sets top/height inline. */
+.afm-pylon-row {
+  position: absolute;
+  left: 5em; right: 5em;
+  top: auto; bottom: 12px;
+  height: 40px;
+  display: flex;
+  gap: 0.6em;
+  font-size: clamp(9px, 1.8vmin, 18px);
+  pointer-events: none;
+}
+.afm-pylon-box {
+  flex: 1 1 0;
+  min-width: 0;
+  border: 1px solid var(--no-green);
+  border-radius: 4px;
+}
 .afm-frame {
   position: absolute;
   left: 0; right: 0;

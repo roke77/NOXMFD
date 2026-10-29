@@ -9,6 +9,7 @@ const afmNameEl  = document.getElementById('afm-name');
 const afmFrontSection  = document.getElementById('afm-front-section');
 const afmFrontEl       = document.getElementById('afm-front');
 const afmFrontMarkersEl = document.getElementById('afm-front-markers');
+const afmPylonRowEl    = document.getElementById('afm-pylon-row');
 const afmFrame   = document.getElementById('afm-frame');
 const afmBg      = document.getElementById('afm-bg');
 const afmPartsEl = document.getElementById('afm-parts');
@@ -55,6 +56,7 @@ function renderAfm() {
     afmHeaderEl.classList.remove('placed');
     afmFrontSection.style.display = 'none';
     afmFrame.style.display  = 'none';
+    afmPylonRowEl.style.display = 'none';
     for (const col of afmFlagCols) col.classList.remove('placed');
     afmEmptyEl.style.display = '';
     afmLayoutType = type;   // record that the empty state is shown, so returning to a plane
@@ -63,6 +65,7 @@ function renderAfm() {
   afmHeaderEl.classList.add('placed');
   afmFrontSection.style.display = '';
   afmFrame.style.display   = '';
+  afmPylonRowEl.style.display = '';
   for (const col of afmFlagCols) col.classList.add('placed');
   afmEmptyEl.style.display = 'none';
   afmNameEl.textContent = type;
@@ -105,11 +108,12 @@ function renderAfm() {
 
 // Position the top-down silhouette frame directly below the header's actual bottom, and the
 // front-section band below it, ending at the stack's lower edge: the forwarded bezel limit in
-// full, or the CSS bottom in compact. The front band gets a modest share of the vertical room
-// (capped both ways) so the top-down silhouette — the primary content — keeps the majority of
-// the space in both profiles.
+// full, or the CSS bottom in compact, less the pylon row reserved at the very bottom. The front
+// band and the row get modest shares of the vertical room (capped both ways) so the top-down
+// silhouette — the primary content — keeps the majority of the space in both profiles.
 const AFM_HDR_GAP  = 6;
 const AFM_BAND_GAP = 6;
+const AFM_ROW_GAP  = 14;   // clears the bottom pylon marker, which hangs half below the frontal image
 function layoutAfmFrame() {
   const panelTop = afmPanel.getBoundingClientRect().top;
   const stackTop = (afmHeaderEl.getBoundingClientRect().bottom - panelTop) + AFM_HDR_GAP;
@@ -121,8 +125,9 @@ function layoutAfmFrame() {
     bottomLimit = afmPanel.getBoundingClientRect().height - 12;     // matches the compact CSS bottom:12px
   }
   const available   = Math.max(0, bottomLimit - stackTop);
+  const rowHeight   = Math.min(56, Math.max(28, available * 0.06));
   const frontHeight = Math.min(200, Math.max(90, available * 0.3));
-  const frameHeight = Math.max(0, available - frontHeight - AFM_BAND_GAP);
+  const frameHeight = Math.max(0, available - rowHeight - AFM_ROW_GAP - frontHeight - AFM_BAND_GAP);
 
   afmFrame.style.top    = stackTop + 'px';
   afmFrame.style.bottom = 'auto';
@@ -131,6 +136,9 @@ function layoutAfmFrame() {
   afmFrontSection.style.top    = (stackTop + frameHeight + AFM_BAND_GAP) + 'px';
   afmFrontSection.style.bottom = 'auto';
   afmFrontSection.style.height = frontHeight + 'px';
+
+  afmPylonRowEl.style.top    = (bottomLimit - rowHeight) + 'px';
+  afmPylonRowEl.style.height = rowHeight + 'px';
 
   // The toggle columns centre on the top-down silhouette's band.
   for (const col of afmFlagCols) {
@@ -229,7 +237,14 @@ function ensureAfmFrontLayout(type) {
 function buildAfmFrontMarkers(type, layoutDef) {
   afmFrontMarkersEl.innerHTML = '';
   afmFrontMarkerEls = Object.create(null);
+  afmPylonRowEl.innerHTML = '';
   if (!layoutDef || !Array.isArray(layoutDef.parts)) { afmFrontLayoutType = type; return; }
+  // ponytail: empty placeholder boxes; the weapon-per-pylon name isn't in the snapshot yet.
+  layoutDef.parts.slice().sort(function(a, b) { return a.cx - b.cx; }).forEach(function() {
+    const box = document.createElement('div');
+    box.className = 'afm-pylon-box';
+    afmPylonRowEl.appendChild(box);
+  });
   for (const p of layoutDef.parts) {
     const el = document.createElement('div');
     el.className = 'afm-front-marker';
