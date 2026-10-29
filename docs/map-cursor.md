@@ -105,6 +105,9 @@ reach, no-op if none — deselection stays a TGT-page concern.
 > such a contact stayed the nearest unselected one on every tap and shadowed the units under it, so
 > a neutral dot on a launcher site made the launcher untappable.
 
+> MAP later stopped drawing neutral units at all (they still ride telemetry's `contacts`), so the
+> `selectable: false` skip now only covers units excluded by the TGT filters.
+
 > `docs/page-cursor.md` later added a second, LIVE signal alongside this edge — `held` on the same
 > `cursor` SSE event, sourced from the same bind's continuous (non-edge) press state
 > (`Keybinds.Poll()`'s `Active(_cursorSelect, edgeOverride: false)`). MAP still only ever consumes
