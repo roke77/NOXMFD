@@ -99,3 +99,71 @@
 
 /* Portrait full is tall, so the name may grow past the landscape 32px cap. */
 body.full.portrait .afm-name { font-size: clamp(32px, 3.6vh, 51px); }
+
+/* SYS toggles: two columns of lit buttons over the full-width silhouette bands, clear of the
+   drawings, which sit centred. The F-35 master strip's .ms-flag frame (lit-panel.css's .lit look)
+   with the glyph on top; currentColor (off gray / on green / GEAR-down red, from avn-status-policy)
+   lights the glyph and lamp together while the name stays white. Everything is in em of the
+   column's font-size, which follows the smaller panel side, so the buttons scale with the screen.
+   layoutAfmFrame (afm.js) sets each column's top/height to the silhouette band. */
+.afm-flags {
+  position: absolute;
+  top: 0;
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.9em;
+  font-size: clamp(9px, 1.8vmin, 18px);
+  z-index: 5;
+}
+.afm-flags.placed { display: flex; }
+.afm-flags.left  { left: 5em; }
+.afm-flags.right { right: 5em; }
+.afm-flag {
+  appearance: none;
+  font-family: var(--no-font);
+  font-size: inherit;
+  background: var(--no-control-bg);
+  border: 1px solid var(--no-line);
+  border-radius: 5px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5em;
+  width: 7.1em;
+  height: 6.55em;
+  padding: 0;
+  cursor: pointer;
+  color: var(--no-gray);
+}
+.afm-flag.on        { color: var(--no-green); }
+.afm-flag.gear-down { color: var(--no-red); }
+.afm-flag:active { background: rgba(var(--no-green-rgb), 0.08); }
+.afm-flag:focus-visible { outline: 2px solid var(--no-amber); outline-offset: 2px; }
+.afm-flag-icon { width: 2.2em; height: 2.2em; display: block; flex: none; }
+.afm-flag-lamp {
+  width: 2.55em;
+  height: 0.28em;
+  flex: none;
+  border-radius: 2px;
+  background: var(--no-lamp-off);
+}
+.afm-flag.on .afm-flag-lamp,
+.afm-flag.gear-down .afm-flag-lamp {
+  background: currentColor;
+  box-shadow: 0 0 8px currentColor, 0 0 2px currentColor;
+}
+.afm-flag-label {
+  font-size: 1em;
+  font-weight: 900;
+  letter-spacing: 1px;
+  line-height: 1;
+  color: var(--no-white);
+}
+/* GEAR is the game-captured glyph as a recolourable mask, as on SYS and the F-35 strip. */
+.afm-flag-mask {
+  background-color: currentColor;
+  -webkit-mask: url("/assets/pages/avn/gear-icon.png") no-repeat center / contain;
+          mask: url("/assets/pages/avn/gear-icon.png") no-repeat center / contain;
+}

@@ -824,7 +824,10 @@ function forwardAvnLayoutToFrame() {
 // needs its bezel-anchored geometry, below.
 function afmMsg() {
   return { mfd: true, type: 'afm', name: avnData.name, parts: avnData.parts,
-           failures: avnData.failures, pylons: avnData.pylons };
+           failures: avnData.failures, pylons: avnData.pylons, gearDown: avnData.gearDown,
+           radar: avnData.radar, guns: avnData.guns, ignition: avnData.ignition,
+           assist: avnData.assist, turret: avnData.turret, nvg: avnData.nvg,
+           navLights: avnData.navLights };
 }
 function forwardAfmToPanes() { forwardToPanes('afm', afmMsg()); }
 // Full-view AFM: forward the snapshot to the #page-frame iframe (same payload as the panes).

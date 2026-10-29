@@ -24,6 +24,7 @@ class Element {
     this.textContent = '';
   }
   addEventListener(type, cb) { this.listeners[type] = cb; }
+  setAttribute(name, value) { this[name] = value; }
   appendChild(child) { child.parentNode = this; this.children.push(child); return child; }
   remove() {
     if (!this.parentNode) return;
@@ -36,7 +37,8 @@ class Element {
 
 const ids = [
   'afm-panel', 'afm-header', 'afm-name', 'afm-front-section', 'afm-front', 'afm-front-markers',
-  'afm-frame', 'afm-bg', 'afm-parts', 'afm-empty',
+  'afm-frame', 'afm-bg', 'afm-parts', 'afm-empty', 'afm-flags-left', 'afm-flags-right',
+  ...['gear', 'radar', 'guns', 'eng', 'assist', 'nvg', 'lights', 'turret'].map((k) => 'afm-flag-' + k),
 ];
 const elements = Object.fromEntries(ids.map((id) => [id, new Element(id)]));
 const listeners = {};
@@ -55,6 +57,8 @@ global.fetch = function () {
 };
 global.AfmBgPolicy = require('./afm-bg-policy.js');
 global.AfmFailurePolicy = require('./afm-failure-policy.js');
+global.AvnStatusPolicy = require('../avn/avn-status-policy.js');
+global.sendCommand = () => Promise.resolve();
 
 require('./afm.js');
 
@@ -85,6 +89,14 @@ const flush = () => new Promise((r) => setImmediate(r));
   // A real change (failure set grows) must still rebuild on the very next tick.
   send({ name: 'F-16', failures: ['ENGINE FIRE L', 'HYD LOW'] });
   assert.strictEqual(rebuilds, 2, 'a real failure-set change rebuilds all current labels');
+
+  // SYS toggles: the snapshot's flags light their buttons, GEAR down in its own red class.
+  const gear = elements['afm-flag-gear'], radar = elements['afm-flag-radar'];
+  send({ name: 'F-16', failures: ['ENGINE FIRE L', 'HYD LOW'], gearDown: true, radar: false });
+  assert.ok(gear.classList.contains('gear-down') && gear['aria-pressed'] === 'true', 'gear down lights GEAR red');
+  assert.ok(radar.classList.contains('off') && radar['aria-pressed'] === 'false', 'radar off stays unlit');
+  send({ name: 'F-16', failures: ['ENGINE FIRE L', 'HYD LOW'], gearDown: false, radar: true });
+  assert.ok(gear.classList.contains('off') && radar.classList.contains('on'), 'a flag change repaints');
 
   console.log('afm.test.js: OK');
 })();

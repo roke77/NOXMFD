@@ -455,7 +455,9 @@
     function forwardAfm() {
       const w = frameWin(), m = slices.avn;
       if (!w || !m) return;
-      w.postMessage({ mfd: true, type: 'afm', name: m.name, parts: m.parts, failures: m.failures, pylons: m.pylons }, '*');
+      w.postMessage({ mfd: true, type: 'afm', name: m.name, parts: m.parts, failures: m.failures, pylons: m.pylons,
+                      gearDown: m.gearDown, radar: m.radar, guns: m.guns, ignition: m.ignition,
+                      assist: m.assist, turret: m.turret, nvg: m.nvg, navLights: m.navLights }, '*');
     }
     function forwardHsd() {
       const w = frameWin(), hsd = slices.hsd || {}, mapinfo = slices.mapinfo || {}, rdr = slices.rdr || {};

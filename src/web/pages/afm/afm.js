@@ -13,9 +13,20 @@ const afmFrame   = document.getElementById('afm-frame');
 const afmBg      = document.getElementById('afm-bg');
 const afmPartsEl = document.getElementById('afm-parts');
 const afmEmptyEl = document.getElementById('afm-empty');
+const afmFlagCols = [document.getElementById('afm-flags-left'), document.getElementById('afm-flags-right')];
+// [button, snapshot field]; each button's data-group is the avn.toggle group and the kind
+// AvnStatusPolicy.tileClass expects.
+const AFM_FLAGS = [['gear', 'gearDown'], ['radar', 'radar'], ['guns', 'guns'], ['eng', 'ignition'],
+                   ['assist', 'assist'], ['nvg', 'nvg'], ['lights', 'navLights'], ['turret', 'turret']]
+  .map(function(pair) { return { el: document.getElementById('afm-flag-' + pair[0]), kind: pair[0], field: pair[1] }; });
+AFM_FLAGS.forEach(function(f) {
+  f.el.addEventListener('click', function() {
+    sendCommand('avn.toggle', { group: f.kind }).catch(function() {});
+  });
+});
 
 // ── State ──────────────────────────────────────────────────────────────────────────
-let afmData        = { name: null, parts: null, failures: null, pylons: null };
+let afmData        = { name: null, parts: null, failures: null, pylons: null, flags: null };
 let layout          = 'compact';   // 'compact' (split pane) | 'full' (full-screen iframe)
 let afmFullGeom     = null;        // {headerTop, headerHeight, frameTop, frameHeight} from the shell in full
 let afmLayoutType   = null;
@@ -44,6 +55,7 @@ function renderAfm() {
     afmHeaderEl.classList.remove('placed');
     afmFrontSection.style.display = 'none';
     afmFrame.style.display  = 'none';
+    for (const col of afmFlagCols) col.classList.remove('placed');
     afmEmptyEl.style.display = '';
     afmLayoutType = type;   // record that the empty state is shown, so returning to a plane
     return;                 // (even the SAME type — e.g. respawn) re-triggers a render
@@ -51,6 +63,7 @@ function renderAfm() {
   afmHeaderEl.classList.add('placed');
   afmFrontSection.style.display = '';
   afmFrame.style.display   = '';
+  for (const col of afmFlagCols) col.classList.add('placed');
   afmEmptyEl.style.display = 'none';
   afmNameEl.textContent = type;
 
@@ -86,6 +99,7 @@ function renderAfm() {
   paintAfmDamage();
   paintAfmFailures(true);   // rebuilds + sizes the failure labels; forced -- see its own comment
   paintAfmPylons();
+  paintAfmFlags();
 }
 
 // Position the front-section band directly below the header's actual bottom, and the silhouette
@@ -115,6 +129,12 @@ function layoutAfmFrame() {
   afmFrame.style.top    = frameTop + 'px';
   afmFrame.style.bottom = 'auto';
   afmFrame.style.height = Math.max(0, bottomLimit - frameTop) + 'px';
+
+  // The toggle columns centre on the whole silhouette band, front section through frame.
+  for (const col of afmFlagCols) {
+    col.style.top    = frontTop + 'px';
+    col.style.height = available + 'px';
+  }
 }
 
 function ensureAfmLayout(type) {
@@ -379,6 +399,23 @@ function paintAfmFailures(force) {
   sizeAfmFailures();
 }
 
+// Eight booleans that hold for seconds at a time but arrive every 'afm' tick, so repaint only on
+// a change. aria-pressed mirrors the lamp for assistive tech.
+let afmFlagsKey = null;
+function paintAfmFlags() {
+  const flags = afmData.flags;
+  if (!flags) return;
+  const key = AFM_FLAGS.map(function(f) { return !!flags[f.field]; }).join('|');
+  if (key === afmFlagsKey) return;
+  afmFlagsKey = key;
+  for (const f of AFM_FLAGS) {
+    const active = !!flags[f.field];
+    f.el.classList.remove('on', 'off', 'gear-down');
+    f.el.classList.add(AvnStatusPolicy.tileClass(f.kind, active));
+    f.el.setAttribute('aria-pressed', active ? 'true' : 'false');
+  }
+}
+
 // ── Shell → page forwarding ──────────────────────────────────────────────────────────
 window.addEventListener('message', function(e) {
   const m = e.data;
@@ -389,11 +426,12 @@ window.addEventListener('message', function(e) {
       parts: Array.isArray(m.parts) ? m.parts : null,
       failures: Array.isArray(m.failures) ? m.failures : null,
       pylons: Array.isArray(m.pylons) ? m.pylons : null,
+      flags: m,
     };
     // Full render on aircraft change, or whenever there's no aircraft — the empty-state hide lives
     // in renderAfm and must run even if a silhouette layout never cached (afmLayoutType stays null).
     if (afmLayoutType !== afmData.name || !afmData.name) renderAfm();
-    else { paintAfmDamage(); paintAfmFailures(); paintAfmPylons(); }
+    else { paintAfmDamage(); paintAfmFailures(); paintAfmPylons(); paintAfmFlags(); }
   } else if (m.type === 'afm-layout') {
     // Geometry profile from the shell. full forwards the bezel-anchored name/frame placement;
     // compact omits geom and the page falls back to the CSS fixed offsets.
