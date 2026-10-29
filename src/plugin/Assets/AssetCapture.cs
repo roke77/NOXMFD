@@ -300,7 +300,11 @@ namespace NOXMFD
             public string Name = string.Empty;
             public Graphic? Graphic;
             public int Hardpoint = -1;
+            public bool FromHardpoints;   // no panel graphic: state comes from the hardpoint's ammo
         }
+        // Slow scans a type has gone without a frontProfile; past the cap its stations come from the
+        // hardpoints themselves (CaptureHardpointStations).
+        private readonly Dictionary<string, int> _frontalMisses = new Dictionary<string, int>();
         private readonly Dictionary<string, List<FrontalMarker>> _frontalMarkers =
             new Dictionary<string, List<FrontalMarker>>();
         // Slow scans a type has waited for the PylonIndicator; past the cap it captures without one.
@@ -327,6 +331,9 @@ namespace NOXMFD
             if (frontImg == null || frontImg.sprite == null)
             {
                 LogFrontalMiss(key, candidates);
+                _frontalMisses.TryGetValue(key, out int missed);
+                _frontalMisses[key] = missed + 1;
+                if (missed >= FrontalIndicatorWaitScans) CaptureHardpointStations(ac, key);
                 return;   // not built yet — retry next slow scan
             }
 
@@ -381,20 +388,26 @@ namespace NOXMFD
             sb.Append("{\"parts\":[");
             foreach (FrontalMarker m in markers)
             {
-                if (m.Graphic == null ||
-                    !GetPartPlacement(m.Graphic.rectTransform, frontRT, out float cx, out float cy, out float w, out float h, out float rotZ, out int sx, out int sy))
+                if (m.Graphic == null) continue;
+                // A station marked by a label elsewhere on the panel (the UH-90's), not a marker on the
+                // drawing, has no point on it to link to: it goes out flagged, without a position, and
+                // the page shows it as a plain box under the front view.
+                if (!m.Graphic.transform.IsChildOf(frontRT))
+                {
+                    if (placed.Count > 0) sb.Append(',');
+                    placed.Add(m);
+                    sb.Append("{\"n\":\"").Append(JsonLite.EscapeJson(m.Name)).Append("\",\"label\":true}");
                     continue;
-                // A label box can sit beside the drawing; clamped, its marker stays on the drawing's edge.
-                cx = Mathf.Clamp01(cx);
-                cy = Mathf.Clamp01(cy);
+                }
+                if (!GetPartPlacement(m.Graphic.rectTransform, frontRT, out float cx, out float cy, out float w, out float h, out _, out _, out _)) continue;
                 if (placed.Count > 0) sb.Append(',');
                 placed.Add(m);
                 sb.Append('{')
                   .Append("\"n\":\"").Append(JsonLite.EscapeJson(m.Name)).Append("\",")
                   .Append("\"cx\":").Append(cx.ToString("0.00000", CultureInfo.InvariantCulture)).Append(',')
                   .Append("\"cy\":").Append(cy.ToString("0.00000", CultureInfo.InvariantCulture)).Append(',')
-                  .Append("\"w\":").Append(Mathf.Min(w, 0.06f).ToString("0.00000", CultureInfo.InvariantCulture)).Append(',')
-                  .Append("\"h\":").Append(Mathf.Min(h, 0.12f).ToString("0.00000", CultureInfo.InvariantCulture))
+                  .Append("\"w\":").Append(w.ToString("0.00000", CultureInfo.InvariantCulture)).Append(',')
+                  .Append("\"h\":").Append(h.ToString("0.00000", CultureInfo.InvariantCulture))
                   .Append('}');
             }
             sb.Append("]}");
@@ -405,6 +418,47 @@ namespace NOXMFD
             for (int i = 0; i < frontRT.childCount; i++) children.Add(frontRT.GetChild(i).name);
             Plugin.Log?.LogInfo($"[NOXMFD] Captured frontal silhouette '{key}' (sprite {spriteName}, {placed.Count} pylon markers from {source}: " +
                 $"{string.Join(", ", System.Linq.Enumerable.Select(placed, m => m.Name))}; live frontProfiles: {string.Join(", ", candidates)}; children: {string.Join(", ", children)}).");
+        }
+
+        // An airframe whose cockpit has no front-view panel (the CI-22, the VL-49) still has
+        // hardpoints: one station per distinct HardpointIndex across its hardpoint sets, the same
+        // index the PylonIndicator and WeaponManager.HardpointsIndexes use, unmounted ones included.
+        // They go out as label stations on a layout with no image, so the page draws its squares and
+        // boxes with no front view; their state comes from ammo (ReadFrontalMarkerStates).
+        private void CaptureHardpointStations(Aircraft ac, string key)
+        {
+            _capturedFrontal.Add(key);
+            var names = new SortedDictionary<int, string>();
+            try
+            {
+                HardpointSet[]? sets = ac.weaponManager != null ? ac.weaponManager.hardpointSets : null;
+                if (sets != null)
+                    foreach (HardpointSet set in sets)
+                    {
+                        if (set == null || set.hardpoints == null) continue;
+                        foreach (Hardpoint hp in set.hardpoints)
+                            if (hp != null && hp.HardpointIndex >= 0 && !names.ContainsKey(hp.HardpointIndex))
+                                names[hp.HardpointIndex] = set.name ?? string.Empty;
+                    }
+            }
+            catch (Exception ex)
+            {
+                Plugin.Log?.LogWarning($"[NOXMFD] AFM: reading '{key}' hardpoints failed — it shows its loadout instead: " + ex.Message);
+            }
+            var markers = new List<FrontalMarker>();
+            var sb = new StringBuilder("{\"image\":false,\"parts\":[");
+            foreach (var kv in names)
+            {
+                var m = new FrontalMarker { Name = "hp" + kv.Key + "_" + kv.Value, Hardpoint = kv.Key, FromHardpoints = true };
+                if (markers.Count > 0) sb.Append(',');
+                markers.Add(m);
+                sb.Append("{\"n\":\"").Append(JsonLite.EscapeJson(m.Name)).Append("\",\"label\":true}");
+            }
+            sb.Append("]}");
+            _frontalMarkers[key] = markers;
+            TelemetryServer.SetAirframeLayout(key + "__front", sb.ToString());
+            Plugin.Log?.LogInfo($"[NOXMFD] AFM: '{key}' has no front view; {markers.Count} stations from its hardpoints: " +
+                string.Join(", ", System.Linq.Enumerable.Select(markers, m => m.Name)) + ".");
         }
 
         // The PylonIndicator's element sets as (hardpoint index, the graphic standing for it): each
@@ -506,9 +560,15 @@ namespace NOXMFD
             ResolvePylonHardpoints(type, markers);
             foreach (FrontalMarker m in markers)
             {
-                if (m.Graphic == null) continue;   // stale reference from before a scene reload
-                Color c = m.Graphic.color;
-                string state = (c.r == c.g && c.g == c.b) ? "empty" : (c.g >= c.r ? "armed" : "exhausted");
+                string state;
+                if (m.Graphic != null)
+                {
+                    Color c = m.Graphic.color;
+                    state = (c.r == c.g && c.g == c.b) ? "empty" : (c.g >= c.r ? "armed" : "exhausted");
+                }
+                else if (m.FromHardpoints)
+                    state = HardpointState(ac, m.Hardpoint);
+                else continue;   // stale reference from before a scene reload
                 string weapon = m.Hardpoint >= 0 ? HardpointWeaponName(ac, m.Hardpoint) : string.Empty;
                 result.Add((m.Name, state, weapon));
             }
@@ -546,6 +606,17 @@ namespace NOXMFD
                 if (m.Graphic != null && map.TryGetValue(m.Graphic, out int idx)) { m.Hardpoint = idx; matched++; }
             if (matched < markers.Count)
                 Plugin.Log?.LogInfo($"[NOXMFD] AFM: {type} — {matched}/{markers.Count} pylon markers matched a hardpoint.");
+        }
+
+        // A hardpoint's state the way the PylonIndicator colours it: nothing mounted is empty, any
+        // ammo left is armed, otherwise exhausted.
+        private static string HardpointState(Aircraft ac, int hardpoint)
+        {
+            if (ac.weaponManager == null || !ac.weaponManager.HardpointsIndexes.TryGetValue(hardpoint, out var weapons))
+                return "empty";
+            int ammo = 0;
+            foreach (Weapon w in weapons) if (w != null) ammo += w.ammo;
+            return ammo > 0 ? "armed" : "exhausted";
         }
 
         // The first named weapon mounted on that hardpoint, the same name BuildLoadout shows.
