@@ -230,3 +230,28 @@ Settled during implementation:
 
 10. **SYS rename depth**: the visible label only; the id, route and commands stay `avn`.
 11. **SYS toggle keys**: removed from the bezel; the hub switch takes their place.
+
+## Follow-up: SYS and ENG (2026-10-29)
+
+The eight system toggles moved off the gauges page onto the airframe page, as lit buttons beside
+the top-down silhouette, and the two pages swapped roles in the hub:
+
+| Label | Id | Content |
+|---|---|---|
+| ENG | `avn` | fuel, throttle, heat and RPM gauges only |
+| SYS | `afm` | aircraft name, top-down damage silhouette, the eight toggles, nose-on view with each pylon's loaded weapon |
+
+The hub reads MAIN, ADI, ENG, HSI, SYS. As with decision 10, only the labels changed: ids, routes,
+saved layouts and `avn.*` commands are untouched. The F-35 portal no longer passes `?f35` to the
+gauges page, which only hid the toggles there.
+
+Each pylon's weapon name comes from the plugin: the game's `PylonIndicator` colours set *i* of its
+marker images from `WeaponManager.HardpointsIndexes[i]`, so the frontal markers map to hardpoints
+through it (`AssetCapture.ResolvePylonHardpoints`) and the snapshot's `pylons[]` gains `w`.
+
+SYS lays itself out by width (`afm-layout-policy.js`): two toggle columns while they clear the top
+view, else a 4-across band under the name; the outer pylon boxes beside the nose-on view while they
+fit, else stacked columns either side of it with the centre pylon below.
+
+Still to check in game: each toggle switches its system; each pylon box names the weapon actually
+on that pylon and follows a rearm; the log shows no `PylonIndicator` warning.

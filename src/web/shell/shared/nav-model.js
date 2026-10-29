@@ -55,8 +55,8 @@
     // The Avionics hub (docs/adi-hsi-pages.md): MAIN's AVN key opens ADI, and ADI, ENG, HSI and
     // SYS switch directly between each other, `mark` on the current one, alphabetical. Two labels
     // differ from their page ids: ENG is `avn` (fuel/throttle/heat/RPM gauges) and SYS is `afm`
-    // (airframe, pylons and the system toggles). Only the labels moved, so saved layouts, the /avn
-    // and /afm routes and the avn.* commands keep working.
+    // (airframe, pylons and the system toggles). The ids stay as they are so saved layouts, the
+    // /avn and /afm routes and the avn.* commands keep working.
     adi: [
       { label: 'MAIN', action: 'main' },
       { label: 'ADI',  action: 'adi', mark: true },

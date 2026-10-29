@@ -122,7 +122,7 @@ server-side in `RouteStore`, not here — see
 `waypoints-store.js`), `doc-cycle.js` (DOC's NEXT/PREV wrap-around stepping, issue #82), and
 `<x>-*-policy.js` where the
 logic really is a classification rule (`avn-status-policy.js`, `avn-throttle-policy.js`,
-`afm-bg-policy.js`, `afm-failure-policy.js`). Everything else on a page is DOM-coupled rendering and
+`afm-bg-policy.js`, `afm-failure-policy.js`, `afm-layout-policy.js`). Everything else on a page is DOM-coupled rendering and
 is left to the harness and the eye, not to Node asserts.
 
 Convention per page: `src/web/pages/<x>/<x>.{html,css,js}`, served at `/<x>`. The HTML links

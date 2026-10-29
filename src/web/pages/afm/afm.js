@@ -13,20 +13,13 @@ const afmFrontMarkersEl = document.getElementById('afm-front-markers');
 const afmPylonRowEl    = document.getElementById('afm-pylon-row');
 const afmPylonSideEls  = [document.getElementById('afm-pylon-left'), document.getElementById('afm-pylon-right')];
 const afmPylonLinksEl  = document.getElementById('afm-pylon-links');
-let afmPylonSides = false;   // the outer two pylons' boxes sit beside the front view
-let afmPylonOrder   = [];                    // pylon names, left to right by marker cx
-let afmPylonCx      = Object.create(null);   // pylon name -> marker cx (0..1 across the front view)
-let afmPylonStacked = false;  // narrow arrangement: side columns + centre row (AfmLayoutPolicy.pylonColumns)
-let afmPylonRowBoxEls = Object.create(null); // pylon name -> its row box (hidden while it sits beside)
-let afmPylonBoxEls  = Object.create(null);   // pylon name -> the box it shows in now
-let afmPylonLinkEls = Object.create(null);   // pylon name -> its <polyline>
 const afmFrame   = document.getElementById('afm-frame');
 const afmBg      = document.getElementById('afm-bg');
 const afmPartsEl = document.getElementById('afm-parts');
 const afmEmptyEl = document.getElementById('afm-empty');
 const afmFlagCols = [document.getElementById('afm-flags-left'), document.getElementById('afm-flags-right')];
-// [button, snapshot field]; each button's data-group is the avn.toggle group and the kind
-// AvnStatusPolicy.tileClass expects.
+// [kind, snapshot field]; the kind names the button (#afm-flag-<kind>), its avn.toggle group and
+// the kind AvnStatusPolicy.tileClass expects.
 const AFM_FLAGS = [['gear', 'gearDown'], ['radar', 'radar'], ['guns', 'guns'], ['eng', 'ignition'],
                    ['assist', 'assist'], ['nvg', 'nvg'], ['lights', 'navLights'], ['turret', 'turret']]
   .map(function(pair) { return { el: document.getElementById('afm-flag-' + pair[0]), kind: pair[0], field: pair[1] }; });
@@ -52,6 +45,13 @@ let afmFrontLayoutType  = null;
 let afmFrontLayoutCache = Object.create(null);
 let afmFrontLayoutTries = Object.create(null);
 let afmFrontMarkerEls   = Object.create(null);
+let afmPylonSides = false;   // the outer two pylons' boxes sit beside the front view
+let afmPylonOrder   = [];                    // pylon names, left to right by marker cx
+let afmPylonCx      = Object.create(null);   // pylon name -> marker cx (0..1 across the front view)
+let afmPylonStacked = false;  // narrow arrangement: side columns + centre row (AfmLayoutPolicy.pylonColumns)
+let afmPylonRowBoxEls = Object.create(null); // pylon name -> its row box (hidden while it sits beside)
+let afmPylonBoxEls  = Object.create(null);   // pylon name -> the box it shows in now
+let afmPylonLinkEls = Object.create(null);   // pylon name -> its <polyline>
 
 // Failure label placement: sided failures cluster over their engine, side-less ones center-stack.
 const AFM_FAIL_COL = { L: 0.20, R: 0.80, C: 0.50 };
@@ -114,7 +114,7 @@ function renderAfm() {
   fitAfmFrontToImg();
   paintAfmDamage();
   paintAfmFailures(true);   // rebuilds + sizes the failure labels; forced -- see its own comment
-  paintAfmPylons();
+  paintAfmPylons(true);
   paintAfmFlags();
   drawAfmPylonLinks();
 }
@@ -309,6 +309,7 @@ afmFrontEl.addEventListener('load', function() {
   afmFrontEl.classList.add('loaded');
   layoutAfmFrame();   // the front view's real aspect decides whether the outer boxes fit beside it
   fitAfmFrontToImg();
+  paintAfmPylons(true);
   drawAfmPylonLinks();
 });
 afmFrontEl.onerror = function() {
@@ -460,9 +461,16 @@ function fitAfmFrontToImg() {
 // (buildAfmFrontMarkers); only the color updates per tick. Each pylon's link line and the
 // weapon name in its box take the same color as its marker.
 const AFM_PYLON_COLOR = { armed: 'var(--no-green)', exhausted: 'var(--no-red)', empty: 'var(--no-gray)' };
-function paintAfmPylons() {
+// The snapshot repeats every tick but a pylon's state and weapon change only on firing or rearm,
+// so this repaints only on a change. `force` is for the paths that rebuild or reassign the
+// markers, boxes and lines (renderAfm, the images' loads), which leave the new ones unpainted.
+let afmPylonsKey = null;
+function paintAfmPylons(force) {
   const pylons = Array.isArray(afmData.pylons) ? afmData.pylons : null;
   if (!pylons) return;
+  const key = JSON.stringify(pylons);
+  if (!force && key === afmPylonsKey) return;
+  afmPylonsKey = key;
   for (const p of pylons) {
     const color = AFM_PYLON_COLOR[p.s] || AFM_PYLON_COLOR.empty;
     const el = afmFrontMarkerEls[p.n], box = afmPylonBoxEls[p.n], line = afmPylonLinkEls[p.n];
@@ -545,6 +553,7 @@ afmBg.addEventListener('load', function() {
   fitAfmPartsToBg();
   fitAfmFrontToImg();
   sizeAfmFailures();
+  paintAfmPylons(true);
   drawAfmPylonLinks();
 });
 

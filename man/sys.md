@@ -12,4 +12,7 @@ vision, nav lights, turret — shows live state; tap one to switch that system. 
 game's own gear key: it only moves the gear in the air, and not while it is already moving. GUNS
 lights whenever the game has guns linked, on any aircraft.
 
+In a narrow pane the toggles move into a band under the aircraft name, and the weapon boxes stack
+in columns either side of the nose-on view.
+
 ![SYS page](images/SYS.png)
