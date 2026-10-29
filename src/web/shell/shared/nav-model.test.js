@@ -62,10 +62,10 @@ for (const page of ['rwr', 'tgt', 'ext', 'sqd']) {
 }
 
 // The Avionics hub (docs/adi-hsi-pages.md): MAIN's AVN key lands on ADI, and the four pages
-// switch between each other alphabetically, each marking itself. SYS is the `avn` page.
+// switch between each other alphabetically, each marking itself. ENG is the `avn` page, SYS `afm`.
 assert.strictEqual(NAV.main.find(i => i.label === 'AVN').action, 'adi');
-for (const [page, label] of [['adi', 'ADI'], ['afm', 'AFM'], ['hsi', 'HSI'], ['avn', 'SYS']]) {
-  assert.deepStrictEqual(NAV[page].map(i => i.label), ['MAIN', 'ADI', 'AFM', 'HSI', 'SYS'], `${page}'s hub switch`);
+for (const [page, label] of [['adi', 'ADI'], ['avn', 'ENG'], ['hsi', 'HSI'], ['afm', 'SYS']]) {
+  assert.deepStrictEqual(NAV[page].map(i => i.label), ['MAIN', 'ADI', 'ENG', 'HSI', 'SYS'], `${page}'s hub switch`);
   assert.deepStrictEqual(NAV[page].filter(i => i.mark).map(i => i.label), [label], `${page} marks itself`);
 }
 

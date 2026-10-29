@@ -1,7 +1,7 @@
 # ADI
 
 Attitude at a glance, part of the **AVN** (Avionics) hub, laid out like the game's own flight
-instruments panel. Open it from MAIN's **AVN** key; the hub opens on ADI, and **ADI / AFM / HSI /
+instruments panel. Open it from MAIN's **AVN** key; the hub opens on ADI, and **ADI / ENG / HSI /
 SYS** switch between its pages.
 
 ![ADI page](images/ADI.png)

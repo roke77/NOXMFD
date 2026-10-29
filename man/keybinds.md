@@ -159,7 +159,7 @@ lamp means ON. They sit in two groups.
   blank straight away; its bezel labels keep working, so you can still page away. If only the
   laser designator is lost, TGP keeps its picture and shows LASER FAIL. An aircraft that never
   had the system shows the page's usual "not available" instead. Respawning or repairing brings
-  the pages back. Every other page (ADI, HSI, HUD, SYS, MAIN, settings) never fails.
+  the pages back. Every other page (ADI, ENG, HSI, HUD, SYS, MAIN, settings) never fails.
 
 ### Immersion Options
 

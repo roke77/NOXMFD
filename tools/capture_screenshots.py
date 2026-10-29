@@ -38,7 +38,7 @@ PORT = 8783   # separate from serve_web.py's own default 8782, so a manually-run
 # script, not a module), so it's callable directly via page.evaluate() — far more robust than
 # simulating physical bezel-key clicks for each one.
 PAGES = [
-    ("ADI", "adi"), ("AFM", "afm"), ("HSI", "hsi"), ("SYS", "avn"),
+    ("ADI", "adi"), ("ENG", "avn"), ("HSI", "hsi"), ("SYS", "afm"),
     ("HUD", "hud"), ("KEY", "keys"), ("RTS", "rates"),
     ("EXT", "ext"),
     ("MAIN", "main"),

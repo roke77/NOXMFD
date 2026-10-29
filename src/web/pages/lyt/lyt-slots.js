@@ -40,8 +40,10 @@
     if (!state || typeof state !== 'object') return Object.assign(row, { label: 'UNREADABLE', rects: [], pages: [] });
     const { label, rects, sides } = Array.isArray(state.cells) ? f35Split(state.cells) : classicSplit(state);
     const saved = Array.isArray(state.pages) ? state.pages : [];
-    // A pane with no saved page lands on MAIN. The `avn` page shows as SYS (docs/adi-hsi-pages.md).
-    const pages = rects.map((_, i) => { const p = String(saved[i] || 'main'); return p === 'avn' ? 'SYS' : p.toUpperCase(); });
+    // A pane with no saved page lands on MAIN. Pages labelled apart from their ids show under the
+    // label: `avn` as ENG, `afm` as SYS (nav-model.js's Avionics hub).
+    const LABEL = { avn: 'ENG', afm: 'SYS' };
+    const pages = rects.map((_, i) => { const p = String(saved[i] || 'main'); return LABEL[p] || p.toUpperCase(); });
     const soi = rects.map((_, i) => !(Array.isArray(state.soi) && state.soi[i] === false));
     return Object.assign(row, { label, rects, pages, state, soi, sides });
   }

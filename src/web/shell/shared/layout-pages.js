@@ -106,9 +106,7 @@
     // THRL/FUEL gauges instead), so a MAP portal draws its own mission bar + GRID chip, same as
     // the bezel's MAP. relay=1: never opens its own /stream — see CLASSIC_SPLIT.map above.
     map:  '/map-view?bare&relay=1',
-    // ?f35: AVN reads this to hide its status-icon grid (avn.js) — the F-35 master strip already
-    // shows those flags, so the portal keeps just the gauges.
-    avn:  '/avn?f35',
+    avn:  '/avn',
     afm:  '/afm',   // reuses the avn feed — see PAGE_FEEDS in f35.js
     adi:  '/adi',
     hsi:  '/hsi',

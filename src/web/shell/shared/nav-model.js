@@ -52,37 +52,38 @@
     // loaded before that fetch resolves still has a working MAIN back-link instead of an empty
     // nav.
     ext: [ { label: 'MAIN', action: 'main' } ],
-    // The Avionics hub (docs/adi-hsi-pages.md): MAIN's AVN key opens ADI, and ADI, AFM, HSI and
-    // SYS switch directly between each other, `mark` on the current one, alphabetical. SYS is the
-    // page with id `avn` (fuel/throttle/heat/RPM gauges and the status tiles): only its label
-    // changed, so saved layouts, the /avn route and the avn.* commands keep working.
+    // The Avionics hub (docs/adi-hsi-pages.md): MAIN's AVN key opens ADI, and ADI, ENG, HSI and
+    // SYS switch directly between each other, `mark` on the current one, alphabetical. Two labels
+    // differ from their page ids: ENG is `avn` (fuel/throttle/heat/RPM gauges) and SYS is `afm`
+    // (airframe, pylons and the system toggles). Only the labels moved, so saved layouts, the /avn
+    // and /afm routes and the avn.* commands keep working.
     adi: [
       { label: 'MAIN', action: 'main' },
       { label: 'ADI',  action: 'adi', mark: true },
-      { label: 'AFM',  action: 'afm' },
+      { label: 'ENG',  action: 'avn' },
       { label: 'HSI',  action: 'hsi' },
-      { label: 'SYS',  action: 'avn' },
+      { label: 'SYS',  action: 'afm' },
     ],
     afm: [
       { label: 'MAIN', action: 'main' },
       { label: 'ADI',  action: 'adi' },
-      { label: 'AFM',  action: 'afm', mark: true },
+      { label: 'ENG',  action: 'avn' },
       { label: 'HSI',  action: 'hsi' },
-      { label: 'SYS',  action: 'avn' },
+      { label: 'SYS',  action: 'afm', mark: true },
     ],
     hsi: [
       { label: 'MAIN', action: 'main' },
       { label: 'ADI',  action: 'adi' },
-      { label: 'AFM',  action: 'afm' },
+      { label: 'ENG',  action: 'avn' },
       { label: 'HSI',  action: 'hsi', mark: true },
-      { label: 'SYS',  action: 'avn' },
+      { label: 'SYS',  action: 'afm' },
     ],
     avn: [
       { label: 'MAIN', action: 'main' },
       { label: 'ADI',  action: 'adi' },
-      { label: 'AFM',  action: 'afm' },
+      { label: 'ENG',  action: 'avn', mark: true },
       { label: 'HSI',  action: 'hsi' },
-      { label: 'SYS',  action: 'avn', mark: true },
+      { label: 'SYS',  action: 'afm' },
     ],
     rwr: [ { label: 'MAIN', action: 'main' } ],
     rdr: [

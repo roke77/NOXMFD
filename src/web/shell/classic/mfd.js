@@ -407,7 +407,7 @@ function placeSplitKey(m, label, action, paneTag, mark, pending) {
 // stood upright to clear it — in full view via .overlay.vmain, in a split pane via a per-label class
 // (renderSplitLabels). TGT's RESET FILTER, TD's squad buttons and BDF/PAL/MIS/OBJ's WARHEADS readout are that content —
 // on a narrow display the panel widens to the edge and a horizontal MAIN would sit over that
-// header. All are split-capable. The Avionics hub's four pages (ADI, AFM, HSI, SYS) all stand their
+// header. All are split-capable. The Avionics hub's four pages (ADI, ENG, HSI, SYS) all stand their
 // labels upright, so the hub's switch looks the same whichever page it is on.
 // RDR/HSD are not in this list: their MAIN + FCR/HSD + R+ + R- row reads fine horizontal, not
 // cramped enough to need the narrow vertical treatment. KEY is in it: its section rail starts at the
@@ -782,23 +782,18 @@ function forwardToFrame(payload) {
 function forwardStatusToPanes() {
   forwardToPanes('main', { mfd: true, type: 'status', cls: lastStatusCls, text: lastStatusText });
 }
-// The SYS page (id `avn`): its status tiles are toggled by tapping them on the page itself; no
-// bezel key drives them.
+// The ENG page (id `avn`): the gauges' readouts only; the system flags go to SYS (afmMsg).
 function avnMsg() {
-  return { mfd: true, type: 'avn', name: avnData.name, parts: avnData.parts,
-           failures: avnData.failures, fuel: avnData.fuel, throttle: avnData.throttle,
-           heat: avnData.heat, heatColor: avnData.heatColor, rpm: avnData.rpm,
-           hasAb: avnData.hasAb, abStart: avnData.abStart, gearDown: avnData.gearDown,
-           radar: avnData.radar, guns: avnData.guns, ignition: avnData.ignition,
-           assist: avnData.assist, turret: avnData.turret, nvg: avnData.nvg,
-           navLights: avnData.navLights };
+  return { mfd: true, type: 'avn', name: avnData.name, fuel: avnData.fuel,
+           throttle: avnData.throttle, heat: avnData.heat, heatColor: avnData.heatColor,
+           rpm: avnData.rpm, hasAb: avnData.hasAb, abStart: avnData.abStart };
 }
 function forwardAvnToPanes() { forwardToPanes('avn', avnMsg()); }
 // Full-view AVN: forward the snapshot to the #page-frame iframe (same payload as the panes).
 function forwardAvnToFrame() { forwardToFrame(avnMsg()); }
 // Forward the full-view geometry: AVN's content block (icon grid + gauges) centres itself in the
 // band below the top bezel row, from below the first separator sep[0]'s row (sep1) to the bottom
-// strip. The icon grid is a plain CSS grid, not anchored to individual bezel-key rects.
+// strip. The gauge grid is a plain CSS grid, not anchored to individual bezel-key rects.
 function forwardAvnLayoutToFrame() {
   const w = frameWin(); if (!w) return;
   const frameTop = pageFrame.getBoundingClientRect().top;
@@ -808,9 +803,8 @@ function forwardAvnLayoutToFrame() {
     const botSep = sepEls[sepEls.length - 1].getBoundingClientRect();
     // The content band spans the WHOLE key column — from above key[0] down to the bottom strip —
     // rather than starting below key[0]'s row. That row holds only the MAIN label, and the page's
-    // icon grid already insets itself past the bezel-label zone on both sides (avn.css
-    // .avn-icon-grid padding), so reserving a full row for one short word just left dead space at
-    // the top with the gauges squeezed below it.
+    // gauges' round dials keep clear of the bezel-label zone on their own, so reserving a full row
+    // for one short word just left dead space at the top with the gauges squeezed below it.
     geom.frameTop     = sep0.bottom - frameTop;
     geom.frameHeight  = botSep.top - sep0.bottom;
   }

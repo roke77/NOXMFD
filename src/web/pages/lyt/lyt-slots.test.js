@@ -18,8 +18,8 @@ const assert = require('assert');
   assert.deepStrictEqual([rows[1].label, rows[1].pages], ['WIDE R', ['HSD', 'WPN']]);
   assert.deepStrictEqual([rows[2].label, rows[2].pages], ['F_VIEW', ['RWR']]);
   // unknown variant → top/bottom split, a missing second page → MAIN (what the shell itself does)
-  // ...and the avn page shows under its visible name, SYS
-  assert.deepStrictEqual([rows[3].label, rows[3].pages], ['H_SPLIT', ['SYS', 'MAIN']]);
+  // ...and the avn page shows under its visible name, ENG
+  assert.deepStrictEqual([rows[3].label, rows[3].pages], ['H_SPLIT', ['ENG', 'MAIN']]);
   // unreadable data keeps the row, with nothing to draw
   assert.deepStrictEqual([rows[4].label, rows[4].rects.length, rows[4].pages.length], ['UNREADABLE', 0, 0]);
 
@@ -50,7 +50,7 @@ const assert = require('assert');
     item(1, { cells: [{ span: 2, ate: 'right' }, { span: 1 }, { span: 1 }], pages: ['map', 'avn'], soi: [true, false, true] }),
     item(2, { cells: [{ span: 3 }, { span: 1 }], pages: ['tgp'] }),
   ]);
-  assert.deepStrictEqual([glass.label, glass.pages, glass.sides[2]], ['3 PORTALS', ['MAP', 'SYS', 'MAIN'], 'PORTAL 3']);
+  assert.deepStrictEqual([glass.label, glass.pages, glass.sides[2]], ['3 PORTALS', ['MAP', 'ENG', 'MAIN'], 'PORTAL 3']);
   assert.deepStrictEqual(glass.rects, [[0, 0, 0.5, 1], [0.5, 0, 0.25, 1], [0.75, 0, 0.25, 1]]);
   assert.deepStrictEqual(glass.soi, [true, false, true]);
   assert.deepStrictEqual([bad.label, bad.rects.length, bad.pages], ['4 PORTALS', 4, ['TGP', 'MAIN', 'MAIN', 'MAIN']]);
