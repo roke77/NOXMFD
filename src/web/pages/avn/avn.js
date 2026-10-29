@@ -1,6 +1,6 @@
-// AVN page — avionics. A pure reactive renderer driven by the shell over postMessage; single
-// source of truth for BOTH layouts (full-screen iframe + split pane). No damage silhouette or
-// airframe name here — the AFM page owns airframe status. See avn.html for the message contract.
+// ENG page (id avn) — the FUEL/RPM/HEAT/THRL gauges. A pure reactive renderer driven by the shell
+// over postMessage; single source of truth for BOTH layouts (full-screen iframe + split pane). The
+// system toggles live on the SYS page (id afm). See avn.html for the message contract.
 
 // ── DOM refs ───────────────────────────────────────────────────────────────────────
 const avnPanel     = document.getElementById('avn-panel');
@@ -10,37 +10,13 @@ const avnGaugeFuel = document.getElementById('avn-gauge-fuel');
 const avnGaugeRpm  = document.getElementById('avn-gauge-rpm');
 const avnGaugeHeat = document.getElementById('avn-gauge-heat');
 const avnGaugeThr  = document.getElementById('avn-gauge-thr');
-const avnTileGear  = document.getElementById('avn-tile-gear');
-const avnTileRadar = document.getElementById('avn-tile-radar');
-const avnTileGuns  = document.getElementById('avn-tile-guns');
-const avnTileEng    = document.getElementById('avn-tile-eng');
-const avnTileAssist = document.getElementById('avn-tile-assist');
-const avnTileNvg    = document.getElementById('avn-tile-nvg');
-const avnTileLights = document.getElementById('avn-tile-lights');
-const avnTileTurret = document.getElementById('avn-tile-turret');
-
-// F-35 portal (layout-pages.js's '/avn?f35'): the master strip already shows these 8 flags, so
-// the page hides the icon grid and shows gauges only.
-const IS_F35 = new URLSearchParams(location.search).has('f35');
-document.body.classList.toggle('f35', IS_F35);
-
-// Direct tile clicks/taps — the only way to toggle these in either layout: no bezel key drives them
-// (the bezel carries the Avionics hub switch). Group ids match the kind strings
-// AvnStatusPolicy.tileClass expects.
-[[avnTileGear, 'gear'], [avnTileRadar, 'radar'], [avnTileGuns, 'guns'], [avnTileEng, 'eng'],
- [avnTileAssist, 'assist'], [avnTileNvg, 'nvg'], [avnTileLights, 'lights'], [avnTileTurret, 'turret']]
-  .forEach(function(pair) {
-    pair[0].addEventListener('click', function() {
-      sendCommand('avn.toggle', { group: pair[1] }).catch(function() {});
-    });
-  });
 
 // ── State ──────────────────────────────────────────────────────────────────────────
-let avnData = { name: null, fuel: -1, throttle: -1, heat: -1, heatColor: null, rpm: -1, hasAb: false, abStart: 1, gearDown: false, radar: false, guns: false, ignition: false, assist: false, turret: false, nvg: false, navLights: false };
+let avnData = { name: null, fuel: -1, throttle: -1, heat: -1, heatColor: null, rpm: -1, hasAb: false, abStart: 1 };
 let layout         = 'compact';   // 'compact' (split pane) | 'full' (full-screen iframe)
 // {frameTop, frameHeight} forwarded by the shell in full — the vertical band .avn-content centres
-// itself in (below the top bezel row). No per-tile geometry: the icon grid and gauge grid are
-// plain CSS grids, sized/positioned entirely by CSS once .avn-content itself is placed.
+// itself in (below the top bezel row). The gauge grid is a plain CSS grid, sized/positioned
+// entirely by CSS once .avn-content itself is placed.
 let avnFullGeom    = null;
 let avnLastType    = null;   // last aircraft type rendered, so a respawn on the SAME type still re-renders
 
@@ -55,38 +31,8 @@ function renderAvn() {
   }
   avnEmptyEl.style.display = 'none';
 
-  paintAvnStatus();
   paintAvnGauges();
   layoutAvnContent();
-}
-
-// avn-status-policy maps state -> the 'on'/'off'/'gear-down' modifier class; the CSS turns that
-// into green/gray/red on label + icon.
-function setAvnTile(el, kind, active) {
-  el.classList.remove('on', 'off', 'gear-down');
-  el.classList.add(AvnStatusPolicy.tileClass(kind, active));
-}
-// 8 discrete booleans that typically hold for many seconds at a time, rewritten every 'avn' message
-// regardless (docs/web-efficiency-audit.md finding 06) — unlike paintAvnGauges' continuously-varying
-// analog readouts, which redraw every tick correctly. The tile elements are queried once at module
-// load and never rebuilt, so there's no page-entry/teardown case a guard here needs to invalidate on.
-let avnStatusKey = null;
-function paintAvnStatus() {
-  const key = [avnData.gearDown, avnData.radar, avnData.guns, avnData.ignition,
-               avnData.assist, avnData.nvg, avnData.navLights, avnData.turret].join('|');
-  if (key === avnStatusKey) return;
-  avnStatusKey = key;
-  setAvnTile(avnTileGear,   'gear',   avnData.gearDown);
-  setAvnTile(avnTileRadar,  'radar',  avnData.radar);
-  setAvnTile(avnTileGuns,   'guns',   avnData.guns);
-  setAvnTile(avnTileEng,    'eng',    avnData.ignition);
-  setAvnTile(avnTileAssist, 'assist', avnData.assist);
-  setAvnTile(avnTileNvg,    'nvg',    avnData.nvg);
-  setAvnTile(avnTileLights, 'lights', avnData.navLights);
-  setAvnTile(avnTileTurret, 'turret', avnData.turret);
-  // DIAG98 (issue 98, temporary): report what the icons were painted with to the BepInEx log.
-  sendCommand('diag.log', { group: 'classic AVN painted gear=' + avnData.gearDown + ' (' + avnTileGear.className +
-    ') guns=' + avnData.guns + ' (' + avnTileGuns.className + ') nvg=' + avnData.nvg + ' (' + avnTileNvg.className + ')' }).catch(function() {});
 }
 
 // The vertical band .avn-content centres itself in: full uses the shell-forwarded bezel geometry
@@ -103,8 +49,8 @@ function avnContentVerticalExtent() {
 }
 
 // .avn-content spans the full panel width and the full vertical extent, so it reads as "as wide as
-// possible, vertically centred" per that extent. The icon grid and gauge grid split that height
-// between them via flex-grow (avn.css) — no further JS sizing needed for either.
+// possible, vertically centred" per that extent. The gauge grid fills it via flex-grow (avn.css) —
+// no further JS sizing needed.
 function layoutAvnContent() {
   const panelRect = avnPanel.getBoundingClientRect();
   if (!panelRect.width || !panelRect.height) {
@@ -257,18 +203,10 @@ window.addEventListener('message', function(e) {
       rpm:      typeof m.rpm      === 'number' ? m.rpm      : -1,
       hasAb:    m.hasAb === true,
       abStart:  typeof m.abStart === 'number' ? m.abStart : 1,
-      gearDown: m.gearDown === true,
-      radar:    m.radar    === true,
-      guns:     m.guns     === true,
-      ignition: m.ignition === true,
-      assist:   m.assist   === true,
-      turret:   m.turret   === true,
-      nvg:      m.nvg      === true,
-      navLights: m.navLights === true,
     };
     // Full render on aircraft change, or whenever there's no aircraft.
     if (avnLastType !== avnData.name || !avnData.name) renderAvn();
-    else { paintAvnGauges(); paintAvnStatus(); }
+    else paintAvnGauges();
   } else if (m.type === 'avn-layout') {
     // Geometry profile from the shell. full forwards the bezel-anchored vertical band
     // (geom.frameTop/frameHeight); compact carries no geometry.

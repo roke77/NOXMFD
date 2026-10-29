@@ -1,4 +1,5 @@
-/* AFM page — airframe status (damage silhouette + failure labels + aircraft name).
+/* SYS page (id afm) — airframe status (damage silhouette + failure labels + aircraft name),
+   pylon weapons and the system toggles.
    compact (default) uses the fixed offsets below; body.full overrides name/frame
    placement at the bottom with bezel-anchored geometry from the shell. */
 .afm-panel {
@@ -27,12 +28,12 @@
   letter-spacing: 2px;
   white-space: nowrap;
 }
-/* Frontal (nose-on) silhouette + pylon markers, between header and the top-down frame below.
-   top/height are compact defaults; layoutAfmFrame (afm.js) overrides both inline. */
+/* Frontal (nose-on) silhouette + pylon markers, below the top-down frame at the bottom of the
+   stack. bottom/height are compact defaults; layoutAfmFrame (afm.js) sets top/height inline. */
 .afm-front-section {
   position: absolute;
   left: 0; right: 0;
-  top: 72px;
+  bottom: 12px;
   height: 130px;
   overflow: hidden;
 }
@@ -45,17 +46,84 @@
 .afm-front    { max-width: 100%; max-height: 100%; display: none; }
 .afm-front.loaded { display: block; }
 .afm-front-markers { display: block; }
+/* Label-station squares (afm.js afmFrontLabels): placed over the whole panel by layoutAfmFrame. */
+.afm-pylon-squares {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
 .afm-front-marker {
   position: absolute;
   transform: translate(-50%, -50%);
   background-color: var(--no-afm-marker);   /* until the first live pylon color arrives */
   pointer-events: none;
 }
+/* Pylon row: one box per hardpoint, spanning the width between the toggle columns' outer edges
+   (same inset, in the same scale). A grid so a narrow pane can stack the boxes into side columns;
+   layoutAfmFrame (afm.js) sets top/height, the columns and each box's cell inline. The page
+   scale and inset are --afm-em / --afm-inset, also from layoutAfmFrame; the fallbacks are its
+   wide-pane values. */
+.afm-pylon-row {
+  position: absolute;
+  left: var(--afm-inset, 5em); right: var(--afm-inset, 5em);
+  top: auto; bottom: 12px;
+  height: 40px;
+  display: grid;
+  grid-auto-rows: 1fr;
+  gap: 0.6em;
+  font-size: var(--afm-em, clamp(9px, 1.8vmin, 18px));
+  pointer-events: none;
+}
+/* The toggle buttons' frame; the weapon name inside takes its pylon's colour (paintAfmPylons),
+   wrapping to a second line for a long name. */
+.afm-pylon-box {
+  min-width: 0;
+  box-sizing: border-box;
+  border: 1px solid var(--no-line);
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 0.4em;
+  overflow: hidden;
+  font-family: var(--no-font);
+  font-size: 0.85em;
+  font-weight: 900;
+  letter-spacing: 0.5px;
+  line-height: 1.1;
+  text-align: center;
+  color: var(--no-green);
+}
+/* Marker-to-box lines over the whole panel; drawAfmPylonLinks (afm.js) sets the end points and
+   paintAfmPylons the stroke. */
+.afm-pylon-links {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+.afm-pylon-link {
+  fill: none;
+  stroke: var(--no-green);
+  stroke-width: 1.5;
+}
+/* The outer pylons' boxes, beside the front view, at the row's inset so their outer edges line up
+   with it. layoutAfmFrame sets top/height inline, and the width to match a row box. */
+.afm-pylon-side {
+  position: absolute;
+  font-size: var(--afm-em, clamp(9px, 1.8vmin, 18px));
+  box-sizing: border-box;
+  pointer-events: none;
+}
+.afm-pylon-side.left  { left: var(--afm-inset, 5em); }
+.afm-pylon-side.right { right: var(--afm-inset, 5em); }
 .afm-frame {
   position: absolute;
   left: 0; right: 0;
-  top: 214px;   /* compact default; full overrides from bezel geometry */
-  bottom: 12px;
+  top: 72px;      /* compact defaults; layoutAfmFrame (afm.js) sets top/height inline */
+  bottom: 148px;
   overflow: hidden;
 }
 .afm-bg, .afm-parts {
@@ -99,3 +167,75 @@
 
 /* Portrait full is tall, so the name may grow past the landscape 32px cap. */
 body.full.portrait .afm-name { font-size: clamp(32px, 3.6vh, 51px); }
+
+/* SYS toggles: two columns of lit buttons over the full-width silhouette bands, clear of the
+   drawings, which sit centred, or in a narrow pane a 4-across band under the name (.band). The
+   F-35 master strip's .ms-flag frame (lit-panel.css's .lit look) with the glyph on top;
+   currentColor (off gray / on green / GEAR-down red, from avn-status-policy) lights the glyph and
+   lamp together while the name stays white. Everything is in em of the column's font-size,
+   --afm-em from layoutAfmFrame (afm.js), so the buttons scale with the pane; it also sets each
+   column's top/height. */
+.afm-flags {
+  position: absolute;
+  top: 0;
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.9em;
+  font-size: var(--afm-em, clamp(9px, 1.8vmin, 18px));
+  z-index: 5;
+}
+.afm-flags.placed { display: flex; }
+.afm-flags.left  { left: var(--afm-inset, 5em); }
+.afm-flags.right { right: var(--afm-inset, 5em); }
+/* Narrow pane: each column becomes one 4-across row of the band under the name, full width. */
+.afm-flags.band { flex-direction: row; left: var(--afm-inset, 1em); right: var(--afm-inset, 1em); }
+.afm-flags.band .afm-flag { flex: 1 1 0; width: auto; min-width: 0; }
+.afm-flag {
+  appearance: none;
+  font-family: var(--no-font);
+  font-size: inherit;
+  background: var(--no-control-bg);
+  border: 1px solid var(--no-line);
+  border-radius: 5px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5em;
+  width: 7.1em;
+  height: 6.55em;
+  padding: 0;
+  cursor: pointer;
+  color: var(--no-gray);
+}
+.afm-flag.on        { color: var(--no-green); }
+.afm-flag.gear-down { color: var(--no-red); }
+.afm-flag:active { background: rgba(var(--no-green-rgb), 0.08); }
+.afm-flag:focus-visible { outline: 2px solid var(--no-amber); outline-offset: 2px; }
+.afm-flag-icon { width: 2.2em; height: 2.2em; display: block; flex: none; }
+.afm-flag-lamp {
+  width: 2.55em;
+  height: 0.28em;
+  flex: none;
+  border-radius: 2px;
+  background: var(--no-lamp-off);
+}
+.afm-flag.on .afm-flag-lamp,
+.afm-flag.gear-down .afm-flag-lamp {
+  background: currentColor;
+  box-shadow: 0 0 8px currentColor, 0 0 2px currentColor;
+}
+.afm-flag-label {
+  font-size: 1em;
+  font-weight: 900;
+  letter-spacing: 1px;
+  line-height: 1;
+  color: var(--no-white);
+}
+/* GEAR is the game-captured glyph as a recolourable mask, as on SYS and the F-35 strip. */
+.afm-flag-mask {
+  background-color: currentColor;
+  -webkit-mask: url("/assets/pages/afm/gear-icon.png") no-repeat center / contain;
+          mask: url("/assets/pages/afm/gear-icon.png") no-repeat center / contain;
+}

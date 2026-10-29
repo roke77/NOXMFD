@@ -383,6 +383,20 @@
   FRAME.selWeapon = FRAME.softRel = PREVIEW_SEL_WEAPON.n;
   FRAME.combatMode = 'all';
 
+  // AFM pylon markers + their boxes: one pylon in each state (armed / exhausted / empty) with the
+  // mounted weapon's name. The marker names are the SAH-46 Chicane capture's frontal layout; a
+  // frame for another aircraft matches none of them, so its markers keep their default colour.
+  // Replaces a capture's own pylons when none carries a weapon name (`w`).
+  if (!Array.isArray(FRAME.pylons) || !FRAME.pylons.some(p => p.w)) FRAME.pylons = [
+    { n: 'hardpoint_TipR',   s: 'exhausted', w: 'MMR-S3' },
+    { n: 'hardpoint_PylonR', s: 'armed',     w: 'AGR-18 Lynchpin' },
+    { n: 'hardpoint_BayR',   s: 'armed',     w: 'ATP-1' },
+    { n: 'hardpoint_Gun',    s: 'armed',     w: '30mm Rotary Cannon' },
+    { n: 'hardpoint_BayL',   s: 'armed',     w: 'ATP-1' },
+    { n: 'hardpoint_PylonL', s: 'armed',     w: 'AGR-18 Lynchpin' },
+    { n: 'hardpoint_TipL',   s: 'empty',     w: '' },
+  ];
+
   // Synthetic radar emitters for the RWR page, authored as design intent (bearing relative to
   // the nose + signal power) and converted to world x,z against the active frame's ownship —
   // so they land at the intended bearings/ranges whether the frame is the synthetic one above

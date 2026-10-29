@@ -1,7 +1,5 @@
-/* AVN page — avionics (the 8 avn.toggle status tiles + FUEL/RPM/HEAT/THRL gauges). Single source
-   of truth for BOTH layouts. Base reset and font come from theme.css, colour tokens from colors.css.
-   No damage silhouette or airframe name here — the AFM page owns airframe status; this page is avionics
-   only. */
+/* ENG page (id avn) — the FUEL/RPM/HEAT/THRL gauges. Single source of truth for BOTH layouts.
+   Base reset and font come from theme.css, colour tokens from colors.css. */
 .avn-panel {
   position: absolute;
   inset: 0;
@@ -9,11 +7,9 @@
   font-family: var(--no-font);
 }
 
-/* .avn-content wraps the icon grid + gauge grid as one flex column; avn.js's layoutAvnContent sets
-   left/top/width/height inline (the vertical band avnContentVerticalExtent computes) — CSS only
-   splits that box's height between the two grids (below) and centres them as a unit via
-   justify-content. CLASSIC's full view draws its own NAV labels at the bezel keys (mfd.js
-   placeAvnNavLabels), so this page needs no per-tile geometry from the shell in either profile. */
+/* .avn-content wraps the gauge grid in a flex column; avn.js's layoutAvnContent sets
+   left/top/width/height inline (the vertical band avnContentVerticalExtent computes) and the grid
+   fills it. */
 .avn-content {
   position: absolute;
   display: none;
@@ -27,78 +23,11 @@
 }
 .avn-content.placed { display: flex; }
 
-/* Status-icon grid: 2 rows x 4 cols, fixed reading order (GEAR/RADAR/GUNS/ENG, then
-   ASSIST/NVG/LIGHTS/TURRET). No outer border, so the grid reads as one
-   instrument cluster rather than a boxed panel. Sized to its own content (icons are a fixed size,
-   not stretched — see .avn-tile-icon below) rather than flex-growing, so the gauge grid below gets
-   the rest of the available height. Side padding keeps every tile and its divider borders off the
-   bezel-key NAV label zone — the gauges never need this because a circular dial has natural margin
-   inside its own grid cell, but a tile's full-bleed border lines fill its cell edge to edge. */
-.avn-icon-grid {
-  flex: 0 0 auto;
-  width: 100%;
-  padding: 0 90px;
-  box-sizing: border-box;
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  grid-template-rows: repeat(2, auto);
-}
-/* F-35 portal (avn.js's IS_F35): the master strip already shows these 8 flags, so the page hides
-   the grid and leaves the gauge grid (flex:1 1 auto) to fill the freed height. */
-body.f35 .avn-icon-grid { display: none; }
-.avn-tile {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  padding: 10px 0;
-  border: 0 solid var(--no-green-dark);   /* muted inner dividers only, see the two rules below */
-  color: var(--no-gray);   /* off/dim; on/gear-down override below */
-  cursor: pointer;
-  /* .avn-content is pointer-events:none so empty space around the tiles/gauges doesn't eat clicks
-     meant for the page behind it — but pointer-events inherits, so without this override a real
-     mouse/touch click hit-tests straight through the tile instead of reaching it. */
-  pointer-events: auto;
-}
-.avn-tile:not(:nth-child(4n)) { border-right-width: 1px; }
-.avn-tile:nth-child(-n+4)     { border-bottom-width: 1px; }
-/* Bottom row reverses flex order (icon-then-label) rather than markup order, so avn.js's
-   DOM-order lookups (querySelector by id) don't need to change. */
-.avn-tile:nth-child(n+5) { flex-direction: column-reverse; }
-.avn-tile.on        { color: var(--no-green); }
-.avn-tile.gear-down { color: var(--no-red); }
-.avn-tile-label {
-  font-size: clamp(12px, 2.1vh, 18px);
-  font-weight: 900;
-  letter-spacing: 1px;
-  line-height: 1;
-}
-.avn-tile-icon-wrap {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.avn-tile-icon {
-  width:  clamp(27px, 4.9vh, 40px);
-  height: clamp(27px, 4.9vh, 40px);
-  display: block;
-}
-/* GEAR uses a recolourable mask of the in-game glyph (baked as gear-icon.png) rather than inline
-   SVG, so it turns green/gray/red like the others via background-color = currentColor. */
-:root { --gear-mask: url("/assets/pages/avn/gear-icon.png"); }
-.avn-mask-icon {
-  background-color: currentColor;
-  -webkit-mask: var(--gear-mask) no-repeat center / contain;
-          mask: var(--gear-mask) no-repeat center / contain;
-}
-
 /* FUEL/RPM/HEAT/THRL as a 2x2 grid of needle dials: a sweep needle over the muted tick arc, with
    the name above centre and value below inside the dial — a mirrored pair rather than a
    label-then-icon stack. The lit progress arc (.avn-gauge-fill) matches the track's own width so
-   it reads as one gauge rather than two concentric bars with a gap. Takes all the height the icon
-   grid above doesn't use (that one is flex:0 0 auto, content-sized). Each dial's own face is
-   plain CSS + the shared tick-ring <defs> in avn.html. */
+   it reads as one gauge rather than two concentric bars with a gap. Takes all of .avn-content's
+   height. Each dial's own face is plain CSS + the shared tick-ring <defs> in avn.html. */
 .avn-gauge-grid {
   flex: 1 1 auto;
   min-height: 0;
@@ -106,6 +35,15 @@ body.f35 .avn-icon-grid { display: none; }
   display: grid;
   grid-template-columns: 1fr 1fr;
   grid-template-rows: 1fr 1fr;
+}
+/* A pane at least twice as tall as it is wide stacks the four dials: each then gets up to a
+   quarter of the height rather than half the width, so they draw larger. The iframe's viewport
+   is the pane, so the media query reads its shape. */
+@media (max-aspect-ratio: 1/2) {
+  .avn-gauge-grid {
+    grid-template-columns: 1fr;
+    grid-template-rows: repeat(4, 1fr);
+  }
 }
 .avn-gauge {
   display: flex;
@@ -115,10 +53,9 @@ body.f35 .avn-icon-grid { display: none; }
   height: 100%;
   min-height: 0;
   min-width: 0;
-  /* White, not the screen's green, so the dials read as a distinct instrument cluster next to the
-     green status tiles above. `color` drives the needle, hub, value and label (all currentColor);
-     the caution/critical/AB overrides further down still take priority, so a warning still shows
-     amber/red. */
+  /* White, not the screen's green, so the dials read as a distinct instrument cluster. `color`
+     drives the needle, hub, value and label (all currentColor); the caution/critical/AB overrides
+     further down still take priority, so a warning still shows amber/red. */
   color: var(--no-white);
   font-family: var(--no-font);
   text-shadow: 0 0 4px rgba(var(--no-white-rgb), 0.3);

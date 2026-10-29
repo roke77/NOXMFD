@@ -230,3 +230,41 @@ Settled during implementation:
 
 10. **SYS rename depth**: the visible label only; the id, route and commands stay `avn`.
 11. **SYS toggle keys**: removed from the bezel; the hub switch takes their place.
+
+## Follow-up: SYS and ENG (2026-10-29)
+
+The eight system toggles moved off the gauges page onto the airframe page, as lit buttons beside
+the top-down silhouette, and the two pages swapped roles in the hub:
+
+| Label | Id | Content |
+|---|---|---|
+| ENG | `avn` | fuel, throttle, heat and RPM gauges only |
+| SYS | `afm` | aircraft name, top-down damage silhouette, the eight toggles, nose-on view with each pylon's loaded weapon |
+
+The hub reads MAIN, ADI, ENG, HSI, SYS. As with decision 10, only the labels changed: ids, routes,
+saved layouts and `avn.*` commands are untouched. The F-35 portal no longer passes `?f35` to the
+gauges page, which only hid the toggles there.
+
+Each pylon's weapon name comes from the plugin: the game's `PylonIndicator` colours set *i* of its
+marker images from `WeaponManager.HardpointsIndexes[i]`, so the frontal markers map to hardpoints
+through it (`AssetCapture.ResolvePylonHardpoints`) and the snapshot's `pylons[]` gains `w`.
+
+SYS lays itself out by width (`afm-layout-policy.js`): two toggle columns while they clear the top
+view, else a 4-across band under the name; the outer pylon boxes beside the nose-on view while they
+fit, else stacked columns either side of it with the centre pylon below.
+
+Each frontal marker comes from the `PylonIndicator` itself (set *i*'s first image, else its label),
+so it carries its hardpoint directly; a panel without one falls back to its `hardpoint_*` children.
+Airframes split three ways in game:
+
+- markers on the drawing (most jets): markers, circuit lines and the box row as above;
+- stations marked by label boxes beside the drawing (UH-90): no point to link from, so a row of
+  pylon squares centred under the front view, the weapon boxes below, circuit lines between;
+- no front-view panel at all (CI-22, VL-49): the same squares and boxes built from the airframe's
+  hardpoints, with the front view dropped; an airframe with neither lists its loadout.
+
+However many pylons, the front view and boxes take at most half the stack, so the top view always
+keeps the rest.
+
+Still to check in game: each toggle switches its system; each pylon box names the weapon actually
+on that pylon and follows a rearm; the log shows no `PylonIndicator` warning.

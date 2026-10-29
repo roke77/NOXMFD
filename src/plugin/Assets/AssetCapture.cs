@@ -285,15 +285,34 @@ namespace NOXMFD
         // with the GUN/TIP/PYLON/BAY "WEAPON ARMED" boxes. Served at the same /airframe endpoint,
         // under part key "__front", so no new server plumbing is needed.
         //
-        // Also captures the panel's per-station hardpoint markers. Their LAYOUT is static (captured
-        // once, via the same GetPartPlacement math as the damage-silhouette parts). Their COLOR is
-        // live game state (green = ammo remaining, red = exhausted) computed by the game's own
-        // script every frame; rather than re-deriving armed/exhausted — which would need a
-        // name<->WeaponStation mapping that doesn't exist anywhere reliable — this mirrors the same
-        // Image.color the player already sees (ReadFrontalMarkerStates, polled per snapshot tick).
+        // Also captures one marker per weapon station, three ways. Usually from the game's
+        // PylonIndicator, whose element set i colours hardpoint i (WeaponManager.HardpointsIndexes):
+        // a marker on the drawing gets its static position (GetPartPlacement, as the damage-silhouette
+        // parts), while a station marked by a label beside the drawing goes out as a position-less
+        // label station. Without an indicator, the panel's hardpoint_* children, matched to hardpoints
+        // later (ResolvePylonHardpoints). Without a panel at all, stations from the hardpoints
+        // themselves (CaptureHardpointStations). A marker's COLOR is live game state the player
+        // already sees (green = ammo remaining, red = exhausted, gray = nothing mounted), mirrored
+        // rather than re-derived (ReadFrontalMarkerStates, polled per snapshot tick); hardpoint
+        // stations derive it from ammo the same way.
         private readonly HashSet<string> _capturedFrontal = new HashSet<string>();
-        private readonly Dictionary<string, List<(string name, Image img)>> _frontalMarkers =
-            new Dictionary<string, List<(string, Image)>>();
+        // One marker on the frontal silhouette: the graphic the game colours for it, and its hardpoint
+        // index in WeaponManager.HardpointsIndexes (-1 until resolved, for the hardpoint_* fallback).
+        private sealed class FrontalMarker
+        {
+            public string Name = string.Empty;
+            public Graphic? Graphic;
+            public int Hardpoint = -1;
+            public bool FromHardpoints;   // no panel graphic: state comes from the hardpoint's ammo
+        }
+        // Slow scans a type has gone without a frontProfile; past the cap its stations come from the
+        // hardpoints themselves (CaptureHardpointStations).
+        private readonly Dictionary<string, int> _frontalMisses = new Dictionary<string, int>();
+        private readonly Dictionary<string, List<FrontalMarker>> _frontalMarkers =
+            new Dictionary<string, List<FrontalMarker>>();
+        // Slow scans a type has waited for the PylonIndicator; past the cap it captures without one.
+        private readonly Dictionary<string, int> _frontalWaits = new Dictionary<string, int>();
+        private const int FrontalIndicatorWaitScans = 10;
 
         public void TryCaptureFrontalSilhouette(Aircraft ac)
         {
@@ -303,41 +322,90 @@ namespace NOXMFD
             // frontProfile only exists inside the LIVE (instantiated) WeaponPanel; FindObjectsOfTypeAll
             // also returns inactive template prefabs for other aircraft types, which must be skipped.
             Image? frontImg = null;
+            var candidates = new List<string>();   // every live frontProfile, for the capture log line
             foreach (Image img in Resources.FindObjectsOfTypeAll<Image>())
             {
                 if (img == null || img.gameObject.name != "frontProfile") continue;
                 if (img.gameObject.scene.name == null) continue;   // prefab asset, not a live instance
-                frontImg = img;
-                break;
+                candidates.Add((img.sprite != null ? img.sprite.name : "<no sprite>") +
+                               (img.gameObject.activeInHierarchy ? "" : " (inactive)"));
+                if (frontImg == null) frontImg = img;
             }
-            if (frontImg == null || frontImg.sprite == null) return;   // not built yet — retry next slow scan
+            if (frontImg == null || frontImg.sprite == null)
+            {
+                _frontalMisses.TryGetValue(key, out int missed);
+                _frontalMisses[key] = missed + 1;
+                if (missed >= FrontalIndicatorWaitScans) CaptureHardpointStations(ac, key);
+                return;   // not built yet — retry next slow scan
+            }
+
+            // The markers come from the PylonIndicator when it's up, so give it a few scans to appear
+            // before falling back to the panel's hardpoint_* children for good.
+            PylonIndicator pi = UnityEngine.Object.FindObjectOfType<PylonIndicator>(includeInactive: true);
+            if (pi == null)
+            {
+                _frontalWaits.TryGetValue(key, out int waited);
+                _frontalWaits[key] = waited + 1;
+                if (waited < FrontalIndicatorWaitScans) return;
+            }
 
             _capturedFrontal.Add(key);
             string bgKey = key;
-            SpriteCapture.Request(frontImg.sprite, SpriteCapture.Encoding.Png, synthAlpha: false, quality: 0, maxDim: 0,
-                png => { if (png != null) TelemetryServer.SetAirframeImage(bgKey, "__front", png); });
+            string spriteName = frontImg.sprite.name;
+            bool started = SpriteCapture.Request(frontImg.sprite, SpriteCapture.Encoding.Png, synthAlpha: false, quality: 0, maxDim: 0,
+                png =>
+                {
+                    if (png != null) TelemetryServer.SetAirframeImage(bgKey, "__front", png);
+                    else Plugin.Log?.LogWarning($"[NOXMFD] AFM: frontal silhouette '{bgKey}' (sprite {spriteName}) read back empty — no front view image.");
+                });
+            if (!started)
+                Plugin.Log?.LogWarning($"[NOXMFD] AFM: frontal silhouette '{key}' (sprite {spriteName}) has no texture — no front view image.");
 
+            // The PylonIndicator's element set i is hardpoint i's indicator: its first image, or its
+            // label where a panel marks stations with text boxes instead (the UH-90's F.BAY/R.PYLON…).
+            // Airframes whose panel predates that, or an indicator that never appears, fall back to
+            // the panel's hardpoint_* children, matched to hardpoints later (ResolvePylonHardpoints).
+            var markers = new List<FrontalMarker>();
+            string source = "PylonIndicator";
+            if (pi != null)
+                foreach (var (idx, g) in ReadIndicatorSets(pi))
+                    markers.Add(new FrontalMarker { Name = "pylon" + idx + "_" + g.gameObject.name, Graphic = g, Hardpoint = idx });
             RectTransform frontRT = frontImg.rectTransform;
-            var markers = new List<(string, Image)>();
+            if (markers.Count == 0)
+            {
+                source = "hardpoint children";
+                for (int i = 0; i < frontRT.childCount; i++)
+                {
+                    Transform child = frontRT.GetChild(i);
+                    // Naming varies by airframe ("hardpoint_Gun" vs "hardpoint0"), so match the common
+                    // prefix rather than either exact shape.
+                    if (!child.name.StartsWith("hardpoint", StringComparison.OrdinalIgnoreCase)) continue;
+                    Image mImg = child.GetComponent<Image>();
+                    if (mImg != null) markers.Add(new FrontalMarker { Name = child.name, Graphic = mImg });
+                }
+            }
+
+            var placed = new List<FrontalMarker>();
             var sb = new StringBuilder();
             sb.Append("{\"parts\":[");
-            int n = 0;
-            for (int i = 0; i < frontRT.childCount; i++)
+            foreach (FrontalMarker m in markers)
             {
-                Transform child = frontRT.GetChild(i);
-                // Naming varies by airframe ("hardpoint_Gun" vs "hardpoint0"), so match the common
-                // prefix rather than either exact shape.
-                if (!child.name.StartsWith("hardpoint", StringComparison.OrdinalIgnoreCase)) continue;
-                Image mImg = child.GetComponent<Image>();
-                if (mImg == null) continue;
-                if (!GetPartPlacement(mImg.rectTransform, frontRT, out float cx, out float cy, out float w, out float h, out float rotZ, out int sx, out int sy))
+                if (m.Graphic == null) continue;
+                // A station marked by a label elsewhere on the panel (the UH-90's), not a marker on the
+                // drawing, has no point on it to link to: it goes out flagged, without a position, and
+                // the page shows it as a plain box under the front view.
+                if (!m.Graphic.transform.IsChildOf(frontRT))
+                {
+                    if (placed.Count > 0) sb.Append(',');
+                    placed.Add(m);
+                    sb.Append("{\"n\":\"").Append(JsonLite.EscapeJson(m.Name)).Append("\",\"label\":true}");
                     continue;
-
-                markers.Add((child.name, mImg));
-                if (n > 0) sb.Append(',');
-                n++;
+                }
+                if (!GetPartPlacement(m.Graphic.rectTransform, frontRT, out float cx, out float cy, out float w, out float h, out _, out _, out _)) continue;
+                if (placed.Count > 0) sb.Append(',');
+                placed.Add(m);
                 sb.Append('{')
-                  .Append("\"n\":\"").Append(JsonLite.EscapeJson(child.name)).Append("\",")
+                  .Append("\"n\":\"").Append(JsonLite.EscapeJson(m.Name)).Append("\",")
                   .Append("\"cx\":").Append(cx.ToString("0.00000", CultureInfo.InvariantCulture)).Append(',')
                   .Append("\"cy\":").Append(cy.ToString("0.00000", CultureInfo.InvariantCulture)).Append(',')
                   .Append("\"w\":").Append(w.ToString("0.00000", CultureInfo.InvariantCulture)).Append(',')
@@ -345,28 +413,181 @@ namespace NOXMFD
                   .Append('}');
             }
             sb.Append("]}");
+            _frontalMarkers[key] = placed;
+            TelemetryServer.SetAirframeLayout(key + "__front", sb.ToString());
+
+            var children = new List<string>();
+            for (int i = 0; i < frontRT.childCount; i++) children.Add(frontRT.GetChild(i).name);
+            Plugin.Log?.LogInfo($"[NOXMFD] Captured frontal silhouette '{key}' (sprite {spriteName}, {placed.Count} pylon markers from {source}: " +
+                $"{string.Join(", ", System.Linq.Enumerable.Select(placed, m => m.Name))}; live frontProfiles: {string.Join(", ", candidates)}; children: {string.Join(", ", children)}).");
+        }
+
+        // An airframe whose cockpit has no front-view panel (the CI-22, the VL-49) still has
+        // hardpoints: one station per distinct HardpointIndex across its hardpoint sets, the same
+        // index the PylonIndicator and WeaponManager.HardpointsIndexes use, unmounted ones included.
+        // They go out as label stations on a layout with no image, so the page draws its squares and
+        // boxes with no front view; their state comes from ammo (ReadFrontalMarkerStates).
+        private void CaptureHardpointStations(Aircraft ac, string key)
+        {
+            _capturedFrontal.Add(key);
+            var names = new SortedDictionary<int, string>();
+            try
+            {
+                HardpointSet[]? sets = ac.weaponManager != null ? ac.weaponManager.hardpointSets : null;
+                if (sets != null)
+                    foreach (HardpointSet set in sets)
+                    {
+                        if (set == null || set.hardpoints == null) continue;
+                        foreach (Hardpoint hp in set.hardpoints)
+                            if (hp != null && hp.HardpointIndex >= 0 && !names.ContainsKey(hp.HardpointIndex))
+                                names[hp.HardpointIndex] = set.name ?? string.Empty;
+                    }
+            }
+            catch (Exception ex)
+            {
+                Plugin.Log?.LogWarning($"[NOXMFD] AFM: reading '{key}' hardpoints failed — it shows its loadout instead: " + ex.Message);
+            }
+            var markers = new List<FrontalMarker>();
+            var sb = new StringBuilder("{\"image\":false,\"parts\":[");
+            foreach (var kv in names)
+            {
+                var m = new FrontalMarker { Name = "hp" + kv.Key + "_" + kv.Value, Hardpoint = kv.Key, FromHardpoints = true };
+                if (markers.Count > 0) sb.Append(',');
+                markers.Add(m);
+                sb.Append("{\"n\":\"").Append(JsonLite.EscapeJson(m.Name)).Append("\",\"label\":true}");
+            }
+            sb.Append("]}");
             _frontalMarkers[key] = markers;
             TelemetryServer.SetAirframeLayout(key + "__front", sb.ToString());
+            Plugin.Log?.LogInfo($"[NOXMFD] AFM: '{key}' has no front view; {markers.Count} stations from its hardpoints: " +
+                string.Join(", ", System.Linq.Enumerable.Select(markers, m => m.Name)) + ".");
+        }
+
+        // The PylonIndicator's element sets as (hardpoint index, the graphic standing for it): each
+        // set's first image, else its first label. Empty when the private fields can't be read.
+        private FieldInfo? _piSetsField, _piImagesField, _piTextsField;
+        private List<(int idx, Graphic g)> ReadIndicatorSets(PylonIndicator pi)
+        {
+            var result = new List<(int, Graphic)>();
+            try
+            {
+                if (_piSetsField == null)
+                    _piSetsField = typeof(PylonIndicator).GetField("pylonElementSets", BindingFlags.NonPublic | BindingFlags.Instance);
+                Type? setType = typeof(PylonIndicator).GetNestedType("PylonElementSet", BindingFlags.NonPublic);
+                if (_piImagesField == null)
+                    _piImagesField = setType?.GetField("pylonImages", BindingFlags.NonPublic | BindingFlags.Instance);
+                if (_piTextsField == null)
+                    _piTextsField = setType?.GetField("pylonTexts", BindingFlags.NonPublic | BindingFlags.Instance);
+                if (_piSetsField == null || _piImagesField == null)
+                {
+                    Plugin.Log?.LogWarning("[NOXMFD] AFM: PylonIndicator reflection fields not found — pylon markers fall back to hardpoint_* children.");
+                    return result;
+                }
+                if (!(_piSetsField.GetValue(pi) is Array sets)) return result;
+                for (int i = 0; i < sets.Length; i++)
+                {
+                    object set = sets.GetValue(i);
+                    Graphic? g = null;
+                    if (_piImagesField.GetValue(set) is Image[] imgs)
+                        foreach (Image img in imgs) if (img != null) { g = img; break; }
+                    if (g == null && _piTextsField?.GetValue(set) is TextMeshProUGUI[] texts)
+                        foreach (TextMeshProUGUI t in texts) if (t != null) { g = t; break; }
+                    if (g != null) result.Add((i, g));
+                }
+            }
+            catch (Exception ex)
+            {
+                Plugin.Log?.LogWarning("[NOXMFD] AFM: PylonIndicator read failed — pylon markers fall back to hardpoint_* children: " + ex.Message);
+            }
+            return result;
         }
 
         // Reports armed/exhausted, not the raw color: the AFM page renders these in the theme's own
-        // solid green/red, not a mirrored, semi-transparent in-game hue. The game sets the marker to
-        // exactly Color.green when armed or Color.red when exhausted (briefly lerped toward a flash
-        // color on a hit), so "which channel dominates" cleanly classifies both states. A station
-        // with nothing mounted is flat gray (equal channels), which a plain g>=r check would
-        // misread as armed — gray is checked first to catch that case.
-        public List<(string name, string state)> ReadFrontalMarkerStates(string? type)
+        // solid green/red, not a mirrored, semi-transparent in-game hue. The game colours the marker
+        // with its theme's all-clear green when armed or alert red when exhausted (briefly lerped
+        // toward a flash color on a hit), so "which channel dominates" cleanly classifies both
+        // states. A station with nothing mounted is flat gray (equal channels), which a plain g>=r
+        // check would misread as armed — gray is checked first to catch that case.
+        public List<(string name, string state, string weapon)> ReadFrontalMarkerStates(Aircraft ac)
         {
-            var result = new List<(string, string)>();
+            var result = new List<(string, string, string)>();
+            string? type = ac.definition != null ? ac.definition.unitName : null;
             if (string.IsNullOrEmpty(type) || !_frontalMarkers.TryGetValue(type, out var markers)) return result;
-            foreach (var (name, img) in markers)
+            ResolvePylonHardpoints(type, markers);
+            foreach (FrontalMarker m in markers)
             {
-                if (img == null) continue;   // stale reference from before a scene reload
-                Color c = img.color;
-                string state = (c.r == c.g && c.g == c.b) ? "empty" : (c.g >= c.r ? "armed" : "exhausted");
-                result.Add((name, state));
+                string state;
+                if (m.Graphic != null)
+                {
+                    Color c = m.Graphic.color;
+                    state = (c.r == c.g && c.g == c.b) ? "empty" : (c.g >= c.r ? "armed" : "exhausted");
+                }
+                else if (m.FromHardpoints)
+                    state = HardpointState(ac, m.Hardpoint);
+                else continue;   // stale reference from before a scene reload
+                string weapon = m.Hardpoint >= 0 ? HardpointWeaponName(ac, m.Hardpoint) : string.Empty;
+                result.Add((m.Name, state, weapon));
             }
             return result;
+        }
+
+        // Matches hardpoint_* fallback markers to hardpoints through the live PylonIndicator (set i
+        // colours hardpoint i's images), once per type once the indicator exists. Markers taken from
+        // the indicator already carry their index.
+        private readonly HashSet<string> _resolvedFrontal = new HashSet<string>();
+        private void ResolvePylonHardpoints(string type, List<FrontalMarker> markers)
+        {
+            if (_resolvedFrontal.Contains(type)) return;
+            bool pending = false;
+            foreach (FrontalMarker m in markers) if (m.Hardpoint < 0) { pending = true; break; }
+            if (!pending) { _resolvedFrontal.Add(type); return; }
+            PylonIndicator pi = UnityEngine.Object.FindObjectOfType<PylonIndicator>(includeInactive: true);
+            if (pi == null) return;   // not built yet — try again next slow scan
+            _resolvedFrontal.Add(type);
+
+            var map = new Dictionary<Graphic, int>();
+            try
+            {
+                if (_piImagesField != null && _piSetsField?.GetValue(pi) is Array sets)
+                    for (int i = 0; i < sets.Length; i++)
+                        if (_piImagesField.GetValue(sets.GetValue(i)) is Image[] imgs)
+                            foreach (Image img in imgs) if (img != null) map[img] = i;
+            }
+            catch (Exception ex)
+            {
+                Plugin.Log?.LogWarning("[NOXMFD] AFM: PylonIndicator read failed — pylon weapon names disabled: " + ex.Message);
+            }
+            int matched = 0;
+            foreach (FrontalMarker m in markers)
+                if (m.Graphic != null && map.TryGetValue(m.Graphic, out int idx)) { m.Hardpoint = idx; matched++; }
+            if (matched < markers.Count)
+                Plugin.Log?.LogInfo($"[NOXMFD] AFM: {type} — {matched}/{markers.Count} pylon markers matched a hardpoint.");
+        }
+
+        // A hardpoint's state the way the PylonIndicator colours it: nothing mounted is empty, any
+        // ammo left is armed, otherwise exhausted.
+        private static string HardpointState(Aircraft ac, int hardpoint)
+        {
+            if (ac.weaponManager == null || !ac.weaponManager.HardpointsIndexes.TryGetValue(hardpoint, out var weapons))
+                return "empty";
+            int ammo = 0;
+            foreach (Weapon w in weapons) if (w != null) ammo += w.ammo;
+            return ammo > 0 ? "armed" : "exhausted";
+        }
+
+        // The first named weapon mounted on that hardpoint, the same name BuildLoadout shows.
+        private static string HardpointWeaponName(Aircraft ac, int hardpoint)
+        {
+            if (ac.weaponManager == null || !ac.weaponManager.HardpointsIndexes.TryGetValue(hardpoint, out var weapons))
+                return string.Empty;
+            foreach (Weapon w in weapons)
+            {
+                WeaponInfo? info = w != null ? w.info : null;
+                if (info == null) continue;
+                string name = !string.IsNullOrEmpty(info.weaponName) ? info.weaponName : info.shortName;
+                if (!string.IsNullOrEmpty(name)) return name;
+            }
+            return string.Empty;
         }
 
         // Debug aid for the AVN-page silhouette design: walks Aircraft.partLookup and logs every

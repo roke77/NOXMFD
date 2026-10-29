@@ -83,9 +83,9 @@ pilot, with HOTAS-friendly keybinds to match.
 
 - **AVN** — avionics hub.
   - **[ADI](man/adi.md)** — attitude indicator with airspeed and altitude tapes.
-  - **[AFM](man/afm.md)** — airframe status and damage.
+  - **[ENG](man/eng.md)** — engine and fuel gauges.
   - **[HSI](man/hsi.md)** — compass and navigation to the active waypoint or steer point.
-  - **[SYS](man/sys.md)** — engine and fuel gauges and system toggles.
+  - **[SYS](man/sys.md)** — airframe damage, loaded weapons and system toggles.
 - **CFG** — configuration and settings hub.
   - **[HUD](man/hud.md)** — in-cockpit HUD config.
   - **[KEY](man/keybinds.md)** — extended keybinds.
