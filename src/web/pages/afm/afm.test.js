@@ -37,7 +37,7 @@ class Element {
 
 const ids = [
   'afm-panel', 'afm-header', 'afm-name', 'afm-front-section', 'afm-front', 'afm-front-markers',
-  'afm-frame', 'afm-bg', 'afm-parts', 'afm-empty', 'afm-flags-left', 'afm-flags-right', 'afm-pylon-row', 'afm-pylon-left', 'afm-pylon-right', 'afm-pylon-links',
+  'afm-frame', 'afm-bg', 'afm-parts', 'afm-empty', 'afm-flags-left', 'afm-flags-right', 'afm-pylon-row', 'afm-pylon-left', 'afm-pylon-right', 'afm-pylon-links', 'afm-pylon-squares',
   ...['gear', 'radar', 'guns', 'eng', 'assist', 'nvg', 'lights', 'turret'].map((k) => 'afm-flag-' + k),
 ];
 const elements = Object.fromEntries(ids.map((id) => [id, new Element(id)]));

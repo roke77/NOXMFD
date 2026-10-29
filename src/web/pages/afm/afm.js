@@ -13,6 +13,7 @@ const afmFrontMarkersEl = document.getElementById('afm-front-markers');
 const afmPylonRowEl    = document.getElementById('afm-pylon-row');
 const afmPylonSideEls  = [document.getElementById('afm-pylon-left'), document.getElementById('afm-pylon-right')];
 const afmPylonLinksEl  = document.getElementById('afm-pylon-links');
+const afmPylonSquaresEl = document.getElementById('afm-pylon-squares');
 const afmFrame   = document.getElementById('afm-frame');
 const afmBg      = document.getElementById('afm-bg');
 const afmPartsEl = document.getElementById('afm-parts');
@@ -51,6 +52,12 @@ let afmPylonCx      = Object.create(null);   // pylon name -> marker cx (0..1 ac
 let afmPylonStacked = false;  // narrow arrangement: side columns + centre row (AfmLayoutPolicy.pylonColumns)
 let afmPylonCentre  = Object.create(null);   // pylon name -> true when stacked on the centre row
 let afmPylonTrackH  = 0;      // stacked: the track row's height, above the centre row
+// Label stations: the cockpit marks stations with label boxes beside the drawing (the UH-90's)
+// rather than markers on it, so there is no point on the drawing to link from. Instead a row of
+// squares, one per station in hardpoint order, sits under the front view, each straight above its
+// weapon box in the row below, joined by a line.
+let afmFrontLabels = false;
+let afmLabelOrder  = [];
 let afmPylonRowBoxEls = Object.create(null); // pylon name -> its row box (hidden while it sits beside)
 let afmPylonBoxEls  = Object.create(null);   // pylon name -> the box it shows in now
 let afmPylonLinkEls = Object.create(null);   // pylon name -> its <polyline>
@@ -71,6 +78,7 @@ function renderAfm() {
     afmPylonRowEl.style.display = 'none';
     for (const el of afmPylonSideEls) el.style.display = 'none';
     afmPylonLinksEl.style.display = 'none';
+    afmPylonSquaresEl.style.display = 'none';
     for (const col of afmFlagCols) col.classList.remove('placed');
     afmEmptyEl.style.display = '';
     afmLayoutType = type;   // record that the empty state is shown, so returning to a plane
@@ -81,6 +89,7 @@ function renderAfm() {
   afmFrame.style.display   = '';
   afmPylonRowEl.style.display = '';
   afmPylonLinksEl.style.display = '';
+  afmPylonSquaresEl.style.display = '';
   for (const col of afmFlagCols) col.classList.add('placed');
   afmEmptyEl.style.display = 'none';
   afmNameEl.textContent = type;
@@ -141,6 +150,7 @@ const AFM_HDR_GAP  = 6;
 const AFM_BAND_GAP = 6;
 const AFM_ROW_GAP  = 36;   // the link lines' horizontal tracks run here, below the frontal image
 const AFM_NAME_PAD = 12;   // the name's clearance from the panel's sides
+const AFM_SQUARE_GAP = 10; // between label stations' squares
 function layoutAfmFrame() {
   const panel = afmPanel.getBoundingClientRect();
   const panelW = panel.width;
@@ -173,8 +183,10 @@ function layoutAfmFrame() {
   const btnH = 6.55 * em, flagGap = 0.9 * em;
   const stackTop = narrow ? top0 + 2 * btnH + flagGap + AFM_BAND_GAP : top0;
   const available   = Math.max(0, bottomLimit - stackTop);
-  // An airframe whose cockpit has no front view (its layout never came) gives that band away.
-  const noFront = afmFrontLayoutCache[afmData.name] === 'fail';
+  // An airframe whose cockpit has no front view (its layout never came, or came without an image:
+  // stations taken from its hardpoints) gives that band away.
+  const frontDef = afmFrontLayoutCache[afmData.name];
+  const noFront = frontDef === 'fail' || (!!frontDef && typeof frontDef === 'object' && frontDef.image === false);
   let frontHeight   = noFront ? 0 : Math.min(200, Math.max(90, available * 0.3));
   afmFrontSection.style.display = noFront ? 'none' : '';
 
@@ -189,8 +201,14 @@ function layoutAfmFrame() {
   afmPylonStacked = n > 0 && !AfmLayoutPolicy.pylonRowFits(rowCount, rowW, 7 * em, rowGap);
   afmPylonCentre = Object.create(null);
   let rowsH, gapUnder, stack = null, gridCols = Math.max(1, rowCount);
-  if (afmLoadoutEls.length) {
-    // No markers to link: the loadout's boxes, as many to a line as fit, wrapping.
+  const squareH = 1.05 * em;   // a label station's square, about a drawn marker's size
+  if (afmFrontLabels) {
+    // One line of boxes under the squares' row; the squares and their lines' tracks take the gap.
+    gridCols = Math.max(1, afmLabelOrder.length);
+    rowsH = function(b) { return b; };
+    gapUnder = AFM_ROW_GAP + squareH + 8;
+  } else if (afmLoadoutEls.length) {
+    // No markers to link (the loadout list): plain boxes, as many to a line as fit, wrapping.
     const k = afmLoadoutEls.length;
     gridCols = Math.max(1, Math.min(k, Math.floor((rowW + rowGap) / (7 * em + rowGap))));
     const lines = Math.ceil(k / gridCols);
@@ -248,6 +266,18 @@ function layoutAfmFrame() {
 
   afmPylonRowEl.style.top    = (bottomLimit - rowHeight) + 'px';
   afmPylonRowEl.style.height = rowHeight + 'px';
+  if (afmFrontLabels) {
+    // The squares sit side by side, AFM_SQUARE_GAP apart, centred just under the front view.
+    const k = afmLabelOrder.length, run = k * squareH + (k - 1) * AFM_SQUARE_GAP;
+    const sqY = stackTop + frameHeight + AFM_BAND_GAP + frontHeight + 8 + squareH / 2;
+    afmLabelOrder.forEach(function(name, i) {
+      const sq = afmFrontMarkerEls[name];
+      sq.style.left   = (panelW / 2 - run / 2 + squareH / 2 + i * (squareH + AFM_SQUARE_GAP)) + 'px';
+      sq.style.top    = sqY + 'px';
+      sq.style.width  = squareH + 'px';
+      sq.style.height = squareH + 'px';
+    });
+  }
   for (const el of afmPylonSideEls) {
     el.style.top    = (stackTop + frameHeight + AFM_BAND_GAP + (frontHeight - boxH) / 2) + 'px';
     el.style.height = boxH + 'px';
@@ -351,7 +381,8 @@ afmFrontEl.addEventListener('load', function() {
   drawAfmPylonLinks();
 });
 afmFrontEl.onerror = function() {
-  if (afmFrontLayoutCache[afmFrontType] === 'fail') return;   // this airframe has no front view
+  const def = afmFrontLayoutCache[afmFrontType];
+  if (def === 'fail' || (def && typeof def === 'object' && def.image === false)) return;   // no front view
   if (!AfmBgPolicy.shouldRetryBg(afmData.name, afmFrontType, afmFrontLoaded, afmFrontTries, AFM_BG_RETRY_CAP)) return;
   afmFrontTries++;
   const t = afmFrontType, v = afmFrontTries;
@@ -396,6 +427,9 @@ function clearAfmFrontMarkers() {
   afmPylonLinkEls = Object.create(null);
   afmPylonOrder = [];
   afmPylonCx = Object.create(null);
+  afmFrontLabels = false;
+  afmLabelOrder = [];
+  afmPylonSquaresEl.innerHTML = '';
 }
 
 let afmFrontClearedFor = null;   // the aircraft clearAfmFrontMarkers last ran for
@@ -403,6 +437,27 @@ function buildAfmFrontMarkers(type, layoutDef) {
   clearAfmFrontMarkers();
   afmFrontClearedFor = type;
   if (!layoutDef || !Array.isArray(layoutDef.parts)) { afmFrontLayoutType = type; return; }
+  // Label stations: a square and a box each, in hardpoint order, joined by a line.
+  if (layoutDef.parts.some(function(p) { return p.label; })) {
+    for (const p of layoutDef.parts) {
+      const box = document.createElement('div');
+      box.className = 'afm-pylon-box';
+      afmPylonRowEl.appendChild(box);
+      afmPylonBoxEls[p.n] = box;
+      const sq = document.createElement('div');
+      sq.className = 'afm-front-marker';
+      afmPylonSquaresEl.appendChild(sq);
+      afmFrontMarkerEls[p.n] = sq;
+      const line = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+      line.setAttribute('class', 'afm-pylon-link');
+      afmPylonLinksEl.appendChild(line);
+      afmPylonLinkEls[p.n] = line;
+      afmLabelOrder.push(p.n);
+    }
+    afmFrontLabels = true;
+    afmFrontLayoutType = type;
+    return;
+  }
   // Every pylon gets a row box, left to right by cx; layoutAfmFrame decides whether the outermost
   // two show beside the front view instead (assignAfmPylonBoxes).
   const sorted = layoutDef.parts.slice().sort(function(a, b) { return a.cx - b.cx; });
@@ -422,10 +477,10 @@ function buildAfmFrontMarkers(type, layoutDef) {
   for (const p of layoutDef.parts) {
     const el = document.createElement('div');
     el.className = 'afm-front-marker';
-    el.style.left   = (p.cx * 100).toFixed(3) + '%';
-    el.style.top    = (p.cy * 100).toFixed(3) + '%';
-    el.style.width  = (p.w  * 100).toFixed(3) + '%';
-    el.style.height = (p.h  * 100).toFixed(3) + '%';
+    el.style.left   = (Math.min(1, Math.max(0, p.cx)) * 100).toFixed(3) + '%';
+    el.style.top    = (Math.min(1, Math.max(0, p.cy)) * 100).toFixed(3) + '%';
+    el.style.width  = (Math.min(p.w, 0.06) * 100).toFixed(3) + '%';
+    el.style.height = (Math.min(p.h, 0.12) * 100).toFixed(3) + '%';
     afmFrontMarkersEl.appendChild(el);
     afmFrontMarkerEls[p.n] = el;
   }
@@ -451,7 +506,12 @@ function sizeAfmPylonSides() {
 // (renderAfm, the front image's load), not per tick.
 function drawAfmPylonLinks() {
   const panel = afmPanel.getBoundingClientRect();
-  const trackTop = afmFrontSection.getBoundingClientRect().bottom;
+  // Tracks run below whatever the lines leave from: the label squares' row, else the front view.
+  let trackTop = afmFrontSection.getBoundingClientRect().bottom;
+  if (afmFrontLabels) {
+    trackTop = 0;
+    for (const name of afmLabelOrder) trackTop = Math.max(trackTop, afmFrontMarkerEls[name].getBoundingClientRect().bottom);
+  }
   const trackBottom = afmPylonRowEl.getBoundingClientRect().top;
   const pts = function(list) {
     return list.map(function(p) { return (p[0] - panel.left).toFixed(1) + ',' + (p[1] - panel.top).toFixed(1); }).join(' ');

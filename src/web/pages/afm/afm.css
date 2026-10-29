@@ -46,6 +46,12 @@
 .afm-front    { max-width: 100%; max-height: 100%; display: none; }
 .afm-front.loaded { display: block; }
 .afm-front-markers { display: block; }
+/* Label-station squares (afm.js afmFrontLabels): placed over the whole panel by layoutAfmFrame. */
+.afm-pylon-squares {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
 .afm-front-marker {
   position: absolute;
   transform: translate(-50%, -50%);
