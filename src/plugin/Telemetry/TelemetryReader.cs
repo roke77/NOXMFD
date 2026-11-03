@@ -821,7 +821,10 @@ namespace NOXMFD
         {
             GameManager.GetLocalAircraft(out Aircraft aircraft);
             if (aircraft == null)
+            {
+                TelemetryServer.FreezeSnapshot();
                 return;
+            }
 
             // Keep the radar-warning hook attached to the current local aircraft (re-attaches on
             // aircraft change; clears the emitter table so a fresh airframe starts clean).

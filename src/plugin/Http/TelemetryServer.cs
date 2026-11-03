@@ -64,6 +64,7 @@ namespace NOXMFD
 
         private static TelemetrySnapshot _latest;
         private static long              _snapVersion;   // bumped on every Push/Reset
+        private static bool              _snapFrozen;    // see FreezeSnapshot; cleared by the next Push
         private static readonly object   _lock = new object();
 
         // Shared serialized SSE frame, built at most once per snapshot version and reused by
@@ -484,7 +485,16 @@ namespace NOXMFD
         // Called from Unity main thread — just stores the latest snapshot.
         public static void Push(in TelemetrySnapshot snap)
         {
-            lock (_lock) { _latest = snap; _snapVersion++; }
+            lock (_lock) { _latest = snap; _snapVersion++; _snapFrozen = false; }
+        }
+
+        // Called from Unity main thread while a mission runs with no local aircraft (dead, or back
+        // on the spawn screen): the last snapshot keeps being served as it was, but extension
+        // slices still move (SRS follows its own app, not the aircraft), so GetFrameBytes keys
+        // the frozen frame on them like the ping.
+        public static void FreezeSnapshot()
+        {
+            lock (_lock) { _snapFrozen = true; }
         }
 
         // In-process readers (e.g. InternalMfdController) that want the same already-aggregated data the
@@ -508,19 +518,20 @@ namespace NOXMFD
             {
                 long v;
                 TelemetrySnapshot snap;
-                lock (_lock) { v = _snapVersion; snap = _latest; }
+                bool frozen;
+                lock (_lock) { v = _snapVersion; snap = _latest; frozen = _snapFrozen; }
                 valid = snap.Valid;
 
                 // SOI focus can move without a new snapshot, so it versions the cache too — a ping
                 // frame at the main menu is otherwise identical forever and the change never ships.
                 // MissionRunning is the same idea: a mission loading/ending with no aircraft chosen
                 // yet changes nothing else about a ping frame, so it needs the same invalidation.
-                // Extension slices change without a new snapshot too, but only the ping needs that
-                // key: a real frame is rebuilt on the next snapshot and keying it here as well would
-                // re-serialize the whole frame each time an extension publishes.
+                // Extension slices change without a new snapshot too, but only the ping and a frozen
+                // frame need that key: a live frame is rebuilt on the next snapshot and keying it here
+                // as well would re-serialize the whole frame each time an extension publishes.
                 long sv = SoiFocus.Version;
                 bool mr = _missionRunning;
-                long xv = snap.Valid ? -1 : ExtensionRegistry.SlicesVersion;
+                long xv = snap.Valid && !frozen ? -1 : ExtensionRegistry.SlicesVersion;
                 if (_frameVersion == v && _frameSoiVersion == sv && _frameMissionRunning == mr && _frameSlicesVersion == xv && _frameBytes != null) return _frameBytes;
                 _frameSoiVersion = sv;
                 _frameMissionRunning = mr;
