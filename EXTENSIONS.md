@@ -196,6 +196,11 @@ only from real frames; a page whose state doesn't depend on being spawned opens 
 `TelemetrySource` (`/assets/services/telemetry-source.js`) and reads `ping.ext.<id>` from its
 `onNoMission(didEnd, ping)` callback.
 
+After the player's aircraft is gone mid-mission (dead, or back on the spawn screen after flying),
+NOXMFD keeps sending the last real frame rather than a ping, so other pages keep their last
+state; from NOXMFD 0.83.3 that frame carries your latest slice, and the `ext` message keeps
+arriving until the next spawn.
+
 You don't need to write any client-side plumbing to get this to your page — NOXMFD's own
 `telemetry-source.js` forwards every `ext.<id>` key generically, and both shells rename it to the
 `{mfd:true, type:'ext', data:<payload>}` message your page receives (shown above). This is fully
