@@ -182,6 +182,21 @@
     heat: 0.62,   // AVN's HEAT gauge — mid-range so the preview isn't pinned at empty or full
     heatColor: '#ffaa00',   // stand-in for TelemetryReader.GetHeatColor's redGreenGradient sample (real plugin only, not reproducible here without the game's Gradient asset)
     rpm: 0.88,    // AVN's RPM gauge — high-but-not-pinned, like a jet cruising near max continuous
+    // ENG page (docs/eng-page.md): a twin with a damaged left engine and a leaking wing tank, so the
+    // preview exercises the FAULT card, the mirrored right card and the LEAK flag.
+    eng: {
+      fuelKg: 1173, fuelCapKg: 5100, burn: 41 / 60, gs: 780 / 3.6,
+      engines: [
+        { x: -1.2, rpm: 0.58, thr: 31000, thrMax: 79000, pwr: -1, pwrMax: -1, hp: 0.38, st: 1 },
+        { x: 1.2, rpm: 0.91, thr: 64000, thrMax: 79000, pwr: -1, pwrMax: -1, hp: 1, st: 0 },
+      ],
+      tanks: [
+        { n: 'wing_L', x: -3, kg: 110, cap: 850, leak: true, fire: false },
+        { n: 'fuselage_F', x: 0, kg: 520, cap: 1800, leak: false, fire: false },
+        { n: 'fuselage_A', x: 0.1, kg: 433, cap: 1600, leak: false, fire: false },
+        { n: 'wing_R', x: 3, kg: 110, cap: 850, leak: false, fire: false },
+      ],
+    },
     // softGun: a weapon-keybind soft selection (outlined on the WPN page). selWeapon/softRel are set
     // below, after the loadout padding (PREVIEW_SEL_WEAPON), so they apply to a capture too.
     iconOrient: true, iconScale: 1.1, softGun: 'AIM-9X',

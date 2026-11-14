@@ -162,6 +162,8 @@ namespace NOXMFD
         // Afterburner gauge shape, resolved once per aircraft from the game's own ThrottleGauge
         // (a HUDApp that owns the MIL/reheat region config). Static per airframe, so we cache it
         // on aircraft change rather than reflecting every frame. See EnsureAfterburnerCache.
+        private readonly PropulsionReader _propulsion = new PropulsionReader();   // ENG page engines/tanks/burn
+
         private Aircraft? _abAircraft;          // aircraft the cache below was resolved for
         private bool     _hasAfterburner;      // airframe has a reheat zone
         private float    _abStart = 1f;        // throttle fraction where afterburner begins (1 = none)
@@ -833,6 +835,8 @@ namespace NOXMFD
             // Resolve the afterburner gauge shape when the aircraft changes (cached; static per airframe).
             EnsureAfterburnerCache(aircraft);
 
+            PropulsionReader.Frame prop = _propulsion.Read(aircraft);
+
             // Master Arm / combat mode have no game field to patch at spawn (unlike radar/engine,
             // handled by HarmonyPatches instead) — reset them here on every new aircraft.
             ImmersionState.EnsureSpawnDefaults(aircraft);
@@ -1003,6 +1007,12 @@ namespace NOXMFD
                 TgpBoxes        = _tgp.Overlay.Boxes,
                 Parts          = BuildParts(aircraft),
                 Failures       = BuildFailures(),
+                Engines        = prop.Engines,
+                Tanks          = prop.Tanks,
+                FuelKg         = prop.FuelKg,
+                FuelCapKg      = prop.FuelCapKg,
+                BurnKgS        = prop.BurnKgS,
+                GroundSpeed    = prop.GroundSpeed,
                 Rwr            = BuildRwr(aircraft),
                 Mw             = BuildMw(aircraft),
                 RadarPresent   = _cachedRadarPresent,

@@ -424,9 +424,9 @@ const AVIONICS_PAGES = ['adi', 'afm', 'hsi', 'avn'];
 // Pages whose frame this layout insets from the left/right edges (.label-inset, mfd.css), so the
 // labels it draws on the glass there never cover page content. The spacing is the layout's, not
 // the page's: a page fills whatever box it is given, and the F-35 frame gives it a different one.
-// Not the pages that lay themselves out against the bezel keys (AVN, AFM, WPN) or are pictures the
+// Not the pages that lay themselves out against the bezel keys (AFM, WPN) or are pictures the
 // labels sit on (MAP, TGP, RWR, RDR/HSD).
-const LABEL_INSET_PAGES = { adi: 1, hsi: 1, wpt: 1, rtd: 1, spd: 1, tgt: 1, td: 1, sqd: 1, akf: 1, bdf: 1,
+const LABEL_INSET_PAGES = { adi: 1, hsi: 1, avn: 1, wpt: 1, rtd: 1, spd: 1, tgt: 1, td: 1, sqd: 1, akf: 1, bdf: 1,
                             pal: 1, mis: 1, obj: 1, lyt: 1, keys: 1, hud: 1, ui: 1 };
 function syncLabelInset(iframe, page) {
   iframe.classList.toggle('label-inset', !!LABEL_INSET_PAGES[page] || ExtNav.isExtensionPage(page));
@@ -786,7 +786,8 @@ function forwardStatusToPanes() {
 function avnMsg() {
   return { mfd: true, type: 'avn', name: avnData.name, fuel: avnData.fuel,
            throttle: avnData.throttle, heat: avnData.heat, heatColor: avnData.heatColor,
-           rpm: avnData.rpm, hasAb: avnData.hasAb, abStart: avnData.abStart };
+           rpm: avnData.rpm, hasAb: avnData.hasAb, abStart: avnData.abStart,
+           eng: avnData.eng, metric: avnData.metric };
 }
 function forwardAvnToPanes() { forwardToPanes('avn', avnMsg()); }
 // Full-view AVN: forward the snapshot to the #page-frame iframe (same payload as the panes).
@@ -1674,7 +1675,7 @@ let targetsData = { targets: [], focusedTargetId: 0, metric: false };
 // bars, the failure-label parsing/placement, the /airframe layout cache — lives in src/web/pages/avn/.
 // The adi slice (docs/adi-hsi-pages.md) for ADI and HSI; null until the first frame.
 let adiData = null;
-let avnData = { name: null, parts: null, failures: null, pylons: null, fuel: -1, throttle: -1, heat: -1, heatColor: null, rpm: -1, hasAb: false, abStart: 1, gearDown: false, radar: false, guns: false, ignition: false, assist: false, turret: false, nvg: false, navLights: false };
+let avnData = { name: null, parts: null, failures: null, pylons: null, fuel: -1, throttle: -1, heat: -1, heatColor: null, rpm: -1, hasAb: false, abStart: 1, eng: null, metric: true, gearDown: false, radar: false, guns: false, ignition: false, assist: false, turret: false, nvg: false, navLights: false };
 
 // Latest RWR emitters + incoming missiles, mirrored from the map iframe's SSE feed. The shell
 // keeps only this state (the forwarders read it); all scope SVG rendering lives in src/web/pages/rwr/.
@@ -2162,6 +2163,8 @@ window.addEventListener('message', function(e) {
       rpm:      typeof m.rpm      === 'number' ? m.rpm      : -1,
       hasAb:    m.hasAb === true,
       abStart:  typeof m.abStart === 'number' ? m.abStart : 1,
+      eng:      m.eng && typeof m.eng === 'object' ? m.eng : null,
+      metric:   m.metric !== false,
       gearDown: m.gearDown === true,
       radar:    m.radar    === true,
       guns:     m.guns     === true,

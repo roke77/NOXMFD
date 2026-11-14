@@ -54,6 +54,32 @@ namespace NOXMFD.Tests
         }
 
         [Fact]
+        public void Eng_block_carries_fuel_totals_engines_and_tanks()
+        {
+            var eng = Obj(Root(new TelemetrySnapshot
+            {
+                FuelKg = 3420f, FuelCapKg = 5100f, BurnKgS = 0.6833f, GroundSpeed = 216.7f,
+                Engines = new[]
+                {
+                    new EngineInfo { X = -1.2f, Rpm = 0.58f, Thrust = 31000f, MaxThrust = 79000f,
+                                     Power = -1f, MaxPower = -1f, Condition = 0.38f, Status = EngineStatus.Fault },
+                },
+                Tanks = new[] { new TankInfo { Name = "wing_L \"x\"", X = -3f, Kg = 310f, CapKg = 850f, Leak = true } },
+            })["eng"]);
+
+            Assert.Equal(3420.0, (double)eng["fuelKg"]!, 1);
+            Assert.Equal(0.6833, (double)eng["burn"]!, 4);
+            var e0 = Obj(Arr(eng["engines"])[0]);
+            Assert.Equal(31000.0, (double)e0["thr"]!, 0);
+            Assert.Equal(-1.0, (double)e0["pwr"]!, 0);
+            Assert.Equal(1.0, (double)e0["st"]!, 0);
+            var t0 = Obj(Arr(eng["tanks"])[0]);
+            Assert.Equal("wing_L \"x\"", t0["n"]);
+            Assert.True((bool)t0["leak"]!);
+            Assert.False((bool)t0["fire"]!);
+        }
+
+        [Fact]
         public void Default_snapshot_reports_every_optional_block_absent_and_every_array_empty()
         {
             var root = Root(default);
@@ -80,6 +106,8 @@ namespace NOXMFD.Tests
             Assert.Empty(Arr(root["rwr"]));
             Assert.Empty(Arr(root["mw"]));
             Assert.Empty(Arr(root["failures"]));
+            Assert.Empty(Arr(Obj(root["eng"])["engines"]));
+            Assert.Empty(Arr(Obj(root["eng"])["tanks"]));
 
             // AKF has no present flag — always emitted, all-zero when nothing happened yet.
             var akf = Obj(root["akf"]);

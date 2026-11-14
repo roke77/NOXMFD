@@ -168,6 +168,7 @@ namespace NOXMFD
               .Append(",\"heatColor\":\"").Append(JsonLite.EscapeJson(s.HeatColor ?? "#39ff14")).Append('"')
               .Append(",\"rpm\":").Append(s.Rpm.ToString("0.000", CultureInfo.InvariantCulture))
               .Append(",\"failures\":").Append(StringArray(s.Failures))
+              .Append(",\"eng\":").Append(EngBlock(s))
               .Append(",\"tgt\":").Append(TgtBlock(s))
               .Append(",\"bdf\":").Append(BdfBlock(s))
               .Append(",\"pal\":").Append(PalBlock(s))
@@ -567,6 +568,36 @@ namespace NOXMFD
                     parts[i].Detached ? 1 : 0);
             }
             return sb.Append(']').ToString();
+        }
+
+        // ENG page block (docs/eng-page.md). Engine fields: x offset m, rpm 0..1, thr/thrMax N,
+        // pwr/pwrMax W (-1 = not a power source), hp 0..1 (-1 = unknown), st 0 ok / 1 fault / 2 inop.
+        private static string EngBlock(TelemetrySnapshot s)
+        {
+            var sb = new StringBuilder();
+            sb.AppendFormat(CultureInfo.InvariantCulture,
+                "{{\"fuelKg\":{0:0.0},\"fuelCapKg\":{1:0.0},\"burn\":{2:0.0000},\"gs\":{3:0.0},\"engines\":[",
+                s.FuelKg, s.FuelCapKg, s.BurnKgS, s.GroundSpeed);
+            EngineInfo[]? engines = s.Engines;
+            for (int i = 0; engines != null && i < engines.Length; i++)
+            {
+                EngineInfo e = engines[i];
+                if (i > 0) sb.Append(',');
+                sb.AppendFormat(CultureInfo.InvariantCulture,
+                    "{{\"x\":{0:0.00},\"rpm\":{1:0.000},\"thr\":{2:0},\"thrMax\":{3:0},\"pwr\":{4:0},\"pwrMax\":{5:0},\"hp\":{6:0.000},\"st\":{7}}}",
+                    e.X, e.Rpm, e.Thrust, e.MaxThrust, e.Power, e.MaxPower, e.Condition, e.Status);
+            }
+            sb.Append("],\"tanks\":[");
+            TankInfo[]? tanks = s.Tanks;
+            for (int i = 0; tanks != null && i < tanks.Length; i++)
+            {
+                TankInfo t = tanks[i];
+                if (i > 0) sb.Append(',');
+                sb.AppendFormat(CultureInfo.InvariantCulture,
+                    "{{\"n\":\"{0}\",\"x\":{1:0.00},\"kg\":{2:0.0},\"cap\":{3:0.0},\"leak\":{4},\"fire\":{5}}}",
+                    JsonLite.EscapeJson(t.Name ?? string.Empty), t.X, t.Kg, t.CapKg, JsonBool(t.Leak), JsonBool(t.Fire));
+            }
+            return sb.Append("]}").ToString();
         }
 
         private static string PylonsArray(PylonMarker[]? pylons)

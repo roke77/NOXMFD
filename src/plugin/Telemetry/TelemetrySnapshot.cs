@@ -243,6 +243,15 @@ namespace NOXMFD
         // game sets the matching GameObject active when an IReportDamage event fires.
         public string[] Failures;
 
+        // ENG page (docs/eng-page.md), built by PropulsionReader. Engines and Tanks are fresh
+        // arrays per tick for the same no-tearing reason as Parts.
+        public EngineInfo[] Engines;
+        public TankInfo[]   Tanks;
+        public float  FuelKg;       // fuel mass across all tanks (FuelTank.fuelMass sum)
+        public float  FuelCapKg;    // capacity across all tanks
+        public float  BurnKgS;      // smoothed fuel-burn rate (FuelBurnEstimator); -1 = no estimate yet
+        public float  GroundSpeed;  // horizontal speed over the ground, m/s (range = endurance x this)
+
         // Radar emitters currently painting the player (drives the RWR page). Aggregated from
         // Aircraft.onRadarWarning pings with per-tier decay; positions are in the same world
         // space as Units. Empty when nothing is painting the player.
@@ -530,6 +539,36 @@ namespace NOXMFD
         public string Name;     // UnitPart.gameObject.name (matches the airframe-layout key)
         public float  Hp;       // 0..100
         public bool   Detached; // true once the part has been blown off the aircraft
+    }
+
+    // One IEngine on the player aircraft, as the game's own cockpit EngineTelemetry widget reads it.
+    internal struct EngineInfo
+    {
+        public float X;          // lateral offset from the aircraft's centre, m (+ = right); orders/labels L-R
+        public float Rpm;        // IEngine.GetRPMRatio(), 0..1
+        public float Thrust;     // IEngine.GetThrust(), N
+        public float MaxThrust;  // IEngine.GetMaxThrust(), N (0 for turboshafts, which report power instead)
+        public float Power;      // IPowerSource.GetPower(), W; -1 when the engine is not a power source
+        public float MaxPower;   // IPowerSource.GetMaxPower(), W; -1 likewise
+        public float Condition;  // the engine's own private `condition`, 0..1; -1 when the type has none
+        public byte  Status;     // EngineStatus.Ok / Fault / Inoperable
+    }
+
+    internal static class EngineStatus
+    {
+        // Mirrors EngineTelemetry: OnEngineDamage -> "FAULT", OnEngineDisable -> "INOPERABLE".
+        public const byte Ok = 0, Fault = 1, Inoperable = 2;
+    }
+
+    // One FuelTank on the player aircraft.
+    internal struct TankInfo
+    {
+        public string Name;   // the tank's GameObject name
+        public float  X;      // lateral offset, m (+ = right); orders the tank bars L-R
+        public float  Kg;     // FuelTank.fuelMass
+        public float  CapKg;  // FuelTank.GetCapacity()
+        public bool   Leak;   // private leakRate > 0
+        public bool   Fire;   // private onFire
     }
 
     // One weapon type in the loadout. The icon PNG is served separately at /weapon?name=.

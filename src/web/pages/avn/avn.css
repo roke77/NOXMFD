@@ -1,5 +1,7 @@
-/* ENG page (id avn) — the FUEL/RPM/HEAT/THRL gauges. Single source of truth for BOTH layouts.
-   Base reset and font come from theme.css, colour tokens from colors.css. */
+/* ENG page (id avn) — engine cards, throttle/heat pedestal and fuel band (docs/eng-page.md).
+   Single source of truth for BOTH layouts. Base reset and font come from theme.css, colour tokens
+   from colors.css. Sizes clamp on vmin: the iframe's viewport is the pane, so the page scales from
+   a split cell up to the full bezel. */
 .avn-panel {
   position: absolute;
   inset: 0;
@@ -7,44 +9,349 @@
   font-family: var(--no-font);
 }
 
-/* .avn-content wraps the gauge grid in a flex column; avn.js's layoutAvnContent sets
-   left/top/width/height inline (the vertical band avnContentVerticalExtent computes) and the grid
-   fills it. */
+/* avn.js's layoutAvnContent sets left/top/width/height inline (the band avnContentVerticalExtent
+   computes); the engine row takes the larger share, the fuel band the rest. */
 .avn-content {
   position: absolute;
   display: none;
   flex-direction: column;
-  justify-content: center;
-  gap: clamp(8px, 2vh, 20px);
+  gap: clamp(6px, 1.6vmin, 16px);
   box-sizing: border-box;
-  padding: 0 12px;
+  padding: 0 clamp(6px, 1.4vmin, 14px);
   pointer-events: none;
   z-index: 3;
+  color: var(--no-white);
 }
 .avn-content.placed { display: flex; }
 
-/* FUEL/RPM/HEAT/THRL as a 2x2 grid of needle dials: a sweep needle over the muted tick arc, with
-   the name above centre and value below inside the dial — a mirrored pair rather than a
-   label-then-icon stack. The lit progress arc (.avn-gauge-fill) matches the track's own width so
-   it reads as one gauge rather than two concentric bars with a gap. Takes all of .avn-content's
-   height. Each dial's own face is plain CSS + the shared tick-ring <defs> in avn.html. */
-.avn-gauge-grid {
+.avn-chip {
+  border: 1px solid currentColor;
+  border-radius: 3px;
+  padding: 0 0.4em;
+  font-size: 0.7em;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+.avn-chip:empty { visibility: hidden; }
+
+/* ── Engine row: cards either side of the pedestal ─────────────────────────────── */
+.avn-top {
+  flex: 1.25 1 0;
+  min-height: 0;
+  display: flex;
+  justify-content: center;
+  gap: clamp(6px, 1.4vmin, 14px);
+}
+.avn-engine {
+  flex: 1 1 0;
+  min-width: 0;
+  border: 1px solid var(--no-panel-border);
+  border-radius: 6px;
+  padding: clamp(5px, 1.2vmin, 14px);
+  display: flex;
+  flex-direction: column;
+  gap: clamp(4px, 0.8vmin, 8px);
+  font-size: clamp(12px, 2.4vmin, 22px);
+  container: engcard / size;
+}
+.avn-engine-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  white-space: nowrap;
+}
+.avn-engine-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  gap: clamp(4px, 1.2vmin, 14px);
+  container: engbody / size;
+}
+/* Cards right of the pedestal put their HP tape on the outer edge, mirroring the left ones. */
+.avn-engine.mirror .avn-engine-body { flex-direction: row-reverse; }
+.avn-engine-dials {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.avn-engine-dials .avn-gauge { flex: 1 1 0; min-height: 0; min-width: 0; }
+/* A wide, short card (split cell, landscape strip) sets the two dials side by side instead. */
+@container engbody (min-aspect-ratio: 13/10) {
+  .avn-engine-dials { flex-direction: row; }
+}
+.avn-hp {
+  flex: 0 0 auto;
+  width: clamp(22px, 4.2vmin, 40px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  font-size: clamp(10px, 1.6vmin, 15px);
+}
+.avn-hp-label { color: var(--no-label); }
+.avn-hp-tape {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 45%;
+  background: rgba(var(--no-white-rgb), 0.16);
+  border-radius: 2px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  overflow: hidden;
+}
+.avn-hp-fill {
+  background: var(--no-green);
+  height: calc(var(--hp, 0) * 100%);
+  transition: height 200ms linear, width 200ms linear;
+}
+/* A tall, narrow card (three or more engines) lays the HP tape flat under the dials, so the dials
+   get the card's full width. */
+@container engcard (max-aspect-ratio: 1/2) {
+  .avn-engine-body, .avn-engine.mirror .avn-engine-body { flex-direction: column-reverse; }
+  .avn-hp { width: auto; height: clamp(14px, 2.4vmin, 20px); flex-direction: row; }
+  .avn-hp-tape { width: auto; height: 45%; flex-direction: row; justify-content: flex-start; }
+  .avn-hp-fill { height: 100%; width: calc(var(--hp, 0) * 100%); }
+}
+
+.avn-engine.ok .avn-chip { color: var(--no-green); }
+.avn-engine.fault { border-color: var(--no-amber); }
+.avn-engine.fault .avn-engine-name,
+.avn-engine.fault .avn-chip,
+.avn-engine.fault .avn-hp-val { color: var(--no-amber); }
+.avn-engine.fault .avn-gauge-fill,
+.avn-engine.fault .avn-gauge-val { stroke: var(--no-amber); color: var(--no-amber); }
+.avn-engine.fault .avn-hp-fill { background: var(--no-amber); }
+.avn-engine.inop { border-color: var(--no-red); }
+.avn-engine.inop .avn-engine-name { color: var(--no-red); }
+.avn-engine.inop .avn-chip { color: var(--no-black); background: var(--no-red); border-color: var(--no-red); }
+.avn-engine.inop .avn-hp-fill { background: var(--no-red); }
+
+/* ── Pedestal: throttle lever + IR heat tape ──────────────────────────────────── */
+.avn-pedestal {
+  flex: 0 0 clamp(92px, 21%, 190px);
+  min-width: 0;
+  border: 1px solid var(--no-panel-border);
+  border-radius: 6px;
+  padding: clamp(5px, 1.2vmin, 12px);
+  display: flex;
+  flex-direction: column;
+  gap: clamp(4px, 0.8vmin, 8px);
+  background: color-mix(in srgb, var(--no-green) 3%, var(--no-bg));
+}
+.avn-ped-heads, .avn-ped-instruments, .avn-ped-reads {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  gap: clamp(4px, 0.8vmin, 8px);
+  text-align: center;
+}
+.avn-ped-heads { color: var(--no-label); font-size: clamp(10px, 1.6vmin, 14px); }
+.avn-ped-instruments { flex: 1 1 auto; min-height: 0; }
+.avn-ped-reads {
+  border-top: 1px solid var(--no-panel-border);
+  padding-top: clamp(4px, 0.8vmin, 8px);
+}
+.avn-ped-reads > div { display: flex; flex-direction: column; align-items: center; }
+.avn-ped-val { font-size: clamp(14px, 2.8vmin, 26px); line-height: 1.1; }
+.avn-ped-sub { font-size: clamp(9px, 1.3vmin, 12px); color: var(--no-label); min-height: 1.2em; }
+.avn-ped-sub.ab { color: var(--no-red); }
+
+/* Lever travel runs between 12px from each end so the 24px handle's centre lands exactly on
+   IDLE at 0 and on the top of the slot at full throttle. --thr and --ab are (1 - value), set by
+   avn.js, so they read as "distance down from the top". */
+.avn-lever {
+  --thr: 1;
+  --ab: 0;
+  position: relative;
+  min-height: 0;
+}
+.avn-lever-slot {
+  position: absolute;
+  left: 50%;
+  width: 12px;
+  margin-left: -6px;
+  top: 12px;
+  bottom: 12px;
+  background: var(--no-ink);
+  border: 1px solid rgba(var(--no-white-rgb), 0.3);
+  border-radius: 6px;
+  box-sizing: border-box;
+}
+.avn-lever-ab {
+  position: absolute;
+  left: 50%;
+  width: 22px;
+  margin-left: -11px;
+  top: 12px;
+  height: calc(var(--ab) * (100% - 24px));
+  background: rgba(var(--no-nuclear-orange-rgb), 0.45);
+  border-radius: 4px 4px 0 0;
+}
+.avn-lever-detent, .avn-lever-idle {
+  position: absolute;
+  left: 22%;
+  right: 22%;
+  height: 2px;
+  background: var(--no-label);
+}
+.avn-lever-detent { top: calc(12px + var(--ab) * (100% - 24px) - 1px); }
+.avn-lever-idle { bottom: 11px; }
+.avn-lever-tag {
+  position: absolute;
+  left: 0;
+  font-size: clamp(8px, 1.2vmin, 11px);
+  color: var(--no-label);
+  line-height: 1;
+}
+.avn-lever-tag.ab { top: 12px; color: var(--no-nuclear-orange); }
+.avn-lever-tag.mil { top: calc(12px + var(--ab) * (100% - 24px) - 12px); }
+.avn-lever-tag.idle { bottom: 14px; }
+.avn-lever:not(.has-ab) .avn-lever-ab,
+.avn-lever:not(.has-ab) .avn-lever-detent,
+.avn-lever:not(.has-ab) .avn-lever-tag.ab,
+.avn-lever:not(.has-ab) .avn-lever-tag.mil { display: none; }
+.avn-lever-handle {
+  position: absolute;
+  left: 50%;
+  width: 52%;
+  max-width: 56px;
+  height: 24px;
+  transform: translateX(-50%);
+  top: calc(var(--thr) * (100% - 24px));
+  background: var(--no-white);
+  border-radius: 5px;
+  box-shadow: 0 0 10px rgba(var(--no-white-rgb), 0.35);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 3px;
+  padding: 0 18%;
+  box-sizing: border-box;
+  transition: top 200ms linear;
+}
+.avn-lever-handle i { display: block; height: 2px; background: var(--no-gray); }
+.avn-lever.na .avn-lever-handle { opacity: 0.3; }
+
+.avn-heat { position: relative; display: flex; justify-content: center; min-height: 0; }
+.avn-heat-tape {
+  --heat: 0;
+  position: relative;
+  width: clamp(12px, 2vmin, 20px);
+  margin: 12px 0;
+}
+.avn-heat-scale {
+  position: absolute;
+  inset: 0;
+  border-radius: 3px;
+  background: linear-gradient(to top, var(--no-green), var(--no-hsd-yellow) 50%, var(--no-red));
+  opacity: 0.18;
+}
+.avn-heat-lit {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: calc(var(--heat) * 100%);
+  background: var(--no-green);
+  border-radius: 0 0 3px 3px;
+  transition: height 200ms linear;
+}
+.avn-heat-pointer {
+  position: absolute;
+  left: -13px;
+  bottom: calc(var(--heat) * 100% - 7px);
+  width: 0;
+  height: 0;
+  border-top: 7px solid transparent;
+  border-bottom: 7px solid transparent;
+  border-left: 10px solid var(--no-white);
+  transition: bottom 200ms linear;
+}
+.avn-heat-tick {
+  position: absolute;
+  left: calc(100% + 4px);
+  width: 7px;
+  height: 1px;
+  background: rgba(var(--no-white-rgb), 0.4);
+}
+.avn-heat-tick.major { width: 10px; background: rgba(var(--no-white-rgb), 0.6); }
+
+/* ── Fuel band: dial, tanks, burn/endurance/range ─────────────────────────────── */
+.avn-fuel {
+  flex: 1 1 0;
+  min-height: 0;
+  border: 1px solid var(--no-panel-border);
+  border-radius: 6px;
+  padding: clamp(5px, 1.4vmin, 16px) clamp(6px, 2vmin, 20px);
+  display: flex;
+  align-items: stretch;
+  gap: clamp(6px, 2vmin, 20px);
+}
+.avn-fuel .avn-gauge.fuel { flex: 0 0 30%; min-width: 0; }
+.avn-tanks {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  justify-content: center;
+  gap: clamp(4px, 1.6vmin, 18px);
+}
+.avn-tank {
+  flex: 0 1 44px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  font-size: clamp(9px, 1.5vmin, 15px);
+}
+.avn-tank-name { color: var(--no-label); white-space: nowrap; overflow: hidden; max-width: 100%; }
+.avn-tank-bar {
   flex: 1 1 auto;
   min-height: 0;
   width: 100%;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  grid-template-rows: 1fr 1fr;
+  max-width: 40px;
+  border: 1px solid rgba(var(--no-white-rgb), 0.3);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  box-sizing: border-box;
 }
-/* A pane at least twice as tall as it is wide stacks the four dials: each then gets up to a
-   quarter of the height rather than half the width, so they draw larger. The iframe's viewport
-   is the pane, so the media query reads its shape. */
-@media (max-aspect-ratio: 1/2) {
-  .avn-gauge-grid {
-    grid-template-columns: 1fr;
-    grid-template-rows: repeat(4, 1fr);
+.avn-tank-fill { background: var(--no-green); height: 0; transition: height 200ms linear; }
+.avn-tank.leak .avn-tank-name, .avn-tank.leak .avn-tank-kg { color: var(--no-amber); }
+.avn-tank.leak .avn-tank-bar { border-color: var(--no-amber); }
+.avn-tank.leak .avn-tank-fill { background: var(--no-amber); }
+.avn-tank.leak .avn-tank-flag { color: var(--no-black); background: var(--no-amber); border-color: var(--no-amber); }
+.avn-tank.fire .avn-tank-name, .avn-tank.fire .avn-tank-kg { color: var(--no-red); }
+.avn-tank.fire .avn-tank-bar { border-color: var(--no-red); }
+.avn-tank.fire .avn-tank-fill { background: var(--no-red); }
+.avn-tank.fire .avn-tank-flag { color: var(--no-black); background: var(--no-red); border-color: var(--no-red); }
+
+.avn-reads {
+  flex: 0 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: clamp(4px, 1.4vmin, 16px);
+}
+.avn-read { display: flex; flex-direction: column; }
+.avn-read-label, .avn-read-sub { color: var(--no-label); font-size: clamp(9px, 1.4vmin, 14px); }
+.avn-read-val { color: var(--no-green); font-size: clamp(16px, 4vmin, 38px); line-height: 1.1; white-space: nowrap; }
+.avn-read-val small { color: var(--no-label); font-size: max(9px, 0.4em); }
+
+/* A tall pane: the fuel dial and readouts share the first row, the tank bars get the second. */
+@media (max-aspect-ratio: 3/4) {
+  .avn-fuel {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
   }
+  .avn-tanks { grid-column: 1 / -1; grid-row: 2; }
 }
+
+/* ── Dials (fuel + each engine card) ──────────────────────────────────────────── */
 .avn-gauge {
   display: flex;
   flex-direction: column;
@@ -53,17 +360,12 @@
   height: 100%;
   min-height: 0;
   min-width: 0;
-  /* White, not the screen's green, so the dials read as a distinct instrument cluster. `color`
-     drives the needle, hub, value and label (all currentColor); the caution/critical/AB overrides
-     further down still take priority, so a warning still shows amber/red. */
   color: var(--no-white);
   font-family: var(--no-font);
   text-shadow: 0 0 4px rgba(var(--no-white-rgb), 0.3);
 }
 /* cqmin (min(cqw,cqh)) sizing so a wide-but-short cell still gets a full circle sized off its
-   height, with leftover width becoming breathing room, rather than the dial shrinking to a fixed
-   vh cap regardless of available room. position:relative lets .avn-gauge-label/.avn-gauge-val
-   (HTML divs — simpler than sizing/centring an SVG <text> node) centre over the dial's face. */
+   height. position:relative lets the label/value divs centre over the dial's face. */
 .avn-gauge-dial-wrap {
   position: relative;
   flex: 1 1 auto;
@@ -80,38 +382,23 @@
   height: 100cqmin;
   overflow: visible;
 }
-/* top uses cqh/cqmin, not a plain %: the dial is only 100cqmin tall (.avn-gauge-dial above) inside
-   a wrap that's 100cqh tall, and the two only match when the wrap is square. A plain `top: 26%`
-   would be 26% of the wrap, which drifts from 26% of the dial once the wrap gets much taller than
-   wide (the dial then shrinks to the width-capped cqmin while the wrap keeps growing). 50cqh is
-   the shared vertical middle; ±24cqmin is 26%/74% of the dial's own height offset from that
-   middle, so this tracks the dial's actual rendered circle regardless of wrap aspect ratio. */
-.avn-gauge-label {
+/* top uses cqh/cqmin, not %: the dial is 100cqmin inside a 100cqh wrap, so ±24cqmin off the
+   shared middle (50cqh) tracks the dial's own face whatever the wrap's aspect ratio. */
+.avn-gauge-label, .avn-gauge-val, .avn-gauge-sub {
   position: absolute;
-  top: calc(50cqh - 24cqmin);
   left: 50%;
   transform: translate(-50%, -50%);
-  font-size: clamp(17px, 3.6cqmin, 30px);   /* matches .avn-gauge-val — a mirrored pair, same weight */
   font-weight: 900;
   letter-spacing: 1px;
   line-height: 1;
   white-space: nowrap;
   pointer-events: none;
 }
-.avn-gauge-val {
-  position: absolute;
-  top: calc(50cqh + 24cqmin);
-  left: 50%;
-  transform: translate(-50%, -50%);
-  font-size: clamp(17px, 3.6cqmin, 30px);
-  font-weight: 900;
-  letter-spacing: 1px;
-  line-height: 1;
-  white-space: nowrap;
-  pointer-events: none;
-}
-/* Fixed neutral tokens rather than currentColor, so the face stays put while the needle/value go
-   amber or red on a warning (see the state rules below). */
+.avn-gauge-label { top: calc(50cqh - 24cqmin); font-size: clamp(9px, 8cqmin, 28px); }
+.avn-gauge-val   { top: calc(50cqh + 24cqmin); font-size: clamp(10px, 9cqmin, 30px); }
+.avn-gauge-sub   { top: calc(50cqh + 35cqmin); font-size: clamp(8px, 6cqmin, 18px); font-weight: 400; color: var(--no-label); text-shadow: none; }
+/* Fixed neutral tokens rather than currentColor, so the face stays put while the needle/value
+   change state colour. */
 .avn-gauge-rim {
   fill: none;
   stroke: var(--no-white-dark);
@@ -125,19 +412,9 @@
   stroke-linecap: round;
   vector-effect: non-scaling-stroke;
 }
-/* Smaller radius (35 vs. .avn-gauge-track's 38) so its outer edge sits against the track's inner
-   edge rather than retracing the track's own line. Painted FIRST in the SVG (avn.html), below the
-   rim, track and ticks, so those still show on top of it. Fixed green rather than currentColor:
-   it's the screen's own primary accent, not a restatement of the needle's state colour, and stays
-   green even when the needle goes red on a warning. Flat (butt) caps, not round: a round cap on a
-   dash this thin reads as a soft dot; the reference gauge's tips are square-cut.
-   Deliberately NO vector-effect:non-scaling-stroke here, unlike every other stroke on this dial:
-   avn.js drives stroke-dasharray/-dashoffset off getTotalLength(), which reports the path's LOCAL
-   (~0-100 viewBox) length, but non-scaling-stroke re-bases dasharray/dashoffset into rendered
-   screen pixels — on a dial actually drawn at a few hundred px (100cqmin) that tiles the ~179-unit
-   dash cycle 1-2 times around the real arc length instead of running once continuously. Dropping
-   it keeps the dash math and stroke-width in the path's own coordinate space, so the pattern
-   scales exactly with the arc regardless of the dial's rendered size. */
+/* No vector-effect:non-scaling-stroke here: avn.js drives stroke-dasharray/-dashoffset from
+   getTotalLength() in the path's own viewBox units, and non-scaling-stroke would re-base those
+   into screen pixels, tiling the dash around the arc instead of running it once. */
 .avn-gauge-fill {
   fill: none;
   stroke: var(--no-green);
@@ -151,52 +428,17 @@
   vector-effect: non-scaling-stroke;
 }
 .avn-gauge-tick.major { stroke: var(--no-white-dim); }
-/* The needle is drawn pointing at the dial's zero position (avn.html); avn.js sets a `rotate()`
-   transform to sweep it around the dial's own centre. transform-box makes that centre (50,50) the
-   rotation origin instead of the SVG default (the document's top-left corner). */
+/* The needle is drawn at the dial's zero position; avn.js rotates it about the dial centre. */
 .avn-gauge-needle {
   transform-box: view-box;
   transform-origin: 50px 50px;
   transition: transform 200ms linear;
 }
-.avn-gauge-needle polygon {
-  fill: currentColor;
-}
+.avn-gauge-needle polygon { fill: currentColor; }
 .avn-gauge-hub { fill: currentColor; }
-/* Caution/critical (FUEL: 25%/10%, avn.js paintAvnGauges) recolour ONLY the fill arc — needle,
-   value and label stay white. .na/.ab-active below still recolour the whole gauge (`color`):
-   those mark "this reading is unavailable" / "this is a different mode," not "this value is low,"
-   so the needle/value going neutral or red there is intentional. */
+/* FUEL caution/critical (25%/10%) recolour only the fill arc. */
 .avn-gauge.caution  .avn-gauge-fill { stroke: var(--no-amber); }
 .avn-gauge.critical .avn-gauge-fill { stroke: var(--no-red); }
 .avn-gauge.na { color: var(--no-white-dark); text-shadow: none; }
 .avn-gauge.na .avn-gauge-needle { opacity: 0.4; }
-/* Reheat fill: same path as .avn-gauge-fill, painted BELOW it (avn.html source order) and always
-   revealed full-extent to the live throttle value (avn.js paintAvnThrottle) — .avn-gauge-fill
-   painting on top, capped at abStart, masks red for the MIL portion, so the only red that shows
-   through is [abStart, value]. Needle/label/value stay white — the red fill segment plus the AB
-   tag below are enough to flag reheat without recolouring the whole gauge. */
-.avn-gauge-fill-hot {
-  fill: none;
-  stroke: var(--no-red);
-  stroke-width: 3;
-  stroke-linecap: butt;
-  transition: stroke-dashoffset 200ms linear;
-}
-/* AB annunciator (avn.html, THR only): "AB" arced along the fill's own inner edge (avn.js sets
-   the underlying <path>'s `d`, spanning the fixed [abStart, 1] zone — not the live value, so this
-   is the whole label or nothing, never a partial arc that grows with the needle). A real SVG
-   <text>, not an HTML overlay like .avn-gauge-label/-val, so font-size is in the dial's own
-   viewBox units and scales with it exactly like the rim/ticks do, no cqmin clamp needed. Hidden
-   unless the throttle is in the reheat zone (avn.js toggles .ab-active). */
-.avn-gauge-ab-arc {
-  font-size: 6px;
-  font-weight: 900;
-  letter-spacing: 0;
-  fill: var(--no-red);
-  opacity: 0;
-  transition: opacity 150ms linear;
-  pointer-events: none;
-}
-.avn-gauge.thr.ab-active .avn-gauge-ab-arc { opacity: 1; }
-
+.avn-engine.inop .avn-gauge { color: var(--no-white-dark); text-shadow: none; }
