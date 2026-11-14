@@ -3,7 +3,7 @@
 // Sourced from the DCS World callsigns reference (GitHub issue #42's own comment), flattened across
 // every aircraft/role category and deduped — this module only cares about the name itself, not
 // which aircraft type a callsign was originally associated with — plus GRIZZLY, PHANTOM,
-// QUARTERMASTER, SENTINEL, TALON, TRIDENT and VULCAN, which players asked for. Kept alphabetical so the SQD page's <select> is scannable, not
+// QUARTERMASTER, SENTINEL, SKYHOOK, TALON, TRIDENT and VULCAN, which players asked for. Kept alphabetical so the SQD page's <select> is scannable, not
 // grouped by source category.
 export const SQUAD_CALLSIGNS = [
   'ANVIL', 'APACHE', 'ARCO', 'ARMY AIR', 'ASCOT', 'AXEMAN', 'BADGER', 'BEST', 'BOAR', 'BONE',
@@ -13,7 +13,7 @@ export const SQUAD_CALLSIGNS = [
   'HAMMERHEAD', 'HAWG', 'HAWK', 'HEAVY', 'HORNET', 'JAGUAR', 'JAZZ', 'JEDI', 'JOKER', 'JURY',
   'KENWORTH', 'LOBO', 'MAGIC', 'MANTIS', 'MOONBEAM', 'NINJA', 'OVERLORD', 'PALEHORSE', 'PANTHER',
   'PHANTOM', 'PIG', 'PINPOINT', 'PLAYBOY', 'POINTER', 'PONTIAC', 'PYTHON', 'QUARTERMASTER', 'RAGE', 'RAGIN', 'RAM',
-  'RATTLER', 'ROMAN', 'SABER', 'SCORPION', 'SENTINEL', 'SHABA', 'SHELL', 'SIOUX', 'SLED', 'SNAKE',
+  'RATTLER', 'ROMAN', 'SABER', 'SCORPION', 'SENTINEL', 'SHABA', 'SHELL', 'SIOUX', 'SKYHOOK', 'SLED', 'SNAKE',
   'SNIPER', 'SPRINGFIELD', 'SQUID', 'STING', 'TAHOE', 'TALON', 'TEXACO', 'THUD', 'TRASH', 'TREK', 'TRIDENT',
   'TUSK', 'UZI', 'VADER', 'VENOM', 'VIPER', 'VULCAN', 'WARRIOR', 'WEASEL', 'WHIPLASH', 'WILD', 'WIZARD',
   'WOLF',
