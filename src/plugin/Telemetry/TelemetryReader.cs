@@ -159,11 +159,11 @@ namespace NOXMFD
         private readonly List<RwrContact> _rwrBuf = new List<RwrContact>(32);
         private Aircraft? _rwrSubscribed;   // the aircraft whose onRadarWarning we're hooked to
 
+        private readonly PropulsionReader _propulsion = new PropulsionReader();   // ENG page engines/tanks/burn
+
         // Afterburner gauge shape, resolved once per aircraft from the game's own ThrottleGauge
         // (a HUDApp that owns the MIL/reheat region config). Static per airframe, so we cache it
         // on aircraft change rather than reflecting every frame. See EnsureAfterburnerCache.
-        private readonly PropulsionReader _propulsion = new PropulsionReader();   // ENG page engines/tanks/burn
-
         private Aircraft? _abAircraft;          // aircraft the cache below was resolved for
         private bool     _hasAfterburner;      // airframe has a reheat zone
         private float    _abStart = 1f;        // throttle fraction where afterburner begins (1 = none)

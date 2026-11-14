@@ -86,7 +86,7 @@
 
   function clamp01(x) { return !(x > 0) ? 0 : x > 1 ? 1 : x; }
 
-  const api = { engineLabels, pedestalSplit, engineOutput, engineStatus, tankLabel, fuelReadouts };
+  const api = { KG_TO_LB, engineLabels, pedestalSplit, engineOutput, engineStatus, tankLabel, fuelReadouts };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.AvnEngPolicy = api;
 })(typeof self !== 'undefined' ? self : this);

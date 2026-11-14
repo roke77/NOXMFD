@@ -182,7 +182,7 @@ function paintAvnFuel(eng) {
   const tanks = eng && Array.isArray(eng.tanks) ? eng.tanks : [];
   const key = tanks.map(function (t) { return t.n; }).join('|');
   if (key !== avnTankKey) { avnTankKey = key; buildAvnTanks(tanks); }
-  const massK = metric ? 1 : 2.20462;
+  const massK = metric ? 1 : AvnEngPolicy.KG_TO_LB;
   for (let i = 0; i < tanks.length; i++) {
     const t = tanks[i], row = avnTankRows[i];
     const frac = t.cap > 0 ? Math.max(0, Math.min(1, t.kg / t.cap)) : 0;

@@ -44,10 +44,10 @@ namespace NOXMFD
         // TurbineEngine, PropFan and RotorShaft have it; DuctedFan and ConstantSpeedProp do not
         // (null entry, reported as -1).
         private static readonly Dictionary<Type, FieldInfo?> _conditionFields = new Dictionary<Type, FieldInfo?>();
-        private static readonly FieldInfo? _tankLeakRateField =
-            typeof(FuelTank).GetField("leakRate", BindingFlags.Instance | BindingFlags.NonPublic);
-        private static readonly FieldInfo? _tankOnFireField =
-            typeof(FuelTank).GetField("onFire", BindingFlags.Instance | BindingFlags.NonPublic);
+        // Type-checked up front so a retyped field reads as "not found" (logged) instead of throwing
+        // an InvalidCastException out of the snapshot tick.
+        private static readonly FieldInfo? _tankLeakRateField = PrivateField(typeof(FuelTank), "leakRate", typeof(float));
+        private static readonly FieldInfo? _tankOnFireField   = PrivateField(typeof(FuelTank), "onFire", typeof(bool));
         private static bool _tankFlagsWarned, _conditionWarned;
 
         public Frame Read(Aircraft ac)
@@ -77,6 +77,7 @@ namespace NOXMFD
         {
             List<IEngine> states = ac.engineStates;
             if (states == null) return;
+            int before = _engines.Count;
             for (int i = 0; i < states.Count; i++)
             {
                 IEngine e = states[i];
@@ -91,8 +92,9 @@ namespace NOXMFD
                 e.OnEngineDisable += t.OnDisable;
                 _engines.Add(t);
             }
-            // Left-to-right, so the page can split the cards around its centre column.
-            _engines.Sort((a, b) => a.X.CompareTo(b.X));
+            // Left-to-right, so the page can split the cards around its centre column. X is fixed at
+            // tracking time, so the order only changes when an engine is added.
+            if (_engines.Count != before) _engines.Sort((a, b) => a.X.CompareTo(b.X));
         }
 
         private bool IsTracked(IEngine e)
@@ -117,7 +119,7 @@ namespace NOXMFD
         {
             var info = new EngineInfo { X = t.X, Power = -1f, MaxPower = -1f, Condition = -1f, Status = t.Status };
             IEngine e = t.Engine;
-            if (IsDestroyed(e) || _aircraft == null || !_aircraft.engineStates.Contains(e))
+            if (IsDestroyed(e) || _aircraft?.engineStates == null || !_aircraft.engineStates.Contains(e))
             {
                 info.Status = EngineStatus.Inoperable;
                 info.Condition = 0f;
@@ -206,6 +208,12 @@ namespace NOXMFD
         // floating-origin frame, so the offset is unaffected by world re-centering.
         private static float LateralOffset(Aircraft ac, Transform part) =>
             Finite(ac.transform.InverseTransformPoint(part.position).x);
+
+        private static FieldInfo? PrivateField(Type owner, string name, Type fieldType)
+        {
+            FieldInfo? f = owner.GetField(name, BindingFlags.Instance | BindingFlags.NonPublic);
+            return f != null && f.FieldType == fieldType ? f : null;
+        }
 
         private static bool IsDestroyed(IEngine e) => e is UnityEngine.Object o && o == null;
 
