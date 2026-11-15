@@ -171,9 +171,11 @@ function paintAvnPedestal() {
 // ── Fuel band ──────────────────────────────────────────────────────────────────────
 function buildAvnTanks(tanks) {
   avnTanksEl.textContent = '';
-  avnTankRows = tanks.map(function (t) {
+  const labels = tanks.map(function (t) { return AvnEngPolicy.tankLabel(t.n); });
+  avnTanksEl.classList.toggle('two-line', labels.some(function (l) { return l.indexOf(' ') >= 0; }));
+  avnTankRows = tanks.map(function (t, i) {
     const el = avnTankTpl.content.firstElementChild.cloneNode(true);
-    el.querySelector('.avn-tank-name').textContent = AvnEngPolicy.tankLabel(t.n);
+    el.querySelector('.avn-tank-name').textContent = labels[i];
     avnTanksEl.appendChild(el);
     return { el: el, fill: el.querySelector('.avn-tank-fill'), kg: el.querySelector('.avn-tank-kg'), flag: el.querySelector('.avn-tank-flag') };
   });

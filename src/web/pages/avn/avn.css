@@ -316,8 +316,27 @@
   align-items: center;
   gap: 4px;
   font-size: clamp(9px, 1.5vmin, 15px);
+  container-type: inline-size;
 }
-.avn-tank-name { color: var(--no-label); white-space: nowrap; overflow: hidden; max-width: 100%; }
+/* Eleven tanks (Tarantula) leave each column a few dozen px, so the label and mass shrink to the
+   column (a 4-letter word is ~2.4em wide in this monospace face, a 5-digit mass ~3em) instead of
+   clipping. Multi-word labels ("WING L") break one word per line; .two-line (avn.js) gives every
+   label that height so the bars still start level. */
+.avn-tank-name {
+  color: var(--no-label);
+  font-size: max(8px, min(1em, 38cqw));
+  line-height: 1.1;
+  text-align: center;
+  max-width: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+.avn-tanks.two-line .avn-tank-name { min-height: 2.2em; }
+.avn-tank-kg { font-size: max(8px, min(1em, 32cqw)); }
+/* An empty flag collapses to its border, so every flag reserves a filled chip's height (line-height
+   plus border): a LEAK/FIRE tank's bar then ends level with the others. */
+.avn-tank-flag { min-height: calc(1.4em + 2px); box-sizing: border-box; }
 .avn-tank-bar {
   flex: 1 1 auto;
   min-height: 0;
