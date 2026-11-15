@@ -2,17 +2,20 @@
 
 Engines and fuel, part of the **AVN** (Avionics) hub.
 
-![ENG page](images/ENG.png)
+![ENG page on a twin-engine aircraft](images/ENG_2.png)
 
 ## Engine cards
 
 One card per engine, ordered left to right as they sit on the aircraft: **L ENG** / **R ENG** on a
-twin, **ENG** on a single-engine aircraft, **ENG 1**, **ENG 2**… on three or more. With more than
-two a side, the cards sit two abreast.
+twin, **ENG** on a single-engine aircraft, **ENG 1**, **ENG 2**… on three or more.
 
-Aircraft whose turbines drive propellers (the Tarantula) list the propellers too, numbered on
-their own: **PROP 1**, **PROP 2**… A propeller card shows its thrust as a number in kN, and HP
-reads `--`.
+![ENG page on a single-engine aircraft](images/ENG_1.png)
+
+With more than two a side, the cards sit two abreast. Aircraft whose turbines drive propellers (the
+Tarantula) list the propellers too, numbered on their own: **PROP 1**, **PROP 2**… A propeller card
+shows its thrust as a number in kN, and HP reads `--`.
+
+![ENG page on the Tarantula: four engines and four propellers](images/ENG_8.png)
 
 - **RPM** dial.
 - **THR** dial in kN, or **PWR** in kW on helicopters, whose engines drive the rotor rather than
