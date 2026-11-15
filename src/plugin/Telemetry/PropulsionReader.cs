@@ -32,6 +32,9 @@ namespace NOXMFD
             public IEngine Engine = null!;
             public float X;
             public byte Status;
+            // Fixed at tracking time from the type, so a prop stays a prop (and an engine an engine)
+            // after it is destroyed and stops reporting anything.
+            public bool Prop;
             public Action OnDamage = null!;
             public Action OnDisable = null!;
         }
@@ -83,7 +86,7 @@ namespace NOXMFD
                 IEngine e = states[i];
                 if (e == null || IsDestroyed(e) || IsTracked(e)) continue;
 
-                var t = new TrackedEngine { Engine = e, X = LateralOffset(ac, e.transform) };
+                var t = new TrackedEngine { Engine = e, X = LateralOffset(ac, e.transform), Prop = e is ConstantSpeedProp };
                 float cond = ReadCondition(e);
                 if (cond >= 0f && cond < 1f) t.Status = cond <= 0f ? EngineStatus.Inoperable : EngineStatus.Fault;
                 t.OnDamage  = () => { if (t.Status < EngineStatus.Fault) t.Status = EngineStatus.Fault; };
@@ -117,7 +120,7 @@ namespace NOXMFD
 
         private EngineInfo ReadEngine(TrackedEngine t)
         {
-            var info = new EngineInfo { X = t.X, Power = -1f, MaxPower = -1f, Condition = -1f, Status = t.Status };
+            var info = new EngineInfo { X = t.X, Power = -1f, MaxPower = -1f, Condition = -1f, Status = t.Status, Prop = t.Prop };
             IEngine e = t.Engine;
             if (IsDestroyed(e) || _aircraft?.engineStates == null || !_aircraft.engineStates.Contains(e))
             {

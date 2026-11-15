@@ -2,12 +2,20 @@
 const assert = require('assert');
 const P = require('./avn-eng-policy.js');
 
-assert.deepStrictEqual(P.engineLabels(1), ['ENG']);
-assert.deepStrictEqual(P.engineLabels(2), ['L ENG', 'R ENG']);
-assert.deepStrictEqual(P.engineLabels(4), ['ENG 1', 'ENG 2', 'ENG 3', 'ENG 4']);
+const E = { prop: false }, PR = { prop: true };
+assert.deepStrictEqual(P.engineLabels([E]), ['ENG']);
+assert.deepStrictEqual(P.engineLabels([E, E]), ['L ENG', 'R ENG']);
+assert.deepStrictEqual(P.engineLabels([E, E, E, E]), ['ENG 1', 'ENG 2', 'ENG 3', 'ENG 4']);
+// Tarantula: turboshafts and the props they drive, interleaved left to right, numbered apart.
+assert.deepStrictEqual(P.engineLabels([E, PR, E, PR, E, PR, E, PR]),
+  ['ENG 1', 'PROP 1', 'ENG 2', 'PROP 2', 'ENG 3', 'PROP 3', 'ENG 4', 'PROP 4']);
+assert.deepStrictEqual(P.engineLabels([PR, PR]), ['L PROP', 'R PROP']);
 assert.strictEqual(P.pedestalSplit(1), 1);
 assert.strictEqual(P.pedestalSplit(2), 1);
 assert.strictEqual(P.pedestalSplit(3), 2);
+assert.strictEqual(P.sideColumns(1), 1);
+assert.strictEqual(P.sideColumns(2), 1);
+assert.strictEqual(P.sideColumns(4), 2);
 
 // Jet: thrust. Turboshaft (0 max thrust): power. Neither: unavailable.
 assert.deepStrictEqual(P.engineOutput({ thr: 31000, thrMax: 79000, pwr: -1, pwrMax: -1 }),
@@ -16,6 +24,9 @@ assert.deepStrictEqual(P.engineOutput({ thr: 0, thrMax: 0, pwr: 900000, pwrMax: 
   { label: 'PWR', value: 0.75, text: '900 kW' });
 assert.strictEqual(P.engineOutput({ thr: 0, thrMax: 0, pwr: -1, pwrMax: -1 }).value, -1);
 assert.strictEqual(P.engineOutput({ thr: 90000, thrMax: 79000 }).value, 1);
+// Prop: thrust with no max -> a readout, not a dial.
+assert.deepStrictEqual(P.engineOutput({ thr: 18400, thrMax: 0, pwr: -1, pwrMax: -1, prop: true }),
+  { label: 'THR', value: -1, text: '18 kN', readout: true });
 
 assert.strictEqual(P.engineStatus(0).cls, 'ok');
 assert.strictEqual(P.engineStatus(1).text, 'FAULT');

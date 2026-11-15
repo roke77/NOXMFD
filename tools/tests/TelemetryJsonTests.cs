@@ -63,6 +63,7 @@ namespace NOXMFD.Tests
                 {
                     new EngineInfo { X = -1.2f, Rpm = 0.58f, Thrust = 31000f, MaxThrust = 79000f,
                                      Power = -1f, MaxPower = -1f, Condition = 0.38f, Status = EngineStatus.Fault },
+                    new EngineInfo { X = 2f, Thrust = 18000f, Power = -1f, MaxPower = -1f, Condition = -1f, Prop = true },
                 },
                 Tanks = new[] { new TankInfo { Name = "wing_L \"x\"", X = -3f, Kg = 310f, CapKg = 850f, Leak = true } },
             })["eng"]);
@@ -73,6 +74,8 @@ namespace NOXMFD.Tests
             Assert.Equal(31000.0, (double)e0["thr"]!, 0);
             Assert.Equal(-1.0, (double)e0["pwr"]!, 0);
             Assert.Equal(1.0, (double)e0["st"]!, 0);
+            Assert.False((bool)e0["prop"]!);
+            Assert.True((bool)Obj(Arr(eng["engines"])[1])["prop"]!);
             var t0 = Obj(Arr(eng["tanks"])[0]);
             Assert.Equal("wing_L \"x\"", t0["n"]);
             Assert.True((bool)t0["leak"]!);

@@ -571,7 +571,8 @@ namespace NOXMFD
         }
 
         // ENG page block (docs/eng-page.md). Engine fields: x offset m, rpm 0..1, thr/thrMax N,
-        // pwr/pwrMax W (-1 = not a power source), hp 0..1 (-1 = unknown), st 0 ok / 1 fault / 2 inop.
+        // pwr/pwrMax W (-1 = not a power source), hp 0..1 (-1 = unknown), st 0 ok / 1 fault / 2 inop,
+        // prop = a propeller rather than an engine.
         private static string EngBlock(TelemetrySnapshot s)
         {
             var sb = new StringBuilder();
@@ -584,8 +585,8 @@ namespace NOXMFD
                 EngineInfo e = engines[i];
                 if (i > 0) sb.Append(',');
                 sb.AppendFormat(CultureInfo.InvariantCulture,
-                    "{{\"x\":{0:0.00},\"rpm\":{1:0.000},\"thr\":{2:0},\"thrMax\":{3:0},\"pwr\":{4:0},\"pwrMax\":{5:0},\"hp\":{6:0.000},\"st\":{7}}}",
-                    e.X, e.Rpm, e.Thrust, e.MaxThrust, e.Power, e.MaxPower, e.Condition, e.Status);
+                    "{{\"x\":{0:0.00},\"rpm\":{1:0.000},\"thr\":{2:0},\"thrMax\":{3:0},\"pwr\":{4:0},\"pwrMax\":{5:0},\"hp\":{6:0.000},\"st\":{7},\"prop\":{8}}}",
+                    e.X, e.Rpm, e.Thrust, e.MaxThrust, e.Power, e.MaxPower, e.Condition, e.Status, JsonBool(e.Prop));
             }
             sb.Append("],\"tanks\":[");
             TankInfo[]? tanks = s.Tanks;

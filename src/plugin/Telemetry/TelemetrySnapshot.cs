@@ -552,6 +552,7 @@ namespace NOXMFD
         public float MaxPower;   // IPowerSource.GetMaxPower(), W; -1 likewise
         public float Condition;  // the engine's own private `condition`, 0..1; -1 when the type has none
         public byte  Status;     // EngineStatus.Ok / Fault / Inoperable
+        public bool  Prop;       // a ConstantSpeedProp: driven by a turboshaft, reports thrust with no max and no health
     }
 
     internal static class EngineStatus

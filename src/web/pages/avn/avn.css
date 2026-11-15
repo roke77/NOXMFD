@@ -42,9 +42,20 @@
   justify-content: center;
   gap: clamp(6px, 1.4vmin, 14px);
 }
-.avn-engine {
+/* --cols (AvnEngPolicy.sideColumns, set by avn.js): one card per row up to two a side, two abreast
+   beyond that, so eight entries make a 2x2 grid each side. */
+.avn-side {
   flex: 1 1 0;
   min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(var(--cols, 1), minmax(0, 1fr));
+  grid-auto-rows: minmax(0, 1fr);
+  gap: clamp(6px, 1.2vmin, 12px);
+}
+.avn-side:empty { display: none; }
+.avn-engine {
+  min-width: 0;
+  min-height: 0;
   border: 1px solid var(--no-panel-border);
   border-radius: 6px;
   padding: clamp(5px, 1.2vmin, 14px);
@@ -328,8 +339,10 @@
 .avn-tank.fire .avn-tank-fill { background: var(--no-red); }
 .avn-tank.fire .avn-tank-flag { color: var(--no-black); background: var(--no-red); border-color: var(--no-red); }
 
+/* Never shrinks: the readouts are nowrap, so a squeezed column would clip the units off the edge.
+   The tank bars take the squeeze instead. */
 .avn-reads {
-  flex: 0 1 auto;
+  flex: 0 0 auto;
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -396,7 +409,12 @@
 }
 .avn-gauge-label { top: calc(50cqh - 24cqmin); font-size: clamp(9px, 8cqmin, 28px); }
 .avn-gauge-val   { top: calc(50cqh + 24cqmin); font-size: clamp(10px, 9cqmin, 30px); }
-.avn-gauge-sub   { top: calc(50cqh + 35cqmin); font-size: clamp(8px, 6cqmin, 18px); font-weight: 400; color: var(--no-label); text-shadow: none; }
+/* FUEL carries a second line (the mass): both sit higher than an engine dial's value, clear of the
+   arc's bottom, on a black plate so the needle passing under them never strikes through the text. */
+.avn-gauge.fuel .avn-gauge-val { top: calc(50cqh + 14cqmin); }
+.avn-gauge-sub   { top: calc(50cqh + 25cqmin); font-size: clamp(8px, 6cqmin, 18px); font-weight: 400; color: var(--no-label); text-shadow: none; }
+.avn-gauge.fuel .avn-gauge-val, .avn-gauge-sub { background: var(--no-black); padding: 0.1em 0.3em; border-radius: 3px; }
+.avn-gauge-sub:empty { display: none; }
 /* Fixed neutral tokens rather than currentColor, so the face stays put while the needle/value
    change state colour. */
 .avn-gauge-rim {
@@ -439,6 +457,15 @@
 /* FUEL caution/critical (25%/10%) recolour only the fill arc. */
 .avn-gauge.caution  .avn-gauge-fill { stroke: var(--no-amber); }
 .avn-gauge.critical .avn-gauge-fill { stroke: var(--no-red); }
+/* A propeller's thrust has no max to scale against: the dial face becomes a bare ring holding the
+   number, with no needle, fill or ticks to suggest a fraction. */
+.avn-gauge.readout .avn-gauge-needle,
+.avn-gauge.readout .avn-gauge-hub,
+.avn-gauge.readout .avn-gauge-fill,
+.avn-gauge.readout .avn-gauge-track,
+.avn-gauge.readout use { display: none; }
+.avn-gauge.readout .avn-gauge-label { top: calc(50cqh - 14cqmin); }
+.avn-gauge.readout .avn-gauge-val { top: calc(50cqh + 6cqmin); font-size: clamp(12px, 14cqmin, 40px); }
 .avn-gauge.na { color: var(--no-white-dark); text-shadow: none; }
 .avn-gauge.na .avn-gauge-needle { opacity: 0.4; }
 .avn-engine.inop .avn-gauge { color: var(--no-white-dark); text-shadow: none; }

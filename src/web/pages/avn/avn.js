@@ -6,8 +6,8 @@
 const avnPanel     = document.getElementById('avn-panel');
 const avnEmptyEl   = document.getElementById('avn-empty');
 const avnContentEl = document.getElementById('avn-content');
-const avnTopEl     = document.getElementById('avn-top');
-const avnPedestal  = document.getElementById('avn-pedestal');
+const avnSideL     = document.getElementById('avn-side-l');
+const avnSideR     = document.getElementById('avn-side-r');
 const avnLever     = document.getElementById('avn-lever');
 const avnLeverTagMil = document.getElementById('avn-lever-tag-mil');
 const avnThrVal    = document.getElementById('avn-thr-val');
@@ -32,7 +32,7 @@ let avnData = { name: null, fuel: -1, throttle: -1, heat: -1, heatColor: null, h
 let layout         = 'compact';   // 'compact' (split pane) | 'full' (full-screen iframe)
 let avnFullGeom    = null;        // {frameTop, frameHeight} forwarded by the shell in full
 let avnLastType    = null;        // last aircraft type rendered, so a respawn on the SAME type still re-renders
-// Engine cards and tank bars are built once per shape (count / names) and then only repainted,
+// Engine cards and tank bars are built once per shape (engine/prop kinds / tank names) and then only repainted,
 // so a steady stream of frames never rebuilds the DOM.
 let avnEngineCards = [];
 let avnEngineKey   = null;
@@ -87,16 +87,21 @@ function paintAvn() {
 }
 
 // ── Engine cards ───────────────────────────────────────────────────────────────────
-function buildAvnEngineCards(n) {
-  avnEngineCards.forEach(function (c) { c.el.remove(); });
+function buildAvnEngineCards(engines) {
+  const n = engines.length;
+  avnSideL.textContent = '';
+  avnSideR.textContent = '';
   avnEngineCards = [];
-  const labels = AvnEngPolicy.engineLabels(n);
+  const labels = AvnEngPolicy.engineLabels(engines);
   const split = AvnEngPolicy.pedestalSplit(n);
+  const cols = String(AvnEngPolicy.sideColumns(split));
+  avnSideL.style.setProperty('--cols', cols);
+  avnSideR.style.setProperty('--cols', cols);
   for (let i = 0; i < n; i++) {
     const el = avnEngineTpl.content.firstElementChild.cloneNode(true);
     el.querySelector('.avn-engine-name').textContent = labels[i];
     if (i >= split) el.classList.add('mirror');
-    avnTopEl.insertBefore(el, i < split ? avnPedestal : null);
+    (i < split ? avnSideL : avnSideR).appendChild(el);
     avnEngineCards.push({
       el: el,
       chip: el.querySelector('.avn-chip'),
@@ -110,9 +115,10 @@ function buildAvnEngineCards(n) {
 }
 
 function paintAvnEngines(engines) {
-  if (avnEngineKey !== engines.length) {
-    avnEngineKey = engines.length;
-    buildAvnEngineCards(engines.length);
+  const key = engines.map(function (e) { return e.prop === true ? 'p' : 'e'; }).join('');
+  if (avnEngineKey !== key) {
+    avnEngineKey = key;
+    buildAvnEngineCards(engines);
   }
   for (let i = 0; i < engines.length; i++) {
     const e = engines[i], c = avnEngineCards[i];
@@ -129,6 +135,11 @@ function paintAvnEngines(engines) {
     const out = AvnEngPolicy.engineOutput(e);
     c.outLabel.textContent = out.label;
     paintAvnGauge(c.out, out.value, null, null, out.text);
+    c.out.classList.toggle('readout', out.readout === true);
+    if (out.readout) {
+      c.out.classList.remove('na');
+      c.out.querySelector('.avn-gauge-val').textContent = out.text;
+    }
     c.rpm.setAttribute('aria-label', c.label + ' RPM ' + c.rpm.querySelector('.avn-gauge-val').textContent);
     c.out.setAttribute('aria-label', c.label + ' ' + out.label + ' ' + out.text);
   }

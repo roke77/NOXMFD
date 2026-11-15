@@ -8,21 +8,34 @@
   // range figure would just be endurance times a crawl.
   const RANGE_MIN_GS = 10;
 
-  // Engines arrive sorted left to right (PropulsionReader).
-  function engineLabels(n) {
-    if (n === 1) return ['ENG'];
-    if (n === 2) return ['L ENG', 'R ENG'];
-    const out = [];
-    for (let i = 0; i < n; i++) out.push('ENG ' + (i + 1));
-    return out;
+  // Engines arrive sorted left to right (PropulsionReader). Engines and propellers are numbered
+  // separately, so a Tarantula reads ENG 1..4 and PROP 1..4 rather than ENG 1..8.
+  function engineLabels(engines) {
+    const counts = { ENG: 0, PROP: 0 };
+    const words = engines.map(function (e) { const w = e && e.prop === true ? 'PROP' : 'ENG'; counts[w]++; return w; });
+    const seen = { ENG: 0, PROP: 0 };
+    return words.map(function (w) {
+      const i = seen[w]++, n = counts[w];
+      if (n === 1) return w;
+      if (n === 2) return (i === 0 ? 'L ' : 'R ') + w;
+      return w + ' ' + (i + 1);
+    });
   }
 
   // How many engine cards sit left of the throttle/heat pedestal.
   function pedestalSplit(n) { return Math.ceil(n / 2); }
 
+  // Grid columns for one side of the pedestal: up to two cards stack in one column (a wide card
+  // sets its dials side by side), three or more go two abreast so no card drops below half a side.
+  function sideColumns(perSide) { return perSide >= 3 ? 2 : 1; }
+
   // Thrust when the engine reports a max thrust; turboshafts report 0 thrust and drive a rotor,
   // so they show shaft power instead (the same choice the game's cockpit EngineTelemetry makes).
+  // A propeller reports thrust but no max to scale a dial against: a plain kN readout.
   function engineOutput(e) {
+    if (e && e.prop === true) {
+      return { label: 'THR', value: -1, text: Math.round(Math.max(0, e.thr) / 1000) + ' kN', readout: true };
+    }
     if (e && e.thrMax > 0) {
       return { label: 'THR', value: clamp01(e.thr / e.thrMax), text: Math.round(e.thr / 1000) + ' kN' };
     }
@@ -86,7 +99,7 @@
 
   function clamp01(x) { return !(x > 0) ? 0 : x > 1 ? 1 : x; }
 
-  const api = { KG_TO_LB, engineLabels, pedestalSplit, engineOutput, engineStatus, tankLabel, fuelReadouts };
+  const api = { KG_TO_LB, engineLabels, pedestalSplit, sideColumns, engineOutput, engineStatus, tankLabel, fuelReadouts };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.AvnEngPolicy = api;
 })(typeof self !== 'undefined' ? self : this);
