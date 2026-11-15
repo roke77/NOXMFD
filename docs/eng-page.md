@@ -64,8 +64,9 @@ alongside `metric`:
 }
 ```
 
-`st`: 0 OK, 1 FAULT, 2 INOP. `prop`: the entry is a propeller, fixed from its type when first seen. `pwr`/`pwrMax` are -1 for engines that aren't power sources; `hp` is
--1 when the engine type has no `condition`.
+`st`: 0 OK, 1 FAULT, 2 INOP. `prop`: the entry is a propeller, fixed from its type when first
+seen. `pwr`/`pwrMax` are -1 for engines that aren't power sources; `hp` is -1 when the engine type
+has no `condition`.
 
 ## Layout
 

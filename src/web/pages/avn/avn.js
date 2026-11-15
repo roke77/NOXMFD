@@ -32,8 +32,8 @@ let avnData = { name: null, fuel: -1, throttle: -1, heat: -1, heatColor: null, h
 let layout         = 'compact';   // 'compact' (split pane) | 'full' (full-screen iframe)
 let avnFullGeom    = null;        // {frameTop, frameHeight} forwarded by the shell in full
 let avnLastType    = null;        // last aircraft type rendered, so a respawn on the SAME type still re-renders
-// Engine cards and tank bars are built once per shape (engine/prop kinds / tank names) and then only repainted,
-// so a steady stream of frames never rebuilds the DOM.
+// Engine cards and tank bars are built once per shape (engine/prop sequence, tank names) and then
+// only repainted, so a steady stream of frames never rebuilds the DOM.
 let avnEngineCards = [];
 let avnEngineKey   = null;
 let avnTankRows    = [];
@@ -134,13 +134,14 @@ function paintAvnEngines(engines) {
     paintAvnGauge(c.rpm, typeof e.rpm === 'number' ? e.rpm : -1, null, null);
     const out = AvnEngPolicy.engineOutput(e);
     c.outLabel.textContent = out.label;
-    paintAvnGauge(c.out, out.value, null, null, out.text);
     c.out.classList.toggle('readout', out.readout === true);
     if (out.readout) {
       c.out.classList.remove('na');
-      c.out.querySelector('.avn-gauge-val').textContent = out.text;
+      avnGaugeParts(c.out).val.textContent = out.text;
+    } else {
+      paintAvnGauge(c.out, out.value, null, null, out.text);
     }
-    c.rpm.setAttribute('aria-label', c.label + ' RPM ' + c.rpm.querySelector('.avn-gauge-val').textContent);
+    c.rpm.setAttribute('aria-label', c.label + ' RPM ' + avnGaugeParts(c.rpm).val.textContent);
     c.out.setAttribute('aria-label', c.label + ' ' + out.label + ' ' + out.text);
   }
 }
@@ -220,10 +221,26 @@ function setAvnGaugeFill(fillEl, v) {
   fillEl.style.strokeDasharray = L;
   fillEl.style.strokeDashoffset = L * (1 - v);
 }
+// A dial's moving parts, looked up once per dial element: every engine card repaints two dials
+// each frame, so per-frame querySelector calls would scale with the engine count.
+const avnGaugePartsCache = new WeakMap();
+function avnGaugeParts(gaugeEl) {
+  let p = avnGaugePartsCache.get(gaugeEl);
+  if (!p) {
+    p = {
+      needle: gaugeEl.querySelector('.avn-gauge-needle'),
+      fill:   gaugeEl.querySelector('.avn-gauge-fill'),
+      val:    gaugeEl.querySelector('.avn-gauge-val'),
+    };
+    avnGaugePartsCache.set(gaugeEl, p);
+  }
+  return p;
+}
 function paintAvnGauge(gaugeEl, value01, cautionAt, criticalAt, text) {
-  const needle = gaugeEl.querySelector('.avn-gauge-needle');
-  const fill   = gaugeEl.querySelector('.avn-gauge-fill');
-  const valEl  = gaugeEl.querySelector('.avn-gauge-val');
+  const parts  = avnGaugeParts(gaugeEl);
+  const needle = parts.needle;
+  const fill   = parts.fill;
+  const valEl  = parts.val;
   gaugeEl.classList.remove('na', 'caution', 'critical');
   if (typeof value01 !== 'number' || value01 < 0) {
     gaugeEl.classList.add('na');
