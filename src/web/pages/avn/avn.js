@@ -1,24 +1,43 @@
-// ENG page (id avn) — the FUEL/RPM/HEAT/THRL gauges. A pure reactive renderer driven by the shell
-// over postMessage; single source of truth for BOTH layouts (full-screen iframe + split pane). The
-// system toggles live on the SYS page (id afm). See avn.html for the message contract.
+// ENG page (id avn) — engine cards, throttle/heat pedestal and fuel band (docs/eng-page.md). A
+// pure reactive renderer driven by the shell over postMessage; single source of truth for BOTH
+// layouts (full-screen iframe + split pane). See avn.html for the message contract.
 
 // ── DOM refs ───────────────────────────────────────────────────────────────────────
 const avnPanel     = document.getElementById('avn-panel');
 const avnEmptyEl   = document.getElementById('avn-empty');
-const avnContentEl  = document.getElementById('avn-content');
+const avnContentEl = document.getElementById('avn-content');
+const avnSideL     = document.getElementById('avn-side-l');
+const avnSideR     = document.getElementById('avn-side-r');
+const avnLever     = document.getElementById('avn-lever');
+const avnLeverTagMil = document.getElementById('avn-lever-tag-mil');
+const avnThrVal    = document.getElementById('avn-thr-val');
+const avnThrZone   = document.getElementById('avn-thr-zone');
+const avnHeatTape  = document.querySelector('.avn-heat-tape');
+const avnHeatLit   = document.getElementById('avn-heat-lit');
+const avnHeatVal   = document.getElementById('avn-heat-val');
 const avnGaugeFuel = document.getElementById('avn-gauge-fuel');
-const avnGaugeRpm  = document.getElementById('avn-gauge-rpm');
-const avnGaugeHeat = document.getElementById('avn-gauge-heat');
-const avnGaugeThr  = document.getElementById('avn-gauge-thr');
+const avnFuelMass  = document.getElementById('avn-fuel-mass');
+const avnTanksEl   = document.getElementById('avn-tanks');
+const avnBurn      = document.getElementById('avn-burn');
+const avnBurnUnit  = document.getElementById('avn-burn-unit');
+const avnEndur     = document.getElementById('avn-endur');
+const avnRange     = document.getElementById('avn-range');
+const avnRangeUnit = document.getElementById('avn-range-unit');
+const avnGs        = document.getElementById('avn-gs');
+const avnEngineTpl = document.getElementById('avn-engine-tpl');
+const avnTankTpl   = document.getElementById('avn-tank-tpl');
 
 // ── State ──────────────────────────────────────────────────────────────────────────
-let avnData = { name: null, fuel: -1, throttle: -1, heat: -1, heatColor: null, rpm: -1, hasAb: false, abStart: 1 };
+let avnData = { name: null, fuel: -1, throttle: -1, heat: -1, heatColor: null, hasAb: false, abStart: 1, eng: null, metric: true };
 let layout         = 'compact';   // 'compact' (split pane) | 'full' (full-screen iframe)
-// {frameTop, frameHeight} forwarded by the shell in full — the vertical band .avn-content centres
-// itself in (below the top bezel row). The gauge grid is a plain CSS grid, sized/positioned
-// entirely by CSS once .avn-content itself is placed.
-let avnFullGeom    = null;
-let avnLastType    = null;   // last aircraft type rendered, so a respawn on the SAME type still re-renders
+let avnFullGeom    = null;        // {frameTop, frameHeight} forwarded by the shell in full
+let avnLastType    = null;        // last aircraft type rendered, so a respawn on the SAME type still re-renders
+// Engine cards and tank bars are built once per shape (engine/prop sequence, tank names) and then
+// only repainted, so a steady stream of frames never rebuilds the DOM.
+let avnEngineCards = [];
+let avnEngineKey   = null;
+let avnTankRows    = [];
+let avnTankKey     = null;
 
 // ── Renderer ───────────────────────────────────────────────────────────────────────
 function renderAvn() {
@@ -30,14 +49,12 @@ function renderAvn() {
     return;
   }
   avnEmptyEl.style.display = 'none';
-
-  paintAvnGauges();
+  paintAvn();
   layoutAvnContent();
 }
 
-// The vertical band .avn-content centres itself in: full uses the shell-forwarded bezel geometry
-// (the band below the top bezel row); compact has no such geometry, so it's just a small top
-// margin down to a small bottom margin.
+// The vertical band .avn-content fills: full uses the shell-forwarded bezel geometry (the band
+// below the top bezel row); compact has no such geometry, so it is a small top and bottom margin.
 const AVN_TOP_MARGIN = 12;
 const AVN_BOTTOM_MARGIN = 12;
 function avnContentVerticalExtent() {
@@ -48,9 +65,6 @@ function avnContentVerticalExtent() {
   return { top: AVN_TOP_MARGIN, height: Math.max(0, panelRect.height - AVN_TOP_MARGIN - AVN_BOTTOM_MARGIN) };
 }
 
-// .avn-content spans the full panel width and the full vertical extent, so it reads as "as wide as
-// possible, vertically centred" per that extent. The gauge grid fills it via flex-grow (avn.css) —
-// no further JS sizing needed.
 function layoutAvnContent() {
   const panelRect = avnPanel.getBoundingClientRect();
   if (!panelRect.width || !panelRect.height) {
@@ -65,81 +79,168 @@ function layoutAvnContent() {
   avnContentEl.classList.add('placed');
 }
 
-function paintAvnGauges() {
+function paintAvn() {
+  const eng = avnData.eng;
+  paintAvnEngines(eng && Array.isArray(eng.engines) ? eng.engines : []);
+  paintAvnPedestal();
+  paintAvnFuel(eng);
+}
+
+// ── Engine cards ───────────────────────────────────────────────────────────────────
+function buildAvnEngineCards(engines) {
+  const n = engines.length;
+  avnSideL.textContent = '';
+  avnSideR.textContent = '';
+  avnEngineCards = [];
+  const labels = AvnEngPolicy.engineLabels(engines);
+  const split = AvnEngPolicy.pedestalSplit(n);
+  const cols = String(AvnEngPolicy.sideColumns(split));
+  avnSideL.style.setProperty('--cols', cols);
+  avnSideR.style.setProperty('--cols', cols);
+  for (let i = 0; i < n; i++) {
+    const el = avnEngineTpl.content.firstElementChild.cloneNode(true);
+    el.querySelector('.avn-engine-name').textContent = labels[i];
+    if (i >= split) el.classList.add('mirror');
+    (i < split ? avnSideL : avnSideR).appendChild(el);
+    avnEngineCards.push({
+      el: el,
+      chip: el.querySelector('.avn-chip'),
+      hpVal: el.querySelector('.avn-hp-val'),
+      rpm: el.querySelector('.avn-gauge.rpm'),
+      out: el.querySelector('.avn-gauge.out'),
+      outLabel: el.querySelector('.avn-gauge.out .avn-gauge-label'),
+      label: labels[i],
+    });
+  }
+}
+
+function paintAvnEngines(engines) {
+  const key = engines.map(function (e) { return e.prop === true ? 'p' : 'e'; }).join('');
+  if (avnEngineKey !== key) {
+    avnEngineKey = key;
+    buildAvnEngineCards(engines);
+  }
+  for (let i = 0; i < engines.length; i++) {
+    const e = engines[i], c = avnEngineCards[i];
+    const st = AvnEngPolicy.engineStatus(e.st);
+    c.el.classList.remove('ok', 'fault', 'inop');
+    c.el.classList.add(st.cls);
+    c.chip.textContent = st.text;
+
+    const hp = typeof e.hp === 'number' && e.hp >= 0 ? e.hp : -1;
+    c.el.style.setProperty('--hp', String(hp >= 0 ? hp : 0));
+    c.hpVal.textContent = hp >= 0 ? Math.round(hp * 100) + '%' : '--';
+
+    paintAvnGauge(c.rpm, typeof e.rpm === 'number' ? e.rpm : -1, null, null);
+    const out = AvnEngPolicy.engineOutput(e);
+    c.outLabel.textContent = out.label;
+    c.out.classList.toggle('readout', out.readout === true);
+    if (out.readout) {
+      c.out.classList.remove('na');
+      avnGaugeParts(c.out).val.textContent = out.text;
+    } else {
+      paintAvnGauge(c.out, out.value, null, null, out.text);
+    }
+    c.rpm.setAttribute('aria-label', c.label + ' RPM ' + avnGaugeParts(c.rpm).val.textContent);
+    c.out.setAttribute('aria-label', c.label + ' ' + out.label + ' ' + out.text);
+  }
+}
+
+// ── Pedestal: throttle lever + heat tape ───────────────────────────────────────────
+function paintAvnPedestal() {
+  const r = AvnThrottlePolicy.throttleReadout(avnData.throttle, avnData.hasAb, avnData.abStart);
+  avnLever.classList.toggle('na', r.na);
+  avnLever.classList.toggle('has-ab', r.boundary !== null);
+  avnLever.style.setProperty('--thr', String(1 - r.fill));
+  avnLever.style.setProperty('--ab', String(r.boundary !== null ? 1 - r.boundary : 0));
+  avnLeverTagMil.hidden = r.boundary === null;
+  avnThrVal.textContent = r.text;
+  avnThrZone.textContent = r.zone === 'ab' ? 'AB' : r.zone === 'mil' ? 'MIL' : '';
+  avnThrZone.classList.toggle('ab', r.zone === 'ab');
+  avnLever.setAttribute('aria-label', 'Throttle ' + r.text + (r.zone === 'ab' ? ' afterburner' : ''));
+
+  const heat = avnData.heat;
+  const h = typeof heat === 'number' && heat >= 0 ? Math.min(1, heat) : 0;
+  avnHeatTape.style.setProperty('--heat', String(h));
+  // The lit segment takes the colour the game's own cockpit IR gauge shows at this value.
+  avnHeatLit.style.background = avnData.heatColor || '';
+  avnHeatVal.textContent = heat >= 0 ? Math.round(h * 100) + '%' : '--';
+  avnHeatVal.style.color = avnData.heatColor || '';
+}
+
+// ── Fuel band ──────────────────────────────────────────────────────────────────────
+function buildAvnTanks(tanks) {
+  avnTanksEl.textContent = '';
+  avnTankRows = tanks.map(function (t) {
+    const el = avnTankTpl.content.firstElementChild.cloneNode(true);
+    el.querySelector('.avn-tank-name').textContent = AvnEngPolicy.tankLabel(t.n);
+    avnTanksEl.appendChild(el);
+    return { el: el, fill: el.querySelector('.avn-tank-fill'), kg: el.querySelector('.avn-tank-kg'), flag: el.querySelector('.avn-tank-flag') };
+  });
+}
+
+function paintAvnFuel(eng) {
   paintAvnGauge(avnGaugeFuel, avnData.fuel, 0.25, 0.10);
-  paintAvnGauge(avnGaugeRpm,  avnData.rpm,  null, null);   // no caution/critical — low RPM at idle is normal, not a warning
-  paintAvnGauge(avnGaugeHeat, avnData.heat, null, null);   // no caution/critical class — color comes from paintAvnHeatColor instead
-  paintAvnHeatColor();
-  paintAvnThrottle();
+  const metric = avnData.metric !== false;
+  const f = AvnEngPolicy.fuelReadouts(eng, metric);
+  avnFuelMass.textContent = f.fuel === '--' ? '' : f.fuel + ' ' + f.fuelUnit;
+  avnBurn.textContent = f.burn;
+  avnBurnUnit.textContent = f.burnUnit;
+  avnEndur.textContent = f.endurance;
+  avnRange.textContent = f.range;
+  avnRangeUnit.textContent = f.rangeUnit;
+  avnGs.textContent = 'at GS ' + f.gs + ' ' + f.gsUnit;
+
+  const tanks = eng && Array.isArray(eng.tanks) ? eng.tanks : [];
+  const key = tanks.map(function (t) { return t.n; }).join('|');
+  if (key !== avnTankKey) { avnTankKey = key; buildAvnTanks(tanks); }
+  const massK = metric ? 1 : AvnEngPolicy.KG_TO_LB;
+  for (let i = 0; i < tanks.length; i++) {
+    const t = tanks[i], row = avnTankRows[i];
+    const frac = t.cap > 0 ? Math.max(0, Math.min(1, t.kg / t.cap)) : 0;
+    row.fill.style.height = (frac * 100) + '%';
+    row.kg.textContent = Math.round(t.kg * massK);
+    row.el.classList.toggle('leak', t.leak === true && t.fire !== true);
+    row.el.classList.toggle('fire', t.fire === true);
+    row.flag.textContent = t.fire === true ? 'FIRE' : t.leak === true ? 'LEAK' : '';
+  }
 }
 
-// HEAT's fill color mirrors the game's own cockpit IR gauge exactly: TelemetryReader computes it
-// server-side off the same GameAssets.i.redGreenGradient asset the game reads, so this just applies
-// that hex color straight to the fill stroke instead of guessing our own green/amber/red stops.
-function paintAvnHeatColor() {
-  avnGaugeHeat.querySelector('.avn-gauge-fill').style.stroke = avnData.heatColor || '';
-}
-
-// Needle rotation: the SVG needle is drawn pointing at the gauge's zero position (-135deg, see
-// avn.html), so rotating it (v * 270)deg clockwise lands it at -135 + v*270 — the same 270deg
-// sweep every dial's tick ring covers (avn.html's shared <defs>).
+// ── Dials ──────────────────────────────────────────────────────────────────────────
+// The needle is drawn pointing at the dial's zero position (-135deg); rotating it v*270deg
+// clockwise covers the same 270deg sweep as the shared tick ring.
 function avnNeedleAngle(v) { return (v * 270).toFixed(1) + 'deg'; }
 
-// Absolute arc-position math for THRL's AFTERBURNER placard (the needle above only needs a
-// relative CSS rotate(); this is for an absolute <path> instead). Clock-angle convention (0deg =
-// 12 o'clock, increasing clockwise) matches the dial's hardcoded track path (avn.html: "M 23.13
-// 23.13 A 38 38 0 1 1 23.13 76.87"), whose two endpoints solve to exactly 315deg (v=0) and
-// 585deg==225deg (v=1) — the coordinate system every dial in this file agrees on.
-function avnClockPoint(r, thetaDeg) {
-  const t = thetaDeg * Math.PI / 180;
-  return { x: 50 + r * Math.sin(t), y: 50 - r * Math.cos(t) };
-}
-function avnClockAngle(v) { return 315 + v * 270; }
-// sweep follows the v0->v1 direction (not hardcoded to 1, like the needle-swept fills above)
-// because text laid on a path reads upright only when the path runs with "outward from the dial
-// centre" on the glyphs' up side — on the bottom half of the dial (where the reheat zone always
-// lands) that means running from the HIGH-v end toward the LOW-v end. Getting the sweep flag
-// wrong here draws the major (306deg) arc instead of the minor one, not just mis-oriented text.
-function avnArcPath(r, v0, v1) {
-  const p0 = avnClockPoint(r, avnClockAngle(v0));
-  const p1 = avnClockPoint(r, avnClockAngle(v1));
-  const span = (v1 - v0) * 270;
-  const large = Math.abs(span) > 180 ? 1 : 0;
-  const sweep = span >= 0 ? 1 : 0;
-  return 'M ' + p0.x.toFixed(3) + ' ' + p0.y.toFixed(3) +
-    ' A ' + r + ' ' + r + ' 0 ' + large + ' ' + sweep + ' ' + p1.x.toFixed(3) + ' ' + p1.y.toFixed(3);
-}
-// Fill inner edge is r33.5 (fill r35, stroke-width 3 -> 35 - 3/2); pulled in another 1.5 so the
-// placard clears it with a small gap instead of touching, while still reading as a concentric
-// band rather than a separate ring.
-const AVN_AB_LABEL_R = 32;
-
-// The amber fill arc from zero to v, over .avn-gauge-track's identical curve — the classic SVG
-// "circular progress" trick: dasharray = the path's own length L turns it into one dash of length
-// L then one gap of length L; dashoffset = L*(1-v) slides that dash so only the first v*L of the
-// path (from the zero end, where the path's `d` in avn.html starts) stays visible.
-// getTotalLength() is cached per element (a WeakMap, not a data attribute, since the value is a
-// number, not markup) — every dial's path is geometrically identical, but reading it straight off
-// each element is one line simpler than threading a shared constant through four call sites.
+// The fill arc from zero to v: dasharray = the path's own length L, dashoffset = L*(1-v), so only
+// the first v*L of the path stays visible. getTotalLength() is cached per element.
 const avnGaugeFillLengths = new WeakMap();
-function avnGaugeFillLength(fillEl) {
+function setAvnGaugeFill(fillEl, v) {
   let L = avnGaugeFillLengths.get(fillEl);
   if (L === undefined) { L = fillEl.getTotalLength(); avnGaugeFillLengths.set(fillEl, L); }
-  return L;
-}
-function setAvnGaugeFill(fillEl, v) {
-  const L = avnGaugeFillLength(fillEl);
-  // No unit suffix: both resolve in the path's own user-space coordinate system (the viewBox's
-  // 0-100 grid), matching getTotalLength()'s own units. 'px' here would mean CSS pixels of the
-  // rendered (cqmin-scaled) box instead, which drifts from L as soon as a dial isn't rendered at
-  // exactly 100x100 device px — every size except the reference.
+  // Unitless: user-space units of the viewBox, matching getTotalLength().
   fillEl.style.strokeDasharray = L;
   fillEl.style.strokeDashoffset = L * (1 - v);
 }
-function paintAvnGauge(gaugeEl, value01, cautionAt, criticalAt) {
-  const needle = gaugeEl.querySelector('.avn-gauge-needle');
-  const fill   = gaugeEl.querySelector('.avn-gauge-fill');
-  const valEl  = gaugeEl.querySelector('.avn-gauge-val');
+// A dial's moving parts, looked up once per dial element: every engine card repaints two dials
+// each frame, so per-frame querySelector calls would scale with the engine count.
+const avnGaugePartsCache = new WeakMap();
+function avnGaugeParts(gaugeEl) {
+  let p = avnGaugePartsCache.get(gaugeEl);
+  if (!p) {
+    p = {
+      needle: gaugeEl.querySelector('.avn-gauge-needle'),
+      fill:   gaugeEl.querySelector('.avn-gauge-fill'),
+      val:    gaugeEl.querySelector('.avn-gauge-val'),
+    };
+    avnGaugePartsCache.set(gaugeEl, p);
+  }
+  return p;
+}
+function paintAvnGauge(gaugeEl, value01, cautionAt, criticalAt, text) {
+  const parts  = avnGaugeParts(gaugeEl);
+  const needle = parts.needle;
+  const fill   = parts.fill;
+  const valEl  = parts.val;
   gaugeEl.classList.remove('na', 'caution', 'critical');
   if (typeof value01 !== 'number' || value01 < 0) {
     gaugeEl.classList.add('na');
@@ -153,40 +254,7 @@ function paintAvnGauge(gaugeEl, value01, cautionAt, criticalAt) {
   else if (cautionAt  !== null && v <= cautionAt)  gaugeEl.classList.add('caution');
   needle.style.transform = 'rotate(' + avnNeedleAngle(v) + ')';
   setAvnGaugeFill(fill, v);
-  valEl.textContent = Math.round(v * 100) + '%';
-}
-
-// THROTTLE is its own paint: AvnThrottlePolicy gives the needle position (`fill`, 0..1), the
-// readout text ('MIL nn%' / red 'AB nn%'), and the zone. The green/red split is done via masking
-// rather than a variable-length dash range: .avn-gauge-fill-hot is always revealed full-extent to
-// the live value (the same fixed-dasharray reveal every other gauge uses, see setAvnGaugeFill),
-// and the green .avn-gauge-fill paints on top of it (avn.html source order) capped at boundary,
-// hiding red for the MIL portion — only the segment past boundary ever shows red. A fixed-pattern
-// dashoffset transition tweens with CSS; a dasharray recomputed every frame would not.
-// The AB placard's own arc only depends on abStart (a per-aircraft constant), not the live
-// throttle — re-set it whenever abStart changes rather than every paint, so its span never
-// tracks the needle even transiently.
-let avnAbPathBoundary = null;
-function paintAvnThrottle() {
-  const r = AvnThrottlePolicy.throttleReadout(avnData.throttle, avnData.hasAb, avnData.abStart);
-  const needle = avnGaugeThr.querySelector('.avn-gauge-needle');
-  const fill   = avnGaugeThr.querySelector('.avn-gauge-fill');
-  const fillHot = avnGaugeThr.querySelector('.avn-gauge-fill-hot');
-  const valEl  = avnGaugeThr.querySelector('.avn-gauge-val');
-  const abPath = avnGaugeThr.querySelector('#avn-gauge-thr-ab-path');
-  avnGaugeThr.classList.remove('caution', 'critical');
-  avnGaugeThr.classList.toggle('na', r.na);
-  avnGaugeThr.classList.toggle('ab-active', r.zone === 'ab');
-  needle.style.transform = 'rotate(' + avnNeedleAngle(r.fill) + ')';
-  setAvnGaugeFill(fillHot, r.boundary !== null ? r.fill : 0);
-  setAvnGaugeFill(fill, r.boundary !== null ? Math.min(r.fill, r.boundary) : r.fill);
-  valEl.textContent = r.text;
-  if (r.boundary !== null && r.boundary !== avnAbPathBoundary) {
-    // v0=1, v1=boundary (high to low) — see avnArcPath: the reheat zone sits on the dial's bottom
-    // half, where upright text runs opposite the fills' usual low-to-high direction.
-    abPath.setAttribute('d', avnArcPath(AVN_AB_LABEL_R, 1, r.boundary));
-    avnAbPathBoundary = r.boundary;
-  }
+  valEl.textContent = text !== undefined ? text : Math.round(v * 100) + '%';
 }
 
 // ── Shell → page forwarding ──────────────────────────────────────────────────────────
@@ -200,25 +268,23 @@ window.addEventListener('message', function(e) {
       throttle: typeof m.throttle === 'number' ? m.throttle : -1,
       heat:     typeof m.heat     === 'number' ? m.heat     : -1,
       heatColor: typeof m.heatColor === 'string' ? m.heatColor : null,
-      rpm:      typeof m.rpm      === 'number' ? m.rpm      : -1,
       hasAb:    m.hasAb === true,
       abStart:  typeof m.abStart === 'number' ? m.abStart : 1,
+      eng:      m.eng && typeof m.eng === 'object' ? m.eng : null,
+      metric:   m.metric !== false,
     };
     // Full render on aircraft change, or whenever there's no aircraft.
     if (avnLastType !== avnData.name || !avnData.name) renderAvn();
-    else paintAvnGauges();
+    else paintAvn();
   } else if (m.type === 'avn-layout') {
-    // Geometry profile from the shell. full forwards the bezel-anchored vertical band
-    // (geom.frameTop/frameHeight); compact carries no geometry.
     layout = (m.layout === 'full') ? 'full' : 'compact';
     document.body.classList.toggle('full', layout === 'full');
     avnFullGeom = (layout === 'full') ? (m.geom || null) : null;
     renderAvn();
   } else if (m.type === 'orient') {
-    // App-wide orientation forwarded by the shell (see body.portrait rules in the CSS).
     document.body.classList.toggle('portrait',  m.orientation === 'portrait');
     document.body.classList.toggle('landscape', m.orientation !== 'portrait');
-    renderAvn();   // re-layout in case orientation-dependent sizing changed
+    renderAvn();
   }
 });
 

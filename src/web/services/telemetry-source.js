@@ -521,6 +521,9 @@ export class TelemetrySource {
       // Afterburner gauge shape (static per airframe). hasAb splits the THRL bar at abStart.
       hasAb:    d.hasAb === true,
       abStart:  typeof d.abStart === 'number' ? d.abStart : 1,
+      // ENG page engines/tanks/burn block (docs/eng-page.md) and the player's unit system.
+      eng:      d.eng && typeof d.eng === 'object' ? d.eng : null,
+      metric:   d.metric !== false,
       // Avionics status tiles. gear arrives as 'up'|'down'; the rest are bools.
       gearDown: d.gear === 'down',
       radar:    d.radar === true,
@@ -616,7 +619,7 @@ export class TelemetrySource {
     this._postUp({ type: 'rwr', items: [] });
     this._postUp({ type: 'mw', items: [], metric: false });
     this._postUp({ type: 'hsd', metric: false, items: [], threats: [] });
-    this._postUp({ type: 'avn', name: null, parts: null, failures: null, pylons: null, fuel: -1, throttle: -1, gearDown: false, radar: false, guns: false, ignition: false, assist: false, turret: false, nvg: false, navLights: false });
+    this._postUp({ type: 'avn', name: null, parts: null, failures: null, pylons: null, fuel: -1, throttle: -1, eng: null, gearDown: false, radar: false, guns: false, ignition: false, assist: false, turret: false, nvg: false, navLights: false });
     this._postUp(ADI_EMPTY);
     this._postUp({ type: 'tgt', present: false });
     this._postUp({ type: 'bdf', present: false });

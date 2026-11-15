@@ -121,7 +121,7 @@ and client-side pre-validation for pasted JSON; the actual navigation data and i
 server-side in `RouteStore`, not here — see
 `waypoints-store.js`), `doc-cycle.js` (DOC's NEXT/PREV wrap-around stepping, issue #82), and
 `<x>-*-policy.js` where the
-logic really is a classification rule (`avn-status-policy.js`, `avn-throttle-policy.js`,
+logic really is a classification rule (`avn-status-policy.js`, `avn-throttle-policy.js`, `avn-eng-policy.js`,
 `afm-bg-policy.js`, `afm-failure-policy.js`, `afm-layout-policy.js`). Everything else on a page is DOM-coupled rendering and
 is left to the harness and the eye, not to Node asserts.
 
