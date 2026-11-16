@@ -12,6 +12,10 @@ that reads live flight telemetry from the game and serves it over the local
 network as a browser-based multi-function display (MFD). The display opens in
 any web browser, on the same PC or on another device on the same network.
 
+> [!IMPORTANT]
+> **AI disclaimer:** NO XMFD is developed with AI assistance. Its code is generated with
+> Anthropic's Claude models, under the author's direction and review.
+
 ## Contents
 
 - [Requirements](#requirements)
