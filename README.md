@@ -18,7 +18,7 @@ any web browser, on the same PC or on another device on the same network.
 - [Installation](#installation)
 - [Features](#features)
 - [Extensions](#extensions)
-- [Reporting & collaboration](#reporting--collaboration)
+- [Reporting](#reporting)
 - [Mod compatibility](#mod-compatibility)
 - [Security & privacy](#security--privacy)
 - [Credits](#credits)
@@ -127,18 +127,15 @@ Known extensions:
 - **[SRS](https://github.com/roke77/NOXMFD-Extension-SRS)** — an SRS radio page for NOXMFD that shows and tunes your SRS radios.
 - **[TAC](https://github.com/roke77/NOXMFD-Extension-TAC)** — a Tactical Command target board for NOXMFD: TAC officers assign targets to squadrons, squad leaders acquire and report them.
 
-## Reporting & collaboration
+## Reporting
 
 Found a bug, or want a feature? Open an issue on the
 [issue tracker](https://github.com/roke77/NOXMFD/issues) — include your game and
 NO XMFD versions, and steps to reproduce for bugs. It's also where planned and
-in-progress work is tracked.
-
-Pull requests are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for dev setup,
-testing, and what's expected of a change before it's ready for review. For anything
-non-trivial, open an issue first so we can agree on the approach before you write
-code. Security issues have their own process — see
+in-progress work is tracked. Security issues have their own process — see
 [Verifying and reporting](SECURITY.md#verifying-and-reporting).
+
+To build NO XMFD from source, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Compatibility
 

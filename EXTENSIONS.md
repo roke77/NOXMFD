@@ -3,7 +3,7 @@
 NOXMFD supports third-party extensions that add their own MFD pages. An **extension** is a separate BepInEx plugin — its
 own `.dll`, its own repo, its own release cycle — that declares a dependency on NOXMFD and
 registers itself at runtime. Once registered, its page shows up under NOXMFD's **EXT** nav
-automatically: no fork of this repo, no pull request, no line of NOXMFD's own source changes.
+automatically, with no change to NOXMFD's own source.
 
 The common case is simple: you want your own MFD page — your own instruments, your own content,
 your own controls — reachable from the same display a pilot already has open, styled to match it.
