@@ -75,11 +75,10 @@ namespace NOXMFD
         private bool           _toggleMissingLogged;
         private bool           _targetCamReadFailureLogged;
         private bool           _lastDiagWantsTgp;
-        // Player report (2026-09): the TGP video feed sometimes appears to just stop mid-session,
-        // with nothing useful in the log — because ClearFeed()'s early-return guards (no aircraft,
-        // no TargetCam, cam disabled, reflection failure, ...) fire silently by design; they're the
-        // ordinary "nothing locked" path and log every tick would be noise. This flag distinguishes
-        // that from the case worth knowing about: a subscriber is still connected and watching, we
+        // ClearFeed()'s early-return guards (no aircraft, no TargetCam, cam disabled, reflection
+        // failure, ...) fire silently by design: they're the ordinary "nothing locked" path and
+        // logging every tick would be noise, so a feed that stops mid-session leaves no trace on
+        // its own. This flag distinguishes that from the case worth knowing about: a subscriber is still connected and watching, we
         // WERE actively pushing frames, and now we're not — logged once on the transition in and
         // once on recovery, never repeated while the condition persists.
         private volatile bool  _stallLogged;   // read/written from both the main thread (ClearFeed) and the encoder thread (EncoderLoop's recovery log), same as _active/_engaged above

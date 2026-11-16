@@ -607,7 +607,7 @@
     // DOC (issue #82 follow-up) — MAIN/MD (NAV.doc) via explicit cells, same shape as tgpNavItems,
     // with INDX/PREV/NEXT appended only while this portal's own DOC instance has an image open
     // (docView, set by setDocView above from doc.js's 'doc-view' messages) — mirrors the bezel's
-    // placeDocNavLabels exactly, one column (col 1) per the user-specified left-side placement.
+    // placeDocNavLabels exactly: one column (col 1), the left side.
     function docNavItems() {
       const items = [
         Object.assign({}, NAV.doc[0], { cell: { row: 1, col: 1 } }),
@@ -1040,10 +1040,9 @@
       // portal (and the button under a still-active hold) without pointerup/cancel/leave ever
       // firing on it, same as a re-render can.
       destroy: function () {
-        // Player report (2026-09): the TGP feed sometimes appears to just stop, with nothing
-        // useful in the log — a portal merge/removal destroys its iframe (and any live MJPEG
-        // connection) outright, so it's worth knowing when that happens to a TGP portal
-        // specifically, distinct from tgp.js's own pagehide log this triggers.
+        // A portal merge/removal destroys its iframe (and any live MJPEG connection) outright, so
+        // it's logged when that happens to a TGP portal specifically, distinct from tgp.js's own
+        // pagehide log this triggers.
         if (currentPage === 'tgp') console.info('[NOXMFD TGP] F-35 portal destroyed while showing TGP.');
         if (pendingNavHoldClear) { pendingNavHoldClear(); pendingNavHoldClear = null; }
         el.remove();

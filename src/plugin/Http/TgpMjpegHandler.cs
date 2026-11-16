@@ -63,13 +63,11 @@ namespace NOXMFD
 
             long lastSeen = -1;
             int subscribersNow = Interlocked.Increment(ref _subscribers);
-            // Player report (2026-09): "video feed just stops" with nothing useful in the log —
-            // because a disconnect (client navigated away, network blip, browser tab reclaimed) was
-            // never logged at all, only silently decremented in the finally block below. Connect/
-            // disconnect are the two events that actually tell us whether the CLIENT dropped the
-            // connection (this log line) or the SERVER stopped sending frames while the client
-            // stayed connected (TgpFeed's own stall warning) — two different bugs that look
-            // identical from the player's side, so telling them apart needs both logged.
+            // A stopped video feed looks the same whether the CLIENT dropped the connection
+            // (client navigated away, network blip, browser tab reclaimed) or the SERVER stopped
+            // sending frames while the client stayed connected (TgpFeed's own stall warning). The
+            // finally block below only decrements the counter, so connect/disconnect are logged
+            // here to tell those two failures apart.
             Plugin.Log?.LogInfo($"[NOXMFD] TGP MJPEG client connected (subscribers={subscribersNow}).");
             // Diagnostic: logs how long a client waited for the first REAL frame after the
             // placeholder below streamed. Confirmed live 2026-08-23 (3.25s and 4.3s cold starts) —

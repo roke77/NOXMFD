@@ -161,7 +161,7 @@ function renderRadarCone() {
 }
 
 // Active route (docs/rdr-fcr-hsd.md): DCS F-16 HSD style — thin solid white lines through the
-// waypoints in order, small hollow circles at each one. Deliberately austere by request: no
+// waypoints in order, small hollow circles at each one. Deliberately austere: no
 // numbering, no current-waypoint highlight, no reached/pending distinction (MAP already has the
 // full-featured version of this). A waypoint outside the selected range is simply not plotted
 // (the same cull hsdXY already applies to aerial contacts); a segment only draws when BOTH its

@@ -554,8 +554,8 @@ namespace NOXMFD
                     Plugin.Log?.LogInfo($"[NOXMFD] Keybind '{b.Id}': axis={b.AxisEntry!.Value} (stick {b.AxisJoyNumEntry!.Value} '{b.AxisJoyDevEntry!.Value}', invert={b.AxisInvertEntry!.Value}).");
             }
 
-            // A blank/corrupted com.roque.NOXMFD.cfg has already cost a player their whole HOTAS
-            // mapping once (a Mono runtime quirk wiping every keybind's converter registration —
+            // A blank/corrupted com.roque.NOXMFD.cfg loses the whole HOTAS mapping (a Mono
+            // runtime quirk can wipe every keybind's converter registration —
             // see the KeyboardShortcut.Empty comment above). _configFile lets every mutator below
             // back up the file BEFORE it changes anything (see BackupNow) — config.SettingChanged
             // fires only AFTER BepInEx has already saved the new value, too late to preserve the

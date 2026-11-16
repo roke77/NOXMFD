@@ -14,7 +14,7 @@ namespace NOXMFD
     //
     // Overlay layout/labels/colors mirror the web TGP page's own corner-group design (tgp.js's
     // applyOverlay/applyManualOverlay, tgp.css's .tgp-ov-* classes) field for field, rather than a
-    // new arrangement — same reference the user asked to match visually.
+    // new arrangement, so both TGP views read identically.
     //
     // Static class (like TgpManualControl), ticked every frame from TelemetryReader regardless of
     // whether any browser page is open — this is a native-only feature.

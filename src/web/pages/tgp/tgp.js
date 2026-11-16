@@ -12,10 +12,9 @@ const tgpOverlay = document.getElementById('tgp-overlay');
 // hard case where the connection breaks outright (network blip, backgrounded tab, server-side
 // disconnect). <img> never retries a stream on its own, so without this the feed stays dead
 // until the whole page is reloaded — reopen the connection ourselves instead.
-// Player report (2026-09): the video feed sometimes appears to just stop, with nothing useful in
-// the log — because none of this page's own teardown/resume/retry decisions were ever logged, so
-// there was no way to tell which one fired (or didn't). Tagged consistently so it's easy to filter
-// in devtools; console.info rather than .log/.debug so it survives a "Info" level filter.
+// Every teardown/resume/retry decision on this page is logged, so a stopped feed shows which one
+// fired (or didn't). Tagged consistently so it's easy to filter in devtools; console.info rather
+// than .log/.debug so it survives a "Info" level filter.
 function tgpLog(msg) { console.info('[NOXMFD TGP] ' + msg); }
 
 let tgpRetryCount = 0;

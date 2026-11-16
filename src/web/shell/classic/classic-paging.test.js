@@ -77,7 +77,7 @@ for (let total = 1; total <= 40; total++) {
   });
 }
 
-// The shape the user specified at eleven items: first page five items + NEXT, a middle page
+// The paging shape at eleven items: first page five items + NEXT, a middle page
 // PREV + four + NEXT, the last page PREV + two.
 assert.deepStrictEqual(P.mainPageSizes(11), [5, 4, 2], 'eleven items must page as 5 / 4 / 2');
 

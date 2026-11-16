@@ -1075,10 +1075,9 @@ function frameWin() { return pageFrame && pageFrame.contentWindow; }
 // itself. See STREAMING_FRAME_PAGES's own comment for why this is scoped rather than unconditional.
 function unloadIfStreaming(page) {
   if (STREAMING_FRAME_PAGES[page] && pageFrame.getAttribute('src')) {
-    // Player report (2026-09): the TGP feed sometimes appears to just stop, with nothing useful in
-    // the log — this is the one place the classic shell explicitly drops #page-frame's src for a
-    // streaming page, so it's worth knowing exactly when that fires and why (currentPage/splitMode
-    // at the moment of the call), separately from tgp.js's own pagehide log this triggers.
+    // The one place the classic shell explicitly drops #page-frame's src for a streaming page, which
+    // ends the TGP feed — logged with currentPage/splitMode at the moment of the call, separately
+    // from tgp.js's own pagehide log this triggers.
     console.info('[NOXMFD TGP] unloadIfStreaming("' + page + '"): dropping #page-frame src (currentPage="' + currentPage + '", splitMode=' + splitMode + ').');
     pageFrame.removeAttribute('src');
   }
@@ -1272,8 +1271,8 @@ function placeTgpNavLabels(force) {
 // DOC's own full-view nav (issue #82 follow-up) — hand-placed like placeTgpNavLabels above, not the
 // generic NAV[name] sweep, since which extras show depends on live view state (docView) rather than
 // a fixed list: MAIN/MD (NAV.doc, always) then INDX/PREV/NEXT — only while an image is actually
-// open, so they're not left clickable-but-inert over an index with nothing to act on. All left-bank
-// (user-specified placement), which conveniently doubles as this page's own overflow-avoidance:
+// open, so they're not left clickable-but-inert over an index with nothing to act on. All left-bank,
+// which doubles as this page's own overflow-avoidance:
 // at most 5 items, always under fullViewSlot's 6-per-bank ceiling.
 function placeDocNavLabels(force) {
   if (!force && docView === docNavLabelsKey) return;

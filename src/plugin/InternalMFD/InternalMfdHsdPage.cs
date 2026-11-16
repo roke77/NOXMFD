@@ -44,7 +44,7 @@ namespace NOXMFD
 
         // hsd.js's own CX=CEN_CY=300/CEN_OUTER=220/DEP_CY=500/DEP_OUTER=420 (in a 600 viewBox)
         // leave real margin above/below CEN's ring for header/footer text this pane doesn't draw
-        // inside the scope the same way — asked to close that gap entirely instead of matching the
+        // inside the scope the same way — the gap is closed entirely instead of matching the
         // source ratio, so CenOuterFrac is 1 (touches the pane edges exactly, same fill
         // InternalMfdRwrPage's own FillFrac=1 uses) rather than 220/300 (kept as a comment for
         // reference). Safe against the corner readouts: a circle touching all four edges of a

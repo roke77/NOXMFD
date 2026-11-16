@@ -41,7 +41,7 @@ namespace NOXMFD
         // rng isn't a wire field — rwr.js computes it client-side as
         // Math.hypot(dx,dz)/1000 from world positions, same as here.
         private const float MissileRangeMaxKm = 6f;
-        // 0, not rwr.html's own RIN=60/460 (~13%) — asked to close that gap so the line visually
+        // 0, not rwr.html's own RIN=60/460 (~13%) — the gap is closed so the line visually
         // touches the ownship caret instead of stopping short of it, a deliberate deviation from
         // the source's own small gap there.
         private const float MissileInnerFrac = 0f;

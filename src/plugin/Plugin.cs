@@ -31,7 +31,7 @@ namespace NOXMFD
         {
             Log = Logger;
             // Each wrapped separately: a config-system problem on the host (e.g. BepInEx missing a
-            // type converter it needs — seen in the wild as ConfigFile.Bind<KeyboardShortcut>
+            // type converter it needs, e.g. ConfigFile.Bind<KeyboardShortcut>
             // throwing ArgumentException on a broken/mismatched BepInEx install) would otherwise take
             // the whole plugin down in Awake, silently disabling telemetry along with it. This way
             // one broken subsystem logs a clear cause and the rest of the mod still starts.
