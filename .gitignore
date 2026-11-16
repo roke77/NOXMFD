@@ -24,3 +24,4 @@ _scratch/
 
 # Release zips (built + uploaded manually, never tracked)
 NOXMFD_*.zip
+*.stackdump
