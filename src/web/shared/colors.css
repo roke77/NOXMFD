@@ -65,6 +65,12 @@
   --no-hsd-yellow:     rgb(var(--no-hsd-yellow-rgb));
   --no-nuclear-orange-rgb: 232, 100, 44;  /* #e8642c — nuclear exclusion zone ring (MAP), matching the in-game map */
   --no-nuclear-orange:     rgb(var(--no-nuclear-orange-rgb));
+  /* ENG's ECAM skin (the F-35 layout's ENG, docs/eng-page.md): cyan for labels and units, grey for
+     the frames around readouts and the rules between sections. Page tokens of their own — the
+     cyan matches --no-teal by eye, but that one is the F-35 shell's chrome and pages don't read it. */
+  --no-ecam-cyan-rgb:  78, 201, 201;
+  --no-ecam-cyan:      rgb(var(--no-ecam-cyan-rgb));
+  --no-ecam-frame:     #8c949b;
   --no-blue-rgb:   77, 159, 255;
   --no-blue:       rgb(var(--no-blue-rgb));  /* mod-only decorative accent (WPN's MODE label, docs/radar-master-arms.md) */
   --no-bg:         var(--no-black);

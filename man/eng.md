@@ -43,3 +43,10 @@ Between the cards:
 Burn, endurance and range read `--` for the first second or so after spawning or refuelling,
 then settle within about ten seconds of a throttle change. Range shows `--` while you're taxiing
 or parked. Units follow the game's Imperial/Metric setting.
+
+## F-35 layout
+
+The F-35 layout draws ENG in a minimal ECAM style: the same cards, lever and fuel band, with open
+dials whose value sits in a box beside them. The RPM dials add a cyan circle showing where the
+throttle is set, the afterburner zone of the lever is red, and the **FUEL** dial boxes the mass,
+with the percentage of full capacity under it.
