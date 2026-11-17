@@ -32,17 +32,20 @@
   // Thrust when the engine reports a max thrust; turboshafts report 0 thrust and drive a rotor,
   // so they show shaft power instead (the same choice the game's cockpit EngineTelemetry makes).
   // A propeller reports thrust but no max to scale a dial against: a plain kN readout.
+  // `text` is the classic dial's value; the ECAM skin boxes `num` and puts `unit` by the label.
   function engineOutput(e) {
     if (e && e.prop === true) {
-      return { label: 'THR', value: -1, text: Math.round(Math.max(0, e.thr) / 1000) + ' kN', readout: true };
+      return output('THR', -1, Math.round(Math.max(0, e.thr) / 1000), 'kN', true);
     }
-    if (e && e.thrMax > 0) {
-      return { label: 'THR', value: clamp01(e.thr / e.thrMax), text: Math.round(e.thr / 1000) + ' kN' };
-    }
-    if (e && e.pwrMax > 0) {
-      return { label: 'PWR', value: clamp01(e.pwr / e.pwrMax), text: Math.round(e.pwr / 1000) + ' kW' };
-    }
-    return { label: 'THR', value: -1, text: '--' };
+    if (e && e.thrMax > 0) return output('THR', clamp01(e.thr / e.thrMax), Math.round(e.thr / 1000), 'kN');
+    if (e && e.pwrMax > 0) return output('PWR', clamp01(e.pwr / e.pwrMax), Math.round(e.pwr / 1000), 'kW');
+    return { label: 'THR', value: -1, text: '--', num: '--', unit: 'kN' };
+  }
+
+  function output(label, value, n, unit, readout) {
+    const o = { label: label, value: value, text: n + ' ' + unit, num: String(n), unit: unit };
+    if (readout) o.readout = true;
+    return o;
   }
 
   function engineStatus(st) {
@@ -63,12 +66,14 @@
     const massK = metric ? 1 : KG_TO_LB;
     const massUnit = metric ? 'kg' : 'lb';
     const fuelKg = eng && eng.fuelKg >= 0 ? eng.fuelKg : -1;
+    const capKg = eng && eng.fuelCapKg > 0 ? eng.fuelCapKg : -1;
     const burn = eng && typeof eng.burn === 'number' ? eng.burn : -1;   // kg/s
     const gs = eng && eng.gs > 0 ? eng.gs : 0;                          // m/s
 
     const out = {
       fuel: fuelKg >= 0 ? group(fuelKg * massK) : '--',
       fuelUnit: massUnit,
+      fuelCap: capKg > 0 ? group(capKg * massK) : '--',
       burn: '--', burnUnit: massUnit + '/min',
       endurance: '--:--',
       range: '--', rangeUnit: metric ? 'km' : 'nm',

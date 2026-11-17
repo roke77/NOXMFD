@@ -119,12 +119,12 @@
   transition: height 200ms linear, width 200ms linear;
 }
 /* A tall, narrow card (three or more engines) lays the HP tape flat under the dials, so the dials
-   get the card's full width. */
+   get the card's full width. The ECAM skin's slimmer tape stays upright beside its dials. */
 @container engcard (max-aspect-ratio: 1/2) {
-  .avn-engine-body, .avn-engine.mirror .avn-engine-body { flex-direction: column-reverse; }
-  .avn-hp { width: auto; height: clamp(14px, 2.4vmin, 20px); flex-direction: row; }
-  .avn-hp-tape { width: auto; height: 45%; flex-direction: row; justify-content: flex-start; }
-  .avn-hp-fill { height: 100%; width: calc(var(--hp, 0) * 100%); }
+  body:not(.ecam) .avn-engine-body, body:not(.ecam) .avn-engine.mirror .avn-engine-body { flex-direction: column-reverse; }
+  body:not(.ecam) .avn-hp { width: auto; height: clamp(14px, 2.4vmin, 20px); flex-direction: row; }
+  body:not(.ecam) .avn-hp-tape { width: auto; height: 45%; flex-direction: row; justify-content: flex-start; }
+  body:not(.ecam) .avn-hp-fill { height: 100%; width: calc(var(--hp, 0) * 100%); }
 }
 
 .avn-engine.ok .avn-chip { color: var(--no-green); }
@@ -373,14 +373,23 @@
 .avn-read-val { color: var(--no-green); font-size: clamp(16px, 4vmin, 38px); line-height: 1.1; white-space: nowrap; }
 .avn-read-val small { color: var(--no-label); font-size: max(9px, 0.4em); }
 
-/* A tall pane: the fuel dial and readouts share the first row, the tank bars get the second. */
+/* A tall pane: the fuel dial and readouts share the first row, the tank bars get the second. The
+   ECAM skin's dial is wider than tall, so it keeps one row down to a 1:2 pane. */
 @media (max-aspect-ratio: 3/4) {
-  .avn-fuel {
+  body:not(.ecam) .avn-fuel {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
   }
-  .avn-tanks { grid-column: 1 / -1; grid-row: 2; }
+  body:not(.ecam) .avn-tanks { grid-column: 1 / -1; grid-row: 2; }
+}
+@media (max-aspect-ratio: 1/2) {
+  body.ecam .avn-fuel {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  body.ecam .avn-tanks { grid-column: 1 / -1; grid-row: 2; }
 }
 
 /* ── Dials (fuel + each engine card) ──────────────────────────────────────────── */
@@ -488,3 +497,166 @@
 .avn-gauge.na { color: var(--no-white-dark); text-shadow: none; }
 .avn-gauge.na .avn-gauge-needle { opacity: 0.4; }
 .avn-engine.inop .avn-gauge { color: var(--no-white-dark); text-shadow: none; }
+
+/* ── ECAM skin (body.ecam, the F-35 layout's ENG via ?ecam) ───────────────────── */
+/* The same cards, pedestal and fuel band drawn ECAM-style: grey rules instead of rounded panels,
+   cyan labels and units, green values in grey frames, outlined tapes with a translucent fill under
+   a solid top line. avn.js builds the dials (open 210deg arc, boxed value) and tags the body. */
+.avn-lever-fill { display: none; }
+body.ecam .avn-chip { border-radius: 0; }
+body.ecam .avn-engine { border: 0; border-radius: 0; }
+body.ecam .avn-engine-head { border-bottom: 1px solid var(--no-ecam-frame); padding-bottom: 0.25em; }
+body.ecam .avn-engine.ok .avn-chip { border-color: transparent; }
+body.ecam .avn-hp-label, body.ecam .avn-hp::after { color: var(--no-ecam-cyan); }
+body.ecam .avn-hp::after { content: '%'; }
+body.ecam .avn-hp-tape {
+  width: clamp(10px, 1.8vmin, 16px);
+  background: none;
+  border: 2px solid var(--no-white);
+  border-radius: 0;
+  box-sizing: border-box;
+}
+body.ecam .avn-hp-val { border: 1px solid var(--no-ecam-frame); padding: 0 0.3em; color: var(--no-green); }
+/* --c is the tape's state colour: the fill is a tint of it under a solid line of it. */
+body.ecam .avn-engine .avn-hp-fill,
+body.ecam .avn-tank .avn-tank-fill {
+  --c: var(--no-green);
+  background: color-mix(in srgb, var(--c) 22%, transparent);
+  border-top: 2px solid var(--c);
+  box-sizing: border-box;
+}
+body.ecam .avn-engine.fault .avn-hp-fill { --c: var(--no-amber); }
+body.ecam .avn-engine.fault .avn-hp-val { color: var(--no-amber); }
+body.ecam .avn-engine.inop .avn-hp-fill { --c: var(--no-red); }
+
+body.ecam .avn-pedestal {
+  border: 0;
+  border-left: 1px solid var(--no-ecam-frame);
+  border-right: 1px solid var(--no-ecam-frame);
+  border-radius: 0;
+  background: none;
+}
+body.ecam .avn-ped-heads { color: var(--no-ecam-cyan); border-bottom: 1px solid var(--no-ecam-frame); padding-bottom: 0.3em; }
+body.ecam .avn-ped-reads { border-top-color: var(--no-ecam-frame); }
+body.ecam .avn-ped-val { border: 1px solid var(--no-ecam-frame); padding: 0 0.25em; color: var(--no-green); }
+body.ecam .avn-ped-sub { color: var(--no-ecam-cyan); }
+body.ecam .avn-ped-sub::after { content: ' %'; }
+body.ecam #avn-thr-zone { color: var(--no-white); }
+body.ecam #avn-thr-zone.ab { color: var(--no-red); }
+body.ecam #avn-thr-zone::after { color: var(--no-ecam-cyan); }
+
+/* Lever: a 2px scale line, AB in red from the top down to MIL (a red bar on the line plus a bracket
+   beside it), a translucent green bar from IDLE up to the handle, and an outlined handle. The 12px
+   end insets match the classic lever; the 12px handle is centred on its position. */
+body.ecam .avn-lever-slot {
+  width: 2px;
+  margin-left: -1px;
+  background: var(--no-white);
+  border: 0;
+  border-radius: 0;
+}
+/* The scale's half-travel mark. */
+body.ecam .avn-lever-slot::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: -6px;
+  width: 14px;
+  height: 2px;
+  margin-top: -1px;
+  background: var(--no-white);
+}
+body.ecam .avn-lever-ab { width: 4px; margin-left: -2px; background: var(--no-red); border-radius: 0; z-index: 1; }
+body.ecam .avn-lever-ab::after {
+  content: '';
+  position: absolute;
+  left: calc(100% + 4px);
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  border: 2px solid var(--no-red);
+  border-left: 0;
+  box-sizing: border-box;
+}
+body.ecam .avn-lever-detent, body.ecam .avn-lever-idle { left: calc(50% - 11px); right: auto; width: 22px; background: var(--no-white); }
+body.ecam .avn-lever-tag.ab { color: var(--no-red); }
+body.ecam .avn-lever-tag.mil { color: var(--no-white); }
+body.ecam .avn-lever-tag.idle { color: var(--no-ecam-cyan); }
+body.ecam .avn-lever-fill {
+  display: block;
+  position: absolute;
+  left: 50%;
+  width: 6px;
+  margin-left: -3px;
+  bottom: 12px;
+  height: calc((1 - var(--thr)) * (100% - 24px));
+  background: color-mix(in srgb, var(--no-green) 35%, transparent);
+  transition: height 200ms linear;
+}
+body.ecam .avn-lever.na .avn-lever-fill { display: none; }
+body.ecam .avn-lever-handle {
+  width: 34px;
+  height: 12px;
+  top: calc(var(--thr) * (100% - 24px) + 6px);
+  background: var(--no-black);
+  border: 2px solid var(--no-green);
+  border-radius: 0;
+  box-shadow: none;
+  z-index: 2;
+}
+body.ecam .avn-lever-handle i { display: none; }
+
+body.ecam .avn-heat-tape { border: 2px solid var(--no-white); box-sizing: border-box; }
+body.ecam .avn-heat-scale { display: none; }
+/* avn.js sets the game's heat colour inline (tinted fill, solid top line); these are its fallback. */
+body.ecam .avn-heat-lit {
+  background: color-mix(in srgb, var(--no-green) 25%, transparent);
+  border-top: 2px solid var(--no-green);
+  border-radius: 0;
+  box-sizing: border-box;
+}
+body.ecam .avn-heat-pointer { border-left-color: var(--no-green); }
+
+body.ecam .avn-fuel {
+  border: 0;
+  border-top: 1px solid var(--no-ecam-frame);
+  border-radius: 0;
+}
+body.ecam .avn-tank-name { color: var(--no-ecam-cyan); }
+body.ecam .avn-tank-kg { color: var(--no-green); }
+body.ecam .avn-tank-bar { border: 2px solid var(--no-white); }
+body.ecam .avn-tank.leak .avn-tank-fill { --c: var(--no-amber); }
+body.ecam .avn-tank.fire .avn-tank-fill { --c: var(--no-red); }
+body.ecam .avn-reads { border-left: 1px solid var(--no-ecam-frame); padding-left: clamp(6px, 1.6vmin, 16px); }
+body.ecam .avn-read-label, body.ecam .avn-read-val small { color: var(--no-ecam-cyan); text-transform: uppercase; }
+body.ecam .avn-read-sub { color: var(--no-ecam-frame); text-transform: uppercase; }
+
+/* ECAM dials: an SVG of their own (avnEcamGaugeHtml), so the classic dial's absolutely positioned
+   label/value rules are reset here and sizes are viewBox units. The gauge colour drives the needle
+   and the boxed value. */
+body.ecam .avn-gauge { color: var(--no-green); text-shadow: none; }
+body.ecam .avn-gauge-dial { width: 100%; height: 100%; }
+body.ecam .avn-gauge-dial text { transform: none; font-weight: 400; letter-spacing: 0; text-shadow: none; }
+body.ecam .avn-gauge .avn-gauge-val { font-size: 17px; fill: currentColor; stroke: none; }
+body.ecam .avn-gauge .avn-gauge-label { font-size: 12px; fill: var(--no-ecam-cyan); }
+body.ecam .avn-gauge .avn-gauge-unit { font-size: 9px; fill: var(--no-ecam-cyan); }
+body.ecam .avn-gauge .avn-gauge-sub { font-size: 9px; fill: var(--no-ecam-frame); }
+body.ecam .avn-gauge-mid { font-size: 7px; fill: var(--no-ecam-frame); }
+body.ecam .avn-gauge-track { stroke: var(--no-white); stroke-width: 2; stroke-linecap: butt; vector-effect: none; }
+body.ecam .avn-gauge-ticks line { stroke: var(--no-white); stroke-width: 1.5; }
+body.ecam .avn-gauge-caution { stroke: var(--no-amber); stroke-width: 2.5; }
+body.ecam .avn-gauge-box { fill: var(--no-black); stroke: var(--no-ecam-frame); stroke-width: 1; }
+body.ecam .avn-gauge-needle line { stroke: currentColor; stroke-width: 3; stroke-linecap: round; }
+body.ecam .avn-gauge-needle, body.ecam .avn-gauge-cmd {
+  transform-box: view-box;
+  transform-origin: 62px 58px;
+  transition: transform 200ms linear;
+}
+body.ecam .avn-gauge-cmd { fill: none; stroke: var(--no-ecam-cyan); stroke-width: 1.5; }
+body.ecam .avn-gauge.caution { color: var(--no-amber); }
+body.ecam .avn-gauge.critical { color: var(--no-red); }
+body.ecam .avn-engine.fault .avn-gauge { color: var(--no-amber); }
+body.ecam .avn-gauge.na,
+body.ecam .avn-engine.inop .avn-gauge { color: var(--no-white-dark); }
+body.ecam .avn-gauge.readout .avn-gauge-ticks,
+body.ecam .avn-gauge.readout .avn-gauge-mid { display: none; }

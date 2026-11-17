@@ -26,7 +26,9 @@ was this plan's central claim, and it holds. Two pages now render *differently*
 under the F-35, which is a different thing: AVN and MAP each grew a `?nochrome`
 option of their own, and the F-35 is a host that asks for it (see
 `docs/layouts-f35-build-log.md`'s "Decluttering"). The page decides what its
-own option means; the layout only picks.
+own option means; the layout only picks. ENG (page id `avn`) later added a
+second option of the same kind, `?ecam`, which the F-35 sets on every ENG
+portal to draw the page with ECAM-style dials (`docs/eng-page.md`).
 Nothing under `pages/` knows a layout exists.
 
 AVN and AFM are two separate pages today: AVN dropped its damage silhouette

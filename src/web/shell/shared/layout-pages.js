@@ -106,7 +106,10 @@
     // THRL/FUEL gauges instead), so a MAP portal draws its own mission bar + GRID chip, same as
     // the bezel's MAP. relay=1: never opens its own /stream — see CLASSIC_SPLIT.map above.
     map:  '/map-view?bare&relay=1',
-    avn:  '/avn',
+    // ?ecam: ENG's ECAM skin (docs/eng-page.md) — the same page and data, drawn with minimal
+    // ECAM-style dials. A URL flag for the same reason as ?nochrome: the page picks its markup
+    // before its first paint.
+    avn:  '/avn?ecam',
     afm:  '/afm',   // reuses the avn feed — see PAGE_FEEDS in f35.js
     adi:  '/adi',
     hsi:  '/hsi',

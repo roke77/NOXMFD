@@ -2,6 +2,39 @@
 // pure reactive renderer driven by the shell over postMessage; single source of truth for BOTH
 // layouts (full-screen iframe + split pane). See avn.html for the message contract.
 
+// ── ECAM skin ──────────────────────────────────────────────────────────────────────
+// ?ecam (the F-35 layout's ENG, layout-pages.js) swaps every dial's inner markup for an open 210deg
+// ECAM-style arc before the DOM refs below are taken, so the first paint is already the skin's.
+// Geometry: centre (62,58), r=46, zero at 165deg and full scale at 15deg (SVG angles, clockwise).
+const AVN_ECAM = new URLSearchParams(location.search).has('ecam');
+const AVN_SWEEP = AVN_ECAM ? 210 : 270;
+document.body.classList.toggle('ecam', AVN_ECAM);
+// ECAM boxes the bare number and prints the % beside the box (a tspan or avn.css ::after).
+function avnPct(v) { return Math.round(v * 100) + (AVN_ECAM ? '' : '%'); }
+function avnEcamGaugeHtml(label, unit, mid, fuel) {
+  return '<div class="avn-gauge-dial-wrap"><svg class="avn-gauge-dial" viewBox="0 6 140 ' + (fuel ? 104 : 94) + '">'
+    + '<path class="avn-gauge-track" d="M 17.57 69.91 A 46 46 0 1 1 106.43 69.91"/>'
+    + '<g class="avn-gauge-ticks"><line x1="24.33" y1="68.09" x2="17.57" y2="69.91"/>'
+    + '<line x1="62" y1="19" x2="62" y2="12"/><line x1="99.67" y1="68.09" x2="106.43" y2="69.91"/></g>'
+    + (mid ? '<text class="avn-gauge-mid" x="62" y="30" text-anchor="middle">' + mid + '</text>' : '')
+    // FUEL's caution mark sits at 25% (165 + 0.25*210 = 217.5deg); the engine RPM dial carries the
+    // throttle-command index instead, drawn at zero and rotated like the needle.
+    + (fuel ? '<line class="avn-gauge-caution" x1="31.06" y1="34.26" x2="25.5" y2="29.99"/>'
+            : label === 'RPM' ? '<circle class="avn-gauge-cmd" cx="17.57" cy="69.91" r="3.5"/>' : '')
+    + '<g class="avn-gauge-needle"><line x1="62" y1="58" x2="19.5" y2="69.39"/></g>'
+    + '<rect class="avn-gauge-box" x="' + (fuel ? 66 : 76) + '" y="72" width="' + (fuel ? 68 : 58) + '" height="24"/>'
+    + '<text class="avn-gauge-val" x="128" y="90" text-anchor="end">--</text>'
+    + '<text x="4" y="95"><tspan class="avn-gauge-label">' + label + '</tspan> <tspan class="avn-gauge-unit">' + unit + '</tspan></text>'
+    + (fuel ? '<text class="avn-gauge-sub" id="avn-fuel-mass" x="134" y="107" text-anchor="end"></text>' : '')
+    + '</svg></div>';
+}
+if (AVN_ECAM) {
+  const tpl = document.getElementById('avn-engine-tpl').content;
+  tpl.querySelector('.avn-gauge.rpm').innerHTML = avnEcamGaugeHtml('RPM', '%', '50', false);
+  tpl.querySelector('.avn-gauge.out').innerHTML = avnEcamGaugeHtml('THR', 'kN', '', false);
+  document.getElementById('avn-gauge-fuel').innerHTML = avnEcamGaugeHtml('FUEL', 'KG', '1/2', true);
+}
+
 // ── DOM refs ───────────────────────────────────────────────────────────────────────
 const avnPanel     = document.getElementById('avn-panel');
 const avnEmptyEl   = document.getElementById('avn-empty');
@@ -17,6 +50,7 @@ const avnHeatLit   = document.getElementById('avn-heat-lit');
 const avnHeatVal   = document.getElementById('avn-heat-val');
 const avnGaugeFuel = document.getElementById('avn-gauge-fuel');
 const avnFuelMass  = document.getElementById('avn-fuel-mass');
+const avnFuelUnit  = avnGaugeFuel.querySelector('.avn-gauge-unit');   // ECAM only
 const avnTanksEl   = document.getElementById('avn-tanks');
 const avnBurn      = document.getElementById('avn-burn');
 const avnBurnUnit  = document.getElementById('avn-burn-unit');
@@ -81,8 +115,9 @@ function layoutAvnContent() {
 
 function paintAvn() {
   const eng = avnData.eng;
-  paintAvnEngines(eng && Array.isArray(eng.engines) ? eng.engines : []);
-  paintAvnPedestal();
+  const thr = AvnThrottlePolicy.throttleReadout(avnData.throttle, avnData.hasAb, avnData.abStart);
+  paintAvnEngines(eng && Array.isArray(eng.engines) ? eng.engines : [], thr);
+  paintAvnPedestal(thr);
   paintAvnFuel(eng);
 }
 
@@ -109,12 +144,13 @@ function buildAvnEngineCards(engines) {
       rpm: el.querySelector('.avn-gauge.rpm'),
       out: el.querySelector('.avn-gauge.out'),
       outLabel: el.querySelector('.avn-gauge.out .avn-gauge-label'),
+      outUnit: el.querySelector('.avn-gauge.out .avn-gauge-unit'),   // ECAM only
       label: labels[i],
     });
   }
 }
 
-function paintAvnEngines(engines) {
+function paintAvnEngines(engines, thr) {
   const key = engines.map(function (e) { return e.prop === true ? 'p' : 'e'; }).join('');
   if (avnEngineKey !== key) {
     avnEngineKey = key;
@@ -129,17 +165,25 @@ function paintAvnEngines(engines) {
 
     const hp = typeof e.hp === 'number' && e.hp >= 0 ? e.hp : -1;
     c.el.style.setProperty('--hp', String(hp >= 0 ? hp : 0));
-    c.hpVal.textContent = hp >= 0 ? Math.round(hp * 100) + '%' : '--';
+    c.hpVal.textContent = hp >= 0 ? avnPct(hp) : '--';
 
     paintAvnGauge(c.rpm, typeof e.rpm === 'number' ? e.rpm : -1, null, null);
+    // ECAM's throttle-command index on the RPM dial: where the lever asks the engine to be.
+    const cmd = avnGaugeParts(c.rpm).cmd;
+    if (cmd) {
+      cmd.style.visibility = thr.na ? 'hidden' : '';
+      cmd.style.transform = 'rotate(' + avnNeedleAngle(thr.fill) + ')';
+    }
     const out = AvnEngPolicy.engineOutput(e);
+    const outText = AVN_ECAM ? out.num : out.text;
     c.outLabel.textContent = out.label;
+    if (c.outUnit) c.outUnit.textContent = out.unit;
     c.out.classList.toggle('readout', out.readout === true);
     if (out.readout) {
       c.out.classList.remove('na');
-      avnGaugeParts(c.out).val.textContent = out.text;
+      avnGaugeParts(c.out).val.textContent = outText;
     } else {
-      paintAvnGauge(c.out, out.value, null, null, out.text);
+      paintAvnGauge(c.out, out.value, null, null, outText);
     }
     c.rpm.setAttribute('aria-label', c.label + ' RPM ' + avnGaugeParts(c.rpm).val.textContent);
     c.out.setAttribute('aria-label', c.label + ' ' + out.label + ' ' + out.text);
@@ -147,14 +191,14 @@ function paintAvnEngines(engines) {
 }
 
 // ── Pedestal: throttle lever + heat tape ───────────────────────────────────────────
-function paintAvnPedestal() {
-  const r = AvnThrottlePolicy.throttleReadout(avnData.throttle, avnData.hasAb, avnData.abStart);
+function paintAvnPedestal(r) {
   avnLever.classList.toggle('na', r.na);
   avnLever.classList.toggle('has-ab', r.boundary !== null);
   avnLever.style.setProperty('--thr', String(1 - r.fill));
   avnLever.style.setProperty('--ab', String(r.boundary !== null ? 1 - r.boundary : 0));
   avnLeverTagMil.hidden = r.boundary === null;
-  avnThrVal.textContent = r.text;
+  // ECAM boxes the bare number; the sub-line under it carries the % (avn.css).
+  avnThrVal.textContent = AVN_ECAM ? r.text.replace('%', '') : r.text;
   avnThrZone.textContent = r.zone === 'ab' ? 'AB' : r.zone === 'mil' ? 'MIL' : '';
   avnThrZone.classList.toggle('ab', r.zone === 'ab');
   avnLever.setAttribute('aria-label', 'Throttle ' + r.text + (r.zone === 'ab' ? ' afterburner' : ''));
@@ -162,9 +206,12 @@ function paintAvnPedestal() {
   const heat = avnData.heat;
   const h = typeof heat === 'number' && heat >= 0 ? Math.min(1, heat) : 0;
   avnHeatTape.style.setProperty('--heat', String(h));
-  // The lit segment takes the colour the game's own cockpit IR gauge shows at this value.
-  avnHeatLit.style.background = avnData.heatColor || '';
-  avnHeatVal.textContent = heat >= 0 ? Math.round(h * 100) + '%' : '--';
+  // The lit segment takes the colour the game's own cockpit IR gauge shows at this value; ECAM
+  // draws it as a translucent fill under a solid top line.
+  const hc = avnData.heatColor || '';
+  avnHeatLit.style.background = AVN_ECAM && hc ? 'color-mix(in srgb, ' + hc + ' 25%, transparent)' : hc;
+  avnHeatLit.style.borderTopColor = hc;
+  avnHeatVal.textContent = heat >= 0 ? avnPct(h) : '--';
   avnHeatVal.style.color = avnData.heatColor || '';
 }
 
@@ -182,10 +229,18 @@ function buildAvnTanks(tanks) {
 }
 
 function paintAvnFuel(eng) {
-  paintAvnGauge(avnGaugeFuel, avnData.fuel, 0.25, 0.10);
   const metric = avnData.metric !== false;
   const f = AvnEngPolicy.fuelReadouts(eng, metric);
-  avnFuelMass.textContent = f.fuel === '--' ? '' : f.fuel + ' ' + f.fuelUnit;
+  if (AVN_ECAM) {
+    // The mass is the boxed value; the fraction and the capacity move to the sub-line.
+    paintAvnGauge(avnGaugeFuel, avnData.fuel, 0.25, 0.10, f.fuel);
+    avnFuelUnit.textContent = f.fuelUnit.toUpperCase();
+    avnFuelMass.textContent = avnData.fuel < 0 ? ''
+      : Math.round(Math.min(1, avnData.fuel) * 100) + ' %' + (f.fuelCap !== '--' ? ' OF ' + f.fuelCap : '');
+  } else {
+    paintAvnGauge(avnGaugeFuel, avnData.fuel, 0.25, 0.10);
+    avnFuelMass.textContent = f.fuel === '--' ? '' : f.fuel + ' ' + f.fuelUnit;
+  }
   avnBurn.textContent = f.burn;
   avnBurnUnit.textContent = f.burnUnit;
   avnEndur.textContent = f.endurance;
@@ -209,14 +264,15 @@ function paintAvnFuel(eng) {
 }
 
 // ── Dials ──────────────────────────────────────────────────────────────────────────
-// The needle is drawn pointing at the dial's zero position (-135deg); rotating it v*270deg
-// clockwise covers the same 270deg sweep as the shared tick ring.
-function avnNeedleAngle(v) { return (v * 270).toFixed(1) + 'deg'; }
+// The needle is drawn pointing at the dial's zero position; rotating it v*AVN_SWEEP clockwise covers
+// the dial's sweep (270deg classic, 210deg ECAM).
+function avnNeedleAngle(v) { return (v * AVN_SWEEP).toFixed(1) + 'deg'; }
 
 // The fill arc from zero to v: dasharray = the path's own length L, dashoffset = L*(1-v), so only
 // the first v*L of the path stays visible. getTotalLength() is cached per element.
 const avnGaugeFillLengths = new WeakMap();
 function setAvnGaugeFill(fillEl, v) {
+  if (!fillEl) return;   // ECAM dials have no fill arc
   let L = avnGaugeFillLengths.get(fillEl);
   if (L === undefined) { L = fillEl.getTotalLength(); avnGaugeFillLengths.set(fillEl, L); }
   // Unitless: user-space units of the viewBox, matching getTotalLength().
@@ -233,6 +289,7 @@ function avnGaugeParts(gaugeEl) {
       needle: gaugeEl.querySelector('.avn-gauge-needle'),
       fill:   gaugeEl.querySelector('.avn-gauge-fill'),
       val:    gaugeEl.querySelector('.avn-gauge-val'),
+      cmd:    gaugeEl.querySelector('.avn-gauge-cmd'),
     };
     avnGaugePartsCache.set(gaugeEl, p);
   }
@@ -256,7 +313,7 @@ function paintAvnGauge(gaugeEl, value01, cautionAt, criticalAt, text) {
   else if (cautionAt  !== null && v <= cautionAt)  gaugeEl.classList.add('caution');
   needle.style.transform = 'rotate(' + avnNeedleAngle(v) + ')';
   setAvnGaugeFill(fill, v);
-  valEl.textContent = text !== undefined ? text : Math.round(v * 100) + '%';
+  valEl.textContent = text !== undefined ? text : avnPct(v);
 }
 
 // ── Shell → page forwarding ──────────────────────────────────────────────────────────

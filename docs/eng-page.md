@@ -79,6 +79,25 @@ has no `condition`.
 - ENG joins the classic layout's `LABEL_INSET_PAGES`, so the bezel labels never cover a card.
 - An engine that blows off keeps its card, reading INOP with zero output.
 
+## ECAM skin (F-35 layout)
+
+The F-35 layout mounts ENG as `/avn?ecam` (`layout-pages.js`); the classic layout keeps the dials
+above. Same structure, data and multi-engine grids, drawn ECAM-style (canvas artboard A2):
+
+- Dials: an open 210deg white arc with ticks at 0, 50 and 100%, a coloured needle, the value boxed
+  in grey at the lower right and the cyan label + unit at the lower left. No fill arc.
+- RPM dials carry a cyan throttle-command index at the lever position.
+- FUEL dial: fuel mass boxed, an amber tick at 25%, the fraction and capacity as a `67 % OF 5,100`
+  sub-line.
+- Grey rules replace the rounded panels; HP, heat and tank tapes are white outlines with a
+  translucent fill under a solid top line; labels and units cyan, values green.
+- Throttle lever: a white scale line, the AB zone red (a bar on the line plus a bracket, red AB tag),
+  a translucent green bar from IDLE to an outlined handle.
+
+`avn.js` reads the flag before its DOM refs and replaces the template and fuel gauges' inner markup
+(`avnEcamGaugeHtml`); `body.ecam` scopes the skin's rules at the end of `avn.css`. The cyan and grey
+are the page tokens `--no-ecam-cyan` / `--no-ecam-frame`, not the F-35 shell's `--no-teal`.
+
 ## Live-game verification
 
 Not exercisable in the browser harness; check in a mission:
@@ -95,3 +114,5 @@ Not exercisable in the browser harness; check in a mission:
    re-establishes the estimate; pausing leaves the values frozen.
 7. Imperial setting switches to lb / nm / kt.
 8. Log shows no `[NOXMFD]` warning about `condition`, `leakRate` or `onFire`.
+9. F-35 layout: ENG draws the ECAM skin; the RPM dials' cyan index follows the throttle, the AB
+   zone is red on an AB aircraft and absent otherwise.
