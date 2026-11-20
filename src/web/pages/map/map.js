@@ -563,8 +563,11 @@ function drawJamGlyph(cx, cy, r) {
 // native in-game map's placement) every 10 km. Toggleable via the GRID key, off by default.
 // Iterated by integer grid-line index rather than accumulating world-unit floats, so "is this a
 // major line" (index % 10 === 0) never drifts off after many additions.
+// Zoomed in far enough for a 1 km square to hold its name, a second, smaller row of edge labels
+// names each square (40..49 along the top, Ja..Jj down the left), as the native map does.
 const GRID_MINOR_UNIT  = 1000;   // world units per minor line (1 km)
 const GRID_LINES_PER_MAJOR = 10; // minor lines between major lines (10 km majors)
+const GRID_MINOR_LABEL_PX = 36;  // on-screen width of a 1 km square before its labels show
 function drawGrid() {
   if (!gridOn || !mapMeta || mapMeta.w <= 0 || mapMeta.h <= 0) return;
   // Drawn out to the mission's real reachable extent (rw/rh, issue #65), not just the smaller w/h
@@ -619,6 +622,29 @@ function drawGrid() {
     if (i < iMinZ) continue;
     const p = worldToOverlay(wMinX, mapMeta.oy - i * GRID_MINOR_UNIT);
     if (p) oc.fillText(String.fromCharCode(65 + i / GRID_LINES_PER_MAJOR), 4, p.cy + 2);
+  }
+
+  // Minor-square labels, centred in each square's column/row and inset past the major labels. Each
+  // edge keeps clear of the other's labels, so the top-left corner holds neither.
+  // Named by gridLabel() at the square's centre, so the text is exactly what GRID/CURSOR read
+  // there — a point on the line itself would floor into whichever square float error picks.
+  const o = worldToOverlay(0, 0), e = worldToOverlay(GRID_MINOR_UNIT, 0);
+  if (o && e && Math.abs(e.cx - o.cx) >= GRID_MINOR_LABEL_PX) {
+    const centre = (i, j) => gridLabel((i + 0.5) * GRID_MINOR_UNIT - mapMeta.ox,
+                                       mapMeta.oy - (j + 0.5) * GRID_MINOR_UNIT, mapMeta);
+    oc.font = '14px "Courier New", monospace';
+    oc.textAlign = 'center';
+    oc.textBaseline = 'top';
+    for (let i = iMinX; i < iMaxX; i++) {
+      const p = worldToOverlay((i + 0.5) * GRID_MINOR_UNIT - mapMeta.ox, wMaxZ);
+      if (p && p.cx >= 56 && p.cx <= overlay.width) oc.fillText(centre(i, iMinZ).slice(2), p.cx, 30);
+    }
+    oc.textAlign = 'left';
+    oc.textBaseline = 'middle';
+    for (let j = iMinZ; j < iMaxZ; j++) {
+      const p = worldToOverlay(wMinX, mapMeta.oy - (j + 0.5) * GRID_MINOR_UNIT);
+      if (p && p.cy >= 52 && p.cy <= overlay.height) oc.fillText(centre(iMinX, j).slice(0, 2), 26, p.cy);
+    }
   }
   oc.restore();
 }

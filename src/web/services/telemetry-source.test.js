@@ -36,6 +36,15 @@ const assert = require('assert');
     assert.strictEqual(gridLabel(-50000, 49000, meta), 'Ab00', '1km south should step the lowercase letter');
     assert.strictEqual(gridLabel(-50000, -50000, meta), 'Ka00', '100km south should be ten uppercase steps');
 
+    // MAP's 1 km edge labels (map.js drawGrid) name square i across, j down by the label at its
+    // centre — digits along the top, letters down the left. An offset that isn't a whole km must not
+    // shift a square's name, as a point on its line could.
+    const odd = { w: 100000, h: 100000, ox: 50000.7, oy: 49999.3 };
+    const centre = (i, j) => gridLabel((i + 0.5) * 1000 - odd.ox, odd.oy - (j + 0.5) * 1000, odd);
+    assert.strictEqual(centre(45, 92), 'Jc45', 'square 45 across, 92 down is Jc45');
+    assert.strictEqual(centre(40, 90).slice(2), '40', 'first square of a major column reads 40');
+    assert.strictEqual(centre(49, 99).slice(0, 2), 'Jj', 'last square of a major row reads Jj');
+
     // No map metadata yet (pre-mission, or a map that never loaded) — a dash, not a crash or 'NaN'.
     assert.strictEqual(gridLabel(0, 0, null), '—', 'missing meta should read as a dash');
     assert.strictEqual(gridLabel(0, 0, undefined), '—', 'undefined meta should read as a dash');
