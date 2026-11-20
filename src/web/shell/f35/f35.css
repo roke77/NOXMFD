@@ -792,7 +792,8 @@ html, body {
 .portal-grip.right { right: 4px; }
 
 .portal-grip svg { display: block; width: 100%; height: 100%; }
-.portal-grip polygon {
+.portal-grip polygon,
+.portal-grip polyline {
   fill: none;
   stroke: currentColor;
   stroke-width: 2;

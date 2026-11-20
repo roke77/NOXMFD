@@ -45,7 +45,9 @@ screen divides into side-by-side portals, each an independent MFD, that you merg
 corner grips. Each portal keeps a narrow column of glass beside its page for the labels, so they
 never cover what the page shows; the grips sit at the bottom of those columns. MAP, TGP, RWR, FCR
 and HSD are the exception: the map, the camera feed and the scopes fill the whole portal and their
-labels sit on top. A fixed
+labels sit on top. The leftmost portal's bottom-left grip, a triangle with **»** inside, expands
+it over the whole glass as one big MFD; a grip in the bottom-right corner, pointing back with
+**«**, restores the portals it covered, each on the page it had. A fixed
 strip across the top carries the **NO XMFD** wordmark with the connection address and status under
 it (left), up to four widgets (middle), and **MENU** (right). MENU drops down the layout controls —
 **SAVE LAYOUT** and **LOAD LAYOUT** (see [Save/Load Layout](#saveload-layout)), **PIN** and **SWAP** —

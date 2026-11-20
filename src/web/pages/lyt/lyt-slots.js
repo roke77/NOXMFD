@@ -3,8 +3,9 @@
 // A saved layout's `data` is the shell's own serialized arrangement:
 // - CLASSIC (mfd.js captureLayoutState): { splitMode, splitVariant: 'h'|'v'|'vw'|'vwr', pages: [...] }
 //   — one page in full view, one per pane in a split (pane 0 is the top or left one).
-// - F-35 (f35.js captureLayoutState): { cells: [{span, ate?}], pages: [...] } — one cell per portal,
-//   left to right, spans summing to the glass's four slots (f35-glass.js).
+// - F-35 (f35.js captureLayoutState): { cells: [{span, ate?, was?}], pages: [...] } — one cell per
+//   portal, left to right, spans summing to the glass's four slots (f35-glass.js); a single cell
+//   spanning all four is a full portal.
 //
 // Classic <script> (global LytSlots), not a module: the LYT page and the CLASSIC shell's save dialog
 // both use it, and the shell has no module graph.
@@ -57,12 +58,12 @@
   // Each portal a full-height column, as wide as its span. Cells the glass can't take fall back to
   // four single portals, as f35.js applyLayoutState does.
   function f35Split(cells) {
-    const ok = cells.every((c) => c && (c.span === 1 || c.span === 2)) &&
+    const ok = cells.every((c) => c && (c.span === 1 || c.span === 2 || (c.span === F35_SLOTS && cells.length === 1))) &&
                cells.reduce((n, c) => n + c.span, 0) === F35_SLOTS;
     const spans = ok ? cells.map((c) => c.span) : [1, 1, 1, 1];
     let x = 0;
     const rects = spans.map((n) => { const r = [x / F35_SLOTS, 0, n / F35_SLOTS, 1]; x += n; return r; });
-    return { label: spans.length + ' PORTALS', rects, sides: spans.map((_, i) => 'PORTAL ' + (i + 1)) };
+    return { label: spans.length + (spans.length === 1 ? ' PORTAL' : ' PORTALS'), rects, sides: spans.map((_, i) => 'PORTAL ' + (i + 1)) };
   }
 
   function describeLayouts(items) { return items.map(describeLayout); }

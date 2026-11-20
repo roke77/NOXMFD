@@ -52,4 +52,8 @@ assert.deepStrictEqual(swapStep(rwr, rwr, map), { to: map, partner: map });
 assert.deepStrictEqual(swapStep(glass(left, ['map', 'rwr', 'tgp']), glass(right, ['map', 'rwr', 'tgp']), null),
   { to: glass(right, ['map', 'rwr', 'tgp']), partner: glass(left, ['map', 'rwr', 'tgp']) });
 
+// A full F-35 portal keeps the arrangement it covered, so SWAP back to it can still restore.
+const fullGlass = glass([{ span: 4, was: { cells: [{ span: 2, ate: 'right' }, { span: 2, ate: 'left' }], at: 0, pages: ['map', 'rwr'] } }], ['map']);
+assert.deepStrictEqual(pinFromState({ pinnedLayout: fullGlass }), fullGlass);
+
 console.log('layout-pin.test.js OK');

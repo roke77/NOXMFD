@@ -20,7 +20,9 @@ next to them; they still show their hover label.
 - **FLW** — toggle follow: recenter the map on your own position as you fly, instead of staying
   wherever you last panned it.
 - **CFG** — open [MAP's own settings page](mapcfg.md) (telemetry refresh rate, pilot name labels).
-- **GRID** — toggle a coordinate grid overlay on the map. Off by default.
+- **GRID** — toggle a coordinate grid overlay on the map. Off by default. Zoomed in, each 1 km
+  square is labelled too (40–49 along the top, Ja–Jj down the left), so a square's full reference
+  reads straight off the edges.
 - **Z+ / Z−** — zoom in / out, from the whole map down to the in-game map's closest zoom. Pinch,
   the mouse wheel, and the Cursor Zoom keybinds cover the same range.
 - **WPT** — open the [route and steer-point pages](wpt.md).

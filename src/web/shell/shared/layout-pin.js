@@ -34,7 +34,10 @@
     if (!pin || !Array.isArray(pin.pages) || !pin.pages.length) return null;
     // F-35 cells the glass can't take rebuild the default glass on apply (f35.js applyArrangement).
     const arr = Array.isArray(pin.cells)
-      ? { cells: pin.cells.map(function (c) { return c.ate ? { span: c.span, ate: c.ate } : { span: c.span }; }),
+      ? { cells: pin.cells.map(function (c) {
+            // A full portal's `was` rides along, so SWAP back to it can still restore what it covered.
+            return c.ate ? { span: c.span, ate: c.ate } : c.was ? { span: c.span, was: c.was } : { span: c.span };
+          }),
           pages: pin.pages.slice(0, pin.cells.length) }
       : pin.splitMode
       ? { splitMode: true, splitVariant: VARIANTS.indexOf(pin.splitVariant) !== -1 ? pin.splitVariant : 'h',

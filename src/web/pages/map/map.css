@@ -52,6 +52,9 @@ main { flex: 1; display: flex; overflow: hidden; }
   justify-content: flex-end;
 }
 
+/* ?grips: clear of the F-35 portal's corner grip, at most 48px wide and 4px in from the edge. */
+html.grips #map-status-bar { right: 60px; }
+
 /* CURSOR, GRID, and ROUTE (issue #38) chips are plain .mfd-chip content — #map-status-bar above
    owns their layout, so none needs its own position/spacing rule. */
 

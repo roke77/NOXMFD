@@ -14,7 +14,9 @@ bezel remains the default, and every page renders on it exactly as before.
   on it (MAIN, MAP, AVN, RWR, TGT, TGP, WPN, BDF, PAL, HUD, KEY, RDR) — one
   exception below (AFM). The glass is four independent
   portals, each framed as a whole box, and the corner grips merge adjacent
-  ones and split them back — five arrangements, never fewer than two portals.
+  ones and split them back — five arrangements of two to four portals. The
+  leftmost portal's outer grip (a triangle with a double chevron) expands it
+  over the whole glass; a bottom-right grip restores the arrangement it covered.
   A fixed **master strip** runs across the top, carrying the aircraft-level
   chrome the navigation-only MAIN has no room for: the wordmark, the
   connection URLs and status, the mission name and ownship grid, the THRL and

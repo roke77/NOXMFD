@@ -55,5 +55,9 @@ const assert = require('assert');
   assert.deepStrictEqual(glass.soi, [true, false, true]);
   assert.deepStrictEqual([bad.label, bad.rects.length, bad.pages], ['4 PORTALS', 4, ['TGP', 'MAIN', 'MAIN', 'MAIN']]);
 
+  // A full portal is one column over the whole glass.
+  const [whole] = describeLayouts([item(3, { cells: [{ span: 4, was: { cells: [{ span: 1 }, { span: 1 }, { span: 2, ate: 'left' }], at: 0 } }], pages: ['map'] })]);
+  assert.deepStrictEqual([whole.label, whole.rects, whole.pages], ['1 PORTAL', [[0, 0, 1, 1]], ['MAP']]);
+
   console.log('lyt-slots.test.js: OK');
 }

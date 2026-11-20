@@ -210,7 +210,8 @@ selected FCR range follows the same pattern under `noxmfd.rdr.view`; HSD keeps i
 - **Split view (bezel):** two stacked pane iframes (`/<page>?bare` each). The shell forwards data
   to both.
 - **F-35 (`shell/f35/`):** a third, N-way layout instead of full/split — up to 4 portals, each an
-  independent `/<page>?bare` iframe; corner grips merge/split them (`f35-glass.js`). WPN's own
+  independent `/<page>?bare` iframe; corner grips merge/split them or expand the leftmost over the
+  whole glass (`f35-glass.js`). WPN's own
   pagination is `f35-wpn-paging.js`; the master strip's widget slots are `f35-strip.js`.
 - **Every NAV destination resolves in both layouts**, so nothing renders dimmed. The two routing
   tables sit together in `shell/shared/layout-pages.js` for that reason, and `layout-coverage.test.js`
