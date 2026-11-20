@@ -329,6 +329,9 @@
   // A grip sits in the corner facing what it acts on, and only its DIRECTION says what that is:
   //   * outward — take the neighbour on that side, becoming twice as wide.
   //   * inward  — give back the slot it took, splitting in two again.
+  // The leftmost portal's outer corner adds one more, marked with a double chevron inside the
+  // triangle: across the whole glass to take all of it, then from the far corner back to restore
+  // what was there.
   // Which grips a portal has is f35-glass's rule, not this file's: it depends on how the whole
   // glass is currently divided, not on any one portal.
   const GRIP_POINTS = { left: '2,50 98,2 98,98', right: '98,50 2,2 2,98' };
@@ -336,7 +339,12 @@
     'merge-left':  'Expand over the portal to the left',
     'merge-right': 'Expand over the portal to the right',
     'split':       'Split this portal in two',
+    'full':        'Expand this portal over the whole display',
+    'restore':     'Restore the portals this one covered',
   };
+  // The double chevron sits in the triangle's wide end, where there is room for it.
+  const GRIP_CHEVRONS = { right: ['14,36 26,50 14,64', '28,36 40,50 28,64'],
+                          left:  ['86,36 74,50 86,64', '72,36 60,50 72,64'] };
 
   // Drawn as SVG because the reference's triangles are outlines, and the CSS border trick only
   // makes solid ones. The triangle fills its square button; non-scaling-stroke (in the CSS) keeps
@@ -353,6 +361,13 @@
     const poly = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
     poly.setAttribute('points', GRIP_POINTS[spec.aim]);
     svg.appendChild(poly);
+    if (spec.action === 'full' || spec.action === 'restore') {
+      GRIP_CHEVRONS[spec.aim].forEach(function (pts) {
+        const line = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+        line.setAttribute('points', pts);
+        svg.appendChild(line);
+      });
+    }
     b.appendChild(svg);
     b.addEventListener('click', function () { onClick(spec.action); });
     return b;
@@ -1058,17 +1073,16 @@
   // which grips each portal gets, is f35-glass's rule (and f35-glass.test.js pins it): five
   // layouts, no triples, and every merge reachable from either side.
   //
-  // The glass is never one screen — a merge is a pair and nothing wider, so at least two portals
-  // always remain. The real PCD isn't one screen either.
+  // A merge is a pair and nothing wider. The one way to a single screen is the leftmost portal's
+  // full grip, which covers the whole glass and remembers the arrangement it covered.
   //
-  // What that costs: no portal ever covers the glass, so none can borrow the tap, and a MAP portal
-  // always mounts its own map alongside the stream the tap is already running. The bezel pays the
-  // same in split mode.
+  // A MAP portal always mounts its own map alongside the stream the tap is already running, full
+  // or not. The bezel pays the same in split mode.
   function cells() { return portals.map(function (p) { return p.cell; }); }
   function livePortals() { return portals; }
 
   // Rebuild every portal's grips from the arrangement, and let each know its box moved. Called
-  // after anything that changes the glass — which is only ever a merge or a split.
+  // after anything that changes the glass — a merge, a split, full or restore.
   function refreshGlass() {
     const cs = cells();
     portals.forEach(function (p, i) {
@@ -1094,14 +1108,42 @@
     return p;
   }
 
+  // A portal's cell object is held by the portal, so it is rewritten in place rather than replaced.
+  function setCell(p, c) {
+    Object.keys(p.cell).forEach(function (k) { delete p.cell[k]; });
+    Object.assign(p.cell, c);
+  }
+
   // A grip was pressed. The survivor is left alone — it keeps its page and everything on it, and
   // just changes width. An absorbed portal is destroyed, taking its iframe and any map stream with
-  // it, and comes back fresh on MAIN.
+  // it, and comes back fresh on MAIN — except after full, whose restore brings each one back on
+  // the page it had.
   function onGrip(portal, action) {
     const i = portals.indexOf(portal);
     if (i < 0) return;
 
-    if (action === 'split') {
+    if (action === 'full') {
+      const next = F35Glass.full(cells(), i);
+      if (!next) return;
+      next[0].was.pages = portals.map(function (p) { return p.page(); });
+      portals.forEach(function (p) { if (p !== portal) p.destroy(); });
+      portals = [portal];
+      setCell(portal, next[0]);
+    } else if (action === 'restore') {
+      const back = F35Glass.restore(cells());
+      if (!back) return;
+      const pages = (portal.cell.was && portal.cell.was.pages) || [];
+      // Inserted around the survivor rather than rebuilding the row: moving its iframe in the DOM
+      // would reload it and drop the map's zoom and pan.
+      portals = back.cells.map(function (c, k) {
+        if (k === back.survivor) { setCell(portal, c); return portal; }
+        const p = makePortal(onGrip, onNavRendered);
+        setCell(p, c);
+        portalsEl.insertBefore(p.el, k < back.survivor ? portal.el : null);
+        p.showPage(pages[k] && has(pages[k]) ? pages[k] : 'main');
+        return p;
+      });
+    } else if (action === 'split') {
       const next = F35Glass.split(cells(), i);
       if (!next) return;
       portal.cell.span = 1;
@@ -1919,8 +1961,7 @@
       portalsEl.textContent = '';
       portals = cs.map(function (c) {
         const p = makePortal(onGrip, onNavRendered);
-        p.cell.span = c.span;
-        if (c.ate) p.cell.ate = c.ate; else delete p.cell.ate;
+        setCell(p, c);
         portalsEl.appendChild(p.el);
         return p;
       });

@@ -5,7 +5,7 @@
 // five the design allows. A drift here either strands the pilot in a layout with no way out, or
 // quietly grows a portal past a pair.
 const assert = require('assert');
-const { SLOTS, gripsFor, merge, split, valid } = require('./f35-glass.js');
+const { SLOTS, gripsFor, merge, split, full, restore, valid } = require('./f35-glass.js');
 
 const one  = () => ({ span: 1 });
 const four = () => [one(), one(), one(), one()];
@@ -17,8 +17,9 @@ const four = () => [one(), one(), one(), one()];
 //            and its grip stays in its own corner.
 const layout = cells => cells.map(c => String(c.span)).join(',');
 const shape  = cells => cells.map(c => (c.span === 1 ? '1' : '2' + c.ate[0])).join(',');
-const actions = (cells, i) => gripsFor(cells, i).map(g => g.action);
-const corners = (cells, i) => gripsFor(cells, i).map(g => g.corner + '/' + g.aim);
+// The full-glass grip is pinned in its own section below; these follow the pair grips.
+const actions = (cells, i) => gripsFor(cells, i).map(g => g.action).filter(a => a !== 'full');
+const corners = (cells, i) => gripsFor(cells, i).filter(g => g.action !== 'full').map(g => g.corner + '/' + g.aim);
 
 // ── The grips on an untouched glass ─────────────────────────────────────────────────
 // One grip each, facing the centre: the left half reaches right, the right half reaches left.
@@ -29,7 +30,7 @@ assert.deepStrictEqual(actions(g, 0), ['merge-right'], 'portal 1 reaches inwards
 assert.deepStrictEqual(actions(g, 1), ['merge-right'], 'portal 2 is in the left half, so it too reaches right');
 assert.deepStrictEqual(actions(g, 2), ['merge-left'],  'portal 3 is in the right half, so it reaches left');
 assert.deepStrictEqual(actions(g, 3), ['merge-left'],  'portal 4 reaches inwards');
-assert.strictEqual(g.reduce((n, _, i) => n + gripsFor(g, i).length, 0), 4);
+assert.strictEqual(g.reduce((n, _, i) => n + actions(g, i).length, 0), 4);
 
 // The centre divider is the one place two grips meet — the portals either side both face it.
 // That is what makes (2 3) the only merge reachable from either direction.
@@ -61,7 +62,8 @@ const states = new Set(), layouts = new Set();
   assert.ok(valid(cells), 'reachable but not a valid glass: ' + key);
   cells.forEach((_, i) => {
     gripsFor(cells, i).forEach(grip => {
-      if (grip.action === 'split') return;   // splits only walk back the way we came
+      // Splits only walk back the way we came; full has its own section below.
+      if (grip.action === 'split' || grip.action === 'full') return;
       walk(merge(cells, i, grip.action === 'merge-left' ? 'left' : 'right'));
     });
   });
@@ -92,7 +94,7 @@ assert.deepStrictEqual(actions(mid, 1), ['split']);
 
 // ── Splitting ───────────────────────────────────────────────────────────────────────
 // The grip stays in the corner it merged from and turns around — that is the whole visual rule.
-assert.deepStrictEqual(gripsFor(merge(four(), 0, 'right'), 0), [{ corner: 'right', aim: 'left', action: 'split' }]);
+assert.deepStrictEqual(gripsFor(merge(four(), 0, 'right'), 0).slice(1), [{ corner: 'right', aim: 'left', action: 'split' }]);
 assert.deepStrictEqual(gripsFor(merge(four(), 1, 'left'), 0),  [{ corner: 'left', aim: 'right', action: 'split' }]);
 
 // Splitting undoes the merge, and the survivor lands back where it was: it kept its page, so the
@@ -112,6 +114,45 @@ let both = merge(merge(four(), 0, 'right'), 2, 'left');
 assert.strictEqual(shape(both), '2r,2l');
 assert.strictEqual(shape(split(both, 0).cells), '1,1,2l', 'splitting the left pair leaves the right one alone');
 assert.strictEqual(shape(split(both, 1).cells), '2r,1,1', 'and vice versa');
+
+// ── Full glass ──────────────────────────────────────────────────────────────────────
+// Only the leftmost portal offers it, from its outer corner, pointing across the glass — in every
+// state the grips reach, merged or not.
+const fullGrip = { corner: 'left', aim: 'right', action: 'full' };
+[four(), merge(four(), 0, 'right'), merge(four(), 1, 'right'), merge(four(), 2, 'left'), both].forEach(cs => {
+  assert.deepStrictEqual(gripsFor(cs, 0)[0], fullGrip, 'portal 1 offers full in ' + shape(cs));
+  for (let i = 1; i < cs.length; i++) {
+    assert.ok(!gripsFor(cs, i).some(x => x.action === 'full'), 'only portal 1 offers full');
+  }
+});
+// A pair that ate to its left already holds that corner, so full steps aside rather than stacking.
+assert.deepStrictEqual(actions(merge(four(), 1, 'left'), 0), ['split']);
+assert.ok(!gripsFor(merge(four(), 1, 'left'), 0).some(x => x.action === 'full'));
+
+// Full is one portal over every slot, with one grip: the far corner, pointing back.
+const whole = full(both, 0);
+assert.ok(valid(whole));
+assert.strictEqual(layout(whole), '4');
+assert.deepStrictEqual(gripsFor(whole, 0), [{ corner: 'right', aim: 'left', action: 'restore' }]);
+assert.strictEqual(full(whole, 0), null, 'a full glass has nothing left to take');
+
+// Restore puts back exactly what full replaced, survivor and all — not four fresh portals.
+r = restore(whole);
+assert.strictEqual(shape(r.cells), '2r,2l');
+assert.strictEqual(r.survivor, 0);
+r = restore(full(merge(four(), 3, 'left'), 0));
+assert.strictEqual(shape(r.cells), '1,1,2l');
+// A full cell with no memory (a hand-built layout) still has a way out.
+r = restore([{ span: SLOTS }]);
+assert.strictEqual(shape(r.cells), '1,1,1,1');
+assert.strictEqual(r.survivor, 0);
+assert.strictEqual(restore(four()), null, 'only a full glass restores');
+
+// valid() takes a full glass only with a sane memory: a valid, non-full arrangement and a slot in it.
+assert.ok(valid([{ span: SLOTS }]));
+assert.ok(!valid([{ span: SLOTS, was: { cells: [{ span: SLOTS }], at: 0 } }]), 'no full-inside-full');
+assert.ok(!valid([{ span: SLOTS, was: { cells: four(), at: 4 } }]), 'survivor slot out of range');
+assert.ok(!valid([{ span: 3 }, one()]), 'still no triples');
 
 // SLOTS is the glass's width; every arrangement spends exactly that.
 assert.strictEqual(SLOTS, 4);
