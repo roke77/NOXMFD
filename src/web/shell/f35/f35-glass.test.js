@@ -153,6 +153,10 @@ assert.ok(valid([{ span: SLOTS }]));
 assert.ok(!valid([{ span: SLOTS, was: { cells: [{ span: SLOTS }], at: 0 } }]), 'no full-inside-full');
 assert.ok(!valid([{ span: SLOTS, was: { cells: four(), at: 4 } }]), 'survivor slot out of range');
 assert.ok(!valid([{ span: 3 }, one()]), 'still no triples');
+// A malformed saved layout is refused, not thrown on.
+assert.ok(!valid([null, one(), one(), one()]));
+assert.ok(!valid([{ span: SLOTS, was: { cells: [null, one()], at: 0 } }]));
+assert.ok(!valid('1,1,1,1'));
 
 // SLOTS is the glass's width; every arrangement spends exactly that.
 assert.strictEqual(SLOTS, 4);

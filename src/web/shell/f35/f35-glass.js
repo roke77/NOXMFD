@@ -123,6 +123,8 @@
   // SLOTS, none wider than a pair except a lone full portal, whose memory must itself be a valid
   // non-full glass. Cheap enough to assert on every change.
   function valid(cells) {
+    // Saved layouts arrive from the server as whatever another browser stored.
+    if (!Array.isArray(cells) || !cells.every(function (c) { return c && typeof c === 'object'; })) return false;
     if (cells.length === 1 && cells[0].span === SLOTS) {
       const w = cells[0].was;
       return !w || (Array.isArray(w.cells) && w.cells.length > 1 && valid(w.cells) &&

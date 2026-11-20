@@ -579,8 +579,17 @@ function drawGrid() {
   // since gridLabel itself treats negative grid-space as "off the labelled grid".
   const vMinX = Math.max(0, mapMeta.ox + wMinX), vMaxX = mapMeta.ox + wMaxX;
   const vMinZ = Math.max(0, mapMeta.oy - wMaxZ), vMaxZ = mapMeta.oy - wMinZ;
-  const iMinX = Math.ceil(vMinX / GRID_MINOR_UNIT), iMaxX = Math.floor(vMaxX / GRID_MINOR_UNIT);
-  const iMinZ = Math.ceil(vMinZ / GRID_MINOR_UNIT), iMaxZ = Math.floor(vMaxZ / GRID_MINOR_UNIT);
+  let iMinX = Math.ceil(vMinX / GRID_MINOR_UNIT), iMaxX = Math.floor(vMaxX / GRID_MINOR_UNIT);
+  let iMinZ = Math.ceil(vMinZ / GRID_MINOR_UNIT), iMaxZ = Math.floor(vMaxZ / GRID_MINOR_UNIT);
+  // Only the lines the canvas shows, plus one beyond each edge so a square cut by the edge still
+  // has both its lines and its label. Zoomed in, the full extent is mostly off-canvas.
+  const tl = overlayToWorld(0, 0), br = overlayToWorld(overlay.width, overlay.height);
+  if (tl && br) {
+    iMinX = Math.max(iMinX, Math.floor((mapMeta.ox + tl.x) / GRID_MINOR_UNIT));
+    iMaxX = Math.min(iMaxX, Math.ceil((mapMeta.ox + br.x) / GRID_MINOR_UNIT));
+    iMinZ = Math.max(iMinZ, Math.floor((mapMeta.oy - tl.z) / GRID_MINOR_UNIT));
+    iMaxZ = Math.min(iMaxZ, Math.ceil((mapMeta.oy - br.z) / GRID_MINOR_UNIT));
+  }
 
   oc.save();
   oc.lineWidth = 1;

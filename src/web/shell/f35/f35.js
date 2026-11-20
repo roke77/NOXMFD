@@ -8,7 +8,8 @@
 //                       in the L/R OSB columns, where the bezel has its key banks; 'center'
 //                       puts them in the middle of the glass for MAIN, which has no page behind them.
 //   • split behaviour — portals. Four side-by-side MFDs, each with its own page, labels and
-//                       state; the corner grips merge adjacent ones and split them back. The
+//                       state; the corner grips merge adjacent ones and split them back, and
+//                       the leftmost portal's outer grip takes the whole glass. The
 //                       arrangement rule is f35-glass.js. Nothing of the bezel's split machinery
 //                       (SplitKeymap, SPLIT_SLOTS) is reused: it resolves labels to physical keys,
 //                       and there are none here.
